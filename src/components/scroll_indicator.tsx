@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Slider } from './ui/slider'
 
 function ScrollIndicator () {
   const [scrollProgress, setScrollProgress] = useState(0)
@@ -16,20 +17,16 @@ function ScrollIndicator () {
   }, [])
 
   return (
-    <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[500] text-center pointer-events-none">
+    <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[500] text-center w-[250px]">
       <div className="font-orbitron text-xs text-neon-cyan mb-2.5 tracking-[1px]"
         style={{ textShadow: '0 0 10px #00ffff' }}>
         SCROLL TO REACH SPEED OF LIGHT
       </div>
-      <div className="w-25 h-1 bg-[rgba(0,255,255,0.2)] rounded-sm mx-auto overflow-hidden border border-[rgba(0,255,255,0.3)]">
-        <div
-          className="h-full bg-neon-cyan transition-[width] duration-100"
-          style={{
-            width: `${scrollProgress}%`,
-            boxShadow: '0 0 10px #00ffff'
-          }}
-        />
-      </div>
+      <Slider 
+        value={[scrollProgress]} 
+        max={100}
+        className="[&>span[role=slider]]:hidden [&>span:first-child]:border [&>span:first-child]:border-neon-cyan/30 [&>span:first-child]:h-2"
+      />
     </div>
   )
 }

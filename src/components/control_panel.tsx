@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useControlPanelStore } from '../hooks/use_control_panel_store'
 import ColorPalette from './color_palette'
 import SliderControl from './slider_control'
+import ColorPickerInput from './color_picker_input'
 import {
   Sheet,
   SheetContent,
@@ -12,6 +13,7 @@ import {
 } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { Settings } from 'lucide-react'
+import { hexToRgb, rgbToHex } from '../lib/utils'
 
 function ControlPanel () {
   const [isOpen, setIsOpen] = useState(false)
@@ -30,13 +32,17 @@ function ControlPanel () {
     eventHorizon,
     mouseRadius,
     pulseIntensity,
+    backgroundR,
+    backgroundG,
+    backgroundB,
     setNumParticles,
     setBaseSpeed,
     setGravityStrength,
     setOrbitalStrength,
     setEventHorizon,
     setMouseRadius,
-    setPulseIntensity
+    setPulseIntensity,
+    setBackgroundColor
   } = useControlPanelStore()
 
   return (
@@ -44,8 +50,12 @@ function ControlPanel () {
       <SheetTrigger asChild>
         <Button
           variant="outline"
-          className="fixed top-5 right-5 bg-[rgba(10,10,15,0.95)] border-neon-cyan text-neon-cyan z-[999] hover:bg-[rgba(0,255,255,0.1)] hover:text-neon-cyan font-mono"
-          style={{ boxShadow: isOpen ? '0 0 30px rgba(0, 255, 255, 0.5)' : '0 0 20px rgba(0, 255, 255, 0.3)' }}
+          className="fixed top-5 right-5 bg-[rgba(10,10,15,0.95)] border-neon-cyan text-neon-cyan z-40 hover:bg-[rgba(0,255,255,0.1)] hover:text-neon-cyan font-mono transition-opacity duration-300 data-[state=open]:opacity-0 data-[state=open]:pointer-events-none"
+          style={{ 
+            boxShadow: '0 0 20px rgba(0, 255, 255, 0.3)',
+            opacity: isOpen ? 0 : 1,
+            pointerEvents: isOpen ? 'none' : 'auto'
+          }}
         >
           <Settings className="w-5 h-5 text-neon-cyan" />
           CONTROLS
@@ -66,9 +76,7 @@ function ControlPanel () {
           </SheetDescription>
         </SheetHeader>
 
-        <div className="mt-6 space-y-6">
-          {/* Color Palette Section */}
-          <ColorPalette />
+        <div className="mt-6 space-y-2">
 
           <SliderControl
             id="particles"
@@ -78,6 +86,7 @@ function ControlPanel () {
             max={10000}
             step={500}
             onChange={setNumParticles}
+            variant="inline"
           />
 
           <SliderControl
@@ -89,27 +98,30 @@ function ControlPanel () {
             step={0.05}
             formatValue={(val) => val.toFixed(2)}
             onChange={setPulseIntensity}
+            variant="inline"
           />
 
           <SliderControl
             id="base-speed"
             label="Base Speed"
             value={baseSpeed}
-            min={0.5}
-            max={10}
-            step={0.5}
+            min={0}
+            max={20}
+            step={0.1}
             formatValue={(val) => val.toFixed(1)}
             onChange={setBaseSpeed}
+            variant="inline"
           />
 
           <SliderControl
             id="mouse-radius"
-            label="Back hole Radius"
+            label="Back Hole Radius"
             value={mouseRadius}
-            min={10}
+            min={0}
             max={1000}
             step={50}
             onChange={setMouseRadius}
+            variant="inline"
           />
 
           <SliderControl
@@ -117,9 +129,10 @@ function ControlPanel () {
             label="Gravity"
             value={gravityStrength}
             min={0}
-            max={20}
-            step={1}
+            max={10}
+            step={0.5}
             onChange={setGravityStrength}
+            variant="inline"
           />
 
           <SliderControl
@@ -127,20 +140,37 @@ function ControlPanel () {
             label="Orbital Force"
             value={orbitalStrength}
             min={0}
-            max={1000}
-            step={10}
+            max={200}
+            step={5}
             onChange={setOrbitalStrength}
+            variant="inline"
           />
 
           <SliderControl
             id="event-horizon"
             label="Event Horizon"
             value={eventHorizon}
-            min={10}
-            max={300}
-            step={10}
+            min={0}
+            max={100}
+            step={5}
             onChange={setEventHorizon}
+            variant="inline"
           />
+
+          <ColorPalette />
+
+          {/* Background Color Controls */}
+          <ColorPickerInput
+            label="Background Color"
+            value={rgbToHex(backgroundR, backgroundG, backgroundB)}
+            onChange={(hex) => {
+              const rgb = hexToRgb(hex)
+              if (rgb) {
+                setBackgroundColor(rgb.r, rgb.g, rgb.b)
+              }
+            }}
+          />
+
         </div>
       </SheetContent>
     </Sheet>

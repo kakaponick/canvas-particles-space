@@ -10,6 +10,7 @@ interface SliderControlProps {
   step: number
   formatValue?: (value: number) => string
   onChange: (value: number) => void
+  variant?: 'default' | 'inline'
 }
 
 function SliderControl ({
@@ -20,8 +21,33 @@ function SliderControl ({
   max,
   step,
   formatValue = (val) => String(val),
-  onChange
+  onChange,
+  variant = 'default'
 }: SliderControlProps) {
+  if (variant === 'inline') {
+    return (
+      <div className="relative">
+        <Slider
+          id={id}
+          min={min}
+          max={max}
+          step={step}
+          value={[value]}
+          onValueChange={(values) => onChange(values[0])}
+          className="w-full [&>span:first-child]:h-8 [&>span:last-child]:hidden"
+        />
+        <div className="absolute inset-0 flex justify-between items-center px-3 pointer-events-none">
+          <span className="text-neon-cyan mix-blend-difference font-mono text-xs">
+            {label}
+          </span>
+          <span className="text-neon-cyan mix-blend-difference font-bold font-mono text-xs tabular-nums">
+            {formatValue(value)}
+          </span>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-2">
       <div className="flex justify-between items-center">

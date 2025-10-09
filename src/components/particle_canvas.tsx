@@ -26,6 +26,7 @@ function ParticleCanvas () {
 
     const FAR_Z = 5000
     let animationTime = 0
+    let lastFrameTime = performance.now()
     let NUM_PARTICLES = storeRef.current.numParticles
     let prevNumParticles = NUM_PARTICLES
 
@@ -116,10 +117,12 @@ function ParticleCanvas () {
       prevPY[i] = (y / z) * halfH + halfH
     }
 
-    function animateParticles () {
+    function animateParticles (currentTime: number) {
       if (!ctx) return
       
-      animationTime += 0.016
+      const deltaTime = (currentTime - lastFrameTime) / 1000 // Convert to seconds
+      lastFrameTime = currentTime
+      animationTime += deltaTime
       
       const state = storeRef.current
       
@@ -134,7 +137,7 @@ function ParticleCanvas () {
       const trailIntensity = 0.05 + (1 - speedFactor) * 0.15
       
       ctx.globalAlpha = 1
-      ctx.fillStyle = `rgba(2, 2, 5, ${trailIntensity})`
+      ctx.fillStyle = `rgba(${state.backgroundR}, ${state.backgroundG}, ${state.backgroundB}, ${trailIntensity})`
       ctx.fillRect(0, 0, canvasWidth, canvasHeight)
 
       const halfWLocal = halfW
@@ -221,7 +224,7 @@ function ParticleCanvas () {
     }
 
     initParticles()
-    animateParticles()
+    animateParticles(performance.now())
 
     const handleMouseMove = (event: MouseEvent) => {
       if (storeRef.current.blackHoleAttached) {
@@ -278,13 +281,7 @@ function ParticleCanvas () {
   }, [])
 
   return (
-    <canvas
-      ref={canvasRef}
-      className="fixed top-0 left-0 w-full h-full"
-      style={{
-        background: 'radial-gradient(ellipse at center, #0a0a1a 0%, #020205 100%)'
-      }}
-    />
+    <canvas ref={canvasRef} className="fixed top-0 left-0 w-full h-full" />
   )
 }
 

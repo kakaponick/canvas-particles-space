@@ -1,14 +1,10 @@
 import { useState } from 'react'
 import { useColorPaletteStore } from '../hooks/use_color_palette_store'
-
-function hexToRgb (hex: string) {
-  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
-  return result ? {
-    r: parseInt(result[1], 16),
-    g: parseInt(result[2], 16),
-    b: parseInt(result[3], 16)
-  } : null
-}
+import { hexToRgb, rgbToHex } from '../lib/utils'
+import ColorPickerInput from './color_picker_input'
+import { Button } from '@/components/ui/button'
+import { Slider } from '@/components/ui/slider'
+import { X } from 'lucide-react'
 
 function ColorPalette () {
   const [selectedColor, setSelectedColor] = useState('#00ffff')
@@ -20,82 +16,106 @@ function ColorPalette () {
       addColor({
         ...rgb,
         enabled: true,
-        percent: 10,
-        name: 'custom'
+        percent: 10
       })
     }
   }
 
   return (
     <div className="mb-6 pb-5 border-b border-[rgba(0,255,255,0.3)]">
-      <h4 className="font-orbitron text-neon-magenta text-base mb-4 text-center">
+      <h4 className="font-orbitron text-neon-cyan text-base mb-3 text-center" style={{ textShadow: '0 0 10px #00ffff' }}>
         COLOR PALETTE
       </h4>
       
-      <div className="flex flex-col gap-2.5 mb-4 max-h-[200px] overflow-y-auto">
+      <div className="flex flex-col gap-2 mb-3 max-h-[200px] overflow-y-auto">
         {colorPalette.map((color, index) => (
           <div
             key={index}
-            className={`flex items-center gap-2.5 p-2.5 bg-[rgba(255,255,255,0.05)] rounded-md border border-[rgba(255,255,255,0.1)] transition-all duration-300 flex-wrap ${!color.enabled ? 'opacity-40' : ''} hover:bg-[rgba(255,255,255,0.1)] hover:border-neon-cyan`}
+            className={`
+              flex items-center gap-2 p-2 bg-[rgba(255,255,255,0.05)] 
+              border border-[rgba(255,255,255,0.1)] transition-all duration-200
+              ${!color.enabled ? 'opacity-40' : ''} 
+              hover:bg-[rgba(255,255,255,0.1)] hover:border-neon-cyan/50
+            `}
           >
-            <input
-              type="checkbox"
-              checked={color.enabled}
-              onChange={(e) => updateColor(index, { enabled: e.target.checked })}
-              className="w-[18px] h-[18px] cursor-pointer accent-neon-cyan"
-            />
-            
+            {/* Color preview - clickable to toggle */}
             <div
-              className="w-[30px] h-[30px] rounded border-2 border-[rgba(255,255,255,0.3)] cursor-pointer"
-              style={{ backgroundColor: `rgb(${color.r}, ${color.g}, ${color.b})` }}
-            />
-            
-            <div className="flex-1 font-mono text-xs text-text-light">
-              <div className="text-[0.7rem]">{color.name}</div>
-              <div className="text-[0.65rem] opacity-70">{color.percent}%</div>
+              onClick={() => updateColor(index, { enabled: !color.enabled })}
+              className="w-8 h-8 flex-shrink-0 cursor-pointer transition-all duration-200 hover:scale-110 relative group"
+              style={{ 
+                backgroundColor: `rgb(${color.r}, ${color.g}, ${color.b})`,
+                opacity: color.enabled ? 1 : 0.5,
+                boxShadow: color.enabled ? `0 0 8px rgba(${color.r}, ${color.g}, ${color.b}, 0.5)` : 'none'
+              }}
+              title={color.enabled ? 'Click to disable' : 'Click to enable'}
+            >
+              {!color.enabled && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                  <div className="w-5 h-0.5 bg-white rotate-45 absolute"></div>
+                  <div className="w-5 h-0.5 bg-white -rotate-45 absolute"></div>
+                </div>
+              )}
             </div>
             
-            <button
-              onClick={() => {
+            {/* Color info and slider */}
+            <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[0.65rem] font-mono text-text-light/70 truncate uppercase">
+                  {rgbToHex(color.r, color.g, color.b)}
+                </span>
+                <div className="flex items-center gap-1">
+                  <span className="text-[0.6rem] text-text-light/50 font-mono">Amount:</span>
+                  <span className="text-[0.65rem] font-mono text-neon-cyan tabular-nums">
+                    {color.percent}%
+                  </span>
+                </div>
+              </div>
+              
+              <Slider
+                min={1}
+                max={100}
+                step={1}
+                value={[color.percent]}
+                onValueChange={(values) => updateColor(index, { percent: values[0] })}
+                className="w-full [&_span[role=slider]]:!bg-current [&_span[role=slider]]:!shadow-[0_0_10px_currentColor] [&>span:first-child>span]:!bg-current"
+                style={{ color: `rgb(${color.r}, ${color.g}, ${color.b})` }}
+              />
+            </div>
+            
+            {/* Delete button */}
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={(e) => {
+                e.stopPropagation()
                 if (colorPalette.length > 1) {
                   removeColor(index)
                 } else {
                   alert('You must have at least one color!')
                 }
               }}
-              className="bg-transparent border border-neon-magenta text-neon-magenta font-orbitron text-[0.7rem] px-2 py-1 rounded transition-all duration-300 hover:bg-neon-magenta hover:text-bg-dark hover:shadow-[0_0_10px_#ff00ff]"
+              className="flex-shrink-0 w-6 h-6 border-neon-cyan/50 text-neon-cyan hover:bg-neon-cyan hover:text-bg-dark hover:border-neon-cyan hover:shadow-[0_0_8px_#00ffff]"
+              title="Remove color"
             >
-              DEL
-            </button>
-
-            <div className="w-full mt-1 flex gap-1 items-center">
-              <label className="text-[0.7rem] text-neon-cyan">%:</label>
-              <input
-                type="range"
-                min="1"
-                max="100"
-                value={color.percent}
-                onChange={(e) => updateColor(index, { percent: parseInt(e.target.value) })}
-                className="flex-1 h-[3px] bg-[rgba(255,255,255,0.1)] outline-none rounded-sm appearance-none"
-              />
-            </div>
+              <X className="w-3 h-3" />
+            </Button>
           </div>
         ))}
       </div>
 
-      <div className="flex gap-2 items-center">
-        <input
-          type="color"
+      <div className="space-y-2">
+        <ColorPickerInput
           value={selectedColor}
-          onChange={(e) => setSelectedColor(e.target.value)}
-          className="flex-1 h-[35px] border border-neon-cyan bg-[rgba(0,0,0,0.5)] rounded cursor-pointer"
+          onChange={setSelectedColor}
+          showLabel={false}
         />
-        <button
+        <Button
+          variant="outline"
           onClick={handleAddColor}
-          className="bg-transparent border border-neon-cyan text-neon-cyan font-orbitron text-xs px-4 py-2 rounded transition-all duration-300 hover:bg-neon-cyan hover:text-bg-dark hover:shadow-[0_0_15px_#00ffff]"
+          className="w-full border-neon-cyan text-neon-cyan font-orbitron text-xs px-3 py-1.5 hover:bg-neon-cyan hover:text-bg-dark hover:shadow-[0_0_12px_#00ffff]"
         >
           + ADD
-        </button>
+        </Button>
       </div>
 
       <style>{`

@@ -16,6 +16,9 @@ export function useControlPanelStore () {
     eventHorizon: state.eventHorizon,
     mouseRadius: state.mouseRadius,
     pulseIntensity: state.pulseIntensity,
+    backgroundR: state.backgroundR,
+    backgroundG: state.backgroundG,
+    backgroundB: state.backgroundB,
     
     // Setters
     setNumParticles: state.setNumParticles,
@@ -24,7 +27,8 @@ export function useControlPanelStore () {
     setOrbitalStrength: state.setOrbitalStrength,
     setEventHorizon: state.setEventHorizon,
     setMouseRadius: state.setMouseRadius,
-    setPulseIntensity: state.setPulseIntensity
+    setPulseIntensity: state.setPulseIntensity,
+    setBackgroundColor: state.setBackgroundColor
   }), shallow)
 }
 

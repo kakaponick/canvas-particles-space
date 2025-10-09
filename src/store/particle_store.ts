@@ -6,7 +6,6 @@ export interface ParticleColor {
   b: number
   enabled: boolean
   percent: number
-  name: string
 }
 
 interface ParticleState {
@@ -22,6 +21,9 @@ interface ParticleState {
   mouseY: number
   blackHoleAttached: boolean
   colorPalette: ParticleColor[]
+  backgroundR: number
+  backgroundG: number
+  backgroundB: number
   
   setNumParticles: (num: number) => void
   setBaseSpeed: (speed: number) => void
@@ -36,6 +38,7 @@ interface ParticleState {
   addColor: (color: ParticleColor) => void
   removeColor: (index: number) => void
   updateColor: (index: number, updates: Partial<ParticleColor>) => void
+  setBackgroundColor: (r: number, g: number, b: number) => void
 }
 
 export const useParticleStore = create<ParticleState>((set) => ({
@@ -50,12 +53,15 @@ export const useParticleStore = create<ParticleState>((set) => ({
   mouseX: NaN,
   mouseY: NaN,
   blackHoleAttached: true,
+  backgroundR: 0,
+  backgroundG: 0,
+  backgroundB: 0,
   colorPalette: [
-    { r: 255, g: 0, b: 0, enabled: true, percent: 20, name: 'red' },
-    { r: 0, g: 255, b: 255, enabled: true, percent: 20, name: 'cyan' },
-    { r: 153, g: 69, b: 255, enabled: true, percent: 20, name: 'purple' },
-    { r: 255, g: 255, b: 255, enabled: true, percent: 20, name: 'white' },
-    { r: 255, g: 255, b: 0, enabled: true, percent: 20, name: 'yellow' }
+    { r: 255, g: 0, b: 0, enabled: true, percent: 20 },
+    { r: 0, g: 255, b: 255, enabled: true, percent: 20 },
+    { r: 153, g: 69, b: 255, enabled: true, percent: 20 },
+    { r: 255, g: 255, b: 255, enabled: true, percent: 20 },
+    { r: 255, g: 255, b: 0, enabled: true, percent: 20 }
   ],
 
   setNumParticles: (num) => set({ numParticles: num }),
@@ -81,6 +87,8 @@ export const useParticleStore = create<ParticleState>((set) => ({
     colorPalette: state.colorPalette.map((color, i) => 
       i === index ? { ...color, ...updates } : color
     )
-  }))
+  })),
+  
+  setBackgroundColor: (r, g, b) => set({ backgroundR: r, backgroundG: g, backgroundB: b })
 }))
 
