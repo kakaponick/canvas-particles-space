@@ -25,6 +25,8 @@ interface ParticleState {
   backgroundG: number
   backgroundB: number
   isAnimationStarted: boolean
+  lensingMass: number
+  lensingEnabled: boolean
   
   setNumParticles: (num: number) => void
   setBaseSpeed: (speed: number) => void
@@ -41,6 +43,8 @@ interface ParticleState {
   updateColor: (index: number, updates: Partial<ParticleColor>) => void
   setBackgroundColor: (r: number, g: number, b: number) => void
   startAnimation: () => void
+  setLensingMass: (mass: number) => void
+  toggleLensing: () => void
 }
 
 export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
@@ -59,6 +63,8 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   backgroundG: 0,
   backgroundB: 0,
   isAnimationStarted: false,
+  lensingMass: 10,
+  lensingEnabled: true,
   colorPalette: [
     { r: 255, g: 0, b: 0, enabled: true, percent: 20 },
     { r: 0, g: 255, b: 255, enabled: true, percent: 20 },
@@ -77,6 +83,8 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   setScrollSpeed: (speed) => set({ scrollSpeed: speed }),
   setMousePosition: (x, y) => set({ mouseX: x, mouseY: y }),
   toggleBlackHole: () => set((state) => ({ blackHoleAttached: !state.blackHoleAttached })),
+  setLensingMass: (mass) => set({ lensingMass: mass }),
+  toggleLensing: () => set((state) => ({ lensingEnabled: !state.lensingEnabled })),
   
   addColor: (color) => set((state) => ({
     colorPalette: [...state.colorPalette, color]

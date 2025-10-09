@@ -11,7 +11,8 @@ interface SliderControlProps {
   formatValue?: (value: number) => string
   onChange: (value: number) => void
   variant?: 'default' | 'inline' | 'progress'
-  height?: string
+  trackHeight?: string
+  thumbSize?: string
 }
 
 function SliderControl ({
@@ -24,7 +25,8 @@ function SliderControl ({
   formatValue = (val) => String(val),
   onChange,
   variant = 'default',
-  height = 'h-8'
+  trackHeight = 'h-1',
+  thumbSize = 'h-4 w-4'
 }: SliderControlProps) {
 
   if (variant === 'inline') {
@@ -37,7 +39,9 @@ function SliderControl ({
           step={step}
           value={[value]}
           onValueChange={(values) => onChange(values[0])}
-          className={`w-full [&>span:first-child]:${height} [&>span:last-child]:hidden`}
+          trackHeight="h-8"
+          thumbSize="h-0 w-0" // Hide thumb for inline variant
+          className="w-full"
         />
         <div className="absolute inset-0 flex justify-between items-center px-3 pointer-events-none">
           <span className="text-neon-cyan mix-blend-difference font-mono text-xs">
@@ -68,6 +72,8 @@ function SliderControl ({
         step={step}
         value={[value]}
         onValueChange={(values) => onChange(values[0])}
+        trackHeight={trackHeight}
+        thumbSize={thumbSize}
         className="w-full"
       />
     </div>

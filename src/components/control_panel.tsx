@@ -34,6 +34,8 @@ function ControlPanel () {
     backgroundR,
     backgroundG,
     backgroundB,
+    lensingMass,
+    lensingEnabled,
     setNumParticles,
     setBaseSpeed,
     setGravityStrength,
@@ -41,7 +43,9 @@ function ControlPanel () {
     setEventHorizon,
     setMouseRadius,
     setPulseIntensity,
-    setBackgroundColor
+    setBackgroundColor,
+    setLensingMass,
+    toggleLensing
   } = useControlPanelStore()
 
   return (
@@ -82,8 +86,8 @@ function ControlPanel () {
             label="Particles"
             value={numParticles}
             min={1000}
-            max={10000}
-            step={500}
+            max={20000}
+            step={1000}
             onChange={setNumParticles}
             variant="inline"
           />
@@ -155,6 +159,37 @@ function ControlPanel () {
             onChange={setEventHorizon}
             variant="inline"
           />
+
+          <div className="mt-5">
+            <h3 className="font-orbitron text-neon-cyan text-base mb-2">Gravitational Lensing</h3>
+            
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-text-light/90 text-sm">Enable Lensing</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={toggleLensing}
+                className={`${
+                  lensingEnabled
+                    ? 'bg-neon-cyan/20 border-neon-cyan text-neon-cyan'
+                    : 'bg-transparent border-text-light/30 text-text-light/50'
+                } hover:bg-neon-cyan/30`}
+              >
+                {lensingEnabled ? 'ON' : 'OFF'}
+              </Button>
+            </div>
+
+            <SliderControl
+              id="lensing-mass"
+              label="Lensing Mass"
+              value={lensingMass}
+              min={0}
+              max={10000}
+              step={10}
+              onChange={setLensingMass}
+              variant="inline"
+            />
+          </div>
 
         </div>
 

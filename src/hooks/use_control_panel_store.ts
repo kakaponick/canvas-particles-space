@@ -19,6 +19,8 @@ export function useControlPanelStore () {
     backgroundR: state.backgroundR,
     backgroundG: state.backgroundG,
     backgroundB: state.backgroundB,
+    lensingMass: state.lensingMass,
+    lensingEnabled: state.lensingEnabled,
     
     // Setters
     setNumParticles: state.setNumParticles,
@@ -28,7 +30,9 @@ export function useControlPanelStore () {
     setEventHorizon: state.setEventHorizon,
     setMouseRadius: state.setMouseRadius,
     setPulseIntensity: state.setPulseIntensity,
-    setBackgroundColor: state.setBackgroundColor
+    setBackgroundColor: state.setBackgroundColor,
+    setLensingMass: state.setLensingMass,
+    toggleLensing: state.toggleLensing
   })))
 }
 
