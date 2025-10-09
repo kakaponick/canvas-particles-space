@@ -12,7 +12,6 @@ import {
   SheetTrigger
 } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
-import { Settings } from 'lucide-react'
 import { hexToRgb, rgbToHex } from '../lib/utils'
 
 function ControlPanel () {
