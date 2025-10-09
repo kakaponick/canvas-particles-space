@@ -3,14 +3,15 @@ import { Slider } from '@/components/ui/slider'
 
 interface SliderControlProps {
   id: string
-  label: string
+  label?: string
   value: number
   min: number
   max: number
   step: number
   formatValue?: (value: number) => string
   onChange: (value: number) => void
-  variant?: 'default' | 'inline'
+  variant?: 'default' | 'inline' | 'progress'
+  height?: string
 }
 
 function SliderControl ({
@@ -22,8 +23,10 @@ function SliderControl ({
   step,
   formatValue = (val) => String(val),
   onChange,
-  variant = 'default'
+  variant = 'default',
+  height = 'h-8'
 }: SliderControlProps) {
+
   if (variant === 'inline') {
     return (
       <div className="relative">
@@ -34,7 +37,7 @@ function SliderControl ({
           step={step}
           value={[value]}
           onValueChange={(values) => onChange(values[0])}
-          className="w-full [&>span:first-child]:h-8 [&>span:last-child]:hidden"
+          className={`w-full [&>span:first-child]:${height} [&>span:last-child]:hidden`}
         />
         <div className="absolute inset-0 flex justify-between items-center px-3 pointer-events-none">
           <span className="text-neon-cyan mix-blend-difference font-mono text-xs">

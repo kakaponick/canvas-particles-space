@@ -7,8 +7,8 @@ import ScrollIndicator from './components/scroll_indicator'
 function App () {
   return (
     <div className="min-h-screen" style={{ height: '300vh' }}>
-      <ParticleCanvas />
       <StartOverlay />
+      <ParticleCanvas />
       <BlackHoleIndicator />
       <ScrollIndicator />
       <ControlPanel />

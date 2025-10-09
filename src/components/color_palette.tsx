@@ -23,11 +23,11 @@ function ColorPalette () {
 
   return (
     <div className="mb-6 pb-5 border-b border-[rgba(0,255,255,0.3)]">
-      <h4 className="font-orbitron text-neon-cyan text-base mb-3 text-center" style={{ textShadow: '0 0 10px #00ffff' }}>
-        COLOR PALETTE
-      </h4>
+      <h3 className="font-orbitron text-neon-cyan text-base mb-2">
+        Colors
+      </h3>
       
-      <div className="flex flex-col gap-2 mb-3 max-h-[200px] overflow-y-auto">
+      <div className="flex flex-col gap-2 mb-3">
         {colorPalette.map((color, index) => (
           <div
             key={index}

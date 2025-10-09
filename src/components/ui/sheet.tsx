@@ -63,7 +63,7 @@ const SheetContent = React.forwardRef<
       {...props}
     >
       {children}
-      <SheetPrimitive.Close className="absolute right-4 top-4 rounded-sm text-neon-cyan opacity-70 transition-all hover:opacity-100 hover:text-neon-cyan focus:outline-none focus:ring-0 disabled:pointer-events-none hover:shadow-[0_0_10px_#00ffff]">
+      <SheetPrimitive.Close className="absolute right-4 top-4 rounded-sm text-neon-cyan opacity-70 transition-all hover:opacity-100 hover:text-neon-cyan focus:outline-none focus:ring-0 disabled:pointer-events-none">
         <X className="h-4 w-4" />
         <span className="sr-only">Close</span>
       </SheetPrimitive.Close>
@@ -78,7 +78,7 @@ const SheetHeader = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      "flex flex-col space-y-2 text-center sm:text-left",
+      "flex flex-col text-center sm:text-left",
       className
     )}
     {...props}

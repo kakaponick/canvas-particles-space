@@ -1,10 +1,18 @@
 import { useEffect, useRef } from 'react'
 import { useParticleStore } from '../store/particle_store'
+import { useScrollProgress } from '../hooks/use_scroll_progress'
 
 function ParticleCanvas () {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const animationFrameRef = useRef<number>()
   const storeRef = useRef(useParticleStore.getState())
+  
+  // Use scroll progress hook to update particle store
+  useScrollProgress({
+    onScroll: (progress) => {
+      useParticleStore.getState().setScrollSpeed(progress * 0.1)
+    }
+  })
   
   useEffect(() => {
     const canvas = canvasRef.current
@@ -13,9 +21,18 @@ function ParticleCanvas () {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
+    // Track if animation has been started
+    let hasAnimationStarted = false
+
     // Subscribe to store changes
     const unsubscribe = useParticleStore.subscribe((state) => {
       storeRef.current = state
+      
+      // Start animation when isAnimationStarted becomes true
+      if (state.isAnimationStarted && !hasAnimationStarted) {
+        hasAnimationStarted = true
+        animateParticles(performance.now())
+      }
     })
 
     // Canvas sizing
@@ -68,6 +85,23 @@ function ParticleCanvas () {
       return activeColors[activeColors.length - 1]
     }
 
+    function setParticleProperties (i: number, z: number) {
+      const x = randSpan2000()
+      const y = randSpan2000()
+
+      px[i] = x
+      py[i] = y
+      pz[i] = z
+
+      pColor[i] = getRandomWeightedColor()
+      pAlpha[i] = 0.3 + Math.random() * 0.7
+      pPulsePhase[i] = Math.random() * Math.PI * 2
+      pPulseSpeed[i] = 0.5 + Math.random() * 1.5
+
+      prevPX[i] = (x / z) * halfW + halfW
+      prevPY[i] = (y / z) * halfH + halfH
+    }
+
     function initParticles () {
       NUM_PARTICLES = storeRef.current.numParticles
       px = new Float32Array(NUM_PARTICLES)
@@ -81,40 +115,12 @@ function ParticleCanvas () {
       pPulseSpeed = new Float32Array(NUM_PARTICLES)
 
       for (let i = 0; i < NUM_PARTICLES; i++) {
-        const x = randSpan2000()
-        const y = randSpan2000()
-        const z = Math.random() * FAR_Z
-
-        px[i] = x
-        py[i] = y
-        pz[i] = z
-
-        pColor[i] = getRandomWeightedColor()
-        pAlpha[i] = 0.3 + Math.random() * 0.7
-        pPulsePhase[i] = Math.random() * Math.PI * 2
-        pPulseSpeed[i] = 0.5 + Math.random() * 1.5
-
-        prevPX[i] = (x / z) * halfW + halfW
-        prevPY[i] = (y / z) * halfH + halfH
+        setParticleProperties(i, Math.random() * FAR_Z)
       }
     }
 
     function resetParticle (i: number) {
-      const x = randSpan2000()
-      const y = randSpan2000()
-      const z = FAR_Z
-
-      px[i] = x
-      py[i] = y
-      pz[i] = z
-
-      pColor[i] = getRandomWeightedColor()
-      pAlpha[i] = 0.3 + Math.random() * 0.7
-      pPulsePhase[i] = Math.random() * Math.PI * 2
-      pPulseSpeed[i] = 0.5 + Math.random() * 1.5
-
-      prevPX[i] = (x / z) * halfW + halfW
-      prevPY[i] = (y / z) * halfH + halfH
+      setParticleProperties(i, FAR_Z)
     }
 
     function animateParticles (currentTime: number) {
@@ -224,7 +230,6 @@ function ParticleCanvas () {
     }
 
     initParticles()
-    animateParticles(performance.now())
 
     const handleMouseMove = (event: MouseEvent) => {
       if (storeRef.current.blackHoleAttached) {
@@ -254,18 +259,10 @@ function ParticleCanvas () {
       initParticles()
     }
 
-    const handleScroll = () => {
-      const scrollY = window.scrollY
-      const maxScroll = document.body.scrollHeight - window.innerHeight
-      const scrollProgress = scrollY / maxScroll
-      useParticleStore.getState().setScrollSpeed(scrollProgress * 0.1)
-    }
-
     window.addEventListener('mousemove', handleMouseMove)
     window.addEventListener('mouseout', handleMouseOut)
     canvas.addEventListener('click', handleClick)
     window.addEventListener('resize', handleResize)
-    window.addEventListener('scroll', handleScroll)
 
     return () => {
       unsubscribe()
@@ -273,7 +270,6 @@ function ParticleCanvas () {
       window.removeEventListener('mouseout', handleMouseOut)
       canvas.removeEventListener('click', handleClick)
       window.removeEventListener('resize', handleResize)
-      window.removeEventListener('scroll', handleScroll)
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current)
       }

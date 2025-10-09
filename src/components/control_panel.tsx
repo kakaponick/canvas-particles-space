@@ -50,26 +50,24 @@ function ControlPanel () {
       <SheetTrigger asChild>
         <Button
           variant="outline"
-          className="fixed top-5 right-5 bg-[rgba(10,10,15,0.95)] border-neon-cyan text-neon-cyan z-40 hover:bg-[rgba(0,255,255,0.1)] hover:text-neon-cyan font-mono transition-opacity duration-300 data-[state=open]:opacity-0 data-[state=open]:pointer-events-none"
+          className="fixed bottom-5 left-5 bg-[rgba(10,10,15,0.95)] border-neon-cyan text-neon-cyan z-40 hover:bg-[rgba(0,255,255,0.1)] hover:text-neon-cyan font-mono transition-opacity duration-300 data-[state=open]:opacity-0 data-[state=open]:pointer-events-none"
           style={{ 
             boxShadow: '0 0 20px rgba(0, 255, 255, 0.3)',
             opacity: isOpen ? 0 : 1,
             pointerEvents: isOpen ? 'none' : 'auto'
           }}
         >
-          <Settings className="w-5 h-5 text-neon-cyan" />
-          CONTROLS
+          {/* <Settings className="w-5 h-5 text-neon-cyan" /> */}
+          SETTINGS
         </Button>
       </SheetTrigger>
 
       <SheetContent
-        side="right"
-        className="bg-[rgba(10,10,15,0.98)] border-neon-cyan backdrop-blur-[10px] min-w-[380px] max-h-screen overflow-y-auto pointer-events-auto"
-        style={{ boxShadow: '0 0 20px rgba(0, 255, 255, 0.3)' }}
-      >
+        side="left"
+        className="bg-[rgba(10,10,15,0.98)] min-w-[380px] max-h-screen overflow-y-auto pointer-events-auto">
         <SheetHeader>
           <SheetTitle className="font-orbitron text-neon-cyan text-xl text-center" style={{ textShadow: '0 0 10px #00ffff' }}>
-            PARTICLE CONTROLS
+            SETTINGS
           </SheetTitle>
           <SheetDescription className="text-center text-text-light/70 text-xs">
             Adjust particle simulation parameters
@@ -77,6 +75,8 @@ function ControlPanel () {
         </SheetHeader>
 
         <div className="mt-6 space-y-2">
+
+        <h3 className="font-orbitron text-neon-cyan text-base mb-2">Physics</h3>
 
           <SliderControl
             id="particles"
@@ -157,6 +157,9 @@ function ControlPanel () {
             variant="inline"
           />
 
+        </div>
+
+        <div className="mt-5">
           <ColorPalette />
 
           {/* Background Color Controls */}
@@ -170,8 +173,8 @@ function ControlPanel () {
               }
             }}
           />
-
         </div>
+
       </SheetContent>
     </Sheet>
   )

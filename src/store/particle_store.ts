@@ -1,4 +1,4 @@
-import { create } from 'zustand'
+import { createWithEqualityFn } from 'zustand/traditional'
 
 export interface ParticleColor {
   r: number
@@ -24,6 +24,7 @@ interface ParticleState {
   backgroundR: number
   backgroundG: number
   backgroundB: number
+  isAnimationStarted: boolean
   
   setNumParticles: (num: number) => void
   setBaseSpeed: (speed: number) => void
@@ -39,9 +40,10 @@ interface ParticleState {
   removeColor: (index: number) => void
   updateColor: (index: number, updates: Partial<ParticleColor>) => void
   setBackgroundColor: (r: number, g: number, b: number) => void
+  startAnimation: () => void
 }
 
-export const useParticleStore = create<ParticleState>((set) => ({
+export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   numParticles: 10000,
   baseSpeed: 1,
   gravityStrength: 0,
@@ -56,6 +58,7 @@ export const useParticleStore = create<ParticleState>((set) => ({
   backgroundR: 0,
   backgroundG: 0,
   backgroundB: 0,
+  isAnimationStarted: false,
   colorPalette: [
     { r: 255, g: 0, b: 0, enabled: true, percent: 20 },
     { r: 0, g: 255, b: 255, enabled: true, percent: 20 },
@@ -89,6 +92,7 @@ export const useParticleStore = create<ParticleState>((set) => ({
     )
   })),
   
-  setBackgroundColor: (r, g, b) => set({ backgroundR: r, backgroundG: g, backgroundB: b })
+  setBackgroundColor: (r, g, b) => set({ backgroundR: r, backgroundG: g, backgroundB: b }),
+  startAnimation: () => set({ isAnimationStarted: true })
 }))
 

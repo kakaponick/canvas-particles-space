@@ -1,5 +1,5 @@
 import { useParticleStore } from '../store/particle_store'
-import { shallow } from 'zustand/shallow'
+import { useShallow } from 'zustand/react/shallow'
 
 /**
  * Custom hook that selects only the control panel related values from the store
@@ -7,7 +7,7 @@ import { shallow } from 'zustand/shallow'
  * This prevents re-renders when unrelated store values (like mouseX/mouseY) change
  */
 export function useControlPanelStore () {
-  return useParticleStore((state) => ({
+  return useParticleStore(useShallow((state) => ({
     // Values
     numParticles: state.numParticles,
     baseSpeed: state.baseSpeed,
@@ -29,6 +29,6 @@ export function useControlPanelStore () {
     setMouseRadius: state.setMouseRadius,
     setPulseIntensity: state.setPulseIntensity,
     setBackgroundColor: state.setBackgroundColor
-  }), shallow)
+  })))
 }
 
