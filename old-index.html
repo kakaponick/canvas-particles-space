@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>⭐</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Roboto+Mono:wght@300;400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/lenis@1.3.11/dist/lenis.css">
+    <style>
+        /* --- CSS Variables for Theme --- */
+        :root {
+            --bg-dark: #0a0a0f;
+            --bg-darker: #050508;
+            --neon-cyan: #00ffff;
+            --neon-magenta: #ff00ff;
+            --neon-purple: #9945ff;
+            --neon-yellow: #ffff00;
+            --neon-green: #39ff14;
+            --text-light: #e0e0e0;
+            --text-dim: #a0a0a0;
+        }
+
+        /* --- Global Styles & Resets --- */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Roboto Mono', monospace;
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            overflow-x: hidden;
+        }
+
+        /* Hide scrollbar but keep scroll functionality */
+        html {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+
+        /* --- Canvas Background --- */
+        #particle-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(ellipse at center, #0a0a1a 0%, #020205 100%);
+        }
+
+        /* --- Animations --- */
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 20px var(--neon-cyan); }
+            50% { box-shadow: 0 0 40px var(--neon-cyan), 0 0 60px var(--neon-cyan); }
+        }
+
+        /* --- Control Panel --- */
+        .control-panel {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(10, 10, 15, 0.95);
+            border: 1px solid var(--neon-cyan);
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+            border-radius: 10px;
+            padding: 20px;
+            min-width: 320px;
+            max-height: 90vh;
+            overflow-y: auto;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+        .control-panel::-webkit-scrollbar {
+            width: 6px;
+        }
+        .control-panel::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        .control-panel::-webkit-scrollbar-thumb {
+            background: var(--neon-cyan);
+            border-radius: 3px;
+        }
+        .control-panel.hidden {
+            transform: translateX(380px);
+            opacity: 0;
+            pointer-events: none;
+        }
+        .control-panel h3 {
+            font-family: 'Orbitron', sans-serif;
+            color: var(--neon-cyan);
+            margin-bottom: 20px;
+            font-size: 1.2rem;
+            text-align: center;
+            text-shadow: 0 0 10px var(--neon-cyan);
+        }
+        .control-group {
+            margin-bottom: 20px;
+        }
+        .control-group label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: var(--text-light);
+            font-family: 'Roboto Mono', monospace;
+            font-size: 0.85rem;
+            margin-bottom: 8px;
+        }
+        .control-group label span {
+            color: var(--neon-magenta);
+            font-weight: bold;
+        }
+        .control-group input[type="range"] {
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            outline: none;
+            border-radius: 2px;
+            appearance: none;
+            -webkit-appearance: none;
+        }
+        .control-group input[type="range"]::-webkit-slider-thumb {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: var(--neon-cyan);
+            cursor: pointer;
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--neon-cyan);
+        }
+        .control-group input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: var(--neon-cyan);
+            cursor: pointer;
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--neon-cyan);
+            border: none;
+        }
+        .toggle-panel {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(10, 10, 15, 0.95);
+            border: 1px solid var(--neon-cyan);
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            z-index: 999;
+            font-family: 'Orbitron', sans-serif;
+            color: var(--neon-cyan);
+            transition: all 0.3s ease;
+        }
+        .toggle-panel:hover {
+            background: rgba(0, 255, 255, 0.1);
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.5);
+        }
+        .toggle-panel.active {
+            transform: translateX(-410px);
+        }
+
+        /* --- Color Picker Section --- */
+        .color-section {
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(0, 255, 255, 0.3);
+        }
+        .color-section h4 {
+            font-family: 'Orbitron', sans-serif;
+            color: var(--neon-magenta);
+            font-size: 1rem;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        .color-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .color-list::-webkit-scrollbar {
+            width: 6px;
+        }
+        .color-list::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        .color-list::-webkit-scrollbar-thumb {
+            background: var(--neon-cyan);
+            border-radius: 3px;
+        }
+        .color-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 5px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+            flex-wrap: wrap;
+        }
+        .color-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: var(--neon-cyan);
+        }
+        .color-item.disabled {
+            opacity: 0.4;
+        }
+        .color-checkbox {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            accent-color: var(--neon-cyan);
+        }
+        .color-preview {
+            width: 30px;
+            height: 30px;
+            border-radius: 4px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            cursor: pointer;
+        }
+        .color-rgb {
+            flex: 1;
+            font-family: 'Roboto Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--text-light);
+        }
+        .color-remove {
+            background: transparent;
+            border: 1px solid var(--neon-magenta);
+            color: var(--neon-magenta);
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.7rem;
+            padding: 4px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .color-remove:hover {
+            background: var(--neon-magenta);
+            color: var(--bg-dark);
+            box-shadow: 0 0 10px var(--neon-magenta);
+        }
+        .color-add-section {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .color-input {
+            flex: 1;
+            height: 35px;
+            border: 1px solid var(--neon-cyan);
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .color-add-btn {
+            background: transparent;
+            border: 1px solid var(--neon-cyan);
+            color: var(--neon-cyan);
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.8rem;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .color-add-btn:hover {
+            background: var(--neon-cyan);
+            color: var(--bg-dark);
+            box-shadow: 0 0 15px var(--neon-cyan);
+        }
+
+        /* --- Start Overlay --- */
+        .start-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(2, 2, 5, 0.95);
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: opacity 0.5s ease;
+        }
+        .start-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .start-message {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2rem;
+            color: var(--neon-cyan);
+            text-shadow: 0 0 20px var(--neon-cyan);
+            margin-bottom: 20px;
+            letter-spacing: 2px;
+            animation: text-pulse 2s infinite;
+        }
+        .start-hint {
+            font-family: 'Roboto Mono', monospace;
+            font-size: 0.9rem;
+            color: var(--text-dim);
+            letter-spacing: 1px;
+        }
+
+        /* --- Black Hole Toggle Indicator --- */
+        .blackhole-indicator {
+            position: fixed;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 500;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.7rem;
+            color: var(--neon-cyan);
+            text-shadow: 0 0 8px var(--neon-cyan);
+            padding: 8px 15px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 1px solid var(--neon-cyan);
+            border-radius: 5px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            letter-spacing: 1px;
+        }
+        .blackhole-indicator.show {
+            opacity: 1;
+        }
+
+        /* --- Scroll Progress Indicator --- */
+        .scroll-indicator {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 500;
+            text-align: center;
+            pointer-events: none;
+        }
+        .scroll-text {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.8rem;
+            color: var(--neon-cyan);
+            text-shadow: 0 0 10px var(--neon-cyan);
+            margin-bottom: 10px;
+            letter-spacing: 1px;
+        }
+        .scroll-bar-container {
+            width: 100px;
+            height: 4px;
+            background: rgba(0, 255, 255, 0.2);
+            border-radius: 2px;
+            margin: 0 auto;
+            overflow: hidden;
+            border: 1px solid rgba(0, 255, 255, 0.3);
+        }
+        .scroll-bar-fill {
+            height: 100%;
+            background: var(--neon-cyan);
+            width: 0%;
+            transition: width 0.1s ease-out;
+            box-shadow: 0 0 10px var(--neon-cyan);
+        }
+    </style>
+</head>
+<body style="height: 200vh;">
+
+    <!-- Canvas for particle background -->
+    <canvas id="particle-canvas"></canvas>
+
+    <!-- Start Overlay -->
+    <div class="start-overlay" id="start-overlay">
+        <div class="start-message">CLICK TO START</div>
+        <div class="start-hint">Experience the speed of light</div>
+    </div>
+
+    <!-- Black Hole Toggle Indicator -->
+    <div class="blackhole-indicator" id="blackhole-indicator">⚫ BLACK HOLE: ATTACHED</div>
+
+    <!-- Scroll Progress Indicator -->
+    <div class="scroll-indicator">
+        <div class="scroll-text">SCROLL TO REACH SPEED OF LIGHT</div>
+        <div class="scroll-bar-container">
+            <div class="scroll-bar-fill" id="scroll-bar-fill"></div>
+        </div>
+    </div>
+
+    <!-- Control Panel Toggle -->
+    <div class="toggle-panel" id="toggle-panel">⚙️ CONTROLS</div>
+
+    <!-- Control Panel -->
+    <div class="control-panel hidden" id="control-panel">
+        <h3>PARTICLE CONTROLS</h3>
+        
+        <!-- Color Picker Section -->
+        <div class="color-section">
+            <h4>COLOR PALETTE</h4>
+            <div class="color-list" id="color-list">
+                <!-- Colors will be dynamically added here -->
+            </div>
+            <div class="color-add-section">
+                <input type="color" id="color-picker" class="color-input" value="#00ffff">
+                <button class="color-add-btn" id="add-color-btn">+ ADD</button>
+            </div>
+        </div>
+        
+        <div class="control-group">
+            <label>
+                Particles: <span id="particles-value"></span>
+            </label>
+            <input type="range" id="particles" min="1000" max="10000" step="500">
+        </div>
+
+        <div class="control-group">
+            <label>
+                Pulse Intensity: <span id="pulse-value"></span>
+            </label>
+            <input type="range" id="pulse" min="0" max="1" step="0.05">
+        </div>
+
+        <div class="control-group">
+            <label>
+                Base Speed: <span id="base-speed-value"></span>
+            </label>
+            <input type="range" id="base-speed" min="0.5" max="10" step="0.5">
+        </div>
+
+        <div class="control-group">
+            <label>
+                Mouse Radius: <span id="radius-value"></span>
+            </label>
+            <input type="range" id="radius" min="100" max="1000" step="50">
+        </div>
+
+        <div class="control-group">
+            <label>
+                Gravity: <span id="gravity-value"></span>
+            </label>
+            <input type="range" id="gravity" min="0" max="20" step="1">
+        </div>
+
+        <div class="control-group">
+            <label>
+                Orbital force: <span id="orbital-value"></span>
+            </label>
+            <input type="range" id="orbital" min="0" max="1000" step="10">
+        </div>
+
+        <div class="control-group">
+            <label>
+                Event Horizon: <span id="horizon-value"></span>
+            </label>
+            <input type="range" id="horizon" min="10" max="300" step="10">
+        </div>
+
+    </div>
+    
+
+    <script src="https://unpkg.com/lenis@1.3.11/dist/lenis.min.js"></script>
+    <script>
+        // --- LENIS SMOOTH SCROLL ---
+        const lenis = new Lenis({
+            autoRaf: true,
+            duration: 1.2,
+            easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+            smoothWheel: true,
+            smoothTouch: false,
+            touchMultiplier: 2
+        });
+
+        // Prevent Lenis from capturing scroll events on specific elements
+        function preventLenisOnElement (element) {
+            if (!element) return;
+            element.addEventListener('wheel', (e) => {
+                e.stopPropagation();
+            }, { passive: false });
+        }
+
+        // --- WARP SPEED PARTICLE CANVAS ANIMATION ---
+        const canvas = document.getElementById('particle-canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Canvas size and cached halves
+        let canvasWidth = canvas.width = window.innerWidth;
+        let canvasHeight = canvas.height = window.innerHeight;
+        let halfW = canvasWidth * 0.5;
+        let halfH = canvasHeight * 0.5;
+
+        // Simulation config (dynamic variables)
+        let NUM_PARTICLES = 10000;
+        const FAR_Z = 5000;
+        let BASE_SPEED = 1;
+        let GRAVITY_STRENGTH = 0;
+        let ORBITAL_STRENGTH = 0;
+        let EVENT_HORIZON = 10;
+        let MOUSE_RADIUS = 50;
+        let PULSE_INTENSITY = 1; // How much particles pulse (0 = no pulse, 1 = strong pulse)
+
+        // Color palette (dynamic) with weighted percentages
+        let colorPalette = [
+            { r: 255, g: 0, b: 0, enabled: true, percent: 20, name: 'red' },       // red - rare
+            { r: 0, g: 255, b: 255, enabled: true, percent: 20, name: 'cyan' },   // cyan - common
+            { r: 153, g: 69, b: 255, enabled: true, percent: 20, name: 'purple' }, // purple - rare
+            { r: 255, g: 255, b: 255, enabled: true, percent: 20, name: 'white' },// white - common
+            { r: 255, g: 255, b: 0, enabled: true, percent: 20, name: 'yellow' }   // yellow - rare
+        ];
+
+        // Get active colors only
+        function getActiveColors () {
+            return colorPalette.filter(c => c.enabled);
+        }
+
+        // Weighted random color selection based on percentages
+        function getRandomWeightedColor () {
+            const activeColors = getActiveColors();
+            if (activeColors.length === 0) return { r: 255, g: 255, b: 255 }; // fallback white
+            
+            // Calculate total weight
+            const totalWeight = activeColors.reduce((sum, color) => sum + color.percent, 0);
+            
+            // Pick a random value between 0 and totalWeight
+            let random = Math.random() * totalWeight;
+            
+            // Find which color this falls into
+            for (let i = 0; i < activeColors.length; i++) {
+                random -= activeColors[i].percent;
+                if (random <= 0) {
+                    return activeColors[i];
+                }
+            }
+            
+            // Fallback to last color
+            return activeColors[activeColors.length - 1];
+        }
+
+        let PARTICLE_COLORS = getActiveColors();
+
+        // Typed arrays for particle state
+        let px, py, pz, prevPX, prevPY, pColor, pAlpha, pPulsePhase, pPulseSpeed;
+
+        // Interaction state
+        const mouse = { x: NaN, y: NaN };
+        let scrollSpeed = 0;
+        let prevSpeed = BASE_SPEED;
+        let mouseRadius = MOUSE_RADIUS;
+        let mouseRadiusSq = mouseRadius * mouseRadius;
+        let animationTime = 0;
+        let blackHoleAttached = true; // Black hole follows mouse by default
+
+        // One-time canvas state
+        ctx.lineCap = 'round';
+
+        function randSpan2000() {
+            return (Math.random() - 0.5) * 2000;
+        }
+
+        function initParticles() {
+            px = new Float32Array(NUM_PARTICLES);
+            py = new Float32Array(NUM_PARTICLES);
+            pz = new Float32Array(NUM_PARTICLES);
+            prevPX = new Float32Array(NUM_PARTICLES);
+            prevPY = new Float32Array(NUM_PARTICLES);
+            pColor = new Array(NUM_PARTICLES);
+            pAlpha = new Float32Array(NUM_PARTICLES);
+            pPulsePhase = new Float32Array(NUM_PARTICLES);
+            pPulseSpeed = new Float32Array(NUM_PARTICLES);
+
+            for (let i = 0; i < NUM_PARTICLES; i++) {
+                const x = randSpan2000();
+                const y = randSpan2000();
+                const z = Math.random() * FAR_Z;
+
+                px[i] = x;
+                py[i] = y;
+                pz[i] = z;
+
+                // Weighted random color from palette
+                pColor[i] = getRandomWeightedColor();
+                
+                // Base transparency between 0.3 and 1.0
+                pAlpha[i] = 0.3 + Math.random() * 0.7;
+
+                // Random pulse phase (0 to 2π) for staggered twinkling
+                pPulsePhase[i] = Math.random() * Math.PI * 2;
+                
+                // Random pulse speed for varied twinkling rates
+                pPulseSpeed[i] = 0.5 + Math.random() * 1.5;
+
+                // Initial projected previous positions
+                prevPX[i] = (x / z) * halfW + halfW;
+                prevPY[i] = (y / z) * halfH + halfH;
+            }
+        }
+
+        function resetParticle(i) {
+            const x = randSpan2000();
+            const y = randSpan2000();
+            const z = FAR_Z;
+
+            px[i] = x;
+            py[i] = y;
+            pz[i] = z;
+
+            // Weighted random color from palette
+            pColor[i] = getRandomWeightedColor();
+            
+            // Base transparency between 0.3 and 1.0
+            pAlpha[i] = 0.3 + Math.random() * 0.7;
+
+            // Random pulse phase for staggered twinkling
+            pPulsePhase[i] = Math.random() * Math.PI * 2;
+            
+            // Random pulse speed for varied twinkling rates
+            pPulseSpeed[i] = 0.5 + Math.random() * 1.5;
+
+            // Reset its trail start to avoid long streaks across the screen
+            prevPX[i] = (x / z) * halfW + halfW;
+            prevPY[i] = (y / z) * halfH + halfH;
+        }
+
+        function animateParticles() {
+            // Increment animation time for pulsing effect
+            animationTime += 0.016; // ~60fps
+            
+            // Per-frame constants
+            const speed = BASE_SPEED + scrollSpeed * 100;
+
+            // Trail intensity based on scroll speed
+            // Higher speed = more intense trails (lower alpha = more fade/blur)
+            // Lower speed = less intense trails (higher alpha = clearer)
+            const speedFactor = Math.min(speed / 20, 1); // Normalize speed
+            const trailIntensity = 0.05 + (1 - speedFactor) * 0.15; // Range: 0.05 (fast) to 0.2 (slow)
+            
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = `rgba(2, 2, 5, ${trailIntensity})`;
+            ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+            // Update previous speed for next frame
+            prevSpeed = speed;
+            const halfWLocal = halfW;
+            const halfHLocal = halfH;
+            const mouseX = mouse.x;
+            const mouseY = mouse.y;
+            const rSq = mouseRadiusSq;
+
+            // Update and draw
+            for (let i = 0; i < NUM_PARTICLES; i++) {
+                // Current projected position becomes the start of the streak
+                const startX = (px[i] / pz[i]) * halfWLocal + halfWLocal;
+                const startY = (py[i] / pz[i]) * halfHLocal + halfHLocal;
+                prevPX[i] = startX;
+                prevPY[i] = startY;
+
+                // Warp speed along z
+                let z = pz[i] - speed;
+                if (z <= 0) {
+                    resetParticle(i);
+                    continue;
+                }
+
+                // Compute projected end position for interaction and drawing
+                // (using updated z, same x/y so far)
+                let endX = (px[i] / z) * halfWLocal + halfWLocal;
+                let endY = (py[i] / z) * halfHLocal + halfHLocal;
+
+                // Black hole gravity (only if mouse is on-canvas)
+                if (mouseX === mouseX && mouseY === mouseY) {
+                    const dx = mouseX - endX;
+                    const dy = mouseY - endY;
+                    const distSq = dx * dx + dy * dy;
+
+                    if (distSq < rSq && distSq > 0.0001) {
+                        const distance = Math.sqrt(distSq);
+                        
+                        // Check if particle crossed event horizon
+                        if (distance < EVENT_HORIZON) {
+                            // Consumed by black hole - reset particle
+                            resetParticle(i);
+                            continue;
+                        }
+
+                        // Gravitational pull (inverse square law)
+                        const gravityForce = GRAVITY_STRENGTH / (distSq * 0.01);
+                        const invDistance = 1 / distance;
+                        const closeFactor = 1 - z / FAR_Z; // stronger when closer
+
+                        // Radial attraction towards black hole
+                        const attractX = dx * invDistance * gravityForce * closeFactor;
+                        const attractY = dy * invDistance * gravityForce * closeFactor;
+
+                        // Orbital/tangential motion (perpendicular to radial)
+                        const tangentX = -dy * invDistance * gravityForce * ORBITAL_STRENGTH * closeFactor;
+                        const tangentY = dx * invDistance * gravityForce * ORBITAL_STRENGTH * closeFactor;
+
+                        // Apply gravitational warping in world space
+                        px[i] += attractX + tangentX;
+                        py[i] += attractY + tangentY;
+
+                        // Add displacement warping effect (space-time distortion)
+                        const warpFactor = (1 - distance / mouseRadius) * 0.5;
+                        const warpAngle = Math.atan2(dy, dx);
+                        px[i] += Math.cos(warpAngle) * warpFactor * closeFactor * 20;
+                        py[i] += Math.sin(warpAngle) * warpFactor * closeFactor * 20;
+
+                        // Recompute end projection after gravitational effects
+                        endX = (px[i] / z) * halfWLocal + halfWLocal;
+                        endY = (py[i] / z) * halfHLocal + halfHLocal;
+                    }
+                }
+
+                // Save updated z
+                pz[i] = z;
+
+                // === REWRITTEN LIGHT & TRANSPARENCY PHYSICS ===
+                // depthFactor: 0 = far away, 1 = very close
+                const depthFactor = 1 - z / FAR_Z;
+                
+                // Size increases as particles get closer
+                const size = Math.max(0.3, depthFactor * 3);
+                
+                // Distance-based pulsing: far stars pulse, near particles don't
+                // distanceFactor: 0 = close (no pulse), 1 = far (full pulse)
+                const distanceFactor = z / FAR_Z;
+                
+                // Calculate pulse value using sine wave (ranges from -1 to 1)
+                const pulseValue = Math.sin(animationTime * pPulseSpeed[i] + pPulsePhase[i]);
+                
+                // Apply pulse only to distant particles
+                // Near particles: pulseFactor ≈ 1 (no effect)
+                // Far particles: pulseFactor varies with PULSE_INTENSITY
+                const pulseFactor = 1 + (pulseValue * PULSE_INTENSITY * distanceFactor);
+                
+                // Opacity calculation:
+                // Near particles: bright (high depthFactor), no pulse (pulseFactor ≈ 1)
+                // Far particles: dim (low depthFactor), pulsing (pulseFactor varies)
+                let opacity = depthFactor * pAlpha[i] * pulseFactor;
+                
+                // Ensure far particles remain slightly visible even when dim
+                opacity = Math.max(0.05, opacity);
+                if (opacity < 0) opacity = 0;
+                else if (opacity > 1) opacity = 1;
+
+                // Draw streak with particle color
+                const color = pColor[i];
+                ctx.globalAlpha = opacity;
+                ctx.strokeStyle = `rgba(${color.r}, ${color.g}, ${color.b}, 1)`;
+                ctx.lineWidth = size;
+                ctx.beginPath();
+                ctx.moveTo(prevPX[i], prevPY[i]);
+                ctx.lineTo(endX, endY);
+                ctx.stroke();
+            }
+
+            // Restore default alpha
+            ctx.globalAlpha = 1;
+
+            requestAnimationFrame(animateParticles);
+        }
+
+        // Events
+        window.addEventListener('mousemove', (event) => {
+            if (blackHoleAttached) {
+                mouse.x = event.x;
+                mouse.y = event.y;
+            }
+        });
+
+        window.addEventListener('mouseout', () => {
+            if (blackHoleAttached) {
+                mouse.x = NaN;
+                mouse.y = NaN;
+            }
+        });
+
+        // Canvas click to toggle black hole attachment
+        const blackholeIndicator = document.getElementById('blackhole-indicator');
+        let indicatorTimeout;
+
+        canvas.addEventListener('click', (event) => {
+            blackHoleAttached = !blackHoleAttached;
+            
+            if (blackHoleAttached) {
+                // Attach black hole to current mouse position
+                mouse.x = event.x;
+                mouse.y = event.y;
+                blackholeIndicator.textContent = '⚫ BLACK HOLE: ATTACHED';
+                blackholeIndicator.style.color = 'var(--neon-cyan)';
+                blackholeIndicator.style.textShadow = '0 0 8px var(--neon-cyan)';
+                blackholeIndicator.style.borderColor = 'var(--neon-cyan)';
+            } else {
+                // Detach black hole (freeze at current position)
+                blackholeIndicator.textContent = '⭕ BLACK HOLE: DETACHED';
+                blackholeIndicator.style.color = 'var(--neon-magenta)';
+                blackholeIndicator.style.textShadow = '0 0 8px var(--neon-magenta)';
+                blackholeIndicator.style.borderColor = 'var(--neon-magenta)';
+            }
+
+            // Show indicator
+            blackholeIndicator.classList.add('show');
+            
+            // Hide after 2 seconds
+            clearTimeout(indicatorTimeout);
+            indicatorTimeout = setTimeout(() => {
+                blackholeIndicator.classList.remove('show');
+            }, 2000);
+        });
+
+        // Lenis scroll event for smooth scroll speed sync
+        lenis.on('scroll', (e) => {
+            scrollSpeed = e.scroll * 0.0001;
+            updateScrollProgress(e.scroll);
+        });
+
+        // Update scroll progress bar
+        const scrollBarFill = document.getElementById('scroll-bar-fill');
+        function updateScrollProgress (scrollPosition) {
+            const maxScroll = document.body.scrollHeight - window.innerHeight;
+            const progress = (scrollPosition / maxScroll) * 100;
+            scrollBarFill.style.width = Math.min(100, Math.max(0, progress)) + '%';
+        }
+
+        window.addEventListener('resize', () => {
+            canvasWidth = canvas.width = window.innerWidth;
+            canvasHeight = canvas.height = window.innerHeight;
+            halfW = canvasWidth * 0.5;
+            halfH = canvasHeight * 0.5;
+            if (animationStarted) {
+                initParticles();
+            }
+        });
+
+        // Initialize particles but don't start animation yet
+        let animationStarted = false;
+        initParticles();
+
+        // Start overlay click handler
+        const startOverlay = document.getElementById('start-overlay');
+        startOverlay.addEventListener('click', () => {
+            // Request fullscreen
+            document.documentElement.requestFullscreen().then(() => {
+                // Hide overlay
+                startOverlay.classList.add('hidden');
+                
+                // Start animation loop
+                if (!animationStarted) {
+                    animationStarted = true;
+                    animateParticles();
+                }
+            }).catch((err) => {
+                // If fullscreen fails, still start the animation
+                console.log('Fullscreen request failed:', err);
+                startOverlay.classList.add('hidden');
+                
+                if (!animationStarted) {
+                    animationStarted = true;
+                    animateParticles();
+                }
+            });
+        });
+
+        // --- COLOR MANAGEMENT ---
+        const colorList = document.getElementById('color-list');
+        const colorPicker = document.getElementById('color-picker');
+        const addColorBtn = document.getElementById('add-color-btn');
+
+        function hexToRgb (hex) {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? {
+                r: parseInt(result[1], 16),
+                g: parseInt(result[2], 16),
+                b: parseInt(result[3], 16)
+            } : null;
+        }
+
+        function rgbToHex (r, g, b) {
+            return '#' + [r, g, b].map(x => {
+                const hex = x.toString(16);
+                return hex.length === 1 ? '0' + hex : hex;
+            }).join('');
+        }
+
+        function updateParticleColors () {
+            PARTICLE_COLORS = getActiveColors();
+            // Reassign colors to existing particles using weighted selection
+            for (let i = 0; i < NUM_PARTICLES; i++) {
+                if (PARTICLE_COLORS.length > 0) {
+                    pColor[i] = getRandomWeightedColor();
+                }
+            }
+        }
+
+        function renderColorList () {
+            colorList.innerHTML = '';
+            colorPalette.forEach((color, index) => {
+                const colorItem = document.createElement('div');
+                colorItem.className = `color-item ${!color.enabled ? 'disabled' : ''}`;
+                colorItem.style.flexWrap = 'wrap';
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.className = 'color-checkbox';
+                checkbox.checked = color.enabled;
+                checkbox.addEventListener('change', (e) => {
+                    colorPalette[index].enabled = e.target.checked;
+                    updateParticleColors();
+                    renderColorList();
+                });
+
+                const preview = document.createElement('div');
+                preview.className = 'color-preview';
+                preview.style.backgroundColor = `rgb(${color.r}, ${color.g}, ${color.b})`;
+                
+                const info = document.createElement('div');
+                info.className = 'color-rgb';
+                info.style.flex = '1';
+                info.innerHTML = `<div style="font-size: 0.7rem;">${color.name || 'custom'}</div><div style="font-size: 0.65rem; opacity: 0.7;">${color.percent}%</div>`;
+
+                const removeBtn = document.createElement('button');
+                removeBtn.className = 'color-remove';
+                removeBtn.textContent = 'DEL';
+                removeBtn.addEventListener('click', () => {
+                    if (colorPalette.length > 1) {
+                        colorPalette.splice(index, 1);
+                        updateParticleColors();
+                        renderColorList();
+                    } else {
+                        alert('You must have at least one color!');
+                    }
+                });
+
+                // Percentage input (full width on second row)
+                const percentContainer = document.createElement('div');
+                percentContainer.style.width = '100%';
+                percentContainer.style.marginTop = '5px';
+                percentContainer.style.display = 'flex';
+                percentContainer.style.gap = '5px';
+                percentContainer.style.alignItems = 'center';
+                
+                const percentLabel = document.createElement('label');
+                percentLabel.style.fontSize = '0.7rem';
+                percentLabel.style.color = 'var(--neon-cyan)';
+                percentLabel.textContent = '%:';
+                
+                const percentInput = document.createElement('input');
+                percentInput.type = 'range';
+                percentInput.min = '1';
+                percentInput.max = '100';
+                percentInput.value = color.percent;
+                percentInput.style.flex = '1';
+                percentInput.style.height = '3px';
+                percentInput.addEventListener('input', (e) => {
+                    colorPalette[index].percent = parseInt(e.target.value);
+                    renderColorList();
+                    updateParticleColors();
+                });
+                
+                percentContainer.appendChild(percentLabel);
+                percentContainer.appendChild(percentInput);
+
+                colorItem.appendChild(checkbox);
+                colorItem.appendChild(preview);
+                colorItem.appendChild(info);
+                colorItem.appendChild(removeBtn);
+                colorItem.appendChild(percentContainer);
+                colorList.appendChild(colorItem);
+            });
+        }
+
+        addColorBtn.addEventListener('click', () => {
+            const hex = colorPicker.value;
+            const rgb = hexToRgb(hex);
+            if (rgb) {
+                colorPalette.push({ 
+                    ...rgb, 
+                    enabled: true, 
+                    percent: 10,
+                    name: 'custom'
+                });
+                updateParticleColors();
+                renderColorList();
+            }
+        });
+
+        // Initialize color list
+        renderColorList();
+
+        // Prevent Lenis from interfering with color-list scrolling
+        preventLenisOnElement(colorList);
+
+
+        // --- CONTROL PANEL ---
+        const toggleBtn = document.getElementById('toggle-panel');
+        const controlPanel = document.getElementById('control-panel');
+
+        // Prevent Lenis from interfering with control panel scrolling
+        preventLenisOnElement(controlPanel);
+
+        toggleBtn.addEventListener('click', () => {
+            controlPanel.classList.toggle('hidden');
+            toggleBtn.classList.toggle('active');
+        });
+
+        // Particle count control
+        const particlesSlider = document.getElementById('particles');
+        const particlesValue = document.getElementById('particles-value');
+        particlesSlider.value = NUM_PARTICLES;
+        particlesValue.textContent = NUM_PARTICLES;
+        particlesSlider.addEventListener('input', (e) => {
+            const newCount = parseInt(e.target.value);
+            particlesValue.textContent = newCount;
+            NUM_PARTICLES = newCount;
+            initParticles(); // Reinitialize with new count
+        });
+
+        // Base speed control
+        const baseSpeedSlider = document.getElementById('base-speed');
+        const baseSpeedValue = document.getElementById('base-speed-value');
+        baseSpeedSlider.value = BASE_SPEED;
+        baseSpeedValue.textContent = BASE_SPEED.toFixed(1);
+        baseSpeedSlider.addEventListener('input', (e) => {
+            BASE_SPEED = parseFloat(e.target.value);
+            baseSpeedValue.textContent = BASE_SPEED.toFixed(1);
+        });
+
+        // Gravity control
+        const gravitySlider = document.getElementById('gravity');
+        const gravityValue = document.getElementById('gravity-value');
+        gravitySlider.value = GRAVITY_STRENGTH;
+        gravityValue.textContent = GRAVITY_STRENGTH;
+        gravitySlider.addEventListener('input', (e) => {
+            GRAVITY_STRENGTH = parseInt(e.target.value);
+            gravityValue.textContent = GRAVITY_STRENGTH;
+        });
+
+        // Orbital control
+        const orbitalSlider = document.getElementById('orbital');
+        const orbitalValue = document.getElementById('orbital-value');
+        orbitalSlider.value = ORBITAL_STRENGTH;
+        orbitalValue.textContent = ORBITAL_STRENGTH;
+        orbitalSlider.addEventListener('input', (e) => {
+            ORBITAL_STRENGTH = parseInt(e.target.value);
+            orbitalValue.textContent = ORBITAL_STRENGTH;
+        });
+
+        // Event horizon control
+        const horizonSlider = document.getElementById('horizon');
+        const horizonValue = document.getElementById('horizon-value');
+        horizonSlider.value = EVENT_HORIZON;
+        horizonValue.textContent = EVENT_HORIZON;
+        horizonSlider.addEventListener('input', (e) => {
+            EVENT_HORIZON = parseInt(e.target.value);
+            horizonValue.textContent = EVENT_HORIZON;
+        });
+
+        // Mouse radius control
+        const radiusSlider = document.getElementById('radius');
+        const radiusValue = document.getElementById('radius-value');
+        radiusSlider.value = MOUSE_RADIUS;
+        radiusValue.textContent = MOUSE_RADIUS;
+        radiusSlider.addEventListener('input', (e) => {
+            MOUSE_RADIUS = parseInt(e.target.value);
+            mouseRadius = MOUSE_RADIUS;
+            mouseRadiusSq = mouseRadius * mouseRadius;
+            radiusValue.textContent = MOUSE_RADIUS;
+        });
+
+        // Pulse intensity control
+        const pulseSlider = document.getElementById('pulse');
+        const pulseValue = document.getElementById('pulse-value');
+        pulseSlider.value = PULSE_INTENSITY;
+        pulseValue.textContent = PULSE_INTENSITY.toFixed(2);
+        pulseSlider.addEventListener('input', (e) => {
+            PULSE_INTENSITY = parseFloat(e.target.value);
+            pulseValue.textContent = PULSE_INTENSITY.toFixed(2);
+        });
+
+    </script>
+</body>
+</html>
