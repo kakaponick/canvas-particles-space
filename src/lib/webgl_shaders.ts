@@ -46,7 +46,9 @@ export const fragmentShaderSource = `
     float dx = st.x - mt.x;
     float dy = st.y - mt.y;
     
-    float dist = sqrt(dx * dx + dy * dy);
+    // Correct for aspect ratio in distance calculation to make effect circular
+    float aspectRatio = u_resolution.x / u_resolution.y;
+    float dist = sqrt(dx * dx + (dy * dy) / (aspectRatio * aspectRatio));
     
     // Only apply effect when black hole is active
     if (u_active < 0.5) {

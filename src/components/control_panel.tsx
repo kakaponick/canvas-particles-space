@@ -243,7 +243,7 @@ function ControlPanel () {
             value={mouseRadius}
             min={0}
             max={1000}
-            step={50}
+            step={10}
             onChange={setMouseRadius}
             variant="inline"
             description="Radius of gravitational influence around the black hole. Particles within this distance are affected by gravity and orbital forces."
