@@ -51,6 +51,12 @@ function ParticleCanvas () {
         // Set initial uniforms
         gl.uniform2f(webglProgram.locations.resolution, webglCanvas.width, webglCanvas.height)
         gl.uniform1i(webglProgram.locations.image, 0)
+        
+        // Set initial lensing uniforms from store
+        const initialState = storeRef.current
+        gl.uniform1f(webglProgram.locations.rotationMultiplier, initialState.lensingRotation)
+        gl.uniform1f(webglProgram.locations.falloffPower, initialState.lensingFalloff)
+        gl.uniform1f(webglProgram.locations.absorptionIntensity, initialState.lensingAbsorption)
       }
     }
 
@@ -174,11 +180,18 @@ function ParticleCanvas () {
     function animateParticles (currentTime: number) {
       if (!ctx) return
       
+      const state = storeRef.current
+      
+      // Skip rendering if paused, but keep the animation loop running
+      if (state.isPaused) {
+        lastFrameTime = currentTime // Update last frame time to prevent jump when unpaused
+        animationFrameRef.current = requestAnimationFrame(animateParticles)
+        return
+      }
+      
       const deltaTime = (currentTime - lastFrameTime) / 1000 // Convert to seconds
       lastFrameTime = currentTime
       animationTime += deltaTime
-      
-      const state = storeRef.current
       
       // Check if particle count changed and reinitialize if needed
       if (state.numParticles !== prevNumParticles) {
@@ -296,6 +309,9 @@ function ParticleCanvas () {
         gl.uniform1f(webglProgram.locations.time, currentWebGLTime)
         gl.uniform1f(webglProgram.locations.eventHorizon, state.eventHorizon)
         gl.uniform1f(webglProgram.locations.active, 1.0)
+        gl.uniform1f(webglProgram.locations.rotationMultiplier, state.lensingRotation)
+        gl.uniform1f(webglProgram.locations.falloffPower, state.lensingFalloff)
+        gl.uniform1f(webglProgram.locations.absorptionIntensity, state.lensingAbsorption)
 
         // Draw the lensed scene
         gl.drawArrays(gl.TRIANGLES, 0, 6)
@@ -348,10 +364,16 @@ function ParticleCanvas () {
       }
     }
 
+    const handleVisibilityChange = () => {
+      // Pause animation when tab is hidden, resume when visible
+      useParticleStore.getState().setPaused(document.hidden)
+    }
+
     window.addEventListener('mousemove', handleMouseMove)
     window.addEventListener('mouseout', handleMouseOut)
     webglCanvas.addEventListener('click', handleClick)
     window.addEventListener('resize', handleResize)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
 
     return () => {
       unsubscribe()
@@ -359,6 +381,7 @@ function ParticleCanvas () {
       window.removeEventListener('mouseout', handleMouseOut)
       webglCanvas.removeEventListener('click', handleClick)
       window.removeEventListener('resize', handleResize)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current)
       }

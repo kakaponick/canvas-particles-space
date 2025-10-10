@@ -35,6 +35,10 @@ interface ParticleState {
   pulseSpeedMultiplier: number
   trailIntensity: number
   speedVariance: number
+  isPaused: boolean
+  lensingRotation: number
+  lensingFalloff: number
+  lensingAbsorption: number
   
   setNumParticles: (num: number) => void
   setBaseSpeed: (speed: number) => void
@@ -61,15 +65,20 @@ interface ParticleState {
   setPulseSpeedMultiplier: (multiplier: number) => void
   setTrailIntensity: (intensity: number) => void
   setSpeedVariance: (variance: number) => void
+  togglePause: () => void
+  setPaused: (paused: boolean) => void
+  setLensingRotation: (rotation: number) => void
+  setLensingFalloff: (falloff: number) => void
+  setLensingAbsorption: (absorption: number) => void
 }
 
 export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   numParticles: 10000,
-  baseSpeed: 1,
+  baseSpeed: 0.5,
   gravityStrength: 0,
   orbitalStrength: 0,
   eventHorizon: 10,
-  mouseRadius: 50,
+  mouseRadius: 10,
   pulseIntensity: 1,
   scrollSpeed: 0,
   mouseX: NaN,
@@ -79,16 +88,20 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   backgroundG: 0,
   backgroundB: 0,
   isAnimationStarted: false,
-  lensingMass: 10,
+  lensingMass: 20,
   lensingEnabled: true,
-  farZ: 3000,
+  farZ: 5000,
   baseBrightness: 1.0,
   depthFade: 1.0,
   minOpacity: 0.05,
   maxOpacity: 1.0,
   pulseSpeedMultiplier: 1.0,
   trailIntensity: 0.15,
-  speedVariance: 0.5,
+  speedVariance: 0.15,
+  isPaused: false,
+  lensingRotation: 0.0,
+  lensingFalloff: 2.0,
+  lensingAbsorption: 0.25,
   colorPalette: [
     { r: 255, g: 0, b: 0, enabled: true, percent: 20 },
     { r: 0, g: 255, b: 255, enabled: true, percent: 20 },
@@ -117,6 +130,11 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   setPulseSpeedMultiplier: (multiplier) => set({ pulseSpeedMultiplier: multiplier }),
   setTrailIntensity: (intensity) => set({ trailIntensity: intensity }),
   setSpeedVariance: (variance) => set({ speedVariance: variance }),
+  togglePause: () => set((state) => ({ isPaused: !state.isPaused })),
+  setPaused: (paused) => set({ isPaused: paused }),
+  setLensingRotation: (rotation) => set({ lensingRotation: rotation }),
+  setLensingFalloff: (falloff) => set({ lensingFalloff: falloff }),
+  setLensingAbsorption: (absorption) => set({ lensingAbsorption: absorption }),
   
   addColor: (color) => set((state) => ({
     colorPalette: [...state.colorPalette, color]

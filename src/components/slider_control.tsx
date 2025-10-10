@@ -1,12 +1,6 @@
 import { Label } from '@/components/ui/label'
 import { Slider } from '@/components/ui/slider'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger
-} from '@/components/ui/tooltip'
-import { HelpCircle } from 'lucide-react'
+import HelpTooltip from './help_tooltip'
 
 interface SliderControlProps {
   id: string
@@ -39,8 +33,14 @@ function SliderControl ({
 }: SliderControlProps) {
 
   if (variant === 'inline') {
+
     return (
-      <div className="relative group flex-1 min-w-0">
+      <div 
+        className="relative group flex-1 min-w-0 transition-all hover:bg-neon-cyan/5 rounded"
+        style={{
+          cursor: `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" style="mix-blend-mode:difference" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%2300ffff" stroke-width="2"><rect x="8" y="4" width="8" height="16" rx="2"/><path d="M12 8v8"/><path d="m10 10 2-2 2 2"/><path d="m10 14 2 2 2-2"/></svg>') 12 12, auto`
+        }}
+      >
         <Slider
           id={id}
           min={min}
@@ -58,24 +58,10 @@ function SliderControl ({
               {label}
             </span>
             {description && (
-              <TooltipProvider delayDuration={200}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button 
-                      type="button" 
-                      className="pointer-events-auto"
-                    >
-                      <HelpCircle className="h-4 w-4 text-neon-cyan mix-blend-difference" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent 
-                    side="right" 
-                    className="max-w-xs bg-[rgba(10,10,15,0.98)] border-neon-cyan/30 text-text-light text-xs"
-                  >
-                    <p>{description}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <HelpTooltip 
+                content={description}
+                iconClassName="h-4 w-4 text-neon-cyan mix-blend-difference"
+              />
             )}
           </div>
           <span className="text-neon-cyan mix-blend-difference font-bold font-mono text-xs tabular-nums">
@@ -94,24 +80,10 @@ function SliderControl ({
             {label}
           </Label>
           {description && (
-            <TooltipProvider delayDuration={200}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button 
-                    type="button" 
-                    className="opacity-50 hover:opacity-100 transition-opacity"
-                  >
-                    <HelpCircle className="h-3.5 w-3.5 text-neon-cyan/70" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent 
-                  side="right" 
-                  className="max-w-xs bg-[rgba(10,10,15,0.98)] border-neon-cyan/30 text-text-light text-xs"
-                >
-                  <p>{description}</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <HelpTooltip 
+              content={description}
+              iconClassName="h-3.5 w-3.5 text-neon-cyan/70"
+            />
           )}
         </div>
         <span className="text-neon-magenta font-bold font-mono text-sm">

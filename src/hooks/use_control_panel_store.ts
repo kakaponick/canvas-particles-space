@@ -29,6 +29,9 @@ export function useControlPanelStore () {
     pulseSpeedMultiplier: state.pulseSpeedMultiplier,
     trailIntensity: state.trailIntensity,
     speedVariance: state.speedVariance,
+    lensingRotation: state.lensingRotation,
+    lensingFalloff: state.lensingFalloff,
+    lensingAbsorption: state.lensingAbsorption,
     
     // Setters
     setNumParticles: state.setNumParticles,
@@ -48,7 +51,10 @@ export function useControlPanelStore () {
     setMaxOpacity: state.setMaxOpacity,
     setPulseSpeedMultiplier: state.setPulseSpeedMultiplier,
     setTrailIntensity: state.setTrailIntensity,
-    setSpeedVariance: state.setSpeedVariance
+    setSpeedVariance: state.setSpeedVariance,
+    setLensingRotation: state.setLensingRotation,
+    setLensingFalloff: state.setLensingFalloff,
+    setLensingAbsorption: state.setLensingAbsorption
   })))
 }
 

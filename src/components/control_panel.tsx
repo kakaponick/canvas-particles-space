@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useControlPanelStore } from '../hooks/use_control_panel_store'
+import { useParticleStore } from '../store/particle_store'
 import ColorPalette from './color_palette'
 import SliderControl from './slider_control'
 import ColorPickerInput from './color_picker_input'
@@ -13,6 +14,8 @@ import {
 } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { hexToRgb, rgbToHex } from '../lib/utils'
+import { Play, Pause } from 'lucide-react'
+import HelpTooltip from './help_tooltip'
 
 function ControlPanel () {
   const [isOpen, setIsOpen] = useState(false)
@@ -55,8 +58,17 @@ function ControlPanel () {
     setMaxOpacity,
     setPulseSpeedMultiplier,
     setTrailIntensity,
-    setSpeedVariance
+    setSpeedVariance,
+    lensingRotation,
+    lensingFalloff,
+    lensingAbsorption,
+    setLensingRotation,
+    setLensingFalloff,
+    setLensingAbsorption
   } = useControlPanelStore()
+
+  const isPaused = useParticleStore(state => state.isPaused)
+  const togglePause = useParticleStore(state => state.togglePause)
 
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
@@ -70,7 +82,6 @@ function ControlPanel () {
             pointerEvents: isOpen ? 'none' : 'auto'
           }}
         >
-          {/* <Settings className="w-5 h-5 text-neon-cyan" /> */}
           SETTINGS
         </Button>
       </SheetTrigger>
@@ -88,6 +99,38 @@ function ControlPanel () {
         </SheetHeader>
 
         <div className="mt-6 space-y-2">
+          
+          {/* Play/Pause Control */}
+          <div className="flex items-center justify-between mb-4 pb-4 border-b border-neon-cyan/20">
+            <div className="flex items-center gap-2">
+              <h3 className="font-orbitron text-neon-cyan text-base">Animation Control</h3>
+              <HelpTooltip 
+                content="Manually control animation playback. Animation automatically pauses when the browser tab becomes inactive to save resources and resumes when you return to the tab."
+              />
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={togglePause}
+              className={`${
+                isPaused
+                  ? 'bg-transparent border-text-light/30 text-text-light/50'
+                  : 'bg-neon-cyan/20 border-neon-cyan text-neon-cyan'
+              } hover:bg-neon-cyan/30 flex items-center gap-2`}
+            >
+              {isPaused ? (
+                <>
+                  <Play className="w-4 h-4" />
+                  PLAY
+                </>
+              ) : (
+                <>
+                  <Pause className="w-4 h-4" />
+                  PAUSE
+                </>
+              )}
+            </Button>
+          </div>
 
           <SliderControl
             id="particles"
@@ -315,6 +358,45 @@ function ControlPanel () {
               onChange={setLensingMass}
               variant="inline"
               description="Intensity of WebGL gravitational lensing effect. Higher values create stronger light distortion around the black hole, simulating space-time curvature."
+            />
+
+            <SliderControl
+              id="lensing-rotation"
+              label="Angular Deflection"
+              value={lensingRotation}
+              min={0}
+              max={2}
+              step={0.05}
+              formatValue={(val) => val.toFixed(2)}
+              onChange={setLensingRotation}
+              variant="inline"
+              description="Controls the rotational/swirling distortion around the black hole. 0 = no rotation, higher values create spiral vortex effects like light orbiting the event horizon."
+            />
+
+            <SliderControl
+              id="lensing-falloff"
+              label="Lensing Falloff"
+              value={lensingFalloff}
+              min={1}
+              max={3}
+              step={0.1}
+              formatValue={(val) => val.toFixed(1)}
+              onChange={setLensingFalloff}
+              variant="inline"
+              description="Controls how quickly the lensing effect diminishes with distance. 1 = linear falloff (spread out), 2 = quadratic (realistic), 3 = sharp falloff (concentrated)."
+            />
+
+            <SliderControl
+              id="lensing-absorption"
+              label="Light Absorption"
+              value={lensingAbsorption}
+              min={0}
+              max={1}
+              step={0.05}
+              formatValue={(val) => val.toFixed(2)}
+              onChange={setLensingAbsorption}
+              variant="inline"
+              description="Controls how much light is absorbed near the black hole. 0 = no darkening, higher values create stronger shadow and darkness around the event horizon."
             />
           </div>
 

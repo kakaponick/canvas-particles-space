@@ -28,10 +28,13 @@ export const fragmentShaderSource = `
   uniform float u_time;
   uniform float u_eventHorizon;
   uniform float u_active;
+  uniform float u_rotationMultiplier;
+  uniform float u_falloffPower;
+  uniform float u_absorptionIntensity;
   
-  vec2 rotate(vec2 mt, vec2 st, float angle) {
+  vec2 rotate(vec2 mt, vec2 st, float angle, float rotationMult) {
     float cos_a = cos(angle * PI);
-    float sin_a = sin(angle * 0.0);
+    float sin_a = sin(angle * PI * rotationMult);
     
     float nx = (cos_a * (st.x - mt.x)) + (sin_a * (st.y - mt.y)) + mt.x;
     float ny = (cos_a * (st.y - mt.y)) - (sin_a * (st.x - mt.x)) + mt.y;
@@ -56,11 +59,11 @@ export const fragmentShaderSource = `
       return;
     }
     
-    // Gravitational lensing calculation
-    float pull = u_mass / max(dist * dist, 0.0001);
+    // Gravitational lensing calculation with configurable falloff power
+    float pull = u_mass / max(pow(dist, u_falloffPower), 0.0001);
     
-    // Apply rotation (lensing effect)
-    vec2 r = rotate(mt, st, pull);
+    // Apply rotation (lensing effect) with configurable rotation
+    vec2 r = rotate(mt, st, pull, u_rotationMultiplier);
     
     // Sample the texture with warped coordinates
     vec4 imgcolor = texture2D(u_image, r);
@@ -69,11 +72,11 @@ export const fragmentShaderSource = `
     float horizonDist = dist * u_resolution.x;
     float horizonFactor = smoothstep(u_eventHorizon * 0.5, u_eventHorizon * 2.0, horizonDist);
     
-    // Darken near the black hole
+    // Darken near the black hole with configurable absorption
     vec3 color = vec3(
-      (imgcolor.r - (pull * 0.25)) * horizonFactor,
-      (imgcolor.g - (pull * 0.25)) * horizonFactor,
-      (imgcolor.b - (pull * 0.25)) * horizonFactor
+      (imgcolor.r - (pull * u_absorptionIntensity)) * horizonFactor,
+      (imgcolor.g - (pull * u_absorptionIntensity)) * horizonFactor,
+      (imgcolor.b - (pull * u_absorptionIntensity)) * horizonFactor
     );
     
     gl_FragColor = vec4(color, 1.0);
@@ -92,6 +95,9 @@ export interface WebGLShaderProgram {
     eventHorizon: WebGLUniformLocation | null
     active: WebGLUniformLocation | null
     image: WebGLUniformLocation | null
+    rotationMultiplier: WebGLUniformLocation | null
+    falloffPower: WebGLUniformLocation | null
+    absorptionIntensity: WebGLUniformLocation | null
   }
 }
 
@@ -165,7 +171,10 @@ export function initWebGLProgram(gl: WebGLRenderingContext): WebGLShaderProgram 
       time: gl.getUniformLocation(program, 'u_time'),
       eventHorizon: gl.getUniformLocation(program, 'u_eventHorizon'),
       active: gl.getUniformLocation(program, 'u_active'),
-      image: gl.getUniformLocation(program, 'u_image')
+      image: gl.getUniformLocation(program, 'u_image'),
+      rotationMultiplier: gl.getUniformLocation(program, 'u_rotationMultiplier'),
+      falloffPower: gl.getUniformLocation(program, 'u_falloffPower'),
+      absorptionIntensity: gl.getUniformLocation(program, 'u_absorptionIntensity')
     }
   }
 }
