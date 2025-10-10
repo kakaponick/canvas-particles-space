@@ -1,20 +1,16 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useParticleStore } from '../store/particle_store'
 
 function StartOverlay () {
   const [show, setShow] = useState(true)
 
   const handleStart = () => {
-    /* document.documentElement.requestFullscreen().catch(() => {
+    document.documentElement.requestFullscreen().catch(() => {
       // Fullscreen failed, continue anyway
-    }) */
+    })
     useParticleStore.getState().startAnimation()
     setShow(false)
   }
-
-  useEffect(() => {
-    handleStart()
-  }, [])
 
   if (!show) return null
 
