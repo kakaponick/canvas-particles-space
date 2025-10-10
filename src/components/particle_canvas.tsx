@@ -83,7 +83,6 @@ function ParticleCanvas () {
       }
     }
 
-    const FAR_Z = 5000
     let animationTime = 0
     let lastFrameTime = performance.now()
     let NUM_PARTICLES = storeRef.current.numParticles
@@ -99,6 +98,7 @@ function ParticleCanvas () {
     let pAlpha: Float32Array
     let pPulsePhase: Float32Array
     let pPulseSpeed: Float32Array
+    let pSpeedMultiplier: Float32Array
 
     ctx.lineCap = 'round'
 
@@ -139,6 +139,11 @@ function ParticleCanvas () {
       pAlpha[i] = 0.3 + Math.random() * 0.7
       pPulsePhase[i] = Math.random() * Math.PI * 2
       pPulseSpeed[i] = 0.5 + Math.random() * 1.5
+      
+      // Optimized speed variance: 99% normal, 1% extreme (up to 100x)
+      const variance = storeRef.current.speedVariance
+      const r = Math.random()
+      pSpeedMultiplier[i] = 1 + variance * (2 + r * r * r * r * r * 98)
 
       prevPX[i] = (x / z) * halfW + halfW
       prevPY[i] = (y / z) * halfH + halfH
@@ -155,14 +160,15 @@ function ParticleCanvas () {
       pAlpha = new Float32Array(NUM_PARTICLES)
       pPulsePhase = new Float32Array(NUM_PARTICLES)
       pPulseSpeed = new Float32Array(NUM_PARTICLES)
+      pSpeedMultiplier = new Float32Array(NUM_PARTICLES)
 
       for (let i = 0; i < NUM_PARTICLES; i++) {
-        setParticleProperties(i, Math.random() * FAR_Z)
+        setParticleProperties(i, Math.random() * storeRef.current.farZ)
       }
     }
 
     function resetParticle (i: number) {
-      setParticleProperties(i, FAR_Z)
+      setParticleProperties(i, storeRef.current.farZ)
     }
 
     function animateParticles (currentTime: number) {
@@ -181,11 +187,9 @@ function ParticleCanvas () {
       }
       
       const speed = state.baseSpeed + state.scrollSpeed * 100
-      const speedFactor = Math.min(speed / 20, 1)
-      const trailIntensity = 0.05 + (1 - speedFactor) * 0.15
       
       ctx.globalAlpha = 1
-      ctx.fillStyle = `rgba(${state.backgroundR}, ${state.backgroundG}, ${state.backgroundB}, ${trailIntensity})`
+      ctx.fillStyle = `rgba(${state.backgroundR}, ${state.backgroundG}, ${state.backgroundB}, ${state.trailIntensity})`
       ctx.fillRect(0, 0, canvasWidth, canvasHeight)
 
       const halfWLocal = halfW
@@ -201,7 +205,8 @@ function ParticleCanvas () {
         prevPX[i] = startX
         prevPY[i] = startY
 
-        let z = pz[i] - speed
+        // Apply per-particle speed multiplier
+        let z = pz[i] - speed * pSpeedMultiplier[i]
         if (z <= 0) {
           resetParticle(i)
           continue
@@ -225,7 +230,7 @@ function ParticleCanvas () {
 
             const gravityForce = state.gravityStrength / (distSq * 0.01)
             const invDistance = 1 / distance
-            const closeFactor = 1 - z / FAR_Z
+            const closeFactor = 1 - z / state.farZ
 
             const attractX = dx * invDistance * gravityForce * closeFactor
             const attractY = dy * invDistance * gravityForce * closeFactor
@@ -248,14 +253,19 @@ function ParticleCanvas () {
 
         pz[i] = z
 
-        const depthFactor = 1 - z / FAR_Z
-        const size = Math.max(0.3, depthFactor * 3)
-        const distanceFactor = z / FAR_Z
-        const pulseValue = Math.sin(animationTime * pPulseSpeed[i] + pPulsePhase[i])
+        // Calculate depth factor with adjustable fade influence
+        const rawDepthFactor = 1 - z / state.farZ
+        const depthFactor = 1 - (1 - rawDepthFactor) * state.depthFade
+        const size = Math.max(0.3, rawDepthFactor * 3)
+        
+        // Calculate pulse effect with adjustable speed
+        const distanceFactor = z / state.farZ
+        const pulseValue = Math.sin(animationTime * pPulseSpeed[i] * state.pulseSpeedMultiplier + pPulsePhase[i])
         const pulseFactor = 1 + (pulseValue * state.pulseIntensity * distanceFactor)
         
-        let opacity = depthFactor * pAlpha[i] * pulseFactor
-        opacity = Math.max(0.05, Math.min(1, opacity))
+        // Calculate final opacity with all controls
+        let opacity = depthFactor * pAlpha[i] * pulseFactor * state.baseBrightness
+        opacity = Math.max(state.minOpacity, Math.min(state.maxOpacity, opacity))
 
         const color = pColor[i]
         ctx.globalAlpha = opacity
@@ -304,24 +314,21 @@ function ParticleCanvas () {
     initParticles()
 
     const handleMouseMove = (event: MouseEvent) => {
-      if (storeRef.current.blackHoleAttached) {
+      if (storeRef.current.blackHoleFollowing) {
         useParticleStore.getState().setMousePosition(event.clientX, event.clientY)
       }
     }
 
     const handleMouseOut = () => {
-      if (storeRef.current.blackHoleAttached) {
+      if (storeRef.current.blackHoleFollowing) {
         useParticleStore.getState().setMousePosition(NaN, NaN)
       }
     }
 
     const handleClick = (event: MouseEvent) => {
-      const wasAttached = storeRef.current.blackHoleAttached
-      console.log('Click: wasAttached =', wasAttached)
-      useParticleStore.getState().toggleBlackHole()
-      const newState = useParticleStore.getState()
-      console.log('Click: new blackHoleAttached =', newState.blackHoleAttached)
-      if (!wasAttached) {
+      const wasFollowing = storeRef.current.blackHoleFollowing
+      useParticleStore.getState().toggleBlackHoleFollowing()
+      if (!wasFollowing) {
         useParticleStore.getState().setMousePosition(event.clientX, event.clientY)
       }
     }

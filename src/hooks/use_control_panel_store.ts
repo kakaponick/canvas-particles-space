@@ -21,6 +21,14 @@ export function useControlPanelStore () {
     backgroundB: state.backgroundB,
     lensingMass: state.lensingMass,
     lensingEnabled: state.lensingEnabled,
+    farZ: state.farZ,
+    baseBrightness: state.baseBrightness,
+    depthFade: state.depthFade,
+    minOpacity: state.minOpacity,
+    maxOpacity: state.maxOpacity,
+    pulseSpeedMultiplier: state.pulseSpeedMultiplier,
+    trailIntensity: state.trailIntensity,
+    speedVariance: state.speedVariance,
     
     // Setters
     setNumParticles: state.setNumParticles,
@@ -32,7 +40,15 @@ export function useControlPanelStore () {
     setPulseIntensity: state.setPulseIntensity,
     setBackgroundColor: state.setBackgroundColor,
     setLensingMass: state.setLensingMass,
-    toggleLensing: state.toggleLensing
+    toggleLensing: state.toggleLensing,
+    setFarZ: state.setFarZ,
+    setBaseBrightness: state.setBaseBrightness,
+    setDepthFade: state.setDepthFade,
+    setMinOpacity: state.setMinOpacity,
+    setMaxOpacity: state.setMaxOpacity,
+    setPulseSpeedMultiplier: state.setPulseSpeedMultiplier,
+    setTrailIntensity: state.setTrailIntensity,
+    setSpeedVariance: state.setSpeedVariance
   })))
 }
 
