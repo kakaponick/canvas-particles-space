@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useControlPanelStore } from '../hooks/use_control_panel_store'
 import { useParticleStore } from '../store/particle_store'
 import ColorPalette from './controls/color_palette'
@@ -15,11 +15,35 @@ import {
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { Button } from '@/components/ui/button'
 import { hexToRgb, rgbToHex } from '../lib/utils'
-import { Play, Pause } from 'lucide-react'
+import { Play, Pause, Settings, Maximize, Minimize } from 'lucide-react'
 import HelpTooltip from './controls/help_tooltip'
 
 function ControlPanel() {
   const [isOpen, setIsOpen] = useState(false)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+
+  const toggleFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen()
+        setIsFullscreen(true)
+      } else {
+        await document.exitFullscreen()
+        setIsFullscreen(false)
+      }
+    } catch (error) {
+      console.log('Fullscreen toggle failed:', error)
+    }
+  }
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement)
+    }
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange)
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange)
+  }, [])
 
   const {
     numParticles,
@@ -73,19 +97,36 @@ function ControlPanel() {
 
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
-      <SheetTrigger asChild>
+      <div className="fixed bottom-5 left-5 flex gap-2 z-40" style={{
+        opacity: isOpen ? 0 : 1,
+        pointerEvents: isOpen ? 'none' : 'auto',
+        transition: 'opacity 300ms'
+      }}>
+        <SheetTrigger asChild>
+          <Button
+            variant="outline"
+            size="icon"
+            className="bg-[rgba(10,10,15,0.95)] border-neon-cyan text-neon-cyan hover:bg-[rgba(0,255,255,0.1)] hover:text-neon-cyan font-mono"
+            style={{
+              boxShadow: '0 0 20px rgba(0, 255, 255, 0.3)'
+            }}
+          >
+            <Settings className="w-4 h-4" />
+          </Button>
+        </SheetTrigger>
+        
         <Button
           variant="outline"
-          className="fixed bottom-5 left-5 bg-[rgba(10,10,15,0.95)] border-neon-cyan text-neon-cyan z-40 hover:bg-[rgba(0,255,255,0.1)] hover:text-neon-cyan font-mono transition-opacity duration-300 data-[state=open]:opacity-0 data-[state=open]:pointer-events-none"
+          size="icon"
+          onClick={toggleFullscreen}
+          className="bg-[rgba(10,10,15,0.95)] border-neon-cyan text-neon-cyan hover:bg-[rgba(0,255,255,0.1)] hover:text-neon-cyan font-mono"
           style={{
-            boxShadow: '0 0 20px rgba(0, 255, 255, 0.3)',
-            opacity: isOpen ? 0 : 1,
-            pointerEvents: isOpen ? 'none' : 'auto'
+            boxShadow: '0 0 20px rgba(0, 255, 255, 0.3)'
           }}
         >
-          SETTINGS
+          {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
         </Button>
-      </SheetTrigger>
+      </div>
 
       <SheetContent
         side="left"

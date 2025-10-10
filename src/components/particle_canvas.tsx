@@ -70,7 +70,21 @@ function ParticleCanvas () {
       // Start animation when isAnimationStarted becomes true
       if (state.isAnimationStarted && !hasAnimationStarted) {
         hasAnimationStarted = true
-        animateParticles(performance.now())
+        
+        // Force browser to recognize high refresh rate by triggering a focus event
+        // and using requestAnimationFrame to ensure proper refresh rate detection
+        const startAnimation = () => {
+          lastFrameTime = performance.now()
+          animateParticles(performance.now())
+        }
+        
+        // Trigger focus to ensure proper refresh rate detection
+        window.focus()
+        
+        // Use a small delay to ensure browser has time to detect refresh rate
+        requestAnimationFrame(() => {
+          requestAnimationFrame(startAnimation)
+        })
       }
     })
 
