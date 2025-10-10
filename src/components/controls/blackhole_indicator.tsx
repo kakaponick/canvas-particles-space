@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParticleStore } from '../store/particle_store'
+import { useParticleStore } from '../../store/particle_store'
 
 function BlackHoleIndicator () {
   const [show, setShow] = useState(false)

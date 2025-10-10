@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useParticleStore } from '../store/particle_store'
+import { useParticleStore } from '../../store/particle_store'
 
 function StartOverlay () {
   const [show, setShow] = useState(true)

@@ -13,22 +13,7 @@ interface SliderProps extends React.ComponentPropsWithoutRef<typeof SliderPrimit
 const Slider = React.forwardRef<
   React.ElementRef<typeof SliderPrimitive.Root>,
   SliderProps
->(({ className, trackHeight = "h-1", thumbSize = "h-4 w-4", onValueChange, value, min = 0, max = 100, step = 1, ...props }, ref) => {
-  const handleWheel = (event: React.WheelEvent) => {
-    event.preventDefault()
-    event.stopPropagation() // Prevent scroll from bubbling to parent containers
-    
-    if (!onValueChange || !value) return
-    
-    const currentValue = Array.isArray(value) ? value[0] : value
-    const delta = event.deltaY < 0 ? step : -step // Scroll up = positive, scroll down = negative
-    const newValue = Math.min(max, Math.max(min, currentValue + delta))
-    
-    if (newValue !== currentValue) {
-      onValueChange([newValue])
-    }
-  }
-
+>(({ className, trackHeight = "h-1", thumbSize = "h-4 w-4", ...props }, ref) => {
   return (
     <SliderPrimitive.Root
       ref={ref}
@@ -36,12 +21,6 @@ const Slider = React.forwardRef<
         "relative flex w-full touch-none select-none items-center",
         className
       )}
-      onWheel={handleWheel}
-      value={value}
-      min={min}
-      max={max}
-      step={step}
-      onValueChange={onValueChange}
       {...props}
     >
       <SliderPrimitive.Track className={cn(

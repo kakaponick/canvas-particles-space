@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { useColorPaletteStore } from '../hooks/use_color_palette_store'
-import { hexToRgb, rgbToHex } from '../lib/utils'
+import { useColorPaletteStore } from '../../hooks/use_color_palette_store'
+import { hexToRgb, rgbToHex } from '../../lib/utils'
 import ColorPickerInput from './color_picker_input'
 import { Button } from '@/components/ui/button'
 import { Slider } from '@/components/ui/slider'
