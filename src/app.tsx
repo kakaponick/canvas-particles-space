@@ -1,3 +1,4 @@
+import { Analytics } from "@vercel/analytics/react"
 import ParticleCanvas from './components/particle_canvas'
 import ControlPanel from './components/control_panel'
 import StartOverlay from './components/overlays/start_overlay'
@@ -7,6 +8,7 @@ import ScrollIndicator from './components/controls/scroll_indicator'
 function App () {
   return (
     <div className="min-h-screen" style={{ height: '300vh' }}>
+      <Analytics />
       <StartOverlay />
       <ParticleCanvas />
       <BlackHoleIndicator />
