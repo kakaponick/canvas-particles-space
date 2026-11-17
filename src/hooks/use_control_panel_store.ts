@@ -4,7 +4,7 @@ import { useShallow } from 'zustand/react/shallow'
 /**
  * Custom hook that selects only the control panel related values from the store
  * Uses shallow comparison to prevent re-renders when the object shape is the same
- * This prevents re-renders when unrelated store values (like mouseX/mouseY) change
+ * This prevents re-renders when unrelated store values (like the measured frame rate) change
  */
 export function useControlPanelStore () {
   return useParticleStore(useShallow((state) => ({

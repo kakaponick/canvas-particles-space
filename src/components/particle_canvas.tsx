@@ -1,414 +1,320 @@
 import { useEffect, useRef } from 'react'
 import { useParticleStore } from '../store/particle_store'
-import { useScrollProgress } from '../hooks/use_scroll_progress'
+import { subscribeScrollProgress } from '../hooks/use_scroll_progress'
 import {
-  initWebGLProgram,
-  setupGeometry,
-  setupTexCoords,
-  createTexture,
-  type WebGLShaderProgram
-} from '../lib/webgl_shaders'
+  createParticleField,
+  createInstanceData,
+  createPaletteSampler,
+  ensureInstanceCapacity,
+  setParticleCount,
+  stepParticles,
+  toFrameScale,
+  REFERENCE_FPS,
+  type SpawnSettings,
+  type StepSettings
+} from '../lib/particle_simulation'
+import {
+  createParticleRenderer,
+  getRenderingContext,
+  type FrameInput,
+  type ParticleRenderer
+} from '../lib/particle_renderer'
+
+// rAF timestamps jitter; a frame this close to its slot still counts as on time
+const FRAME_SLOT_TOLERANCE_MS = 1
+const FPS_SAMPLE_MS = 500
 
 function ParticleCanvas () {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const webglCanvasRef = useRef<HTMLCanvasElement>(null)
-  const animationFrameRef = useRef<number>()
-  const storeRef = useRef(useParticleStore.getState())
-  
-  // Use scroll progress hook to update particle store
-  useScrollProgress({
-    onScroll: (progress) => {
-      useParticleStore.getState().setScrollSpeed(progress * 0.1)
-    }
-  })
-  
+
   useEffect(() => {
     const canvas = canvasRef.current
-    const webglCanvas = webglCanvasRef.current
-    if (!canvas || !webglCanvas) return
+    if (!canvas) return
 
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-
-    // Initialize WebGL
-    const gl = (webglCanvas.getContext('webgl') || webglCanvas.getContext('experimental-webgl')) as WebGLRenderingContext | null
+    const gl = getRenderingContext(canvas)
     if (!gl) {
-      console.warn('WebGL not supported, lensing effects will be disabled')
+      console.warn('WebGL not supported, particles will not render')
+      return
     }
 
-    let webglProgram: WebGLShaderProgram | null = null
-    let webglTexture: WebGLTexture | null = null
-    let webglStartTime = performance.now()
+    let renderer: ParticleRenderer | null = createParticleRenderer(gl)
+    let viewportWidth = 0
+    let viewportHeight = 0
+    let resizeFrameId = 0
 
-    if (gl) {
-      webglProgram = initWebGLProgram(gl)
-      if (webglProgram) {
-        gl.useProgram(webglProgram.program)
-        setupGeometry(gl, webglProgram.locations.position)
-        setupTexCoords(gl, webglProgram.locations.texCoord)
-        webglTexture = createTexture(gl)
-        
-        // Set initial uniforms
-        gl.uniform2f(webglProgram.locations.resolution, webglCanvas.width, webglCanvas.height)
-        gl.uniform1i(webglProgram.locations.image, 0)
-        
-        // Set initial lensing uniforms from store
-        const initialState = storeRef.current
-        gl.uniform1f(webglProgram.locations.rotationMultiplier, initialState.lensingRotation)
-        gl.uniform1f(webglProgram.locations.falloffPower, initialState.lensingFalloff)
-        gl.uniform1f(webglProgram.locations.absorptionIntensity, initialState.lensingAbsorption)
-      }
-    }
+    // Interaction state lives here, not in the store: nothing else renders it
+    let mouseX = NaN
+    let mouseY = NaN
+    let scrollProgress = 0
 
-    // Track if animation has been started
-    let hasAnimationStarted = false
-
-    // Subscribe to store changes
-    const unsubscribe = useParticleStore.subscribe((state) => {
-      storeRef.current = state
-      
-      // Start animation when isAnimationStarted becomes true
-      if (state.isAnimationStarted && !hasAnimationStarted) {
-        hasAnimationStarted = true
-        
-        // Force browser to recognize high refresh rate by triggering a focus event
-        // and using requestAnimationFrame to ensure proper refresh rate detection
-        const startAnimation = () => {
-          lastFrameTime = performance.now()
-          animateParticles(performance.now())
-        }
-        
-        // Trigger focus to ensure proper refresh rate detection
-        window.focus()
-        
-        // Use a small delay to ensure browser has time to detect refresh rate
-        requestAnimationFrame(() => {
-          requestAnimationFrame(startAnimation)
-        })
-      }
-    })
-
-    // Canvas sizing
-    let canvasWidth = canvas.width = window.innerWidth
-    let canvasHeight = canvas.height = window.innerHeight
-    webglCanvas.width = canvasWidth
-    webglCanvas.height = canvasHeight
-    let halfW = canvasWidth * 0.5
-    let halfH = canvasHeight * 0.5
-
-    if (gl) {
-      gl.viewport(0, 0, canvasWidth, canvasHeight)
-      if (webglProgram) {
-        gl.uniform2f(webglProgram.locations.resolution, canvasWidth, canvasHeight)
-      }
-    }
-
+    // Loop timing
+    let frameId = 0
+    let lastFrameTime = -1
+    let nextFrameSlot = 0
     let animationTime = 0
-    let lastFrameTime = performance.now()
-    let NUM_PARTICLES = storeRef.current.numParticles
-    let prevNumParticles = NUM_PARTICLES
+    let fadeBacklog = 0
+    let fpsFrames = 0
+    let fpsWindowStart = 0
 
-    // Particle state
-    let px: Float32Array
-    let py: Float32Array
-    let pz: Float32Array
-    let prevPX: Float32Array
-    let prevPY: Float32Array
-    let pColor: any[]
-    let pAlpha: Float32Array
-    let pPulsePhase: Float32Array
-    let pPulseSpeed: Float32Array
-    let pSpeedMultiplier: Float32Array
+    const initialState = useParticleStore.getState()
+    const field = createParticleField()
+    const instances = createInstanceData()
+    const spawn: SpawnSettings = {
+      palette: createPaletteSampler(initialState.colorPalette),
+      farZ: initialState.farZ,
+      speedVariance: initialState.speedVariance
+    }
+    setParticleCount(field, initialState.numParticles, spawn)
 
-    ctx.lineCap = 'round'
-
-    function randSpan2000 () {
-      return (Math.random() - 0.5) * 2000
+    const settings: StepSettings = {
+      frameScale: 0,
+      time: 0,
+      speed: 0,
+      width: 0,
+      height: 0,
+      mouseX: NaN,
+      mouseY: NaN,
+      mouseRadius: 0,
+      eventHorizon: 0,
+      gravityStrength: 0,
+      orbitalStrength: 0,
+      farZ: 1,
+      depthFade: 0,
+      pulseSpeedMultiplier: 0,
+      pulseIntensity: 0,
+      baseBrightness: 0,
+      minOpacity: 0,
+      maxOpacity: 0
     }
 
-    function getActiveColors () {
-      return storeRef.current.colorPalette.filter(c => c.enabled)
-    }
-
-    function getRandomWeightedColor () {
-      const activeColors = getActiveColors()
-      if (activeColors.length === 0) return { r: 255, g: 255, b: 255 }
-      
-      const totalWeight = activeColors.reduce((sum, color) => sum + color.percent, 0)
-      let random = Math.random() * totalWeight
-      
-      for (let i = 0; i < activeColors.length; i++) {
-        random -= activeColors[i].percent
-        if (random <= 0) {
-          return activeColors[i]
-        }
-      }
-      
-      return activeColors[activeColors.length - 1]
-    }
-
-    function setParticleProperties (i: number, z: number) {
-      const x = randSpan2000()
-      const y = randSpan2000()
-
-      px[i] = x
-      py[i] = y
-      pz[i] = z
-
-      pColor[i] = getRandomWeightedColor()
-      pAlpha[i] = 0.3 + Math.random() * 0.7
-      pPulsePhase[i] = Math.random() * Math.PI * 2
-      pPulseSpeed[i] = 0.5 + Math.random() * 1.5
-      
-      // Optimized speed variance: 99% normal, 1% extreme (up to 100x)
-      const variance = storeRef.current.speedVariance
-      const r = Math.random()
-      pSpeedMultiplier[i] = 1 + variance * (2 + r * r * r * r * r * 98)
-
-      prevPX[i] = (x / z) * halfW + halfW
-      prevPY[i] = (y / z) * halfH + halfH
-    }
-
-    function initParticles () {
-      NUM_PARTICLES = storeRef.current.numParticles
-      px = new Float32Array(NUM_PARTICLES)
-      py = new Float32Array(NUM_PARTICLES)
-      pz = new Float32Array(NUM_PARTICLES)
-      prevPX = new Float32Array(NUM_PARTICLES)
-      prevPY = new Float32Array(NUM_PARTICLES)
-      pColor = new Array(NUM_PARTICLES)
-      pAlpha = new Float32Array(NUM_PARTICLES)
-      pPulsePhase = new Float32Array(NUM_PARTICLES)
-      pPulseSpeed = new Float32Array(NUM_PARTICLES)
-      pSpeedMultiplier = new Float32Array(NUM_PARTICLES)
-
-      for (let i = 0; i < NUM_PARTICLES; i++) {
-        setParticleProperties(i, Math.random() * storeRef.current.farZ)
+    const background: [number, number, number] = [0, 0, 0]
+    const frame: FrameInput = {
+      background,
+      fadeAlpha: 0,
+      instances: instances.floats,
+      instanceCount: 0,
+      lensing: {
+        enabled: false,
+        mouseX: NaN,
+        mouseY: NaN,
+        mass: 0,
+        eventHorizon: 0,
+        rotation: 0,
+        falloff: 0,
+        absorption: 0
       }
     }
 
-    function resetParticle (i: number) {
-      setParticleProperties(i, storeRef.current.farZ)
+    function readBackground () {
+      const state = useParticleStore.getState()
+      background[0] = state.backgroundR
+      background[1] = state.backgroundG
+      background[2] = state.backgroundB
+      return background
     }
 
-    function animateParticles (currentTime: number) {
-      if (!ctx) return
-      
-      const state = storeRef.current
-      
-      // Skip rendering if paused, but keep the animation loop running
-      if (state.isPaused) {
-        lastFrameTime = currentTime // Update last frame time to prevent jump when unpaused
-        animationFrameRef.current = requestAnimationFrame(animateParticles)
-        return
+    // World coordinates do not depend on the viewport, so a resize only reallocates GPU buffers
+    function applyViewportSize (force = false) {
+      resizeFrameId = 0
+      const width = window.innerWidth
+      const height = window.innerHeight
+      if (!renderer || (!force && width === viewportWidth && height === viewportHeight)) return
+
+      viewportWidth = width
+      viewportHeight = height
+      renderer.resize(width, height, readBackground())
+
+      // Resizing clears the canvas; while the loop is idle, show the background right away
+      if (!frameId) {
+        frame.instanceCount = 0
+        frame.fadeAlpha = 0
+        renderer.render(frame)
       }
-      
-      const deltaTime = (currentTime - lastFrameTime) / 1000 // Convert to seconds
-      lastFrameTime = currentTime
-      animationTime += deltaTime
-      
-      // Check if particle count changed and reinitialize if needed
-      if (state.numParticles !== prevNumParticles) {
-        prevNumParticles = state.numParticles
-        initParticles()
-      }
-      
-      const speed = state.baseSpeed + state.scrollSpeed * 100
-      
-      ctx.globalAlpha = 1
-      ctx.fillStyle = `rgba(${state.backgroundR}, ${state.backgroundG}, ${state.backgroundB}, ${state.trailIntensity})`
-      ctx.fillRect(0, 0, canvasWidth, canvasHeight)
-
-      const halfWLocal = halfW
-      const halfHLocal = halfH
-      const localMouseX = state.mouseX
-      const localMouseY = state.mouseY
-      const mouseRadiusSq = state.mouseRadius * state.mouseRadius
-      const rSq = mouseRadiusSq
-
-      for (let i = 0; i < NUM_PARTICLES; i++) {
-        const startX = (px[i] / pz[i]) * halfWLocal + halfWLocal
-        const startY = (py[i] / pz[i]) * halfHLocal + halfHLocal
-        prevPX[i] = startX
-        prevPY[i] = startY
-
-        // Apply per-particle speed multiplier
-        let z = pz[i] - speed * pSpeedMultiplier[i]
-        if (z <= 0) {
-          resetParticle(i)
-          continue
-        }
-
-        let endX = (px[i] / z) * halfWLocal + halfWLocal
-        let endY = (py[i] / z) * halfHLocal + halfHLocal
-
-        if (localMouseX === localMouseX && localMouseY === localMouseY) {
-          const dx = localMouseX - endX
-          const dy = localMouseY - endY
-          const distSq = dx * dx + dy * dy
-
-          if (distSq < rSq && distSq > 0.0001) {
-            const distance = Math.sqrt(distSq)
-            
-            if (distance < state.eventHorizon) {
-              resetParticle(i)
-              continue
-            }
-
-            const gravityForce = state.gravityStrength / (distSq * 0.01)
-            const invDistance = 1 / distance
-            const closeFactor = 1 - z / state.farZ
-
-            const attractX = dx * invDistance * gravityForce * closeFactor
-            const attractY = dy * invDistance * gravityForce * closeFactor
-
-            const tangentX = -dy * invDistance * gravityForce * state.orbitalStrength * closeFactor
-            const tangentY = dx * invDistance * gravityForce * state.orbitalStrength * closeFactor
-
-            px[i] += attractX + tangentX
-            py[i] += attractY + tangentY
-
-            const warpFactor = (1 - distance / state.mouseRadius) * 0.5
-            const warpAngle = Math.atan2(dy, dx)
-            px[i] += Math.cos(warpAngle) * warpFactor * closeFactor * 20
-            py[i] += Math.sin(warpAngle) * warpFactor * closeFactor * 20
-
-            endX = (px[i] / z) * halfWLocal + halfWLocal
-            endY = (py[i] / z) * halfHLocal + halfHLocal
-          }
-        }
-
-        pz[i] = z
-
-        // Calculate depth factor with adjustable fade influence
-        const rawDepthFactor = 1 - z / state.farZ
-        const depthFactor = 1 - (1 - rawDepthFactor) * state.depthFade
-        const size = Math.max(0.3, rawDepthFactor * 3)
-        
-        // Calculate pulse effect with adjustable speed
-        const distanceFactor = z / state.farZ
-        const pulseValue = Math.sin(animationTime * pPulseSpeed[i] * state.pulseSpeedMultiplier + pPulsePhase[i])
-        const pulseFactor = 1 + (pulseValue * state.pulseIntensity * distanceFactor)
-        
-        // Calculate final opacity with all controls
-        let opacity = depthFactor * pAlpha[i] * pulseFactor * state.baseBrightness
-        opacity = Math.max(state.minOpacity, Math.min(state.maxOpacity, opacity))
-
-        const color = pColor[i]
-        ctx.globalAlpha = opacity
-        ctx.strokeStyle = `rgba(${color.r}, ${color.g}, ${color.b}, 1)`
-        ctx.lineWidth = size
-        ctx.beginPath()
-        ctx.moveTo(prevPX[i], prevPY[i])
-        ctx.lineTo(endX, endY)
-        ctx.stroke()
-      }
-
-      ctx.globalAlpha = 1
-
-      // Apply WebGL gravitational lensing effect
-      if (gl && webglProgram && webglTexture && state.lensingEnabled && canvas) {
-        const currentWebGLTime = (currentTime - webglStartTime) / 1000
-
-        // Update texture from 2D canvas
-        gl.bindTexture(gl.TEXTURE_2D, webglTexture)
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas)
-
-        // Update uniforms - use original mouse coordinates
-        const mouseX = !isNaN(state.mouseX) ? state.mouseX : canvasWidth / 2
-        const mouseY = !isNaN(state.mouseY) ? state.mouseY : canvasHeight / 2
-        
-        gl.uniform2f(webglProgram.locations.mouse, mouseX, mouseY)
-        gl.uniform1f(webglProgram.locations.mass, state.lensingMass * 0.00001)
-        gl.uniform1f(webglProgram.locations.time, currentWebGLTime)
-        gl.uniform1f(webglProgram.locations.eventHorizon, state.eventHorizon)
-        gl.uniform1f(webglProgram.locations.active, 1.0)
-        gl.uniform1f(webglProgram.locations.rotationMultiplier, state.lensingRotation)
-        gl.uniform1f(webglProgram.locations.falloffPower, state.lensingFalloff)
-        gl.uniform1f(webglProgram.locations.absorptionIntensity, state.lensingAbsorption)
-
-        // Draw the lensed scene
-        gl.drawArrays(gl.TRIANGLES, 0, 6)
-      } else if (gl && webglProgram && webglTexture && canvas) {
-        // If lensing is disabled, just pass through the original canvas
-        gl.bindTexture(gl.TEXTURE_2D, webglTexture)
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas)
-        
-        gl.uniform1f(webglProgram.locations.active, 0.0)
-        gl.drawArrays(gl.TRIANGLES, 0, 6)
-      }
-
-      animationFrameRef.current = requestAnimationFrame(animateParticles)
     }
 
-    initParticles()
+    function scheduleViewportSize () {
+      if (!resizeFrameId) resizeFrameId = requestAnimationFrame(() => applyViewportSize())
+    }
+
+    function shouldAnimate () {
+      const state = useParticleStore.getState()
+      return renderer !== null && state.isAnimationStarted && !state.isPaused && !document.hidden
+    }
+
+    function syncLoop () {
+      const animate = shouldAnimate()
+      if (animate && !frameId) {
+        lastFrameTime = -1
+        nextFrameSlot = 0
+        fpsFrames = 0
+        fpsWindowStart = performance.now()
+        frameId = requestAnimationFrame(renderFrame)
+      } else if (!animate && frameId) {
+        cancelAnimationFrame(frameId)
+        frameId = 0
+        useParticleStore.getState().setMeasuredFps(0)
+      }
+    }
+
+    function reportFps (now: number) {
+      fpsFrames++
+      const elapsed = now - fpsWindowStart
+      if (elapsed < FPS_SAMPLE_MS) return
+
+      const fps = Math.round(fpsFrames * 1000 / elapsed)
+      fpsFrames = 0
+      fpsWindowStart = now
+      const state = useParticleStore.getState()
+      if (state.measuredFps !== fps) state.setMeasuredFps(fps)
+    }
+
+    function renderFrame (now: number) {
+      frameId = requestAnimationFrame(renderFrame)
+      if (!renderer) return
+
+      const state = useParticleStore.getState()
+
+      // Optional frame rate cap; 0 follows the display refresh rate
+      if (state.frameRateCap > 0) {
+        if (now < nextFrameSlot - FRAME_SLOT_TOLERANCE_MS) return
+        nextFrameSlot = Math.max(nextFrameSlot + 1000 / state.frameRateCap, now)
+      }
+
+      const elapsedMs = lastFrameTime < 0 ? 1000 / REFERENCE_FPS : now - lastFrameTime
+      lastFrameTime = now
+      const frameScale = toFrameScale(elapsedMs)
+      animationTime += frameScale / REFERENCE_FPS
+      reportFps(now)
+
+      if (state.colorPalette !== spawn.palette.source) {
+        spawn.palette = createPaletteSampler(state.colorPalette)
+      }
+      spawn.farZ = state.farZ
+      spawn.speedVariance = state.speedVariance
+
+      if (state.numParticles !== field.count) {
+        setParticleCount(field, state.numParticles, spawn)
+      }
+      ensureInstanceCapacity(instances, field.capacity)
+
+      settings.frameScale = frameScale
+      settings.time = animationTime
+      settings.speed = state.baseSpeed + scrollProgress * 10
+      settings.width = viewportWidth
+      settings.height = viewportHeight
+      settings.mouseX = mouseX
+      settings.mouseY = mouseY
+      settings.mouseRadius = state.mouseRadius
+      settings.eventHorizon = state.eventHorizon
+      settings.gravityStrength = state.gravityStrength
+      settings.orbitalStrength = state.orbitalStrength
+      settings.farZ = state.farZ
+      settings.depthFade = state.depthFade
+      settings.pulseSpeedMultiplier = state.pulseSpeedMultiplier
+      settings.pulseIntensity = state.pulseIntensity
+      settings.baseBrightness = state.baseBrightness
+      settings.minOpacity = state.minOpacity
+      settings.maxOpacity = state.maxOpacity
+
+      frame.instanceCount = stepParticles(field, settings, spawn, instances)
+      frame.instances = instances.floats
+      readBackground()
+      // The 8-bit scene texture rounds away fades smaller than half a step, so on fast displays
+      // a per-frame fade would leave a grey haze. Fading in whole 60 Hz steps keeps the trail
+      // identical at any frame rate.
+      fadeBacklog += frameScale
+      const fadeSteps = Math.floor(fadeBacklog)
+      fadeBacklog -= fadeSteps
+      frame.fadeAlpha = fadeSteps > 0 ? 1 - Math.pow(1 - state.trailIntensity, fadeSteps) : 0
+
+      const lensing = frame.lensing
+      lensing.enabled = state.lensingEnabled
+      lensing.mouseX = mouseX
+      lensing.mouseY = mouseY
+      lensing.mass = state.lensingMass
+      lensing.eventHorizon = state.eventHorizon
+      lensing.rotation = state.lensingRotation
+      lensing.falloff = state.lensingFalloff
+      lensing.absorption = state.lensingAbsorption
+
+      renderer.render(frame)
+    }
 
     const handleMouseMove = (event: MouseEvent) => {
-      if (storeRef.current.blackHoleFollowing) {
-        useParticleStore.getState().setMousePosition(event.clientX, event.clientY)
+      if (useParticleStore.getState().blackHoleFollowing) {
+        mouseX = event.clientX
+        mouseY = event.clientY
       }
     }
 
-    const handleMouseOut = () => {
-      if (storeRef.current.blackHoleFollowing) {
-        useParticleStore.getState().setMousePosition(NaN, NaN)
+    // mouseout bubbles from every element; only leaving the window has no related target
+    const handleMouseOut = (event: MouseEvent) => {
+      if (!event.relatedTarget && useParticleStore.getState().blackHoleFollowing) {
+        mouseX = NaN
+        mouseY = NaN
       }
     }
 
     const handleClick = (event: MouseEvent) => {
-      const wasFollowing = storeRef.current.blackHoleFollowing
-      useParticleStore.getState().toggleBlackHoleFollowing()
+      const state = useParticleStore.getState()
+      const wasFollowing = state.blackHoleFollowing
+      state.toggleBlackHoleFollowing()
       if (!wasFollowing) {
-        useParticleStore.getState().setMousePosition(event.clientX, event.clientY)
+        mouseX = event.clientX
+        mouseY = event.clientY
       }
     }
 
-    const handleResize = () => {
-      canvasWidth = canvas.width = window.innerWidth
-      canvasHeight = canvas.height = window.innerHeight
-      webglCanvas.width = canvasWidth
-      webglCanvas.height = canvasHeight
-      halfW = canvasWidth * 0.5
-      halfH = canvasHeight * 0.5
-      initParticles()
-
-      if (gl && webglProgram) {
-        gl.viewport(0, 0, canvasWidth, canvasHeight)
-        gl.uniform2f(webglProgram.locations.resolution, canvasWidth, canvasHeight)
-      }
+    const handleContextLost = (event: Event) => {
+      event.preventDefault()
+      renderer = null
+      syncLoop()
     }
 
-    const handleVisibilityChange = () => {
-      // Pause animation when tab is hidden, resume when visible
-      useParticleStore.getState().setPaused(document.hidden)
+    const handleContextRestored = () => {
+      renderer = createParticleRenderer(gl)
+      applyViewportSize(true)
+      syncLoop()
     }
+
+    applyViewportSize(true)
+
+    const unsubscribeStore = useParticleStore.subscribe(syncLoop)
+    const unsubscribeScroll = subscribeScrollProgress((progress) => {
+      scrollProgress = progress
+    })
 
     window.addEventListener('mousemove', handleMouseMove)
     window.addEventListener('mouseout', handleMouseOut)
-    webglCanvas.addEventListener('click', handleClick)
-    window.addEventListener('resize', handleResize)
-    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('resize', scheduleViewportSize)
+    canvas.addEventListener('click', handleClick)
+    canvas.addEventListener('webglcontextlost', handleContextLost)
+    canvas.addEventListener('webglcontextrestored', handleContextRestored)
+    document.addEventListener('visibilitychange', syncLoop)
+
+    // The animation may have been started before this effect subscribed
+    syncLoop()
 
     return () => {
-      unsubscribe()
+      unsubscribeStore()
+      unsubscribeScroll()
       window.removeEventListener('mousemove', handleMouseMove)
       window.removeEventListener('mouseout', handleMouseOut)
-      webglCanvas.removeEventListener('click', handleClick)
-      window.removeEventListener('resize', handleResize)
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current)
-      }
+      window.removeEventListener('resize', scheduleViewportSize)
+      canvas.removeEventListener('click', handleClick)
+      canvas.removeEventListener('webglcontextlost', handleContextLost)
+      canvas.removeEventListener('webglcontextrestored', handleContextRestored)
+      document.removeEventListener('visibilitychange', syncLoop)
+      if (frameId) cancelAnimationFrame(frameId)
+      if (resizeFrameId) cancelAnimationFrame(resizeFrameId)
+      renderer?.dispose()
+      renderer = null
     }
   }, [])
 
   return (
-    <>
-      <canvas ref={canvasRef} className="fixed top-0 left-0 w-full h-full hidden pointer-events-none" />
-      <canvas ref={webglCanvasRef} className="fixed top-0 left-0 w-full h-full" />
-    </>
+    <canvas ref={canvasRef} className="fixed top-0 left-0 w-full h-full" />
   )
 }
 
 export default ParticleCanvas
-

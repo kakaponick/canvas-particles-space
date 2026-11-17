@@ -16,9 +16,6 @@ interface ParticleState {
   eventHorizon: number
   mouseRadius: number
   pulseIntensity: number
-  scrollSpeed: number
-  mouseX: number
-  mouseY: number
   blackHoleFollowing: boolean
   colorPalette: ParticleColor[]
   backgroundR: number
@@ -39,6 +36,8 @@ interface ParticleState {
   lensingRotation: number
   lensingFalloff: number
   lensingAbsorption: number
+  frameRateCap: number
+  measuredFps: number
   
   setNumParticles: (num: number) => void
   setBaseSpeed: (speed: number) => void
@@ -47,8 +46,6 @@ interface ParticleState {
   setEventHorizon: (horizon: number) => void
   setMouseRadius: (radius: number) => void
   setPulseIntensity: (intensity: number) => void
-  setScrollSpeed: (speed: number) => void
-  setMousePosition: (x: number, y: number) => void
   toggleBlackHoleFollowing: () => void
   addColor: (color: ParticleColor) => void
   removeColor: (index: number) => void
@@ -66,10 +63,11 @@ interface ParticleState {
   setTrailIntensity: (intensity: number) => void
   setSpeedVariance: (variance: number) => void
   togglePause: () => void
-  setPaused: (paused: boolean) => void
   setLensingRotation: (rotation: number) => void
   setLensingFalloff: (falloff: number) => void
   setLensingAbsorption: (absorption: number) => void
+  setFrameRateCap: (fps: number) => void
+  setMeasuredFps: (fps: number) => void
 }
 
 export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
@@ -80,9 +78,6 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   eventHorizon: 10,
   mouseRadius: 10,
   pulseIntensity: 1,
-  scrollSpeed: 0,
-  mouseX: NaN,
-  mouseY: NaN,
   blackHoleFollowing: true,
   backgroundR: 0,
   backgroundG: 0,
@@ -102,6 +97,8 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   lensingRotation: 0.0,
   lensingFalloff: 2.0,
   lensingAbsorption: 0.25,
+  frameRateCap: 0,
+  measuredFps: 0,
   colorPalette: [
     { r: 255, g: 0, b: 0, enabled: true, percent: 20 },
     { r: 0, g: 255, b: 255, enabled: true, percent: 20 },
@@ -117,8 +114,6 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   setEventHorizon: (horizon) => set({ eventHorizon: horizon }),
   setMouseRadius: (radius) => set({ mouseRadius: radius }),
   setPulseIntensity: (intensity) => set({ pulseIntensity: intensity }),
-  setScrollSpeed: (speed) => set({ scrollSpeed: speed }),
-  setMousePosition: (x, y) => set({ mouseX: x, mouseY: y }),
   toggleBlackHoleFollowing: () => set((state) => ({ blackHoleFollowing: !state.blackHoleFollowing })),
   setLensingMass: (mass) => set({ lensingMass: mass }),
   toggleLensing: () => set((state) => ({ lensingEnabled: !state.lensingEnabled })),
@@ -131,10 +126,11 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   setTrailIntensity: (intensity) => set({ trailIntensity: intensity }),
   setSpeedVariance: (variance) => set({ speedVariance: variance }),
   togglePause: () => set((state) => ({ isPaused: !state.isPaused })),
-  setPaused: (paused) => set({ isPaused: paused }),
   setLensingRotation: (rotation) => set({ lensingRotation: rotation }),
   setLensingFalloff: (falloff) => set({ lensingFalloff: falloff }),
   setLensingAbsorption: (absorption) => set({ lensingAbsorption: absorption }),
+  setFrameRateCap: (fps) => set({ frameRateCap: fps }),
+  setMeasuredFps: (fps) => set({ measuredFps: fps }),
   
   addColor: (color) => set((state) => ({
     colorPalette: [...state.colorPalette, color]

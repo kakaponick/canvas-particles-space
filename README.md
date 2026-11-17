@@ -18,7 +18,7 @@ A stunning React SPA featuring an interactive particle animation with black hole
 - **Vite** - Build tool and dev server
 - **Tailwind CSS** - Styling
 - **Zustand** - State management
-- **Canvas API** - High-performance particle rendering
+- **WebGL** - Instanced particle rendering with a gravitational lensing pass (WebGL2, or WebGL1 with `ANGLE_instanced_arrays`)
 
 ## Getting Started
 
@@ -52,7 +52,8 @@ pnpm preview
 
 ### Parameters
 
-- **Particles**: Number of particles (1000-10000)
+- **Particles**: Number of particles (1000-20000)
+- **Frame Rate**: AUTO follows the display refresh rate; 30-144 caps it. Motion speed does not depend on the frame rate
 - **Pulse Intensity**: Star twinkling effect (0-1)
 - **Base Speed**: Initial particle velocity
 - **Mouse Radius**: Black hole influence area
@@ -65,12 +66,16 @@ pnpm preview
 ```
 src/
 ├── components/
-│   ├── particle_canvas.tsx    # Main particle rendering
+│   ├── particle_canvas.tsx    # Animation loop, input and resize handling
 │   ├── control_panel.tsx      # Settings UI
 │   ├── color_palette.tsx      # Color management
 │   ├── start_overlay.tsx      # Initial screen
 │   ├── blackhole_indicator.tsx
 │   └── scroll_indicator.tsx
+├── lib/
+│   ├── particle_simulation.ts # Particle state and per-frame physics
+│   ├── particle_renderer.ts   # WebGL passes: trail fade, particles, lensing composite
+│   └── webgl_shaders.ts       # GLSL sources and program helpers
 ├── store/
 │   └── particle_store.ts      # Zustand state management
 ├── app.tsx                    # Main app component

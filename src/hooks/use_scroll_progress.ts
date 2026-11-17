@@ -1,28 +1,25 @@
 import { useEffect, useState } from 'react'
 
-interface UseScrollProgressOptions {
-  onScroll?: (progress: number) => void
+function readScrollProgress () {
+  const maxScroll = document.body.scrollHeight - window.innerHeight
+  return maxScroll > 0 ? window.scrollY / maxScroll : 0
 }
 
-export function useScrollProgress (options?: UseScrollProgressOptions) {
+/**
+ * Calls `listener` with the page scroll progress (0..1) now and on every scroll.
+ * Returns the unsubscribe function. Use it directly where no re-render is needed.
+ */
+export function subscribeScrollProgress (listener: (progress: number) => void) {
+  const handleScroll = () => listener(readScrollProgress())
+  window.addEventListener('scroll', handleScroll, { passive: true })
+  handleScroll()
+  return () => window.removeEventListener('scroll', handleScroll)
+}
+
+export function useScrollProgress () {
   const [scrollProgress, setScrollProgress] = useState(0)
 
-  useEffect(() => {
-    const handleScroll = () => {
-      const scrollY = window.scrollY
-      const maxScroll = document.body.scrollHeight - window.innerHeight
-      const progress = maxScroll > 0 ? scrollY / maxScroll : 0
-      
-      setScrollProgress(progress)
-      options?.onScroll?.(progress)
-    }
-
-    window.addEventListener('scroll', handleScroll)
-    handleScroll() // Initialize on mount
-    
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [options])
+  useEffect(() => subscribeScrollProgress(setScrollProgress), [])
 
   return scrollProgress
 }
-

@@ -17,6 +17,8 @@ import { Button } from '@/components/ui/button'
 import { hexToRgb, rgbToHex } from '../lib/utils'
 import { Play, Pause, Settings, Maximize, Minimize } from 'lucide-react'
 import HelpTooltip from './controls/help_tooltip'
+import ToggleButton from './controls/toggle_button'
+import FrameRateControl from './controls/frame_rate_control'
 
 function ControlPanel() {
   const [isOpen, setIsOpen] = useState(false)
@@ -151,14 +153,10 @@ function ControlPanel() {
                   content="Manually control animation playback. Animation automatically pauses when the browser tab becomes inactive to save resources and resumes when you return to the tab."
                 />
               </div>
-              <Button
-                variant="outline"
-                size="sm"
+              <ToggleButton
+                active={!isPaused}
                 onClick={togglePause}
-                className={`${isPaused
-                    ? 'bg-transparent border-text-light/30 text-text-light/50'
-                    : 'bg-neon-cyan/20 border-neon-cyan text-neon-cyan'
-                  } hover:bg-neon-cyan/30 flex items-center gap-2`}
+                className="flex items-center gap-2"
               >
                 {isPaused ? (
                   <>
@@ -171,8 +169,10 @@ function ControlPanel() {
                     PAUSE
                   </>
                 )}
-              </Button>
+              </ToggleButton>
             </div>
+
+            <FrameRateControl />
 
             <SliderControl
               id="particles"
@@ -373,17 +373,9 @@ function ControlPanel() {
 <div className="flex items-center justify-between mb-3">
               <h3 className="font-orbitron text-neon-cyan text-base">Gravitational Lensing WebGL</h3>
               
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={toggleLensing}
-                className={`${lensingEnabled
-                    ? 'bg-neon-cyan/20 border-neon-cyan text-neon-cyan'
-                    : 'bg-transparent border-text-light/30 text-text-light/50'
-                  } hover:bg-neon-cyan/30`}
-              >
+              <ToggleButton active={lensingEnabled} onClick={toggleLensing}>
                 {lensingEnabled ? 'ON' : 'OFF'}
-              </Button>
+              </ToggleButton>
             </div>
 
             <SliderControl
