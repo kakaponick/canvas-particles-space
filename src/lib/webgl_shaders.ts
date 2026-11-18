@@ -156,6 +156,7 @@ export const compositeFragmentShaderSource = `
   uniform float u_falloffPivot;  // distance at which falloff leaves the pull unchanged
   uniform float u_lensCore;      // closest a bent ray gets to the point behind the hole, in Einstein radii
   uniform float u_maxBend;       // cap on the pull; 1 leaves no nested rings inside the Einstein ring
+  uniform float u_twistLimit;    // cap on the pull the twist follows, so a wide lens does not wind up the scene
   uniform float u_absorption;    // light the lens's pull removes around the shadow
   uniform float u_ring;          // photon ring brightness
   uniform float u_ringWidth;     // thickness of the line, in black hole radii
@@ -306,7 +307,9 @@ export const compositeFragmentShaderSource = `
         float sourceRadius = length(lensed);
         float lensCore = u_lensCore * u_einstein;
         lensed *= sqrt(sourceRadius * sourceRadius + lensCore * lensCore) / max(sourceRadius, 0.0001);
-        float twist = u_swirl * bend;
+        // The pull at the shadow's edge grows with the square of the lens radius. The twist follows it
+        // only up to a limit, so a wider lens is a bigger bubble, not a tighter spiral
+        float twist = u_swirl * min(bend, u_twistLimit);
         float c = cos(twist);
         float s = sin(twist);
         samplePx = u_hole + vec2(c * lensed.x - s * lensed.y, s * lensed.x + c * lensed.y);

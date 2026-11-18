@@ -79,6 +79,8 @@ export interface ParticleState {
   lensingCore: number
   // Cap on the lens's pull; 1 leaves no nested rings inside the Einstein ring
   lensingMaxBend: number
+  // Cap on the pull that Angular Deflection follows; the pull is 1 at the Einstein ring and grows inward
+  lensingTwistLimit: number
   lensingAbsorption: number
   frameRateCap: number
   measuredFps: number
@@ -137,6 +139,7 @@ export interface ParticleState {
   setLensingPivot: (value: number) => void
   setLensingCore: (value: number) => void
   setLensingMaxBend: (value: number) => void
+  setLensingTwistLimit: (value: number) => void
   setLensingAbsorption: (absorption: number) => void
   setFrameRateCap: (fps: number) => void
   setMeasuredFps: (fps: number) => void
@@ -197,6 +200,7 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   lensingPivot: 100,
   lensingCore: 0.3,
   lensingMaxBend: 64,
+  lensingTwistLimit: 3,
   lensingAbsorption: 0.25,
   frameRateCap: 0,
   measuredFps: 0,
@@ -257,6 +261,7 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   setLensingPivot: (value) => set({ lensingPivot: value }),
   setLensingCore: (value) => set({ lensingCore: value }),
   setLensingMaxBend: (value) => set({ lensingMaxBend: value }),
+  setLensingTwistLimit: (value) => set({ lensingTwistLimit: value }),
   setLensingAbsorption: (absorption) => set({ lensingAbsorption: absorption }),
   setFrameRateCap: (fps) => set({ frameRateCap: fps }),
   setMeasuredFps: (fps) => set({ measuredFps: fps }),

@@ -522,6 +522,18 @@ function SettingsSections () {
           description="Controls the rotational/swirling distortion around the black hole. 0 = no rotation, higher values create spiral vortex effects like light orbiting the event horizon, negative values twist the other way."
         />
         <SettingSlider
+          id="lensing-twist-limit"
+          label="Twist Limit"
+          field="lensingTwistLimit"
+          min={0}
+          max={64}
+          step={0.5}
+          formatValue={(val) => val.toFixed(1)}
+          setter="setLensingTwistLimit"
+          variant="inline"
+          description="How far Angular Deflection winds up toward the black hole. The twist equals Angular Deflection at the Einstein ring and grows inward up to this many times. Low values keep a larger Lensing Radius a bigger bubble with the same gentle twist; high values wind the inside of a wide lens into a tight spiral. 0 removes the twist."
+        />
+        <SettingSlider
           id="lensing-falloff"
           label="Lensing Falloff"
           field="lensingFalloff"
