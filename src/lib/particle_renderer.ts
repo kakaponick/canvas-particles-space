@@ -206,7 +206,8 @@ function getUniforms<T extends string> (gl: WebGLRenderingContext, program: WebG
 /**
  * Draws the particle field with WebGL:
  * 1. fades the persistent scene texture toward the background (the motion trail),
- * 2. draws every particle segment as one instanced, anti-aliased round-capped quad,
+ * 2. stamps every particle segment as one instanced, anti-aliased round-capped quad, keeping the
+ *    brighter of the particle and the scene,
  * 3. composites the scene to the screen through the black hole shader, which also lays the
  *    intro title behind the lens so it bends like starlight.
  * Returns null when the context lacks instancing or a program fails to build.
@@ -219,6 +220,8 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
   }
   const instancing: Instancing = supportedInstancing
   const gl2 = isWebGL2(gl) ? gl : null
+  // Particles are stamped with the brighter-of-two blend; WebGL1 has it as an extension
+  const maxEquation = gl2 ? gl2.MAX : gl.getExtension('EXT_blend_minmax')?.MAX_EXT ?? null
 
   const position = { a_position: ATTRIBUTE_LOCATIONS.position }
   const fadeProgram = createProgram(gl, fadeVertexShaderSource, fadeFragmentShaderSource, position)
@@ -363,7 +366,13 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     setUniform1f(gl, particleUniforms.speedGlow, speedGlow)
     setUniform1f(gl, particleUniforms.frameScale, frameScale)
     for (const location of INSTANCED_ATTRIBUTES) gl.enableVertexAttribArray(location)
+    // The scene keeps the brighter of a particle and what is already there, so stamps do not add up.
+    // Without that blend the premultiplied stamps are laid over the scene instead
+    if (maxEquation !== null) gl.blendEquationSeparate(maxEquation, gl.FUNC_ADD)
+    else gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
     instancing.draw(QUAD_VERTEX_COUNT, count)
+    if (maxEquation !== null) gl.blendEquation(gl.FUNC_ADD)
+    else gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
     for (const location of INSTANCED_ATTRIBUTES) gl.disableVertexAttribArray(location)
   }
 
