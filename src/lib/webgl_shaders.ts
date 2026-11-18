@@ -220,7 +220,6 @@ export const compositeFragmentShaderSource = `
   uniform float u_titleScale;    // slow push-in of the camera over the title's life
   uniform float u_titleFringe;   // colour fringing at the title's edges, pixels
   uniform float u_titleHalo;     // strength of the glow around the letters
-  uniform vec2 u_titleHaloRadius; // reach of that glow across and down, pixels
   uniform float u_titleRedshift; // how far falling dust reddens
 
   const float PI = 3.14159265359;
@@ -230,6 +229,8 @@ export const compositeFragmentShaderSource = `
   const vec3 FLASH_COLOR = vec3(1.0, 0.97, 0.92);
   const vec3 TITLE_COLOR = vec3(1.0, 0.9, 0.78);
   const vec3 EMBER_COLOR = vec3(1.0, 0.36, 0.12);
+  // A blur spreads the letters' light thin; this brings the glow back to a visible level
+  const float TITLE_HALO_GAIN = 1.5;
   const vec3 BLAST_COLOR = vec3(0.86, 0.92, 1.0);
   const vec3 DUST_COLOR = vec3(1.0, 0.84, 0.66);
   // Seconds a background star stays flared after the light front passes it
@@ -284,7 +285,14 @@ export const compositeFragmentShaderSource = `
   // The title mask at a point of the title's own box, -1..1 on both axes; empty outside it
   float titleMask (vec2 local) {
     if (abs(local.x) > 1.0 || abs(local.y) > 1.0) return 0.0;
-    return texture2D(u_title, local * 0.5 + 0.5).a;
+    return texture2D(u_title, local * 0.5 + 0.5).r;
+  }
+
+  // The glow around the letters, blurred into the sprite when it was drawn; fades out at the box's
+  // edge so a wide glow is never cut off
+  float titleGlow (vec2 local) {
+    vec2 edge = smoothstep(vec2(1.0), vec2(0.85), abs(local));
+    return texture2D(u_title, clamp(local, -1.0, 1.0) * 0.5 + 0.5).g * edge.x * edge.y;
   }
 
   // Leaves everything below 0.8 untouched and rolls highlights off smoothly instead of clipping
@@ -393,8 +401,7 @@ export const compositeFragmentShaderSource = `
         infall = min(fall, 1.0);
       }
       vec2 local = (titlePx - u_titleCenter) / (u_titleHalfSize * u_titleScale);
-      vec2 haloStep = u_titleHalo > 0.0 ? u_titleHaloRadius / u_titleHalfSize : vec2(0.0);
-      if (abs(local.x) <= 1.0 + 3.6 * haloStep.x && abs(local.y) <= 1.0 + haloStep.y) {
+      if (abs(local.x) <= 1.0 && abs(local.y) <= 1.0) {
         // A lens splits colours towards the edge of the frame: red is read a little closer to the
         // title's centre and blue a little further out
         float fringe = u_titleFringe / max(u_titleHalfSize.x, 1.0);
@@ -402,14 +409,7 @@ export const compositeFragmentShaderSource = `
         float grain = 0.55 * valueNoise(cssPx / 2.4) + 0.45 * hash12(grainCell + 7.0);
         vec3 density = mask * keep * mix(1.0, smoothstep(0.15, 0.8, grain), u_titleDust);
         // Glow around the letters, drawn out sideways like the flare of an anamorphic lens
-        float halo = 0.0;
-        if (u_titleHalo > 0.0) {
-          halo = 0.2 * (titleMask(local + vec2(haloStep.x, 0.0)) + titleMask(local - vec2(haloStep.x, 0.0)))
-            + 0.13 * (titleMask(local + vec2(2.2 * haloStep.x, 0.0)) + titleMask(local - vec2(2.2 * haloStep.x, 0.0)))
-            + 0.07 * (titleMask(local + vec2(3.6 * haloStep.x, 0.0)) + titleMask(local - vec2(3.6 * haloStep.x, 0.0)))
-            + 0.1 * (titleMask(local + vec2(0.0, haloStep.y)) + titleMask(local - vec2(0.0, haloStep.y)));
-          halo *= u_titleHalo * (1.0 - u_titleDissolve);
-        }
+        float halo = u_titleHalo > 0.0 ? TITLE_HALO_GAIN * titleGlow(local) * u_titleHalo * (1.0 - u_titleDissolve) : 0.0;
         // The front arrives over its own width rather than as a hard edge
         float arrived = smoothstep(-u_lightWidth, u_lightWidth, u_lightRadius - sourceDist);
         float shown = mix(1.0, arrived, u_titleReveal);

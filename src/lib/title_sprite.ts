@@ -1,5 +1,6 @@
-// The intro title as a white alpha mask. The composite shader turns the mask into dust that the
-// explosion's light front lights up, so the sprite carries only the shape of the words.
+// The intro title as two masks in one opaque bitmap: the letters in the red channel and their glow,
+// the same letters blurred, in the green one. The composite shader turns the letters into dust that
+// the explosion's light front lights up, so the sprite carries only shapes.
 
 export const TITLE_FONTS = {
   unbounded: { family: 'Unbounded', label: 'UNBOUNDED' },
@@ -20,6 +21,10 @@ export interface TitleStyle {
   tracking: number
   // Width of the widest line as a share of the viewport width
   size: number
+  // How far the glow reaches from the letters, CSS pixels; 0 draws none
+  haloRadius: number
+  // How much wider than tall the glow is
+  haloStreak: number
 }
 
 export interface TitleSprite {
@@ -31,6 +36,9 @@ export interface TitleSprite {
 
 const LINE_HEIGHT_EM = 1.3
 const MAX_LINE_WIDTH = 1400
+// Every WebGL device takes a texture this large; a wide glow lowers the bitmap's resolution instead
+// of growing past it
+const MAX_BITMAP_SIZE = 4096
 
 function fontString (style: TitleStyle, size: number) {
   return `${Math.round(style.weight)} ${size}px "${TITLE_FONTS[style.font].family}", sans-serif`
@@ -71,20 +79,52 @@ export function renderTitleSprite (style: TitleStyle, viewportWidth: number, pix
   const fontSize = probeSize * targetWidth / Math.max(widest, 1)
 
   const lineHeight = fontSize * LINE_HEIGHT_EM
-  const width = Math.ceil(targetWidth + fontSize)
-  const height = Math.ceil(lineHeight * lines.length + fontSize * 0.4)
-  canvas.width = Math.ceil(width * pixelRatio)
-  canvas.height = Math.ceil(height * pixelRatio)
+  const haloRadius = Math.max(style.haloRadius, 0)
+  const haloStreak = Math.max(style.haloStreak, 1)
+  // The box leaves room for the glow on every side
+  const width = Math.ceil(targetWidth + fontSize + 2 * haloRadius * haloStreak)
+  const height = Math.ceil(lineHeight * lines.length + fontSize * 0.4 + 2 * haloRadius)
+  const scale = Math.min(pixelRatio, MAX_BITMAP_SIZE / width, MAX_BITMAP_SIZE / height)
+  canvas.width = Math.ceil(width * scale)
+  canvas.height = Math.ceil(height * scale)
 
-  ctx.scale(pixelRatio, pixelRatio)
-  setFont(ctx, style, fontSize)
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.fillStyle = '#fff'
   // Trailing tracking after the last glyph would push each line left of centre
   const x = width / 2 + fontSize * style.tracking / 2
   const top = height / 2 - lineHeight * (lines.length - 1) / 2
-  lines.forEach((line, index) => ctx.fillText(line, x, top + index * lineHeight))
+  const drawLines = (target: CanvasRenderingContext2D, color: string) => {
+    setFont(target, style, fontSize)
+    target.textAlign = 'center'
+    target.textBaseline = 'middle'
+    target.fillStyle = color
+    lines.forEach((line, index) => target.fillText(line, x, top + index * lineHeight))
+  }
+
+  ctx.fillStyle = '#000'
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+  ctx.setTransform(scale, 0, 0, scale, 0, 0)
+  drawLines(ctx, '#f00')
+
+  if (haloRadius > 0) {
+    // The glow is the letters' shadow, the one blur every engine draws. The letters themselves are
+    // drawn off the bitmap so only the shadow lands on it. Drawing them squeezed sideways and
+    // stretching the result back makes the blur as many times wider than tall
+    const blurred = document.createElement('canvas')
+    blurred.width = Math.max(Math.ceil(canvas.width / haloStreak), 1)
+    blurred.height = canvas.height
+    const blurCtx = blurred.getContext('2d')
+    if (blurCtx) {
+      const away = blurred.width + Math.ceil(haloRadius * scale * 2) + 16
+      blurCtx.setTransform(scale * blurred.width / canvas.width, 0, 0, scale, -away, 0)
+      blurCtx.shadowColor = '#0f0'
+      blurCtx.shadowOffsetX = away
+      // A shadow's blur is twice its spread, and the glow fades out at about twice its spread
+      blurCtx.shadowBlur = haloRadius * scale
+      drawLines(blurCtx, '#0f0')
+      ctx.setTransform(1, 0, 0, 1, 0, 0)
+      ctx.globalCompositeOperation = 'lighter'
+      ctx.drawImage(blurred, 0, 0, canvas.width, canvas.height)
+    }
+  }
 
   return { canvas, width, height }
 }

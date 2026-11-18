@@ -117,9 +117,6 @@ export interface TitleSettings {
   // CSS pixels
   fringe: number
   halo: number
-  // CSS pixels across and down
-  haloRadiusX: number
-  haloRadiusY: number
   redshift: number
 }
 
@@ -270,7 +267,7 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     'starCell', 'starDensity', 'starFlare', 'dustScale', 'dustThreshold', 'lightDustContrast',
     'titleCenter', 'titleHalfSize', 'titleAlpha', 'titleReveal', 'titleDissolve', 'titleDrift', 'titleGlow',
     'titleFlash', 'titleCooling', 'titleDust', 'titlePull', 'titleSwirl', 'titleReach', 'titleCapture', 'titleScale',
-    'titleFringe', 'titleHalo', 'titleHaloRadius', 'titleRedshift'
+    'titleFringe', 'titleHalo', 'titleRedshift'
   ] as const)
 
   gl.useProgram(compositeProgram)
@@ -416,7 +413,6 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
       setUniform1f(gl, u.titleScale, Math.max(title.scale, 0.01))
       setUniform1f(gl, u.titleFringe, title.fringe * ratio)
       setUniform1f(gl, u.titleHalo, title.halo)
-      setUniform2f(gl, u.titleHaloRadius, title.haloRadiusX * ratio, title.haloRadiusY * ratio)
       setUniform1f(gl, u.titleRedshift, title.redshift)
     }
     setUniform1f(gl, u.time, settings.time)

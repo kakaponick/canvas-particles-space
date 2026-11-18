@@ -176,7 +176,7 @@ function ParticleCanvas () {
       ringFed: true,
       title: {
         alpha: 0, x: 0, y: 0, reveal: 1, dissolve: 0, drift: 0, glow: 0, flash: 0, cooling: 1, dust: 0,
-        pull: 0, swirl: 0, reach: 0, capture: 0, scale: 1, fringe: 0, halo: 0, haloRadiusX: 1, haloRadiusY: 1, redshift: 0
+        pull: 0, swirl: 0, reach: 0, capture: 0, scale: 1, fringe: 0, halo: 0, redshift: 0
       },
       composite: {
         time: 0,
@@ -279,7 +279,15 @@ function ParticleCanvas () {
 
     function readTitleStyle (): TitleStyle {
       const { title, params } = useIntroDebugStore.getState()
-      return { ...title, weight: params.titleWeight, tracking: params.titleTracking, size: params.titleSize }
+      return {
+        ...title,
+        weight: params.titleWeight,
+        tracking: params.titleTracking,
+        size: params.titleSize,
+        // No glow, no blur to draw
+        haloRadius: params.titleHalo > 0 ? params.titleHaloRadius : 0,
+        haloStreak: params.titleStreak
+      }
     }
 
     // Rebuilds the title mask when its text, face, layout or the viewport changes, once the face
@@ -540,8 +548,6 @@ function ParticleCanvas () {
       title.scale = 1 + params.titlePush * intro.titleAge
       title.fringe = params.titleFringe
       title.halo = params.titleHalo
-      title.haloRadiusX = params.titleHaloRadius * params.titleStreak
-      title.haloRadiusY = params.titleHaloRadius
       title.redshift = params.titleRedshift
 
       const composite = frame.composite
