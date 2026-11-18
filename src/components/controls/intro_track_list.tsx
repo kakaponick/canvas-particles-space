@@ -319,26 +319,44 @@ function ChangedSummary ({ params, titleChanges, hiddenCount }: { params: IntroP
   }
 
   return (
-    <div className="flex min-w-0 items-center gap-3 border-r border-neon-cyan/10 px-2">
-      <span className={cn('mr-auto truncate tabular-nums', none ? 'text-text-light/60' : 'text-neon-cyan')}>
+    <div className="flex min-w-0 items-center border-r border-neon-cyan/10 pl-2 pr-1">
+      <span className={cn('mr-auto min-w-0 truncate tabular-nums', none ? 'text-text-light/60' : 'text-neon-cyan')}>
         {none ? 'All defaults' : `${count} changed`}
       </span>
       {hiddenCount > 0 && (
-        <button type="button" onClick={showAllLayers} title="Show every hidden layer" className={cn(headerAction, 'text-neon-cyan')}>
-          <EyeOff className="h-3 w-3" />
-          {hiddenCount} hidden
+        <button
+          type="button"
+          onClick={showAllLayers}
+          aria-label={`Show the ${hiddenCount} hidden ${hiddenCount === 1 ? 'layer' : 'layers'}`}
+          title={`${hiddenCount} hidden · click to show every layer`}
+          className={cn(headerAction, 'h-6 shrink-0 px-1 tabular-nums text-neon-cyan')}
+        >
+          <EyeOff className="h-3.5 w-3.5" />
+          {hiddenCount}
         </button>
       )}
-      <button type="button" disabled={none} onClick={copyChanged} title="Copy the changed values as JSON" className={headerAction}>
-        {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-        {copied ? 'copied' : 'copy'}
+      <button
+        type="button"
+        disabled={none}
+        onClick={copyChanged}
+        aria-label="Copy the changed values as JSON"
+        title={copied ? 'Copied' : 'Copy the changed values as JSON'}
+        className={cn(headerAction, 'h-6 w-6 shrink-0 justify-center', copied && 'text-neon-cyan')}
+      >
+        {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
       </button>
-      <button type="button" disabled={none} onClick={() => {
-        resetParams()
-        resetTitle()
-      }} title="Reset every parameter and the title" className={headerAction}>
-        <RotateCcw className="h-3 w-3" />
-        reset
+      <button
+        type="button"
+        disabled={none}
+        onClick={() => {
+          resetParams()
+          resetTitle()
+        }}
+        aria-label="Reset every parameter and the title"
+        title="Reset every parameter and the title"
+        className={cn(headerAction, 'h-6 w-6 shrink-0 justify-center')}
+      >
+        <RotateCcw className="h-3.5 w-3.5" />
       </button>
     </div>
   )
