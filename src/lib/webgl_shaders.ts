@@ -82,8 +82,9 @@ export const particleVertexShaderSource = `
     float halfWidth = drawWidth * 0.5;
     float extent = halfWidth + 1.0;
 
-    // The quad covers a round-capped stroke; the fragment shader lights the part of it that is new
-    float along = mix(-extent, len + extent, a_position.x * 0.5 + 0.5);
+    // The quad covers the round cap ahead of the stroke; the fragment shader lights the part of it that
+    // is new. Nothing is new behind the start of the stroke, so the quad begins there
+    float along = mix(0.0, len + extent, a_position.x * 0.5 + 0.5);
     float across = a_position.y * extent;
     vec2 pixel = start + direction * along + normal * across;
 

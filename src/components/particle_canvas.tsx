@@ -159,6 +159,7 @@ function ParticleCanvas () {
       speedGlow: 1,
       frameScale: 1,
       ringTexels: ringEnergy.texels,
+      ringFed: true,
       title: { alpha: 0, x: 0, y: 0, reveal: 1, dissolve: 0, drift: 0, glow: 0, flash: 0, cooling: 1, dust: 0 },
       composite: {
         time: 0,
@@ -431,6 +432,7 @@ function ParticleCanvas () {
       if (ringWasFed && !ringFed) clearRingEnergy(ringEnergy)
       ringWasFed = ringFed
       settings.ringEnergy = ringFed ? ringEnergy : null
+      frame.ringFed = ringFed
       settings.gravityReach = horizon * state.gravityReach
       settings.holeDepth = state.farZ * state.blackHoleDepth / 100
       settings.gravityDepth = state.farZ * state.gravityDepth / 100

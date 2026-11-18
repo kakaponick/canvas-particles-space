@@ -299,6 +299,7 @@ export function stepParticles (
   const orbitScale = orbitalStrength * 0.02
   const invFocal = 1 / focal
   const revealing = revealRadius < Infinity
+  const pulsing = pulseIntensity !== 0
   const revealRadiusSq = revealRadius * revealRadius
   const invRevealFeather = 1 / Math.max(revealFeather, 1)
   const clipMargin = Math.max(MIN_CLIP_MARGIN, nearLineWidth * 0.5 + 2)
@@ -375,8 +376,10 @@ export function stepParticles (
     const depthWidth = (1 - distanceFactor) * nearLineWidth
     const lineWidth = depthWidth > MIN_LINE_WIDTH ? depthWidth : MIN_LINE_WIDTH
 
-    const pulse = Math.sin(time * pulseSpeed[i] * pulseRate + pulsePhase[i])
-    const pulseFactor = 1 + pulse * pulseIntensity * distanceFactor
+    // The sine is the costliest step of a particle that only flies, so it is skipped when it changes nothing
+    const pulseFactor = pulsing
+      ? 1 + Math.sin(time * pulseSpeed[i] * pulseRate + pulsePhase[i]) * pulseIntensity * distanceFactor
+      : 1
 
     let opacity = depthFactor * alpha[i] * pulseFactor * baseBrightness
     if (opacity > maxOpacity) opacity = maxOpacity

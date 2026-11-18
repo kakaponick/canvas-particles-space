@@ -119,6 +119,8 @@ export interface FrameInput {
   frameScale: number
   // Photon ring energy around the circle, RING_BINS values
   ringTexels: Uint8Array
+  // False while nothing feeds the ring: its energy is not read then, so it is not uploaded
+  ringFed: boolean
   title: TitleSettings
   composite: CompositeSettings
 }
@@ -216,6 +218,7 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     return null
   }
   const instancing: Instancing = supportedInstancing
+  const gl2 = isWebGL2(gl) ? gl : null
 
   const position = { a_position: ATTRIBUTE_LOCATIONS.position }
   const fadeProgram = createProgram(gl, fadeVertexShaderSource, fadeFragmentShaderSource, position)
@@ -351,7 +354,9 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
       instanceCapacity = Math.ceil(count * 1.5)
       gl.bufferData(gl.ARRAY_BUFFER, instanceCapacity * INSTANCE_STRIDE, gl.DYNAMIC_DRAW)
     }
-    gl.bufferSubData(gl.ARRAY_BUFFER, 0, instances.subarray(0, count * INSTANCE_FLOATS))
+    // WebGL2 uploads a range of the array as it is; WebGL1 needs a view, a small object per frame
+    if (gl2) gl2.bufferSubData(gl2.ARRAY_BUFFER, 0, instances, 0, count * INSTANCE_FLOATS)
+    else gl.bufferSubData(gl.ARRAY_BUFFER, 0, instances.subarray(0, count * INSTANCE_FLOATS))
 
     gl.useProgram(particleProgram)
     setUniform1f(gl, particleUniforms.doppler, doppler)
@@ -441,9 +446,11 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
       drawParticles(frame.instances, frame.instanceCount, frame.doppler, frame.speedGlow, frame.frameScale)
       gl.bindFramebuffer(gl.FRAMEBUFFER, null)
 
-      gl.activeTexture(gl.TEXTURE0 + RING_TEXTURE_UNIT)
-      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, RING_BINS, 1, gl.LUMINANCE, gl.UNSIGNED_BYTE, frame.ringTexels)
-      gl.activeTexture(gl.TEXTURE0 + SCENE_TEXTURE_UNIT)
+      if (frame.ringFed) {
+        gl.activeTexture(gl.TEXTURE0 + RING_TEXTURE_UNIT)
+        gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, RING_BINS, 1, gl.LUMINANCE, gl.UNSIGNED_BYTE, frame.ringTexels)
+        gl.activeTexture(gl.TEXTURE0 + SCENE_TEXTURE_UNIT)
+      }
     }
     composite(frame.composite, frame.title)
   }
