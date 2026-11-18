@@ -88,7 +88,7 @@ export const INTRO_TRACKS: IntroTrack[] = [
     key: 'echo',
     label: 'Dust echo',
     layer: 'echo',
-    params: ['echoPower', 'echoPowerDecay', 'echoDecay', 'dustScale', 'dustThreshold', 'dustBlow', 'dustDrift', 'dustSweep', 'colorDust'],
+    params: ['echoPower', 'echoPowerDecay', 'echoDecay', 'echoFloor', 'dustShock', 'dustScale', 'dustThreshold', 'dustBlow', 'dustDrift', 'dustSweep', 'colorDust'],
     spans: (p, reduced) => full(reduced, [{ start: p.collapseAt, end: p.collapseAt + p.echoPowerDecay * FADED }])
   },
   {
@@ -175,7 +175,7 @@ export const INTRO_TRACKS: IntroTrack[] = [
       'titleOffset', 'titleSize', 'titleWeight', 'titleTracking', 'colorTitle', 'titleGlow', 'titleFlash', 'titleCooling',
       'titleDust', 'titlePush', 'titleHalo', 'titleHaloRadius', 'titleStreak', 'titleFringe',
       'titleEntrance', 'titleInAt', 'titleInDuration',
-      'titleExit', 'dissolveAt', 'dissolveDuration', 'titleGrain', 'titleDrift', 'titleTidal', 'titleSwirl', 'titleSpiral',
+      'titleExit', 'dissolveAt', 'dissolveDuration', 'titleGrain', 'titleFallEase', 'titleDrift', 'titleTidal', 'titleSwirl', 'titleSpiral',
       'titleSpread', 'titleStream', 'titleOrder', 'titleTrail', 'titleHeat', 'titleRedshift'
     ],
     readout: { key: 'titleAlpha', digits: 2 },

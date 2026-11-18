@@ -241,6 +241,8 @@ function ParticleCanvas () {
         dustThreshold: 0.5,
         lightDustContrast: 1,
         dustSweep: 1,
+        echoFloor: 0,
+        dustShock: 0,
         dustBlow: 0,
         dustDrift: 0,
         colorFlash: 0xffffff,
@@ -641,6 +643,8 @@ function ParticleCanvas () {
       composite.dustScale = params.dustScale
       composite.dustThreshold = params.dustThreshold
       composite.dustSweep = params.dustSweep
+      composite.echoFloor = params.echoFloor
+      composite.dustShock = hidden.echo ? 0 : intro.dustShock
       composite.dustBlow = params.dustBlow
       composite.dustDrift = reducedMotion ? 0 : params.dustDrift
       composite.waveRadius = intro.matterFront * explosionReach

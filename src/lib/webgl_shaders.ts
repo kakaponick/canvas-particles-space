@@ -203,6 +203,8 @@ export const compositeFragmentShaderSource = `
   uniform float u_dustThreshold;
   uniform float u_lightDustContrast;
   uniform float u_dustSweep;       // how completely the matter front clears the dust it passes
+  uniform float u_echoFloor;       // share of the dust's glow that stays until the matter clears it
+  uniform float u_dustShock;       // brightness of the dust where the matter front strikes it
   uniform float u_dustBlow;        // CSS pixels the blast pushes the dust outward
   uniform float u_dustDrift;       // CSS pixels per second the dust drifts on its own
 
@@ -515,28 +517,36 @@ export const compositeFragmentShaderSource = `
     // keeps glowing for a moment after it passes (the light echo)
     float shell = (sourceDist - u_lightRadius) / u_lightWidth;
     float front = u_lightPower > 0.0 ? exp(-shell * shell) : 0.0;
-    // The thickest cloud holds its light this many times longer than the afterglow setting
-    float longestHold = u_echoPower > 0.0 && lit >= 0.0 ? exp(-lit / (DUST_HOLD_MAX * u_echoDecay)) : 0.0;
-    if (front > 0.001 || longestHold > 0.001) {
+    // Light lights the dust and the ejected matter, which follows more slowly, sweeps it away. The
+    // dust does not fade out where it stands: part of its glow stays until the matter front reaches
+    // it, and that front, the same one the particles are born behind, lights the dust it strikes
+    float swept = mix(1.0, smoothstep(u_waveRadius - u_waveWidth, u_waveRadius + u_waveWidth, sourceDist), u_dustSweep);
+    float rim = (sourceDist - u_waveRadius) / u_waveWidth - 0.6;
+    float shock = u_dustShock > 0.0 ? u_dustShock * exp(-3.0 * rim * rim) : 0.0;
+    // The thickest cloud holds its light DUST_HOLD_MAX times longer than the afterglow setting
+    bool echoing = u_echoPower > 0.0 && lit >= 0.0 && swept > 0.001 &&
+      (u_echoFloor > 0.0 || exp(-lit / (DUST_HOLD_MAX * u_echoDecay)) > 0.001);
+    if (front > 0.001 || echoing || shock > 0.001) {
       // The dust is never still: it drifts slowly all the time, and the blast pushes it outward once
       // the front has passed, quickly at first and then easing off
       vec2 dustAt = dustPx + u_dustDrift * u_time * vec2(0.8, -0.6);
       if (lit > 0.0) dustAt -= sourceOffset / max(sourceDist, 0.0001) * u_dustBlow * (1.0 - exp(-lit / DUST_BLOW_SECONDS));
-      // Light lights the dust and the ejected matter, which follows more slowly, sweeps it away
-      float swept = mix(1.0, smoothstep(u_waveRadius - u_waveWidth, u_waveRadius + u_waveWidth, sourceDist), u_dustSweep);
-      float density = dust(dustAt) * swept;
+      float cloud = dust(dustAt);
+      float density = cloud * swept;
       emitted += u_colorLight * u_lightPower * front * (1.0 - u_lightDustContrast + u_lightDustContrast * density);
-      // The glow swells over a moment instead of switching on, and it does not go out all at once:
-      // thin haze lets its light go quickly while thick cloud holds it, so the dust goes dark patch
-      // by patch
+      // The glow swells over a moment instead of switching on, then settles: thin haze lets go of
+      // the flash quickly while thick cloud holds it, and what is left stays lit
+      float fresh = 0.0;
       float glow = 0.0;
       if (u_echoPower > 0.0 && lit >= 0.0) {
-        float hold = u_echoDecay * mix(DUST_HOLD_MIN, DUST_HOLD_MAX, density);
-        glow = (1.0 - exp(-lit / (0.15 * u_echoDecay + 0.02))) * exp(-lit / hold);
+        float swell = 1.0 - exp(-lit / (0.15 * u_echoDecay + 0.02));
+        fresh = swell * exp(-lit / (u_echoDecay * mix(DUST_HOLD_MIN, DUST_HOLD_MAX, density)));
+        glow = mix(fresh, swell, u_echoFloor);
       }
       // Dust the front has just struck still shines with the front's colour and cools to its own
-      vec3 echoColor = mix(u_colorDust, u_colorLight, glow * glow);
+      vec3 echoColor = mix(u_colorDust, u_colorLight, fresh * fresh);
       emitted += echoColor * u_echoPower * glow * density / (1.0 + sourceDist / (0.5 * u_resolution.x));
+      emitted += mix(u_colorDust, u_colorLight, 0.5) * shock * cloud;
     }
     if (u_remnantGlow > 0.0) {
       // White-hot, then the ember colour, then the same colour deep and dark

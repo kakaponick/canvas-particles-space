@@ -21,6 +21,8 @@ export interface IntroFrame {
   matterFront: number
   // Refraction at the matter front, 0..1
   waveStrength: number
+  // Brightness of the dust where the matter front strikes it
+  dustShock: number
   // Share of the field already revealed behind the matter front; 1 shows everything
   reveal: number
   backgroundStars: number
@@ -84,6 +86,7 @@ export function createIntroFrame (): IntroFrame {
     echoPower: 0,
     matterFront: 0,
     waveStrength: 0,
+    dustShock: 0,
     reveal: 0,
     backgroundStars: 0,
     remnantGlow: 0,
@@ -144,6 +147,8 @@ function sampleFullIntro (t: number, p: IntroParams, frame: IntroFrame) {
   frame.echoPower = exploded ? p.echoPower * Math.exp(-sinceCollapse / p.echoPowerDecay) : 0
   frame.matterFront = frame.lightFront * p.matterSpeed
   frame.waveStrength = exploded ? Math.max(1 - frame.matterFront, 0) : 0
+  // The matter front lights the dust it strikes, less and less as it spreads
+  frame.dustShock = p.dustShock * frame.waveStrength
   frame.reveal = exploded ? Math.min(frame.matterFront, 1) : 0
   frame.speedBoost = exploded ? 1 + p.burstPeak * Math.pow(Math.max(1 - frame.matterFront, 0), p.burstCurve) : 1
   frame.opacityScale = 1
@@ -201,7 +206,7 @@ function sampleFullIntro (t: number, p: IntroParams, frame: IntroFrame) {
     if (exit === 0) {
       // It hangs for a moment, then goes faster and faster
       frame.titleDissolve = leaving
-      frame.titleFall = leaving * leaving * leaving
+      frame.titleFall = Math.pow(leaving, p.titleFallEase)
       frame.titleGrain = p.titleGrain
       alpha *= 1 - smoothstep(progress(leaving, 0.6, 0.4))
     } else if (exit === 1) {
@@ -248,6 +253,7 @@ function sampleReducedIntro (t: number, frame: IntroFrame) {
   frame.echoPower = 0
   frame.matterFront = 1
   frame.waveStrength = 0
+  frame.dustShock = 0
   frame.reveal = 1
   frame.backgroundStars = easeOutCubic(progress(t, 0, 1.2))
   frame.remnantGlow = 0

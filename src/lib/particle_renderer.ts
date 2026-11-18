@@ -90,6 +90,8 @@ export interface CompositeSettings {
   dustThreshold: number
   lightDustContrast: number
   dustSweep: number
+  echoFloor: number
+  dustShock: number
   // CSS pixels, and CSS pixels per second
   dustBlow: number
   dustDrift: number
@@ -306,7 +308,7 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     'starCell', 'starDensity', 'starFlare', 'dustScale', 'dustThreshold', 'lightDustContrast',
     'titleCenter', 'titleHalfSize', 'titleAlpha', 'titleReveal', 'titleDissolve', 'titleDrift', 'titleGlow',
     'titleFlash', 'titleCooling', 'titleDust', 'titlePull', 'titleSwirl', 'titleReach', 'titleCapture', 'titleScale',
-    'titleFringe', 'titleHalo', 'titleRedshift', 'titleGrain', 'titleBurn', 'titleFall', 'titleTidal', 'titleSpiral', 'titleSpread', 'titleStream', 'titleOrder', 'titleTrail', 'titleHeat', 'dustSweep', 'dustBlow', 'dustDrift',
+    'titleFringe', 'titleHalo', 'titleRedshift', 'titleGrain', 'titleBurn', 'titleFall', 'titleTidal', 'titleSpiral', 'titleSpread', 'titleStream', 'titleOrder', 'titleTrail', 'titleHeat', 'dustSweep', 'echoFloor', 'dustShock', 'dustBlow', 'dustDrift',
     'colorFlash', 'colorLight', 'colorDust', 'colorTitle', 'colorEmber',
     'cameraZoom', 'shake', 'lensFringe', 'vignette', 'filmGrain', 'letterbox'
   ] as const)
@@ -526,6 +528,8 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     setUniform1f(gl, u.dustThreshold, Math.min(settings.dustThreshold, 0.99))
     setUniform1f(gl, u.lightDustContrast, settings.lightDustContrast)
     setUniform1f(gl, u.dustSweep, settings.dustSweep)
+    setUniform1f(gl, u.echoFloor, settings.echoFloor)
+    setUniform1f(gl, u.dustShock, settings.dustShock)
     setUniform1f(gl, u.dustBlow, settings.dustBlow)
     setUniform1f(gl, u.dustDrift, settings.dustDrift)
     gl.drawArrays(gl.TRIANGLES, 0, QUAD_VERTEX_COUNT)
