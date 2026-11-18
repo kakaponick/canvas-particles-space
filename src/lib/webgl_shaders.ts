@@ -185,7 +185,6 @@ export const compositeFragmentShaderSource = `
   uniform float u_dustThreshold;
   uniform float u_lightDustContrast;
 
-  uniform float u_flash;         // white-out when crossing the event horizon, 0..1
   uniform vec2 u_titleCenter;
   uniform vec2 u_titleHalfSize;
   uniform float u_titleAlpha;
@@ -411,7 +410,7 @@ export const compositeFragmentShaderSource = `
       color += FLASH_COLOR * u_sourcePower * u_exposure * glare;
     }
 
-    gl_FragColor = vec4(mix(softKnee(color), FLASH_COLOR, u_flash), 1.0);
+    gl_FragColor = vec4(softKnee(color), 1.0);
   }
 `
 

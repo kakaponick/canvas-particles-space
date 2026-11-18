@@ -82,7 +82,6 @@ export interface CompositeSettings {
   dustScale: number
   dustThreshold: number
   lightDustContrast: number
-  flash: number
 }
 
 export interface TitleSettings {
@@ -236,7 +235,7 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     'lightRadius', 'lightWidth', 'lightPower', 'lightSpeed', 'echoPower', 'echoDecay',
     'waveRadius', 'waveStrength', 'waveWidth', 'remnantGlow', 'remnantRedshift', 'remnantRadius',
     'gravityWaveRadius', 'gravityWaveAmplitude', 'gravityWaveWidth', 'gravityWaveCycles', 'backgroundStars',
-    'starCell', 'starDensity', 'starFlare', 'dustScale', 'dustThreshold', 'lightDustContrast', 'flash',
+    'starCell', 'starDensity', 'starFlare', 'dustScale', 'dustThreshold', 'lightDustContrast',
     'titleCenter', 'titleHalfSize', 'titleAlpha', 'titleReveal', 'titleDissolve', 'titleDrift', 'titleGlow',
     'titleFlash', 'titleCooling', 'titleDust'
   ] as const)
@@ -411,7 +410,6 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     setUniform1f(gl, u.dustScale, Math.max(settings.dustScale, 1))
     setUniform1f(gl, u.dustThreshold, Math.min(settings.dustThreshold, 0.99))
     setUniform1f(gl, u.lightDustContrast, settings.lightDustContrast)
-    setUniform1f(gl, u.flash, settings.flash)
     gl.drawArrays(gl.TRIANGLES, 0, QUAD_VERTEX_COUNT)
   }
 

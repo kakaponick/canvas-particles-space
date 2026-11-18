@@ -68,7 +68,6 @@ function ControlPanel () {
     ringAfterglow,
     ringFlowSpeed,
     followFrequency,
-    scrollSpeedGain,
     starsBrightness,
     starDensity,
     starCell,
@@ -104,7 +103,6 @@ function ControlPanel () {
     setRingAfterglow,
     setRingFlowSpeed,
     setFollowFrequency,
-    setScrollSpeedGain,
     setStarsBrightness,
     setStarDensity,
     setStarCell,
@@ -237,19 +235,7 @@ function ControlPanel () {
                 formatValue={(val) => val.toFixed(1)}
                 onChange={setBaseSpeed}
                 variant="inline"
-                description="Base velocity of particles moving through space. Combined with scroll speed for final movement rate."
-              />
-              <SliderControl
-                id="scroll-speed-gain"
-                label="Scroll Speed Gain"
-                value={scrollSpeedGain}
-                min={0}
-                max={40}
-                step={0.5}
-                formatValue={(val) => `${val.toFixed(1)}×`}
-                onChange={setScrollSpeedGain}
-                variant="inline"
-                description="Flight speed added when the page is scrolled all the way down."
+                description="Speed of the flight through space."
               />
               <SliderControl
                 id="speed-variance"

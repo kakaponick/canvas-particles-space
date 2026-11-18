@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParticleStore } from '../store/particle_store'
-import { subscribeScrollProgress } from '../hooks/use_scroll_progress'
 import {
   createParticleField,
   createInstanceData,
@@ -22,13 +21,7 @@ import {
 import { createIntroFrame, getIntroDuration, sampleIntro } from '../lib/intro_timeline'
 import { getIntroPhase } from '../lib/intro_tracks'
 import { useIntroDebugStore, NOTHING_HIDDEN } from '../store/intro_debug_store'
-import {
-  createScrollJourney,
-  stepScrollJourney,
-  stepSpring,
-  type JourneyFrame,
-  type Spring2D
-} from '../lib/black_hole_motion'
+import { stepSpring, type Spring2D } from '../lib/black_hole_motion'
 import { renderTitleSprite, waitForTitleFont, type TitleSprite, type TitleStyle } from '../lib/title_sprite'
 import { createParticleBudget, updateParticleBudget } from '../lib/particle_budget'
 import { clearRingEnergy, createRingEnergy, stepRingEnergy } from '../lib/ring_energy'
@@ -44,9 +37,7 @@ const FPS_SAMPLE_MS = 500
 const PIXEL_BUDGET = 4_500_000
 const MAX_PIXEL_RATIO = 2
 
-// Reduced motion caps how much scrolling can speed the flight up
-const REDUCED_SCROLL_GAIN_SHARE = 0.2
-// A touch this close to the black hole drags it instead of scrolling the page
+// A touch this close to the black hole drags it
 const MIN_TOUCH_GRAB_RADIUS = 48
 // With looping on, the debugger holds the finished intro this long before replaying it
 const LOOP_HOLD_SECONDS = 1
@@ -87,7 +78,6 @@ function ParticleCanvas () {
     // Interaction state lives here, not in the store: nothing else renders it
     let targetX = window.innerWidth / 2
     let targetY = window.innerHeight / 2
-    let scrollProgress = 0
     let draggingTouch = -1
     let lastPointerType = 'mouse'
     const hole: Spring2D = { x: targetX, y: targetY, vx: 0, vy: 0 }
@@ -107,8 +97,6 @@ function ParticleCanvas () {
     let handledStep = initialDebug.stepRequest
 
     const intro = createIntroFrame()
-    const journey = createScrollJourney()
-    const journeyFrame: JourneyFrame = { progress: 0, flash: 0, approach: 1 }
 
     const initialState = useParticleStore.getState()
     const particleBudget = createParticleBudget(initialState.numParticles)
@@ -206,8 +194,7 @@ function ParticleCanvas () {
         starFlare: 0,
         dustScale: 220,
         dustThreshold: 0.5,
-        lightDustContrast: 1,
-        flash: 0
+        lightDustContrast: 1
       }
     }
 
@@ -383,9 +370,6 @@ function ParticleCanvas () {
       const ringPower = intro.ringFade * Math.max(1 + params.ringFlicker * ringdown, 0)
       if (intro.done && !state.introComplete) state.setIntroComplete(true)
 
-      stepScrollJourney(journey, scrollProgress, animationTime, dt, journeyFrame)
-      if (journey.crossed !== state.horizonCrossed) state.setHorizonCrossed(journey.crossed)
-
       if (state.colorPalette !== spawn.palette.source) {
         spawn.palette = createPaletteSampler(state.colorPalette)
       }
@@ -404,8 +388,7 @@ function ParticleCanvas () {
       const halfDiagonal = Math.hypot(centerX, centerY)
       const explosionReach = halfDiagonal * 1.15
       // The visible size and the radius of no return are set apart; both grow as the horizon forms
-      // and as the scroll approaches the hole
-      const holeGrowth = hidden.hole ? 0 : intro.holeScale * journeyFrame.approach
+      const holeGrowth = hidden.hole ? 0 : intro.holeScale
       const horizon = state.blackHoleSize / 100 * shortSide * holeGrowth * (1 + ringdown)
       const captureRadius = state.eventHorizon / 100 * shortSide * holeGrowth
       if (intro.holdAtCenter) {
@@ -414,8 +397,7 @@ function ParticleCanvas () {
         stepSpring(hole, targetX, targetY, dt, state.followFrequency)
       }
 
-      const scrollGain = state.scrollSpeedGain * (reducedMotion ? REDUCED_SCROLL_GAIN_SHARE : 1)
-      const speed = (state.baseSpeed + journeyFrame.progress * scrollGain) * intro.speedBoost
+      const speed = state.baseSpeed * intro.speedBoost
 
       settings.frameScale = frameScale
       settings.time = animationTime
@@ -527,7 +509,6 @@ function ParticleCanvas () {
       composite.starCell = state.starCell
       composite.starDensity = state.starDensity
       composite.starFlare = params.starFlare
-      composite.flash = reducedMotion ? 0 : journeyFrame.flash * 0.85
 
       renderer.render(frame)
 
@@ -578,7 +559,7 @@ function ParticleCanvas () {
       }
     }
 
-    // On touch screens the black hole is dragged; swipes anywhere else scroll the page
+    // On touch screens the black hole is dragged
     const handleTouchStart = (event: TouchEvent) => {
       const touch = event.changedTouches[0]
       if (!touch || draggingTouch !== -1) return
@@ -639,9 +620,6 @@ function ParticleCanvas () {
     })
 
     const unsubscribeStore = useParticleStore.subscribe(syncLoop)
-    const unsubscribeScroll = subscribeScrollProgress((progress) => {
-      scrollProgress = progress
-    })
 
     window.addEventListener('pointerdown', handlePointerDown)
     window.addEventListener('mousemove', handleMouseMove)
@@ -662,7 +640,6 @@ function ParticleCanvas () {
       disposed = true
       unsubscribeStore()
       unsubscribeTitle()
-      unsubscribeScroll()
       window.removeEventListener('pointerdown', handlePointerDown)
       window.removeEventListener('mousemove', handleMouseMove)
       window.removeEventListener('resize', scheduleViewportSize)

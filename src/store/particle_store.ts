@@ -37,8 +37,6 @@ export interface ParticleState {
   ringFlowSpeed: number
   // How quickly the black hole catches up with its target, radians per second
   followFrequency: number
-  // Flight speed added at full scroll
-  scrollSpeedGain: number
   // Static background stars: brightness, share of grid cells holding a star, grid cell size in CSS pixels
   starsBrightness: number
   starDensity: number
@@ -71,7 +69,6 @@ export interface ParticleState {
   // Particles actually simulated; below numParticles while the adaptive budget holds it back
   activeParticles: number
   introComplete: boolean
-  horizonCrossed: boolean
 
   setNumParticles: (num: number) => void
   setBaseSpeed: (speed: number) => void
@@ -91,7 +88,6 @@ export interface ParticleState {
   setRingAfterglow: (value: number) => void
   setRingFlowSpeed: (value: number) => void
   setFollowFrequency: (value: number) => void
-  setScrollSpeedGain: (value: number) => void
   setStarsBrightness: (value: number) => void
   setStarDensity: (value: number) => void
   setStarCell: (value: number) => void
@@ -120,7 +116,6 @@ export interface ParticleState {
   toggleAdaptiveParticles: () => void
   setActiveParticles: (count: number) => void
   setIntroComplete: (complete: boolean) => void
-  setHorizonCrossed: (crossed: boolean) => void
 }
 
 // Phones get half the particles: the simulation runs on the CPU every frame
@@ -145,7 +140,6 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   ringAfterglow: 0.6,
   ringFlowSpeed: 0.6,
   followFrequency: 6,
-  scrollSpeedGain: 10,
   starsBrightness: 1,
   starDensity: 0.12,
   starCell: 26,
@@ -173,7 +167,6 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   adaptiveParticles: true,
   activeParticles: 0,
   introComplete: false,
-  horizonCrossed: false,
   // Star colors by temperature, from ~3500 K amber to ~12000 K blue-white
   colorPalette: [
     { r: 255, g: 196, b: 137, enabled: true, percent: 12 },
@@ -201,7 +194,6 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   setRingAfterglow: (value) => set({ ringAfterglow: value }),
   setRingFlowSpeed: (value) => set({ ringFlowSpeed: value }),
   setFollowFrequency: (value) => set({ followFrequency: value }),
-  setScrollSpeedGain: (value) => set({ scrollSpeedGain: value }),
   setStarsBrightness: (value) => set({ starsBrightness: value }),
   setStarDensity: (value) => set({ starDensity: value }),
   setStarCell: (value) => set({ starCell: value }),
@@ -226,7 +218,6 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   toggleAdaptiveParticles: () => set((state) => ({ adaptiveParticles: !state.adaptiveParticles })),
   setActiveParticles: (count) => set({ activeParticles: count }),
   setIntroComplete: (complete) => set({ introComplete: complete }),
-  setHorizonCrossed: (crossed) => set({ horizonCrossed: crossed }),
 
   addColor: (color) => set((state) => ({
     colorPalette: [...state.colorPalette, color]

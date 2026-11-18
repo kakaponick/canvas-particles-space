@@ -4,19 +4,17 @@ export interface InteractionsUsed {
   move: boolean
   click: boolean
   drag: boolean
-  scroll: boolean
 }
 
 // Pointer travel that counts as "the visitor found out the black hole follows"
 const MOVE_DISTANCE = 120
-const SCROLL_PROGRESS = 0.05
 
 /**
  * Tracks which of the canvas interactions the visitor has already tried,
  * so their hints can retire one by one.
  */
-export function useInteractionHints (scrollProgress: number): InteractionsUsed {
-  const [used, setUsed] = useState<InteractionsUsed>({ move: false, click: false, drag: false, scroll: false })
+export function useInteractionHints (): InteractionsUsed {
+  const [used, setUsed] = useState<InteractionsUsed>({ move: false, click: false, drag: false })
 
   useEffect(() => {
     let travelled = 0
@@ -47,10 +45,6 @@ export function useInteractionHints (scrollProgress: number): InteractionsUsed {
       window.removeEventListener('touchmove', handleTouchMove)
     }
   }, [])
-
-  useEffect(() => {
-    if (scrollProgress > SCROLL_PROGRESS) setUsed(prev => (prev.scroll ? prev : { ...prev, scroll: true }))
-  }, [scrollProgress])
 
   return used
 }
