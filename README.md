@@ -78,7 +78,8 @@ ripples the background stars, swallows the title and then drifts to your cursor.
 src/
 ├── components/
 │   ├── particle_canvas.tsx    # Animation loop, input and resize handling
-│   ├── control_panel.tsx      # Settings UI
+│   ├── control_panel.tsx      # Settings panel shell and shortcuts
+│   ├── settings_body.tsx      # Every setting, built once with the page
 │   ├── color_palette.tsx      # Color management
 │   ├── blackhole_indicator.tsx
 │   └── interaction_hints.tsx  # Hints for the interactions not tried yet
