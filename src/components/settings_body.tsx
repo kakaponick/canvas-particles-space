@@ -39,6 +39,8 @@ function SettingsSections () {
   const toggleRing = useParticleStore(state => state.toggleRing)
   const toggleRingFeed = useParticleStore(state => state.toggleRingFeed)
   const toggleLensing = useParticleStore(state => state.toggleLensing)
+  const blackHoleFollowing = useParticleStore(state => state.blackHoleFollowing)
+  const toggleBlackHoleFollowing = useParticleStore(state => state.toggleBlackHoleFollowing)
   const isPaused = useParticleStore(state => state.isPaused)
   const togglePause = useParticleStore(state => state.togglePause)
   const introDebugOpen = useIntroDebugStore(state => state.open)
@@ -386,6 +388,38 @@ function SettingsSections () {
           setter="setFollowFrequency"
           variant="inline"
           description="How quickly the black hole catches up with the cursor; lower values feel heavier."
+        />
+        <SettingsRow
+          label="Follow Cursor"
+          help="ON: the black hole follows the mouse. OFF: it rests at Position X and Y. A click on the scene switches this too and saves the place the black hole was anchored at."
+        >
+          <SettingsSwitch on={blackHoleFollowing} onToggle={toggleBlackHoleFollowing} label="Black hole follows the cursor" />
+        </SettingsRow>
+        <SettingSlider
+          id="black-hole-x"
+          label="Position X"
+          field="blackHoleX"
+          min={0}
+          max={1}
+          step={0.01}
+          formatValue={(val) => `${Math.round(val * 100)}%`}
+          setter="setBlackHoleX"
+          variant="inline"
+          resetValue={0.5}
+          description="Where the black hole rests, from the left edge of the screen to the right. Moving the slider anchors the black hole there. The position is saved in presets, and the intro can start from it (Start At Black Hole in the intro debugger). A double-click returns it to the middle."
+        />
+        <SettingSlider
+          id="black-hole-y"
+          label="Position Y"
+          field="blackHoleY"
+          min={0}
+          max={1}
+          step={0.01}
+          formatValue={(val) => `${Math.round(val * 100)}%`}
+          setter="setBlackHoleY"
+          variant="inline"
+          resetValue={0.5}
+          description="Where the black hole rests, from the top edge of the screen to the bottom. Moving the slider anchors the black hole there. A double-click returns it to the middle."
         />
       </SettingsSection>
 

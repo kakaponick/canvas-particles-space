@@ -85,8 +85,10 @@ export interface StepSettings {
   baseBrightness: number
   minOpacity: number
   maxOpacity: number
-  // Only particles within this distance of the screen center are drawn (the intro shockwave)
+  // Only particles within this distance of the explosion are drawn (the intro shockwave)
   revealRadius: number
+  revealX: number
+  revealY: number
   revealFeather: number
   opacityScale: number
 }
@@ -299,6 +301,8 @@ export function stepParticles (
   const orbitScale = orbitalStrength * 0.02
   const invFocal = 1 / focal
   const revealing = revealRadius < Infinity
+  const revealX = settings.revealX
+  const revealY = settings.revealY
   const pulsing = pulseIntensity !== 0
   const revealRadiusSq = revealRadius * revealRadius
   const invRevealFeather = 1 / Math.max(revealFeather, 1)
@@ -387,8 +391,8 @@ export function stepParticles (
     opacity *= opacityScale
 
     if (revealing) {
-      const rx = endX - halfW
-      const ry = endY - halfH
+      const rx = endX - revealX
+      const ry = endY - revealY
       const radialSq = rx * rx + ry * ry
       if (radialSq > revealRadiusSq) continue
       const edge = (revealRadius - Math.sqrt(radialSq)) * invRevealFeather

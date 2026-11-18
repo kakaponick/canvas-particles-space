@@ -43,6 +43,10 @@ export interface ParticleState {
   starCell: number
   pulseIntensity: number
   blackHoleFollowing: boolean
+  // Where the black hole rests when it does not follow the cursor, as shares of the viewport's width
+  // and height. The intro can start from here too
+  blackHoleX: number
+  blackHoleY: number
   colorPalette: ParticleColor[]
   backgroundR: number
   backgroundG: number
@@ -115,6 +119,10 @@ export interface ParticleState {
   setStarCell: (value: number) => void
   setPulseIntensity: (intensity: number) => void
   toggleBlackHoleFollowing: () => void
+  // Moving a position slider anchors the black hole there
+  setBlackHoleX: (x: number) => void
+  setBlackHoleY: (y: number) => void
+  setBlackHolePosition: (x: number, y: number) => void
   addColor: (color: ParticleColor) => void
   removeColor: (index: number) => void
   updateColor: (index: number, updates: Partial<ParticleColor>) => void
@@ -151,6 +159,9 @@ export interface ParticleState {
   setIntroComplete: (complete: boolean) => void
 }
 
+// A position on screen as a share of its size, kept to a tenth of a percent so presets compare equal
+const toShare = (value: number) => Math.round(Math.min(Math.max(value, 0), 1) * 1000) / 1000
+
 // Phones get half the particles: the simulation runs on the CPU every frame
 const isSmallScreen = typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
 
@@ -178,6 +189,8 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   starCell: 26,
   pulseIntensity: 1,
   blackHoleFollowing: true,
+  blackHoleX: 0.5,
+  blackHoleY: 0.5,
   backgroundR: 0,
   backgroundG: 0,
   backgroundB: 0,
@@ -243,6 +256,9 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   setStarCell: (value) => set({ starCell: value }),
   setPulseIntensity: (intensity) => set({ pulseIntensity: intensity }),
   toggleBlackHoleFollowing: () => set((state) => ({ blackHoleFollowing: !state.blackHoleFollowing })),
+  setBlackHoleX: (x) => set({ blackHoleX: toShare(x), blackHoleFollowing: false }),
+  setBlackHoleY: (y) => set({ blackHoleY: toShare(y), blackHoleFollowing: false }),
+  setBlackHolePosition: (x, y) => set({ blackHoleX: toShare(x), blackHoleY: toShare(y) }),
   setLensingRadius: (radius) => set({ lensingRadius: radius }),
   toggleLensing: () => set((state) => ({ lensingEnabled: !state.lensingEnabled })),
   setFarZ: (farZ) => set({ farZ }),

@@ -183,7 +183,7 @@ export const INTRO_TRACKS: IntroTrack[] = [
   {
     key: 'motion',
     label: 'Black hole motion',
-    params: ['releaseAt', 'introEnd', 'centerHoldFrequency'],
+    params: ['releaseAt', 'introEnd', 'centerHoldFrequency', 'originAtHole'],
     spans: (p, reduced) => [{ start: 0, end: reduced ? REDUCED_INTRO_END : p.releaseAt }],
     markers: (p, reduced) => reduced
       ? [{ time: REDUCED_INTRO_END, label: 'end' }]

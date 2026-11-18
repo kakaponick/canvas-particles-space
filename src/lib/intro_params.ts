@@ -82,7 +82,8 @@ export const DEFAULT_INTRO_PARAMS = {
   // Black hole motion and the end of the intro
   releaseAt: 4.6,
   introEnd: 5,
-  centerHoldFrequency: 12
+  centerHoldFrequency: 12,
+  originAtHole: 1
 }
 
 export type IntroParams = typeof DEFAULT_INTRO_PARAMS
@@ -172,7 +173,8 @@ export const INTRO_PARAM_SPECS = Object.fromEntries([
   p('titleRedshift', 'Dust Redshift', 0, 1, 0.01, '', 'How far the dust reddens and dims as it falls, as the collapsing core did. 0 keeps its colour.'),
   p('releaseAt', 'Release To Cursor', 0, 12, 0.05, 's', 'When the black hole leaves the center and starts following the cursor.'),
   p('introEnd', 'Intro Ends', 0.5, 12, 0.05, 's', 'When the hints appear; the loop restarts a second later.'),
-  p('centerHoldFrequency', 'Center Stiffness', 1, 40, 0.5, 'rad/s', 'How firmly the black hole is held at the center during the intro.')
+  p('centerHoldFrequency', 'Hold Stiffness', 1, 40, 0.5, 'rad/s', 'How firmly the black hole is held where the intro happens until it is released.'),
+  p('originAtHole', 'Start At Black Hole', 0, 1, 0.05, '', 'Where the intro happens. 1 = at the black hole position saved in Settings (Position X and Y): the star, the explosion, its light and matter fronts, the waves and the newborn hole are all centred there. 0 = at the centre of the screen. Values between place it part of the way.')
 ].map(spec => [spec.key, spec])) as Record<IntroParamKey, IntroParamSpec>
 
 export function formatParam (value: number, spec: IntroParamSpec) {

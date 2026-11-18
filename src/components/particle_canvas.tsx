@@ -93,6 +93,11 @@ function ParticleCanvas () {
     const speedDial = createSpeedDial()
     let lastPointerType = 'mouse'
     const hole: Spring2D = { x: targetX, y: targetY, vx: 0, vy: 0 }
+    // The saved resting place of the black hole and the place the intro happens, in CSS pixels
+    let anchorX = targetX
+    let anchorY = targetY
+    let originX = targetX
+    let originY = targetY
 
     // Loop timing
     let frameId = 0
@@ -151,6 +156,8 @@ function ParticleCanvas () {
       minOpacity: 0,
       maxOpacity: 0,
       revealRadius: 0,
+      revealX: 0,
+      revealY: 0,
       revealFeather: 80,
       opacityScale: 1
     }
@@ -233,6 +240,29 @@ function ParticleCanvas () {
       return background
     }
 
+    // The intro happens at the screen centre, at the saved black hole position, or between the two
+    function locateHole () {
+      const state = useParticleStore.getState()
+      const share = useIntroDebugStore.getState().params.originAtHole
+      const centerX = viewportWidth / 2
+      const centerY = viewportHeight / 2
+      anchorX = state.blackHoleX * viewportWidth
+      anchorY = state.blackHoleY * viewportHeight
+      originX = centerX + (anchorX - centerX) * share
+      originY = centerY + (anchorY - centerY) * share
+    }
+
+    // The black hole is born where the intro happens and heads for its resting place once released
+    function placeHoleAtOrigin () {
+      locateHole()
+      hole.x = originX
+      hole.y = originY
+      hole.vx = 0
+      hole.vy = 0
+      targetX = anchorX
+      targetY = anchorY
+    }
+
     // Replays the opening from its first frame with a fresh particle field
     function restartIntro () {
       const state = useParticleStore.getState()
@@ -241,10 +271,7 @@ function ParticleCanvas () {
       field.count = 0
       clearRingEnergy(ringEnergy)
       setParticleCount(field, particleBudget.active, spawn)
-      hole.x = targetX = viewportWidth / 2
-      hole.y = targetY = viewportHeight / 2
-      hole.vx = 0
-      hole.vy = 0
+      placeHoleAtOrigin()
       renderer?.clearScene(readBackground())
       rebuildTitle()
       state.setIntroComplete(false)
@@ -410,18 +437,24 @@ function ParticleCanvas () {
       }
       ensureInstanceCapacity(instances, field.capacity)
 
-      // The black hole: born at the center, then pulled toward its target on a spring
+      // The black hole: born where the intro happens, then pulled toward its target on a spring.
+      // An anchored hole rests at its saved position, which a slider or a preset may have just moved
       const centerX = viewportWidth / 2
       const centerY = viewportHeight / 2
       const shortSide = Math.min(viewportWidth, viewportHeight)
-      const halfDiagonal = Math.hypot(centerX, centerY)
-      const explosionReach = halfDiagonal * 1.15
+      locateHole()
+      if (!state.blackHoleFollowing && draggingTouch === -1) {
+        targetX = anchorX
+        targetY = anchorY
+      }
+      // Every front is measured to the corner farthest from the explosion
+      const explosionReach = Math.hypot(Math.max(originX, viewportWidth - originX), Math.max(originY, viewportHeight - originY)) * 1.15
       // The visible size and the radius of no return are set apart; both grow as the horizon forms
       const holeGrowth = hidden.hole ? 0 : intro.holeScale
       const horizon = state.blackHoleSize / 100 * shortSide * holeGrowth * (1 + ringdown)
       const captureRadius = state.eventHorizon / 100 * shortSide * holeGrowth
       if (intro.holdAtCenter) {
-        stepSpring(hole, centerX, centerY, dt, params.centerHoldFrequency)
+        stepSpring(hole, originX, originY, dt, params.centerHoldFrequency)
       } else {
         stepSpring(hole, targetX, targetY, dt, state.followFrequency)
       }
@@ -458,6 +491,8 @@ function ParticleCanvas () {
       settings.minOpacity = state.minOpacity
       settings.maxOpacity = state.maxOpacity
       settings.revealRadius = intro.reveal >= 1 ? Infinity : explosionReach * intro.reveal
+      settings.revealX = originX
+      settings.revealY = originY
       settings.revealFeather = params.revealFeather
       settings.opacityScale = intro.opacityScale
 
@@ -530,8 +565,8 @@ function ParticleCanvas () {
       composite.ringPhase = ringEnergy.phase
       composite.ringBase = ringFed ? state.ringBase : 1
       composite.ringFeed = ringFed ? state.ringFeed : 0
-      composite.centerX = centerX
-      composite.centerY = centerY
+      composite.centerX = originX
+      composite.centerY = originY
       composite.starGlow = intro.starGlow
       composite.starRadius = intro.starRadius * shortSide
       composite.sourcePower = intro.sourcePower
@@ -604,6 +639,8 @@ function ParticleCanvas () {
       if (wasFollowing) {
         targetX = hole.x
         targetY = hole.y
+        // The place it was anchored at is saved with the settings
+        if (viewportWidth > 0 && viewportHeight > 0) state.setBlackHolePosition(hole.x / viewportWidth, hole.y / viewportHeight)
       } else {
         targetX = event.clientX
         targetY = event.clientY
@@ -656,7 +693,13 @@ function ParticleCanvas () {
 
     const handleTouchEnd = (event: TouchEvent) => {
       for (const touch of Array.from(event.changedTouches)) {
-        if (touch.identifier === draggingTouch) draggingTouch = -1
+        if (touch.identifier === draggingTouch) {
+          draggingTouch = -1
+          // Where the finger left the black hole is saved with the settings
+          if (viewportWidth > 0 && viewportHeight > 0) {
+            useParticleStore.getState().setBlackHolePosition(targetX / viewportWidth, targetY / viewportHeight)
+          }
+        }
         if (touch.identifier === swipingTouch) swipingTouch = -1
       }
     }
@@ -679,6 +722,7 @@ function ParticleCanvas () {
     }
 
     applyViewportSize(true)
+    placeHoleAtOrigin()
 
     // A face that missed the timeout is swapped in once every pending font has loaded
     document.fonts?.ready.then(() => {

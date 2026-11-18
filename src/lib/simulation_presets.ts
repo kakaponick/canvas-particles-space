@@ -1,5 +1,6 @@
-// Named snapshots of the simulation settings. A preset holds what shapes the scene; runtime state and
-// per-device choices (pause, frame rate cap, adaptive budget, cursor following) stay out of it.
+// Named snapshots of the simulation settings. A preset holds what shapes the scene, the black hole's
+// resting place and whether it follows the cursor included; runtime state and per-device choices
+// (pause, frame rate cap, adaptive budget) stay out of it.
 import type { ParticleColor, ParticleState } from '../store/particle_store'
 
 export const SIMULATION_SETTING_KEYS = [
@@ -8,6 +9,7 @@ export const SIMULATION_SETTING_KEYS = [
   'baseBrightness', 'depthFade', 'minOpacity', 'maxOpacity', 'pulseIntensity', 'pulseSpeedMultiplier',
   'starsBrightness', 'starDensity', 'starCell',
   'blackHoleSize', 'eventHorizon', 'gravityReach', 'gravityStrength', 'orbitalStrength', 'followFrequency',
+  'blackHoleFollowing', 'blackHoleX', 'blackHoleY',
   'ringEnabled', 'ringFeedEnabled', 'ringBrightness', 'ringWidth', 'ringDoppler', 'ringSide', 'ringBase', 'ringFeed', 'ringAfterglow', 'ringFlowSpeed',
   'lensingEnabled', 'lensingRadius', 'lensingRotation', 'lensingFalloff', 'lensingPivot', 'lensingCore', 'lensingMaxBend', 'lensingReach', 'lensingTwistLimit', 'lensingAbsorption',
   'colorPalette', 'backgroundR', 'backgroundG', 'backgroundB'
