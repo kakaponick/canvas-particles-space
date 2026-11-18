@@ -239,29 +239,6 @@ export const INTRO_LOOKS: readonly IntroLook[] = [
     introEnd: 6.2
   }),
 
-  look('signal', 'Signal', 'A transmission, not a sky: monospaced letters split into colours, a razor front, fine dust, and space ringing in fast tight ripples.', {
-    lightCrossTime: 0.5,
-    lightWidth: 0.003,
-    echoDecay: 0.05,
-    dustScale: 80,
-    dustThreshold: 0.75,
-    starFlare: 7,
-    ringdownFrequency: 6,
-    ringdownDecay: 0.9,
-    ringFlicker: 8,
-    gravityWaveAmplitude: 14,
-    gravityWaveWidth: 0.2,
-    gravityWaveCycles: 16,
-    titleWeight: 400,
-    titleTracking: 0.22,
-    titleFlash: 4,
-    titleCooling: 0.08,
-    titleDust: 0.2,
-    titleHalo: 0.2,
-    titleStreak: 1,
-    titleFringe: 9
-  }, 'geistMono'),
-
   look('requiem', 'Requiem', 'An ending rather than an opening: a quiet blast, light that lingers and reddens for seconds, a horizon that closes slowly over nine.', {
     glarePeak: 3.5,
     glareDecay: 0.6,
