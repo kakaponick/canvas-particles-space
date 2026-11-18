@@ -21,6 +21,7 @@ import ToggleButton from './controls/toggle_button'
 import FrameRateControl from './controls/frame_rate_control'
 import PresetControl from './controls/preset_control'
 import { useIntroDebugStore } from '../store/intro_debug_store'
+import { BASE_SPEED_MAX, BASE_SPEED_MIN, BASE_SPEED_STEP } from '../lib/base_speed'
 
 function ControlPanel () {
   const [isOpen, setIsOpen] = useState(false)
@@ -229,13 +230,13 @@ function ControlPanel () {
                 id="base-speed"
                 label="Base Speed"
                 value={baseSpeed}
-                min={0}
-                max={20}
-                step={0.1}
+                min={BASE_SPEED_MIN}
+                max={BASE_SPEED_MAX}
+                step={BASE_SPEED_STEP}
                 formatValue={(val) => val.toFixed(1)}
                 onChange={setBaseSpeed}
                 variant="inline"
-                description="Speed of the flight through space."
+                description="Speed of the flight through space. Scrolling over the scene changes it too: down is faster, up is slower."
               />
               <SliderControl
                 id="speed-variance"

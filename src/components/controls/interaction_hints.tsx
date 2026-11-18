@@ -9,8 +9,8 @@ function InteractionHints () {
   const used = useInteractionHints()
 
   const hints = isTouchScreen
-    ? [!used.drag && 'DRAG THE BLACK HOLE']
-    : [!used.move && 'MOVE TO BEND LIGHT', !used.click && 'CLICK TO ANCHOR']
+    ? [!used.drag && 'DRAG THE BLACK HOLE', !used.scroll && 'SWIPE TO CHANGE SPEED']
+    : [!used.move && 'MOVE TO BEND LIGHT', !used.click && 'CLICK TO ANCHOR', !used.scroll && 'SCROLL TO CHANGE SPEED']
   const label = hints.filter(Boolean).join(' · ')
 
   return (

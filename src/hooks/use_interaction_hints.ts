@@ -4,6 +4,7 @@ export interface InteractionsUsed {
   move: boolean
   click: boolean
   drag: boolean
+  scroll: boolean
 }
 
 // Pointer travel that counts as "the visitor found out the black hole follows"
@@ -14,7 +15,7 @@ const MOVE_DISTANCE = 120
  * so their hints can retire one by one.
  */
 export function useInteractionHints (): InteractionsUsed {
-  const [used, setUsed] = useState<InteractionsUsed>({ move: false, click: false, drag: false })
+  const [used, setUsed] = useState<InteractionsUsed>({ move: false, click: false, drag: false, scroll: false })
 
   useEffect(() => {
     let travelled = 0
@@ -31,17 +32,23 @@ export function useInteractionHints (): InteractionsUsed {
     const handleClick = (event: MouseEvent) => {
       if (event.target instanceof HTMLCanvasElement) mark('click')
     }
-    // The canvas cancels the touches it uses to drag the black hole
+    const handleWheel = (event: WheelEvent) => {
+      if (event.target instanceof HTMLCanvasElement) mark('scroll')
+    }
+    // The canvas cancels the touches it uses to drag the black hole; the others swipe the speed
     const handleTouchMove = (event: TouchEvent) => {
       if (event.defaultPrevented) mark('drag')
+      else if (event.target instanceof HTMLCanvasElement) mark('scroll')
     }
 
     window.addEventListener('mousemove', handleMouseMove)
     window.addEventListener('click', handleClick)
+    window.addEventListener('wheel', handleWheel, { passive: true })
     window.addEventListener('touchmove', handleTouchMove)
     return () => {
       window.removeEventListener('mousemove', handleMouseMove)
       window.removeEventListener('click', handleClick)
+      window.removeEventListener('wheel', handleWheel)
       window.removeEventListener('touchmove', handleTouchMove)
     }
   }, [])

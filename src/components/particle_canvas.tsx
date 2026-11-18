@@ -22,6 +22,7 @@ import { createIntroFrame, getIntroDuration, sampleIntro } from '../lib/intro_ti
 import { getIntroPhase } from '../lib/intro_tracks'
 import { useIntroDebugStore, NOTHING_HIDDEN } from '../store/intro_debug_store'
 import { stepSpring, type Spring2D } from '../lib/black_hole_motion'
+import { createSpeedDial, turnSpeedDial, wheelPixels, SWIPE_GAIN } from '../lib/base_speed'
 import { renderTitleSprite, waitForTitleFont, type TitleSprite, type TitleStyle } from '../lib/title_sprite'
 import { createParticleBudget, updateParticleBudget } from '../lib/particle_budget'
 import { clearRingEnergy, createRingEnergy, stepRingEnergy } from '../lib/ring_energy'
@@ -79,6 +80,9 @@ function ParticleCanvas () {
     let targetX = window.innerWidth / 2
     let targetY = window.innerHeight / 2
     let draggingTouch = -1
+    let swipingTouch = -1
+    let swipeY = 0
+    const speedDial = createSpeedDial()
     let lastPointerType = 'mouse'
     const hole: Spring2D = { x: targetX, y: targetY, vx: 0, vy: 0 }
 
@@ -559,12 +563,31 @@ function ParticleCanvas () {
       }
     }
 
-    // On touch screens the black hole is dragged
+    // The store is written only when the setting moves by a whole step
+    const changeBaseSpeed = (pixels: number) => {
+      const state = useParticleStore.getState()
+      const baseSpeed = turnSpeedDial(speedDial, state.baseSpeed, pixels)
+      if (baseSpeed !== state.baseSpeed) state.setBaseSpeed(baseSpeed)
+    }
+
+    const handleWheel = (event: WheelEvent) => {
+      // Ctrl with the wheel, or a trackpad pinch, zooms the page
+      if (event.ctrlKey) return
+      changeBaseSpeed(wheelPixels(event.deltaY, event.deltaMode, window.innerHeight))
+    }
+
+    // On touch screens the black hole is dragged; a swipe anywhere else changes the speed
     const handleTouchStart = (event: TouchEvent) => {
       const touch = event.changedTouches[0]
       if (!touch || draggingTouch !== -1) return
       const grabRadius = Math.max(frame.composite.horizon * 2.2, MIN_TOUCH_GRAB_RADIUS)
-      if (Math.hypot(touch.clientX - hole.x, touch.clientY - hole.y) > grabRadius) return
+      if (Math.hypot(touch.clientX - hole.x, touch.clientY - hole.y) > grabRadius) {
+        if (swipingTouch === -1) {
+          swipingTouch = touch.identifier
+          swipeY = touch.clientY
+        }
+        return
+      }
       draggingTouch = touch.identifier
       targetX = touch.clientX
       targetY = touch.clientY
@@ -572,8 +595,11 @@ function ParticleCanvas () {
     }
 
     const handleTouchMove = (event: TouchEvent) => {
-      if (draggingTouch === -1) return
       for (const touch of Array.from(event.changedTouches)) {
+        if (touch.identifier === swipingTouch) {
+          changeBaseSpeed((swipeY - touch.clientY) * SWIPE_GAIN)
+          swipeY = touch.clientY
+        }
         if (touch.identifier !== draggingTouch) continue
         targetX = touch.clientX
         targetY = touch.clientY
@@ -584,6 +610,7 @@ function ParticleCanvas () {
     const handleTouchEnd = (event: TouchEvent) => {
       for (const touch of Array.from(event.changedTouches)) {
         if (touch.identifier === draggingTouch) draggingTouch = -1
+        if (touch.identifier === swipingTouch) swipingTouch = -1
       }
     }
 
@@ -625,6 +652,7 @@ function ParticleCanvas () {
     window.addEventListener('mousemove', handleMouseMove)
     window.addEventListener('resize', scheduleViewportSize)
     canvas.addEventListener('click', handleClick)
+    canvas.addEventListener('wheel', handleWheel, { passive: true })
     canvas.addEventListener('touchstart', handleTouchStart, { passive: false })
     canvas.addEventListener('touchmove', handleTouchMove, { passive: false })
     canvas.addEventListener('touchend', handleTouchEnd)
@@ -644,6 +672,7 @@ function ParticleCanvas () {
       window.removeEventListener('mousemove', handleMouseMove)
       window.removeEventListener('resize', scheduleViewportSize)
       canvas.removeEventListener('click', handleClick)
+      canvas.removeEventListener('wheel', handleWheel)
       canvas.removeEventListener('touchstart', handleTouchStart)
       canvas.removeEventListener('touchmove', handleTouchMove)
       canvas.removeEventListener('touchend', handleTouchEnd)
@@ -661,7 +690,7 @@ function ParticleCanvas () {
 
   return (
     <>
-      <canvas ref={canvasRef} className="fixed top-0 left-0 w-full h-full" aria-hidden="true" />
+      <canvas ref={canvasRef} className="fixed top-0 left-0 w-full h-full touch-pinch-zoom" aria-hidden="true" />
       {unsupported && (
         <div role="alert" className="fixed inset-0 flex items-center justify-center p-8 text-center font-mono text-sm text-text-light">
           This experience needs WebGL. Turn on hardware acceleration in your browser settings or open the page in another browser.
