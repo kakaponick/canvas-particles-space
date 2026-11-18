@@ -73,6 +73,8 @@ interface IntroDebugState {
   resetParams: (keys?: IntroParamKey[]) => void
   setTitle: (patch: Partial<TitleText>) => void
   resetTitle: () => void
+  // Replaces every parameter and the title at once, as a preset does
+  applySetup: (params: IntroParams, title: TitleText) => void
   seek: (time: number) => void
   clearSeek: () => void
   restart: () => void
@@ -86,17 +88,26 @@ const PARAMS_STORAGE_KEY = 'intro-debug-params-v1'
 const TITLE_STORAGE_KEY = 'intro-debug-title-v1'
 
 // A stored title survives only field by field, with the right types, so old saves never break it
-function loadTitle (): TitleText {
+export function readTitleText (stored: Record<string, unknown>): TitleText {
   const title = { ...DEFAULT_TITLE_TEXT }
-  try {
-    const stored = JSON.parse(window.localStorage.getItem(TITLE_STORAGE_KEY) ?? '{}') as Record<string, unknown>
-    if (typeof stored.text === 'string') title.text = stored.text.slice(0, TITLE_TEXT_MAX_LENGTH)
-    if (typeof stored.font === 'string' && stored.font in TITLE_FONTS) title.font = stored.font as TitleFontKey
-    if (typeof stored.uppercase === 'boolean') title.uppercase = stored.uppercase
-  } catch {
-    // Storage blocked or corrupt: fall back to the default title
-  }
+  if (typeof stored.text === 'string') title.text = stored.text.slice(0, TITLE_TEXT_MAX_LENGTH)
+  if (typeof stored.font === 'string' && stored.font in TITLE_FONTS) title.font = stored.font as TitleFontKey
+  if (typeof stored.uppercase === 'boolean') title.uppercase = stored.uppercase
   return title
+}
+
+function readStored (key: string): Record<string, unknown> {
+  try {
+    const stored = JSON.parse(window.localStorage.getItem(key) ?? '{}') as unknown
+    return typeof stored === 'object' && stored !== null && !Array.isArray(stored) ? stored as Record<string, unknown> : {}
+  } catch {
+    // Storage blocked or corrupt: fall back to the defaults
+    return {}
+  }
+}
+
+function loadTitle (): TitleText {
+  return readTitleText(readStored(TITLE_STORAGE_KEY))
 }
 
 function saveTitle (title: TitleText) {
@@ -110,18 +121,17 @@ function saveTitle (title: TitleText) {
 }
 
 // Only keys that still exist and hold numbers survive a stored value, so old saves never break the intro
-function loadParams (): IntroParams {
+export function readIntroParams (stored: Record<string, unknown>): IntroParams {
   const params = { ...DEFAULT_INTRO_PARAMS }
-  try {
-    const stored = JSON.parse(window.localStorage.getItem(PARAMS_STORAGE_KEY) ?? '{}') as Record<string, unknown>
-    for (const key of Object.keys(params) as IntroParamKey[]) {
-      const value = stored[key]
-      if (typeof value === 'number' && Number.isFinite(value)) params[key] = value
-    }
-  } catch {
-    // Storage blocked or corrupt: fall back to the defaults
+  for (const key of Object.keys(params) as IntroParamKey[]) {
+    const value = stored[key]
+    if (typeof value === 'number' && Number.isFinite(value)) params[key] = value
   }
   return params
+}
+
+function loadParams (): IntroParams {
+  return readIntroParams(readStored(PARAMS_STORAGE_KEY))
 }
 
 // Stores only the values that differ from the defaults
@@ -143,12 +153,48 @@ const allShown = Object.fromEntries(INTRO_LAYERS.map(layer => [layer, false])) a
 
 export const NOTHING_HIDDEN: Readonly<Record<IntroLayer, boolean>> = allShown
 
-export const useIntroDebugStore = createWithEqualityFn<IntroDebugState>((set) => ({
-  open: openFromUrl,
+// How the debugger was left: open or closed, looping, its speed and the hidden layers
+const SESSION_STORAGE_KEY = 'intro-debug-session-v1'
+const MIN_TIME_SCALE = 0.05
+const MAX_TIME_SCALE = 2
+
+interface Session {
+  open: boolean
+  loop: boolean
+  timeScale: number
+  hidden: Record<IntroLayer, boolean>
+}
+
+function loadSession (): Session {
+  const stored = typeof window === 'undefined' ? {} : readStored(SESSION_STORAGE_KEY)
+  const storedHidden = typeof stored.hidden === 'object' && stored.hidden !== null ? stored.hidden as Record<string, unknown> : {}
+  const timeScale = typeof stored.timeScale === 'number' && Number.isFinite(stored.timeScale) ? stored.timeScale : 1
+  return {
+    // The address always opens it; otherwise it comes back the way it was left
+    open: openFromUrl || stored.open === true,
+    loop: typeof stored.loop === 'boolean' ? stored.loop : openFromUrl,
+    timeScale: Math.min(Math.max(timeScale, MIN_TIME_SCALE), MAX_TIME_SCALE),
+    hidden: Object.fromEntries(INTRO_LAYERS.map(layer => [layer, storedHidden[layer] === true])) as Record<IntroLayer, boolean>
+  }
+}
+
+function saveSession (session: Session) {
+  try {
+    const { open, loop, timeScale, hidden } = session
+    window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ open, loop, timeScale, hidden }))
+  } catch {
+    // Storage blocked: the debugger keeps its state for this session
+  }
+}
+
+const session = loadSession()
+
+export const useIntroDebugStore = createWithEqualityFn<IntroDebugState>((set, get) => ({
+  open: session.open,
   playing: true,
-  timeScale: 1,
-  loop: openFromUrl,
-  hidden: allShown,
+  timeScale: session.timeScale,
+  loop: session.loop,
+  hidden: session.hidden,
   params: typeof window === 'undefined' ? { ...DEFAULT_INTRO_PARAMS } : loadParams(),
   title: typeof window === 'undefined' ? { ...DEFAULT_TITLE_TEXT } : loadTitle(),
   seekRequest: null,
@@ -169,17 +215,35 @@ export const useIntroDebugStore = createWithEqualityFn<IntroDebugState>((set) =>
     particlesDrawn: 0
   },
 
-  setOpen: (open) => set({ open }),
+  setOpen: (open) => {
+    set({ open })
+    saveSession(get())
+  },
   togglePlaying: () => set((state) => ({ playing: !state.playing })),
-  setTimeScale: (timeScale) => set({ timeScale }),
-  toggleLoop: () => set((state) => ({ loop: !state.loop })),
-  toggleLayer: (layer) => set((state) => ({ hidden: { ...state.hidden, [layer]: !state.hidden[layer] } })),
-  soloLayer: (layer) => set((state) => {
-    const alone = !state.hidden[layer] && INTRO_LAYERS.every(other => other === layer || state.hidden[other])
-    if (alone) return { hidden: allShown }
-    return { hidden: Object.fromEntries(INTRO_LAYERS.map(other => [other, other !== layer])) as Record<IntroLayer, boolean> }
-  }),
-  showAllLayers: () => set({ hidden: allShown }),
+  setTimeScale: (timeScale) => {
+    set({ timeScale })
+    saveSession(get())
+  },
+  toggleLoop: () => {
+    set((state) => ({ loop: !state.loop }))
+    saveSession(get())
+  },
+  toggleLayer: (layer) => {
+    set((state) => ({ hidden: { ...state.hidden, [layer]: !state.hidden[layer] } }))
+    saveSession(get())
+  },
+  soloLayer: (layer) => {
+    set((state) => {
+      const alone = !state.hidden[layer] && INTRO_LAYERS.every(other => other === layer || state.hidden[other])
+      if (alone) return { hidden: allShown }
+      return { hidden: Object.fromEntries(INTRO_LAYERS.map(other => [other, other !== layer])) as Record<IntroLayer, boolean> }
+    })
+    saveSession(get())
+  },
+  showAllLayers: () => {
+    set({ hidden: allShown })
+    saveSession(get())
+  },
   setParam: (key, value) => set((state) => {
     const params = { ...state.params, [key]: value }
     saveParams(params)
@@ -202,6 +266,12 @@ export const useIntroDebugStore = createWithEqualityFn<IntroDebugState>((set) =>
     saveTitle(DEFAULT_TITLE_TEXT)
     return { title: { ...DEFAULT_TITLE_TEXT } }
   }),
+  applySetup: (params, title) => {
+    const next = { params: { ...params }, title: { ...title } }
+    saveParams(next.params)
+    saveTitle(next.title)
+    set(next)
+  },
   seek: (time) => set((state) => {
     const clamped = Math.min(Math.max(time, 0), state.readout.duration || Infinity)
     return { seekRequest: clamped, readout: { ...state.readout, time: clamped } }

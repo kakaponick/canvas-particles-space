@@ -8,6 +8,7 @@ import SliderControl from './slider_control'
 import ToggleButton from './toggle_button'
 import HelpTooltip from './help_tooltip'
 import IntroTrackList from './intro_track_list'
+import IntroPresetBar from './intro_preset_bar'
 
 // Pausing is the PLAY button's job, so the speed never reaches zero
 const MIN_SPEED = 0.05
@@ -293,6 +294,7 @@ function IntroDebugger () {
           </div>
         </header>
 
+        <IntroPresetBar />
         <IntroTrackList duration={duration} />
       </section>
     </TooltipProvider>
