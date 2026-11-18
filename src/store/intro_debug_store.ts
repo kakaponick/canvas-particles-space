@@ -66,6 +66,9 @@ interface IntroDebugState {
   setTimeScale: (scale: number) => void
   toggleLoop: () => void
   toggleLayer: (layer: IntroLayer) => void
+  // Hides every other layer; on the only layer left, shows them all again
+  soloLayer: (layer: IntroLayer) => void
+  showAllLayers: () => void
   setParam: (key: IntroParamKey, value: number) => void
   resetParams: (keys?: IntroParamKey[]) => void
   setTitle: (patch: Partial<TitleText>) => void
@@ -171,6 +174,12 @@ export const useIntroDebugStore = createWithEqualityFn<IntroDebugState>((set) =>
   setTimeScale: (timeScale) => set({ timeScale }),
   toggleLoop: () => set((state) => ({ loop: !state.loop })),
   toggleLayer: (layer) => set((state) => ({ hidden: { ...state.hidden, [layer]: !state.hidden[layer] } })),
+  soloLayer: (layer) => set((state) => {
+    const alone = !state.hidden[layer] && INTRO_LAYERS.every(other => other === layer || state.hidden[other])
+    if (alone) return { hidden: allShown }
+    return { hidden: Object.fromEntries(INTRO_LAYERS.map(other => [other, other !== layer])) as Record<IntroLayer, boolean> }
+  }),
+  showAllLayers: () => set({ hidden: allShown }),
   setParam: (key, value) => set((state) => {
     const params = { ...state.params, [key]: value }
     saveParams(params)

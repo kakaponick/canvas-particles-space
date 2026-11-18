@@ -6,9 +6,12 @@ import { useIntroDebugStore } from '../../store/intro_debug_store'
 import { getIntroMarkers } from '../../lib/intro_tracks'
 import SliderControl from './slider_control'
 import ToggleButton from './toggle_button'
+import HelpTooltip from './help_tooltip'
 import IntroTrackList from './intro_track_list'
 
-const SPEED_PRESETS = [0, 0.1, 0.25, 0.5, 1, 2]
+// Pausing is the PLAY button's job, so the speed never reaches zero
+const MIN_SPEED = 0.05
+const SPEED_PRESETS = [0.1, 0.25, 0.5, 1, 2]
 const SEEK_STEP = 0.1
 const FRAME = 1 / 60
 
@@ -20,8 +23,15 @@ const HEIGHT_STEP = 40
 
 const reducedMotion = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
+const SHORTCUTS = 'Space: play or pause · ← →: 0.1 s back or forward, with Shift one frame · [ ]: previous or next moment · Home, End: start or end · . one frame forward · R: restart · L: loop · Shift+D: open or close'
+
 function formatSpeed (speed: number) {
-  return speed === 0 ? 'STOPPED' : `${speed.toFixed(2)}×`
+  return `${speed.toFixed(2)}×`
+}
+
+// A slider that has the focus uses the arrow keys itself; the timeline ruler is the one that seeks
+function isAdjustingSlider (target: EventTarget | null) {
+  return target instanceof HTMLElement && target.getAttribute('role') === 'slider' && !target.hasAttribute('data-intro-ruler')
 }
 
 function isTyping (target: EventTarget | null) {
@@ -51,7 +61,8 @@ function saveHeight (height: number) {
 }
 
 function TimeReadout ({ duration }: { duration: number }) {
-  const time = useIntroDebugStore(state => state.readout.time)
+  // The scene keeps running after the intro ends; the timeline stops at its end
+  const time = useIntroDebugStore(state => Math.min(state.readout.time, duration))
   const phase = useIntroDebugStore(state => state.readout.phase)
   return (
     <div className="flex items-baseline gap-2 tabular-nums">
@@ -64,7 +75,7 @@ function TimeReadout ({ duration }: { duration: number }) {
 
 function SegmentCount () {
   const drawn = useIntroDebugStore(state => state.readout.particlesDrawn)
-  return <span className="tabular-nums text-text-light/60">{drawn.toLocaleString('en-US')} segments</span>
+  return <span className="tabular-nums text-text-light/60" title="Particles drawn in the last frame">{drawn.toLocaleString('en-US')} particles drawn</span>
 }
 
 // Replays the opening on a multi-track timeline docked at the bottom: transport and playback speed
@@ -92,8 +103,13 @@ function IntroDebugger () {
       }
       if (!debug.open) return
 
-      const time = debug.readout.time
+      const arrow = event.code === 'ArrowLeft' || event.code === 'ArrowRight' || event.code === 'Home' || event.code === 'End'
+      if (arrow && isAdjustingSlider(event.target)) return
+
+      const end = debug.readout.duration
+      const time = Math.min(debug.readout.time, end || Infinity)
       const step = event.shiftKey ? FRAME : SEEK_STEP
+      const moments = getIntroMarkers(reducedMotion, debug.params)
       switch (event.code) {
       case 'Space':
         debug.togglePlaying()
@@ -103,6 +119,25 @@ function IntroDebugger () {
         break
       case 'ArrowRight':
         debug.seek(time + step)
+        break
+      case 'Home':
+        debug.seek(0)
+        break
+      case 'End':
+        debug.seek(end)
+        break
+      case 'BracketLeft': {
+        const previous = moments.filter(moment => moment.time < time - 0.01).pop()
+        debug.seek(previous ? previous.time : 0)
+        break
+      }
+      case 'BracketRight': {
+        const next = moments.find(moment => moment.time > time + 0.01)
+        debug.seek(next ? next.time : end)
+        break
+      }
+      case 'KeyL':
+        debug.toggleLoop()
         break
       case 'Period':
         debug.step()
@@ -203,7 +238,7 @@ function IntroDebugger () {
               <StepForward className="h-4 w-4" />
               FRAME
             </ToggleButton>
-            <ToggleButton active={loop} onClick={actions.toggleLoop} title="Restart at the end" className="h-8 gap-2 px-2">
+            <ToggleButton active={loop} onClick={actions.toggleLoop} title="Restart at the end (L)" className="h-8 gap-2 px-2">
               <Repeat className="h-4 w-4" />
               LOOP
             </ToggleButton>
@@ -217,13 +252,14 @@ function IntroDebugger () {
                 id="intro-speed"
                 label="Speed"
                 value={timeScale}
-                min={0}
+                min={MIN_SPEED}
                 max={2}
                 step={0.05}
                 formatValue={formatSpeed}
                 onChange={actions.setTimeScale}
                 variant="inline"
-                description="Speed of the whole scene while the debugger is open. 0 stops everything; the lens, flash and title still follow the timeline when you scrub."
+                resetValue={1}
+                description="Speed of the whole scene while the debugger is open. PAUSE stops everything; the lens, flash and title still follow the timeline when you scrub. A double-click returns to 1×."
               />
             </div>
             {SPEED_PRESETS.map(speed => (
@@ -233,7 +269,7 @@ function IntroDebugger () {
                 onClick={() => actions.setTimeScale(speed)}
                 className="h-8 px-2 text-xs"
               >
-                {speed === 0 ? 'STOP' : `${speed}×`}
+                {`${speed}×`}
               </ToggleButton>
             ))}
           </div>
@@ -241,8 +277,9 @@ function IntroDebugger () {
           <SegmentCount />
 
           <div className="ml-auto flex items-center gap-3">
-            <span className="hidden text-text-light/60 lg:inline" title="Space play/pause · ←/→ seek 0.1 s (Shift: one frame) · . step · R restart">
-              Shift+D
+            <span className="flex items-center gap-1.5 text-text-light/60">
+              Keys
+              <HelpTooltip content={SHORTCUTS} side="top" iconClassName="h-3.5 w-3.5" />
             </span>
             <Button
               variant="ghost"

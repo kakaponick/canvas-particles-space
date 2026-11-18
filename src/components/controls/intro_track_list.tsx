@@ -55,6 +55,7 @@ function Ruler ({ duration, scrub }: { duration: number, scrub: Scrub }) {
     <div
       role="slider"
       tabIndex={0}
+      data-intro-ruler=""
       aria-label="Intro time"
       aria-valuemin={0}
       aria-valuemax={duration}
@@ -177,6 +178,7 @@ interface TrackRowProps {
 
 const TrackRow = memo(function TrackRow ({ track, duration, params, hidden, expanded, textChanges, scrub, onToggleExpanded }: TrackRowProps) {
   const toggleLayer = useIntroDebugStore(state => state.toggleLayer)
+  const soloLayer = useIntroDebugStore(state => state.soloLayer)
   const setParam = useIntroDebugStore(state => state.setParam)
   const resetParams = useIntroDebugStore(state => state.resetParams)
   const resetTitle = useIntroDebugStore(state => state.resetTitle)
@@ -196,8 +198,8 @@ const TrackRow = memo(function TrackRow ({ track, duration, params, hidden, expa
                 type="button"
                 aria-pressed={!hidden}
                 aria-label={`${hidden ? 'Show' : 'Hide'} ${track.label}`}
-                title={hidden ? `Show ${track.label}` : `Hide ${track.label} to see what it adds`}
-                onClick={() => toggleLayer(track.layer!)}
+                title={`${hidden ? `Show ${track.label}` : `Hide ${track.label} to see what it adds`} · Alt+click: only this layer`}
+                onClick={(event) => event.altKey ? soloLayer(track.layer!) : toggleLayer(track.layer!)}
                 className={`flex h-6 w-6 shrink-0 items-center justify-center transition-colors duration-150 hover:text-neon-cyan
                   focus-visible:outline focus-visible:outline-1 focus-visible:outline-neon-cyan ${hidden ? 'text-text-light/40' : 'text-neon-cyan/80'}`}
               >
@@ -266,7 +268,8 @@ const TrackRow = memo(function TrackRow ({ track, duration, params, hidden, expa
                     formatValue={(value) => formatParam(value, spec)}
                     onChange={(value) => setParam(key, value)}
                     variant="inline"
-                    description={`${spec.description} Default: ${formatParam(DEFAULT_INTRO_PARAMS[key], spec)}.`}
+                    resetValue={DEFAULT_INTRO_PARAMS[key]}
+                    description={`${spec.description} Default: ${formatParam(DEFAULT_INTRO_PARAMS[key], spec)}; the mark on the bar shows it, a double-click returns to it.`}
                   />
                 )
               })}
@@ -293,7 +296,8 @@ const headerAction = cn(
 )
 
 // Changed count over all tracks, with copy for pasting into the defaults and a reset of everything
-function ChangedSummary ({ params, titleChanges }: { params: IntroParams, titleChanges: Partial<TitleText> }) {
+function ChangedSummary ({ params, titleChanges, hiddenCount }: { params: IntroParams, titleChanges: Partial<TitleText>, hiddenCount: number }) {
+  const showAllLayers = useIntroDebugStore(state => state.showAllLayers)
   const resetParams = useIntroDebugStore(state => state.resetParams)
   const resetTitle = useIntroDebugStore(state => state.resetTitle)
   const [copied, setCopied] = useState(false)
@@ -319,6 +323,12 @@ function ChangedSummary ({ params, titleChanges }: { params: IntroParams, titleC
       <span className={cn('mr-auto truncate tabular-nums', none ? 'text-text-light/60' : 'text-neon-cyan')}>
         {none ? 'All defaults' : `${count} changed`}
       </span>
+      {hiddenCount > 0 && (
+        <button type="button" onClick={showAllLayers} title="Show every hidden layer" className={cn(headerAction, 'text-neon-cyan')}>
+          <EyeOff className="h-3 w-3" />
+          {hiddenCount} hidden
+        </button>
+      )}
       <button type="button" disabled={none} onClick={copyChanged} title="Copy the changed values as JSON" className={headerAction}>
         {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
         {copied ? 'copied' : 'copy'}
@@ -342,6 +352,7 @@ function IntroTrackList ({ duration }: { duration: number }) {
   const title = useIntroDebugStore(state => state.title)
   const titleChanges = useMemo(() => getTitleChanges(title), [title])
   const textChanges = Object.keys(titleChanges).length
+  const hiddenCount = Object.values(hidden).filter(Boolean).length
   const scrub = useScrub(duration)
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set())
 
@@ -358,7 +369,7 @@ function IntroTrackList ({ duration }: { duration: number }) {
     <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain [--label-w:168px] sm:[--label-w:248px]">
       <div className="relative">
         <div className="sticky top-0 z-20 grid grid-cols-[var(--label-w)_1fr] border-b border-neon-cyan/20 bg-[#0b0b11]">
-          <ChangedSummary params={params} titleChanges={titleChanges} />
+          <ChangedSummary params={params} titleChanges={titleChanges} hiddenCount={hiddenCount} />
           <Ruler duration={duration} scrub={scrub} />
         </div>
         {INTRO_TRACKS.map(track => (
