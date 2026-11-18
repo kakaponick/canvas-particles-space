@@ -66,6 +66,7 @@ export const particleVertexShaderSource = `
   varying float v_halfWidth;
   varying vec4 v_color;
 
+  const float PI = 3.14159265359;
   const vec3 BLUESHIFT = vec3(0.6, 0.76, 1.0);
   const vec3 REDSHIFT = vec3(1.0, 0.58, 0.42);
 
@@ -80,17 +81,25 @@ export const particleVertexShaderSource = `
     float width = a_style.x * u_pixelRatio;
     float drawWidth = max(width, 1.0);
     float halfWidth = drawWidth * 0.5;
+    float extent = halfWidth + 1.0;
 
-    // The stroke ends flat at its two points, with one pixel of margin for anti-aliasing
-    float along = mix(-1.0, len + 1.0, a_position.x * 0.5 + 0.5);
-    float across = a_position.y * (halfWidth + 1.0);
+    // The stroke is a capsule: round caps of the stroke's own width, so a particle reads as a dot
+    float along = mix(-extent, len + extent, a_position.x * 0.5 + 0.5);
+    float across = a_position.y * extent;
     vec2 pixel = start + direction * along + normal * across;
 
-    // A stroke shorter than a pixel lights only its share of it, so brightness grows with speed in step
-    // with the length. The setting bends that link: the light becomes the length to the power of
-    // u_speedGlow, with the length taken per 60 Hz frame so the result is the same at any refresh rate
-    float referenceLength = clamp(len / max(u_frameScale, 0.0001), 0.0001, 1.0);
-    float glow = pow(referenceLength, u_speedGlow - 1.0);
+    // Exact area of the requested round-capped line versus the area the anti-aliased capsule covers
+    float targetArea = len * width + PI * width * width * 0.25;
+    float drawnArea = len * drawWidth + PI * (halfWidth * halfWidth + 1.0 / 12.0);
+
+    // Brightness follows speed. A slow particle's dots overlap frame after frame, so each one is dimmed
+    // by the share of its footprint that is new, length / (width + length): a particle that crosses
+    // its own width in a frame is fully lit, a crawling one is dim, and the light a pixel collects as
+    // the particle passes is the same as from a flat-ended stroke. The link is taken per 60 Hz frame
+    // and raised to u_speedGlow; the last factor spreads it over the frames a faster display draws
+    float referenceLength = len / max(u_frameScale, 0.0001);
+    float link = pow(max(referenceLength / (drawWidth + referenceLength), 0.000001), u_speedGlow);
+    float glow = link * u_frameScale * (drawWidth + referenceLength) / (drawWidth + len);
 
     // Relativistic aberration, stylised: light ahead shifts blue, light at the edges shifts red
     float radial = length(a_segment.zw - u_center) / max(length(u_center), 1.0);
@@ -100,7 +109,7 @@ export const particleVertexShaderSource = `
     v_ends = vec2(along, len - along);
     v_across = across;
     v_halfWidth = halfWidth;
-    v_color = vec4(mix(a_color.rgb, tint, min(abs(shift), 0.8)), a_style.y * glow * width / drawWidth);
+    v_color = vec4(mix(a_color.rgb, tint, min(abs(shift), 0.8)), a_style.y * min(glow, 1.0) * targetArea / drawnArea);
 
     // Rows stay top-down in the scene texture, which is the layout the composite pass samples
     gl_Position = vec4(pixel / u_resolution * 2.0 - 1.0, 0.0, 1.0);
@@ -116,11 +125,11 @@ export const particleFragmentShaderSource = `
   varying vec4 v_color;
 
   void main () {
-    // Share of the pixel the stroke covers: a stroke shorter than a pixel lights only that part of it,
-    // so a particle gets dimmer as it slows down and leaves no light once it stops
-    float alongCoverage = clamp(min(v_ends.x, 0.5) + min(v_ends.y, 0.5), 0.0, 1.0);
-    float acrossCoverage = clamp(v_halfWidth + 0.5 - abs(v_across), 0.0, 1.0);
-    gl_FragColor = vec4(v_color.rgb, v_color.a * alongCoverage * acrossCoverage);
+    // Distance to the segment: past either end it is measured from the end point, which rounds the cap
+    float beyondEnds = max(0.0, -min(v_ends.x, v_ends.y));
+    float dist = length(vec2(beyondEnds, v_across));
+    float coverage = clamp(v_halfWidth + 0.5 - dist, 0.0, 1.0);
+    gl_FragColor = vec4(v_color.rgb, v_color.a * coverage);
   }
 `
 
