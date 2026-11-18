@@ -45,9 +45,12 @@ pnpm preview
 
 ## Opening
 
-The page opens on its own, no click needed: a star collapses, the shockwave births the particle field,
-a black hole forms at the center, swallows the title and then drifts to your cursor. With the system
-"reduce motion" setting the flash, shockwave and spin are skipped and the scene fades in.
+The page opens on its own, no click needed. A star brightens and explodes: its light races outward at
+the on-screen speed of light, visible only where it strikes dust, which keeps glowing for a moment
+(a light echo). The ejected matter follows more slowly and becomes the particle field. The core's light
+reddens away as it collapses, a black hole forms, rings down and sends out a gravitational wave that
+ripples the background stars, swallows the title and then drifts to your cursor. With the system
+"reduce motion" setting the explosion, fronts and wobble are skipped and the scene fades in.
 
 ## Controls
 
@@ -55,7 +58,7 @@ a black hole forms at the center, swallows the title and then drifts to your cur
 - **Click Canvas**: Anchor the black hole where it is, or release it to follow again
 - **Touch**: Drag the black hole with a finger; swipe elsewhere to scroll
 - **Scroll**: Fall toward the black hole and accelerate; at the bottom you cross the event horizon
-- **Intro debugger** (Shift+D, `?debug` in the address, or Settings → Intro Debugger): timeline with phase markers, playback speed from 0 (stopped) to 2×, frame step, loop, and switches to turn each effect of the opening off
+- **Intro debugger** (Shift+D, `?debug` in the address, or Settings → Intro Debugger): timeline with phase markers, playback speed from 0 (stopped) to 2×, frame step, loop, the on-screen speed of light and of the ejected matter, and switches to turn each effect of the opening off
 - **⚙️ Control Panel**: Adjust physics parameters and colors
 
 ### Parameters

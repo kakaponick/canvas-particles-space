@@ -1,12 +1,19 @@
 import { createWithEqualityFn } from 'zustand/traditional'
+import { DEFAULT_INTRO_TIMING } from '../lib/intro_timeline'
 
 // Pieces of the opening that can be switched off one by one to see what each contributes
 export const INTRO_LAYERS = [
   { key: 'star', label: 'STAR' },
-  { key: 'flash', label: 'FLASH' },
-  { key: 'shockwave', label: 'WAVE' },
+  { key: 'glare', label: 'GLARE' },
+  { key: 'light', label: 'LIGHT FRONT' },
+  { key: 'echo', label: 'DUST ECHO' },
+  { key: 'stars', label: 'FAR STARS' },
+  { key: 'shockwave', label: 'MATTER WAVE' },
   { key: 'reveal', label: 'REVEAL' },
   { key: 'burst', label: 'BURST' },
+  { key: 'remnant', label: 'REDSHIFT' },
+  { key: 'ringdown', label: 'RINGDOWN' },
+  { key: 'gravityWave', label: 'GRAV WAVE' },
   { key: 'title', label: 'TITLE' },
   { key: 'hole', label: 'HOLE' },
   { key: 'lens', label: 'LENS' },
@@ -21,12 +28,13 @@ export interface IntroReadout {
   time: number
   duration: number
   phase: string
-  starGlow: number
-  flash: number
-  wave: number
-  reveal: number
-  speedBoost: number
+  sourcePower: number
+  exposure: number
+  lightFront: number
+  matterFront: number
+  remnantRedshift: number
   holeScale: number
+  ringdown: number
   titleAlpha: number
   speed: number
   particlesDrawn: number
@@ -39,6 +47,9 @@ interface IntroDebugState {
   timeScale: number
   loop: boolean
   hidden: Record<IntroLayer, boolean>
+  // Seconds for light to reach the screen corner, and matter speed as a share of it; always applied
+  lightCrossTime: number
+  matterSpeed: number
   // Commands for the animation loop, consumed on its next frame
   seekRequest: number | null
   restartRequest: number
@@ -50,6 +61,8 @@ interface IntroDebugState {
   setTimeScale: (scale: number) => void
   toggleLoop: () => void
   toggleLayer: (layer: IntroLayer) => void
+  setLightCrossTime: (seconds: number) => void
+  setMatterSpeed: (share: number) => void
   seek: (time: number) => void
   clearSeek: () => void
   restart: () => void
@@ -61,12 +74,16 @@ const openFromUrl = typeof window !== 'undefined' && new URLSearchParams(window.
 
 const allShown = Object.fromEntries(INTRO_LAYERS.map(layer => [layer.key, false])) as Record<IntroLayer, boolean>
 
+export const NOTHING_HIDDEN: Readonly<Record<IntroLayer, boolean>> = allShown
+
 export const useIntroDebugStore = createWithEqualityFn<IntroDebugState>((set) => ({
   open: openFromUrl,
   playing: true,
   timeScale: 1,
   loop: openFromUrl,
   hidden: allShown,
+  lightCrossTime: DEFAULT_INTRO_TIMING.lightCrossTime,
+  matterSpeed: DEFAULT_INTRO_TIMING.matterSpeed,
   seekRequest: null,
   restartRequest: 0,
   stepRequest: 0,
@@ -74,12 +91,13 @@ export const useIntroDebugStore = createWithEqualityFn<IntroDebugState>((set) =>
     time: 0,
     duration: 0,
     phase: '',
-    starGlow: 0,
-    flash: 0,
-    wave: 0,
-    reveal: 0,
-    speedBoost: 1,
+    sourcePower: 0,
+    exposure: 1,
+    lightFront: 0,
+    matterFront: 0,
+    remnantRedshift: 0,
     holeScale: 0,
+    ringdown: 0,
     titleAlpha: 0,
     speed: 0,
     particlesDrawn: 0
@@ -90,6 +108,8 @@ export const useIntroDebugStore = createWithEqualityFn<IntroDebugState>((set) =>
   setTimeScale: (timeScale) => set({ timeScale }),
   toggleLoop: () => set((state) => ({ loop: !state.loop })),
   toggleLayer: (layer) => set((state) => ({ hidden: { ...state.hidden, [layer]: !state.hidden[layer] } })),
+  setLightCrossTime: (lightCrossTime) => set({ lightCrossTime }),
+  setMatterSpeed: (matterSpeed) => set({ matterSpeed }),
   seek: (time) => set({ seekRequest: time }),
   clearSeek: () => set({ seekRequest: null }),
   restart: () => set((state) => ({ restartRequest: state.restartRequest + 1 })),

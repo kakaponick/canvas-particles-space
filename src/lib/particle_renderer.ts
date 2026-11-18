@@ -31,6 +31,7 @@ const CONTEXT_ATTRIBUTES: WebGLContextAttributes = {
 
 // Every length here is in CSS pixels; the renderer scales to device pixels
 export interface CompositeSettings {
+  time: number
   holeX: number
   holeY: number
   horizon: number
@@ -39,12 +40,30 @@ export interface CompositeSettings {
   swirl: number
   absorption: number
   ring: number
-  time: number
+  // Explosion center and its light
+  centerX: number
+  centerY: number
   starGlow: number
   starRadius: number
+  sourcePower: number
+  glareRadius: number
+  exposure: number
+  lightRadius: number
+  lightWidth: number
+  lightPower: number
+  lightSpeed: number
+  echoPower: number
+  echoDecay: number
   waveRadius: number
   waveStrength: number
   waveWidth: number
+  remnantGlow: number
+  remnantRedshift: number
+  remnantRadius: number
+  gravityWaveRadius: number
+  gravityWaveAmplitude: number
+  gravityWaveWidth: number
+  backgroundStars: number
   flash: number
 }
 
@@ -183,8 +202,11 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
   const fadeUniforms = getUniforms(gl, fadeProgram, ['color'] as const)
   const particleUniforms = getUniforms(gl, particleProgram, ['resolution', 'pixelRatio', 'center', 'doppler'] as const)
   const compositeUniforms = getUniforms(gl, compositeProgram, [
-    'resolution', 'hole', 'horizon', 'einstein', 'falloff', 'swirl', 'absorption', 'ring', 'time',
-    'starGlow', 'starRadius', 'waveRadius', 'waveStrength', 'waveWidth', 'flash',
+    'resolution', 'pixelRatio', 'time', 'hole', 'horizon', 'einstein', 'falloff', 'swirl', 'absorption', 'ring',
+    'center', 'starGlow', 'starRadius', 'sourcePower', 'glareRadius', 'exposure',
+    'lightRadius', 'lightWidth', 'lightPower', 'lightSpeed', 'echoPower', 'echoDecay',
+    'waveRadius', 'waveStrength', 'waveWidth', 'remnantGlow', 'remnantRedshift', 'remnantRadius',
+    'gravityWaveRadius', 'gravityWaveAmplitude', 'gravityWaveWidth', 'backgroundStars', 'flash',
     'titleCenter', 'titleHalfSize', 'titleRotation', 'titleAlpha'
   ] as const)
 
@@ -259,6 +281,7 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     setUniform2f(gl, particleUniforms.center, cssWidth / 2, cssHeight / 2)
     gl.useProgram(compositeProgram)
     setUniform2f(gl, compositeUniforms.resolution, width, height)
+    setUniform1f(gl, compositeUniforms.pixelRatio, ratio)
   }
 
   function clearScene (background: readonly [number, number, number]) {
@@ -303,6 +326,7 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
       setUniform2f(gl, u.titleHalfSize, titleWidth * 0.5 * title.scale * ratio, titleHeight * 0.5 * title.scale * ratio)
       setUniform2f(gl, u.titleRotation, Math.cos(title.rotation), Math.sin(title.rotation))
     }
+    setUniform1f(gl, u.time, settings.time)
     setUniform2f(gl, u.hole, settings.holeX * ratio, settings.holeY * ratio)
     setUniform1f(gl, u.horizon, settings.horizon * ratio)
     setUniform1f(gl, u.einstein, settings.einstein * ratio)
@@ -310,12 +334,28 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     setUniform1f(gl, u.swirl, settings.swirl)
     setUniform1f(gl, u.absorption, settings.absorption)
     setUniform1f(gl, u.ring, settings.ring)
-    setUniform1f(gl, u.time, settings.time)
+    setUniform2f(gl, u.center, settings.centerX * ratio, settings.centerY * ratio)
     setUniform1f(gl, u.starGlow, settings.starGlow)
     setUniform1f(gl, u.starRadius, Math.max(settings.starRadius * ratio, 0.5))
+    setUniform1f(gl, u.sourcePower, settings.sourcePower)
+    setUniform1f(gl, u.glareRadius, Math.max(settings.glareRadius * ratio, 0.5))
+    setUniform1f(gl, u.exposure, settings.exposure)
+    setUniform1f(gl, u.lightRadius, settings.lightRadius * ratio)
+    setUniform1f(gl, u.lightWidth, Math.max(settings.lightWidth * ratio, 1))
+    setUniform1f(gl, u.lightPower, settings.lightPower)
+    setUniform1f(gl, u.lightSpeed, settings.lightSpeed * ratio)
+    setUniform1f(gl, u.echoPower, settings.echoPower)
+    setUniform1f(gl, u.echoDecay, Math.max(settings.echoDecay, 0.01))
     setUniform1f(gl, u.waveRadius, settings.waveRadius * ratio)
     setUniform1f(gl, u.waveStrength, settings.waveStrength * ratio)
     setUniform1f(gl, u.waveWidth, Math.max(settings.waveWidth * ratio, 1))
+    setUniform1f(gl, u.remnantGlow, settings.remnantGlow)
+    setUniform1f(gl, u.remnantRedshift, settings.remnantRedshift)
+    setUniform1f(gl, u.remnantRadius, Math.max(settings.remnantRadius * ratio, 0.5))
+    setUniform1f(gl, u.gravityWaveRadius, settings.gravityWaveRadius * ratio)
+    setUniform1f(gl, u.gravityWaveAmplitude, settings.gravityWaveAmplitude * ratio)
+    setUniform1f(gl, u.gravityWaveWidth, Math.max(settings.gravityWaveWidth * ratio, 1))
+    setUniform1f(gl, u.backgroundStars, settings.backgroundStars)
     setUniform1f(gl, u.flash, settings.flash)
     gl.drawArrays(gl.TRIANGLES, 0, QUAD_VERTEX_COUNT)
   }

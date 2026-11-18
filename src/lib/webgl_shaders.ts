@@ -1,5 +1,5 @@
-// WebGL shaders for the particle renderer: trail fade, particle segments and the black hole
-// composite, which also lays the intro title behind the lens. Written in GLSL ES 1.00 so the same sources run on WebGL2 and on
+// WebGL shaders for the particle renderer: trail fade, particle segments and the composite pass,
+// which draws the black hole, the explosion's light and the intro title over the scene. Written in GLSL ES 1.00 so the same sources run on WebGL2 and on
 // WebGL1 with ANGLE_instanced_arrays.
 
 // Attribute locations shared by every program; location 0 is always the full-screen quad
@@ -135,6 +135,10 @@ export const compositeFragmentShaderSource = `
   uniform sampler2D u_image;
   uniform sampler2D u_title;     // white alpha mask of the intro title
   uniform vec2 u_resolution;
+  uniform float u_pixelRatio;
+  uniform float u_time;
+
+  // Black hole
   uniform vec2 u_hole;
   uniform float u_horizon;       // shadow radius; 0 before the black hole forms
   uniform float u_einstein;      // Einstein ring radius; 0 turns the lens off
@@ -142,13 +146,32 @@ export const compositeFragmentShaderSource = `
   uniform float u_swirl;         // frame-dragging twist near the ring
   uniform float u_absorption;    // darkening halo around the shadow
   uniform float u_ring;          // photon ring brightness
-  uniform float u_time;
-  uniform float u_starGlow;      // the star that collapses in the intro
+
+  // Explosion, all centred on u_center
+  uniform vec2 u_center;
+  uniform float u_starGlow;      // the progenitor before it explodes
   uniform float u_starRadius;
-  uniform float u_waveRadius;    // intro shockwave front
-  uniform float u_waveStrength;  // refraction at the front, pixels
+  uniform float u_sourcePower;   // the explosion's glare in the camera
+  uniform float u_glareRadius;
+  uniform float u_exposure;
+  uniform float u_lightRadius;   // light front
+  uniform float u_lightWidth;
+  uniform float u_lightPower;
+  uniform float u_lightSpeed;    // pixels per second
+  uniform float u_echoPower;     // dust lit up behind the light front
+  uniform float u_echoDecay;     // seconds
+  uniform float u_waveRadius;    // matter front
+  uniform float u_waveStrength;  // refraction at the matter front, pixels
   uniform float u_waveWidth;
-  uniform float u_flash;         // white-out, 0..1
+  uniform float u_remnantGlow;   // the collapsing core
+  uniform float u_remnantRedshift;
+  uniform float u_remnantRadius;
+  uniform float u_gravityWaveRadius;
+  uniform float u_gravityWaveAmplitude; // pixels
+  uniform float u_gravityWaveWidth;
+  uniform float u_backgroundStars;
+
+  uniform float u_flash;         // white-out when crossing the event horizon, 0..1
   uniform vec2 u_titleCenter;
   uniform vec2 u_titleHalfSize;
   uniform vec2 u_titleRotation;  // cos, sin
@@ -157,13 +180,77 @@ export const compositeFragmentShaderSource = `
   const vec3 RING_COLOR = vec3(1.0, 0.86, 0.66);
   const vec3 FLASH_COLOR = vec3(1.0, 0.97, 0.92);
   const vec3 TITLE_COLOR = vec3(1.0, 0.95, 0.9);
+  const vec3 BLAST_COLOR = vec3(0.86, 0.92, 1.0);
+  const vec3 DUST_COLOR = vec3(1.0, 0.84, 0.66);
+  const float STAR_CELL = 26.0;      // CSS pixels per background-star cell
+  const float STAR_DENSITY = 0.12;   // share of cells holding a star
+
+  // Hash without sine (Dave Hoskins), stable across GPUs
+  float hash12 (vec2 p) {
+    vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.x + p3.y) * p3.z);
+  }
+
+  float valueNoise (vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    return mix(
+      mix(hash12(i), hash12(i + vec2(1.0, 0.0)), u.x),
+      mix(hash12(i + vec2(0.0, 1.0)), hash12(i + vec2(1.0, 1.0)), u.x),
+      u.y
+    );
+  }
+
+  // Thin filaments: the ridge where rotated octaves of noise cross their midpoint
+  float dust (vec2 cssPx) {
+    vec2 p = cssPx / 220.0;
+    mat2 turn = mat2(0.8, 0.6, -0.6, 0.8);
+    float n = 0.0;
+    float amplitude = 0.5;
+    for (int i = 0; i < 4; i++) {
+      n += amplitude * valueNoise(p);
+      p = turn * p * 2.1 + 11.7;
+      amplitude *= 0.5;
+    }
+    float ridge = smoothstep(0.55, 1.0, 1.0 - abs(2.0 * n - 0.94));
+    return ridge * ridge;
+  }
+
+  // Static distant stars, one at most per cell; they flare as the light front passes
+  vec3 backgroundStar (vec2 cssPx, float flare) {
+    vec2 cell = floor(cssPx / STAR_CELL);
+    float presence = hash12(cell);
+    if (presence > STAR_DENSITY) return vec3(0.0);
+    vec2 position = (cell + 0.2 + 0.6 * vec2(hash12(cell + 7.3), hash12(cell + 13.1))) * STAR_CELL;
+    float d = length(cssPx - position);
+    float brightness = hash12(cell + 3.7);
+    float twinkle = 0.85 + 0.15 * sin(u_time * (2.0 + 3.0 * brightness) + presence * 400.0);
+    vec3 tint = mix(vec3(1.0, 0.82, 0.62), vec3(0.75, 0.85, 1.0), hash12(cell + 29.0));
+    return tint * exp(-d * d / 0.6) * (0.25 + 0.75 * brightness * brightness) * twinkle * (1.0 + flare);
+  }
+
+  // Leaves everything below 0.8 untouched and rolls highlights off smoothly instead of clipping
+  vec3 softKnee (vec3 x) {
+    vec3 over = max(x - 0.8, 0.0);
+    return min(x, 0.8) + 0.2 * (1.0 - exp(-over / 0.2));
+  }
 
   void main () {
     vec2 frag = vec2(gl_FragCoord.x, u_resolution.y - gl_FragCoord.y);
     vec2 offset = frag - u_hole;
     float dist = length(offset);
-    vec2 direction = offset / max(dist, 0.0001);
     vec2 samplePx = frag;
+
+    // Gravitational wave from the ringdown: a quadrupole ripple that stretches space as it passes
+    vec2 fromCenter = frag - u_center;
+    float centerDist = length(fromCenter);
+    if (u_gravityWaveAmplitude > 0.0) {
+      float x = (centerDist - u_gravityWaveRadius) / u_gravityWaveWidth;
+      float angle = atan(fromCenter.y, fromCenter.x);
+      samplePx += fromCenter / max(centerDist, 0.0001) * u_gravityWaveAmplitude * exp(-x * x) * sin(x * 5.0) * cos(2.0 * angle);
+    }
 
     // Point-mass lens: a ray passing at distance r arrives from r * (1 - (E / r)^falloff),
     // which maps the background behind the hole into a ring of radius E
@@ -171,19 +258,22 @@ export const compositeFragmentShaderSource = `
       float ratio = u_einstein / max(dist, 0.0001);
       float bend = min(u_falloff == 2.0 ? ratio * ratio : pow(ratio, u_falloff), 64.0);
       if (bend * dist * (1.0 + u_swirl) > 0.01) {
-        vec2 lensed = offset * (1.0 - bend);
-        float angle = u_swirl * bend;
-        float c = cos(angle);
-        float s = sin(angle);
+        vec2 lensed = (samplePx - u_hole) * (1.0 - bend);
+        float twist = u_swirl * bend;
+        float c = cos(twist);
+        float s = sin(twist);
         samplePx = u_hole + vec2(c * lensed.x - s * lensed.y, s * lensed.x + c * lensed.y);
       }
     }
 
-    // The shockwave refracts what lies under its front
-    float front = 0.0;
+    // Where the bent ray comes from, measured from the explosion
+    vec2 sourceOffset = samplePx - u_center;
+    float sourceDist = length(sourceOffset);
+
+    // The matter front refracts what lies under it
     if (u_waveStrength > 0.0) {
-      front = (dist - u_waveRadius) / u_waveWidth;
-      samplePx -= direction * u_waveStrength * front * exp(-front * front);
+      float front = (sourceDist - u_waveRadius) / u_waveWidth;
+      samplePx -= sourceOffset / max(sourceDist, 0.0001) * u_waveStrength * front * exp(-front * front);
     }
 
     vec3 color = texture2D(u_image, samplePx / u_resolution).rgb;
@@ -201,6 +291,32 @@ export const compositeFragmentShaderSource = `
       }
     }
 
+    // Seconds since the light front passed this point; negative before it arrives
+    float lit = u_lightSpeed > 0.0 ? (u_lightRadius - sourceDist) / u_lightSpeed : -1.0;
+    float echo = lit >= 0.0 ? exp(-lit / u_echoDecay) : 0.0;
+
+    vec2 cssPx = samplePx / u_pixelRatio;
+    vec3 emitted = vec3(0.0);
+    if (u_backgroundStars > 0.0) {
+      emitted += backgroundStar(cssPx, 3.0 * echo * step(0.001, u_echoPower)) * u_backgroundStars;
+    }
+    // Light is invisible in empty space: the front shows where it strikes dust, and the dust
+    // keeps glowing for a moment after it passes (the light echo)
+    float shell = (sourceDist - u_lightRadius) / u_lightWidth;
+    float front = u_lightPower > 0.0 ? exp(-shell * shell) : 0.0;
+    float echoGlow = u_echoPower > 0.0 ? echo : 0.0;
+    if (front > 0.001 || echoGlow > 0.001) {
+      float density = dust(cssPx);
+      emitted += BLAST_COLOR * u_lightPower * front * (0.06 + 0.94 * density);
+      emitted += DUST_COLOR * u_echoPower * echoGlow * density / (1.0 + sourceDist / (0.5 * u_resolution.x));
+    }
+    if (u_remnantGlow > 0.0) {
+      vec3 remnantColor = mix(mix(vec3(1.0, 0.97, 0.92), vec3(1.0, 0.55, 0.2), smoothstep(0.0, 0.5, u_remnantRedshift)),
+        vec3(0.6, 0.05, 0.02), smoothstep(0.5, 1.0, u_remnantRedshift));
+      emitted += remnantColor * u_remnantGlow * (1.0 - 0.7 * u_remnantRedshift) * exp(-(centerDist * centerDist) / (2.0 * u_remnantRadius * u_remnantRadius));
+    }
+    color = (color + emitted) * u_exposure;
+
     if (u_horizon > 0.0) {
       float shadow = smoothstep(u_horizon - 1.0, u_horizon + 1.0, dist);
       float halo = clamp(1.0 - (dist - u_horizon) / (1.5 * u_horizon), 0.0, 1.0);
@@ -213,15 +329,16 @@ export const compositeFragmentShaderSource = `
       color += RING_COLOR * u_ring * beaming * exp(-ringOffset * ringOffset);
     }
 
+    // Light from the source itself reaches the camera directly: the progenitor and the blast glare
     if (u_starGlow > 0.0) {
-      color += FLASH_COLOR * u_starGlow * exp(-(dist * dist) / (2.0 * u_starRadius * u_starRadius));
+      color += FLASH_COLOR * u_starGlow * exp(-(centerDist * centerDist) / (2.0 * u_starRadius * u_starRadius));
+    }
+    if (u_sourcePower > 0.0) {
+      float glare = u_glareRadius * u_glareRadius / (u_glareRadius * u_glareRadius + centerDist * centerDist);
+      color += FLASH_COLOR * u_sourcePower * u_exposure * glare;
     }
 
-    if (u_waveStrength > 0.0) {
-      color += RING_COLOR * 0.012 * u_waveStrength * exp(-front * front);
-    }
-
-    gl_FragColor = vec4(mix(color, FLASH_COLOR, u_flash), 1.0);
+    gl_FragColor = vec4(mix(softKnee(color), FLASH_COLOR, u_flash), 1.0);
   }
 `
 

@@ -30,6 +30,8 @@ function IntroDebugger () {
   const loop = useIntroDebugStore(state => state.loop)
   const hidden = useIntroDebugStore(state => state.hidden)
   const readout = useIntroDebugStore(state => state.readout)
+  const lightCrossTime = useIntroDebugStore(state => state.lightCrossTime)
+  const matterSpeed = useIntroDebugStore(state => state.matterSpeed)
   const actions = useIntroDebugStore.getState()
 
   useEffect(() => {
@@ -74,15 +76,16 @@ function IntroDebugger () {
 
   if (!open) return null
 
-  const markers = getIntroMarkers(reducedMotion)
+  const markers = getIntroMarkers(reducedMotion, { lightCrossTime, matterSpeed })
   const duration = readout.duration || markers[markers.length - 1].time
   const values: [string, string][] = [
-    ['star', readout.starGlow.toFixed(2)],
-    ['flash', readout.flash.toFixed(2)],
-    ['wave', readout.wave.toFixed(2)],
-    ['reveal', readout.reveal.toFixed(2)],
-    ['burst', `${readout.speedBoost.toFixed(2)}×`],
+    ['glare', readout.sourcePower.toFixed(2)],
+    ['exposure', readout.exposure.toFixed(2)],
+    ['light front', readout.lightFront.toFixed(2)],
+    ['matter front', readout.matterFront.toFixed(2)],
+    ['redshift', readout.remnantRedshift.toFixed(2)],
     ['hole scale', readout.holeScale.toFixed(2)],
+    ['ringdown', readout.ringdown.toFixed(3)],
     ['title α', readout.titleAlpha.toFixed(2)],
     ['flight speed', readout.speed.toFixed(2)],
     ['segments', readout.particlesDrawn.toLocaleString('en-US')]
@@ -145,7 +148,7 @@ function IntroDebugger () {
               trackHeight="h-2"
               thumbSize="h-3.5 w-3.5"
             />
-            {markers.map(marker => (
+            {markers.filter(marker => marker.time <= duration).map(marker => (
               <span
                 key={marker.label}
                 aria-hidden="true"
@@ -166,7 +169,7 @@ function IntroDebugger () {
                     : 'border-text-light/20 text-text-light/70 hover:border-neon-cyan/60 hover:text-neon-cyan'
                 }`}
               >
-                {marker.time.toFixed(1)} {marker.label}
+                {Number(marker.time.toFixed(2))} {marker.label}
               </button>
             ))}
           </div>
@@ -197,6 +200,33 @@ function IntroDebugger () {
               </ToggleButton>
             ))}
           </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <SliderControl
+            id="intro-light-speed"
+            label="Light Reaches Corner"
+            value={lightCrossTime}
+            min={0.2}
+            max={3}
+            step={0.05}
+            formatValue={(value) => `${value.toFixed(2)} s`}
+            onChange={actions.setLightCrossTime}
+            variant="inline"
+            description="The on-screen speed of light: seconds the explosion's light front needs to travel from the center to the farthest corner. The gravitational wave travels at the same speed."
+          />
+          <SliderControl
+            id="intro-matter-speed"
+            label="Matter Speed"
+            value={matterSpeed}
+            min={0.1}
+            max={0.95}
+            step={0.05}
+            formatValue={(value) => `${value.toFixed(2)} c`}
+            onChange={actions.setMatterSpeed}
+            variant="inline"
+            description="Speed of the ejected matter, which births the particle field, as a share of the speed of light. It always trails the light front."
+          />
         </div>
 
         <dl className="grid grid-cols-2 gap-x-4 gap-y-1 tabular-nums">
