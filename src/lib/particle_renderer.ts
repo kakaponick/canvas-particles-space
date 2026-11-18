@@ -90,6 +90,9 @@ export interface CompositeSettings {
   dustThreshold: number
   lightDustContrast: number
   dustSweep: number
+  // CSS pixels, and CSS pixels per second
+  dustBlow: number
+  dustDrift: number
   // Colours of the intro, 0xRRGGBB
   colorFlash: number
   colorLight: number
@@ -293,7 +296,7 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     'starCell', 'starDensity', 'starFlare', 'dustScale', 'dustThreshold', 'lightDustContrast',
     'titleCenter', 'titleHalfSize', 'titleAlpha', 'titleReveal', 'titleDissolve', 'titleDrift', 'titleGlow',
     'titleFlash', 'titleCooling', 'titleDust', 'titlePull', 'titleSwirl', 'titleReach', 'titleCapture', 'titleScale',
-    'titleFringe', 'titleHalo', 'titleRedshift', 'titleGrain', 'titleBurn', 'dustSweep',
+    'titleFringe', 'titleHalo', 'titleRedshift', 'titleGrain', 'titleBurn', 'dustSweep', 'dustBlow', 'dustDrift',
     'colorFlash', 'colorLight', 'colorDust', 'colorTitle', 'colorEmber',
     'cameraZoom', 'shake', 'lensFringe', 'vignette', 'filmGrain', 'letterbox'
   ] as const)
@@ -505,6 +508,8 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     setUniform1f(gl, u.dustThreshold, Math.min(settings.dustThreshold, 0.99))
     setUniform1f(gl, u.lightDustContrast, settings.lightDustContrast)
     setUniform1f(gl, u.dustSweep, settings.dustSweep)
+    setUniform1f(gl, u.dustBlow, settings.dustBlow)
+    setUniform1f(gl, u.dustDrift, settings.dustDrift)
     gl.drawArrays(gl.TRIANGLES, 0, QUAD_VERTEX_COUNT)
   }
 

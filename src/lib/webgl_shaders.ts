@@ -203,6 +203,8 @@ export const compositeFragmentShaderSource = `
   uniform float u_dustThreshold;
   uniform float u_lightDustContrast;
   uniform float u_dustSweep;       // how completely the matter front clears the dust it passes
+  uniform float u_dustBlow;        // CSS pixels the blast pushes the dust outward
+  uniform float u_dustDrift;       // CSS pixels per second the dust drifts on its own
 
   uniform vec2 u_titleCenter;
   uniform vec2 u_titleHalfSize;
@@ -248,6 +250,11 @@ export const compositeFragmentShaderSource = `
   const float TITLE_HALO_GAIN = 1.5;
   // Seconds a background star stays flared after the light front passes it
   const float STAR_FLARE_DECAY = 0.18;
+  // How long dust holds its light, in multiples of the afterglow: thin haze and the thickest cloud
+  const float DUST_HOLD_MIN = 0.4;
+  const float DUST_HOLD_MAX = 1.8;
+  // Seconds for the blast to push the dust most of its way
+  const float DUST_BLOW_SECONDS = 1.2;
 
   // Hash without sine (Dave Hoskins), stable across GPUs
   float hash12 (vec2 p) {
@@ -397,7 +404,6 @@ export const compositeFragmentShaderSource = `
 
     // Seconds since the light front passed this point; negative before it arrives
     float lit = u_lightSpeed > 0.0 ? (u_lightRadius - sourceDist) / u_lightSpeed : -1.0;
-    float echo = lit >= 0.0 ? exp(-lit / u_echoDecay) : 0.0;
 
     vec2 cssPx = samplePx / u_pixelRatio;
     vec3 emitted = vec3(0.0);
@@ -473,15 +479,28 @@ export const compositeFragmentShaderSource = `
     // keeps glowing for a moment after it passes (the light echo)
     float shell = (sourceDist - u_lightRadius) / u_lightWidth;
     float front = u_lightPower > 0.0 ? exp(-shell * shell) : 0.0;
-    float echoGlow = u_echoPower > 0.0 ? echo : 0.0;
-    if (front > 0.001 || echoGlow > 0.001) {
+    // The thickest cloud holds its light this many times longer than the afterglow setting
+    float longestHold = u_echoPower > 0.0 && lit >= 0.0 ? exp(-lit / (DUST_HOLD_MAX * u_echoDecay)) : 0.0;
+    if (front > 0.001 || longestHold > 0.001) {
+      // The dust is never still: it drifts slowly all the time, and the blast pushes it outward once
+      // the front has passed, quickly at first and then easing off
+      vec2 dustAt = dustPx + u_dustDrift * u_time * vec2(0.8, -0.6);
+      if (lit > 0.0) dustAt -= sourceOffset / max(sourceDist, 0.0001) * u_dustBlow * (1.0 - exp(-lit / DUST_BLOW_SECONDS));
       // Light lights the dust and the ejected matter, which follows more slowly, sweeps it away
       float swept = mix(1.0, smoothstep(u_waveRadius - u_waveWidth, u_waveRadius + u_waveWidth, sourceDist), u_dustSweep);
-      float density = dust(dustPx) * swept;
+      float density = dust(dustAt) * swept;
       emitted += u_colorLight * u_lightPower * front * (1.0 - u_lightDustContrast + u_lightDustContrast * density);
+      // The glow swells over a moment instead of switching on, and it does not go out all at once:
+      // thin haze lets its light go quickly while thick cloud holds it, so the dust goes dark patch
+      // by patch
+      float glow = 0.0;
+      if (u_echoPower > 0.0 && lit >= 0.0) {
+        float hold = u_echoDecay * mix(DUST_HOLD_MIN, DUST_HOLD_MAX, density);
+        glow = (1.0 - exp(-lit / (0.15 * u_echoDecay + 0.02))) * exp(-lit / hold);
+      }
       // Dust the front has just struck still shines with the front's colour and cools to its own
-      vec3 echoColor = mix(u_colorDust, u_colorLight, echoGlow * echoGlow);
-      emitted += echoColor * u_echoPower * echoGlow * density / (1.0 + sourceDist / (0.5 * u_resolution.x));
+      vec3 echoColor = mix(u_colorDust, u_colorLight, glow * glow);
+      emitted += echoColor * u_echoPower * glow * density / (1.0 + sourceDist / (0.5 * u_resolution.x));
     }
     if (u_remnantGlow > 0.0) {
       // White-hot, then the ember colour, then the same colour deep and dark
