@@ -108,8 +108,6 @@ export interface FrameInput {
   instances: Float32Array
   instanceCount: number
   doppler: number
-  // Length of this frame in 60 Hz reference frames; keeps slow particles as bright at any refresh rate
-  frameScale: number
   // Photon ring energy around the circle, RING_BINS values
   ringTexels: Uint8Array
   title: TitleSettings
@@ -197,7 +195,7 @@ function getUniforms<T extends string> (gl: WebGLRenderingContext, program: WebG
 /**
  * Draws the particle field with WebGL:
  * 1. fades the persistent scene texture toward the background (the motion trail),
- * 2. draws every particle segment as one instanced, anti-aliased round-capped quad,
+ * 2. draws every particle segment as one instanced, anti-aliased flat-ended quad,
  * 3. composites the scene to the screen through the black hole shader, which also lays the
  *    intro title behind the lens so it bends like starlight.
  * Returns null when the context lacks instancing or a program fails to build.
@@ -229,7 +227,7 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
   }
 
   const fadeUniforms = getUniforms(gl, fadeProgram, ['color'] as const)
-  const particleUniforms = getUniforms(gl, particleProgram, ['resolution', 'pixelRatio', 'center', 'doppler', 'frameScale'] as const)
+  const particleUniforms = getUniforms(gl, particleProgram, ['resolution', 'pixelRatio', 'center', 'doppler'] as const)
   const compositeUniforms = getUniforms(gl, compositeProgram, [
     'resolution', 'pixelRatio', 'time', 'hole', 'horizon', 'einstein', 'falloff', 'swirl', 'absorption', 'ring',
     'ringWidth', 'ringDoppler', 'ringSide', 'ringPhase', 'ringBase', 'ringFeed',
@@ -336,7 +334,7 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     gl.activeTexture(gl.TEXTURE0 + SCENE_TEXTURE_UNIT)
   }
 
-  function drawParticles (instances: Float32Array, count: number, doppler: number, frameScale: number) {
+  function drawParticles (instances: Float32Array, count: number, doppler: number) {
     if (count === 0) return
 
     gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuffer)
@@ -348,7 +346,6 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
 
     gl.useProgram(particleProgram)
     setUniform1f(gl, particleUniforms.doppler, doppler)
-    setUniform1f(gl, particleUniforms.frameScale, frameScale)
     for (const location of INSTANCED_ATTRIBUTES) gl.enableVertexAttribArray(location)
     instancing.draw(QUAD_VERTEX_COUNT, count)
     for (const location of INSTANCED_ATTRIBUTES) gl.disableVertexAttribArray(location)
@@ -426,7 +423,7 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
         setUniform4f(gl, fadeUniforms.color, r / 255, g / 255, b / 255, frame.fadeAlpha)
         gl.drawArrays(gl.TRIANGLES, 0, QUAD_VERTEX_COUNT)
       }
-      drawParticles(frame.instances, frame.instanceCount, frame.doppler, frame.frameScale)
+      drawParticles(frame.instances, frame.instanceCount, frame.doppler)
       gl.bindFramebuffer(gl.FRAMEBUFFER, null)
 
       gl.activeTexture(gl.TEXTURE0 + RING_TEXTURE_UNIT)
