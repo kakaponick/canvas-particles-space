@@ -182,6 +182,9 @@ export const useIntroPresetStore = createWithEqualityFn<IntroPresetState>((set, 
       if (!preset) return
       const debug = useIntroDebugStore.getState()
       debug.applySetup(preset.params, preset.keepsText ? { ...preset.title, text: debug.title.text } : preset.title)
+      // Choosing a preset shows it: the intro starts over and runs, even from a pause
+      debug.restart()
+      if (!debug.playing) debug.togglePlaying()
       commit(presets, preset.id)
     },
 
