@@ -29,6 +29,7 @@ import {
   type Spring2D
 } from '../lib/black_hole_motion'
 import { renderTitleSprite, waitForTitleFont, type TitleSprite } from '../lib/title_sprite'
+import { createParticleBudget, updateParticleBudget } from '../lib/particle_budget'
 
 const TITLE_TEXT = 'EXPERIENCE THE SPEED OF LIGHT'
 
@@ -105,6 +106,7 @@ function ParticleCanvas () {
     const journeyFrame: JourneyFrame = { progress: 0, flash: 0, approach: 1 }
 
     const initialState = useParticleStore.getState()
+    const particleBudget = createParticleBudget(initialState.numParticles)
     const field = createParticleField()
     const instances = createInstanceData()
     const spawn: SpawnSettings = {
@@ -207,7 +209,7 @@ function ParticleCanvas () {
       introTime = 0
       fadeBacklog = 0
       field.count = 0
-      setParticleCount(field, state.numParticles, spawn)
+      setParticleCount(field, particleBudget.active, spawn)
       hole.x = targetX = viewportWidth / 2
       hole.y = targetY = viewportHeight / 2
       hole.vx = 0
@@ -361,8 +363,8 @@ function ParticleCanvas () {
       spawn.farZ = state.farZ
       spawn.speedVariance = state.speedVariance
 
-      if (state.numParticles !== field.count) {
-        setParticleCount(field, state.numParticles, spawn)
+      if (particleBudget.active !== field.count) {
+        setParticleCount(field, particleBudget.active, spawn)
       }
       ensureInstanceCapacity(instances, field.capacity)
 
@@ -411,8 +413,13 @@ function ParticleCanvas () {
       // A frozen frame keeps the scene texture; only the composite (lens, flash, title) is redrawn
       frame.updateScene = frameScale > 0
       if (frame.updateScene) {
+        const simStart = performance.now()
         frame.instanceCount = stepParticles(field, settings, spawn, instances)
         frame.instances = instances.floats
+        const active = updateParticleBudget(
+          particleBudget, state.numParticles, performance.now() - simStart, elapsedMs, now, state.adaptiveParticles
+        )
+        if (active !== state.activeParticles) state.setActiveParticles(active)
       }
       frame.doppler = hidden.doppler ? 0 : Math.min(Math.max((speed - 2) / 10, 0), 1) * (reducedMotion ? 0.5 : 1)
       readBackground()

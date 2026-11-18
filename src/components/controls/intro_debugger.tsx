@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { Pause, Play, Repeat, RotateCcw, StepForward, X } from 'lucide-react'
 import { Slider } from '@/components/ui/slider'
 import { Button } from '@/components/ui/button'
@@ -23,6 +23,90 @@ function isTyping (target: EventTarget | null) {
   return target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
 }
 
+// Scrubbable timeline with phase markers; re-renders with the readout, the rest of the panel does not
+function IntroTimeline () {
+  const time = useIntroDebugStore(state => state.readout.time)
+  const phase = useIntroDebugStore(state => state.readout.phase)
+  const readoutDuration = useIntroDebugStore(state => state.readout.duration)
+  const params = useIntroDebugStore(state => state.params)
+  const seek = useIntroDebugStore(state => state.seek)
+  const markers = useMemo(() => getIntroMarkers(reducedMotion, params), [params])
+  const duration = readoutDuration || markers[markers.length - 1].time
+
+  return (
+    <div className="space-y-2">
+      <div className="flex justify-between tabular-nums">
+        <span className="text-neon-cyan">{phase || '—'}</span>
+        <span>{time.toFixed(2)} s / {duration.toFixed(2)} s</span>
+      </div>
+      <div className="relative pb-3">
+        <Slider
+          aria-label="Intro time"
+          min={0}
+          max={duration}
+          step={0.01}
+          value={[Math.min(time, duration)]}
+          onValueChange={(value) => seek(value[0])}
+          trackHeight="h-2"
+          thumbSize="h-3.5 w-3.5"
+        />
+        {markers.filter(marker => marker.time <= duration).map(marker => (
+          <span
+            key={marker.label}
+            aria-hidden="true"
+            className="absolute bottom-0 h-2 w-px bg-neon-cyan/60"
+            style={{ left: `${marker.time / duration * 100}%` }}
+          />
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-1">
+        {markers.map(marker => (
+          <button
+            key={marker.label}
+            type="button"
+            onClick={() => seek(marker.time)}
+            className={`px-1.5 py-0.5 border tabular-nums transition-colors ${
+              phase === marker.label
+                ? 'border-neon-cyan text-neon-cyan bg-neon-cyan/15'
+                : 'border-text-light/20 text-text-light/70 hover:border-neon-cyan/60 hover:text-neon-cyan'
+            }`}
+          >
+            {Number(marker.time.toFixed(2))} {marker.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// Live values of the current frame
+function IntroReadout () {
+  const readout = useIntroDebugStore(state => state.readout)
+  const values: [string, string][] = [
+    ['glare', readout.sourcePower.toFixed(2)],
+    ['exposure', readout.exposure.toFixed(2)],
+    ['light front', readout.lightFront.toFixed(2)],
+    ['matter front', readout.matterFront.toFixed(2)],
+    ['redshift', readout.remnantRedshift.toFixed(2)],
+    ['hole scale', readout.holeScale.toFixed(2)],
+    ['ringdown', readout.ringdown.toFixed(3)],
+    ['title α', readout.titleAlpha.toFixed(2)],
+    ['flight speed', readout.speed.toFixed(2)],
+    ['segments', readout.particlesDrawn.toLocaleString('en-US')]
+  ]
+
+  return (
+    <dl className="grid grid-cols-2 gap-x-4 gap-y-1 tabular-nums">
+      {values.map(([name, value]) => (
+        <div key={name} className="flex justify-between gap-2">
+          <dt className="text-text-light/60">{name}</dt>
+          <dd>{value}</dd>
+        </div>
+      ))}
+    </dl>
+  )
+}
+
 // Replays the opening seconds with a timeline, playback speed down to a full stop, and layer switches
 function IntroDebugger () {
   const open = useIntroDebugStore(state => state.open)
@@ -30,8 +114,6 @@ function IntroDebugger () {
   const timeScale = useIntroDebugStore(state => state.timeScale)
   const loop = useIntroDebugStore(state => state.loop)
   const hidden = useIntroDebugStore(state => state.hidden)
-  const readout = useIntroDebugStore(state => state.readout)
-  const params = useIntroDebugStore(state => state.params)
   const actions = useIntroDebugStore.getState()
 
   useEffect(() => {
@@ -76,21 +158,6 @@ function IntroDebugger () {
 
   if (!open) return null
 
-  const markers = getIntroMarkers(reducedMotion, params)
-  const duration = readout.duration || markers[markers.length - 1].time
-  const values: [string, string][] = [
-    ['glare', readout.sourcePower.toFixed(2)],
-    ['exposure', readout.exposure.toFixed(2)],
-    ['light front', readout.lightFront.toFixed(2)],
-    ['matter front', readout.matterFront.toFixed(2)],
-    ['redshift', readout.remnantRedshift.toFixed(2)],
-    ['hole scale', readout.holeScale.toFixed(2)],
-    ['ringdown', readout.ringdown.toFixed(3)],
-    ['title α', readout.titleAlpha.toFixed(2)],
-    ['flight speed', readout.speed.toFixed(2)],
-    ['segments', readout.particlesDrawn.toLocaleString('en-US')]
-  ]
-
   return (
     <TooltipProvider delayDuration={500}>
       <section
@@ -132,48 +199,7 @@ function IntroDebugger () {
           </ToggleButton>
         </div>
 
-        <div className="space-y-2">
-          <div className="flex justify-between tabular-nums">
-            <span className="text-neon-cyan">{readout.phase || '—'}</span>
-            <span>{readout.time.toFixed(2)} s / {duration.toFixed(2)} s</span>
-          </div>
-          <div className="relative pb-3">
-            <Slider
-              aria-label="Intro time"
-              min={0}
-              max={duration}
-              step={0.01}
-              value={[Math.min(readout.time, duration)]}
-              onValueChange={(value) => actions.seek(value[0])}
-              trackHeight="h-2"
-              thumbSize="h-3.5 w-3.5"
-            />
-            {markers.filter(marker => marker.time <= duration).map(marker => (
-              <span
-                key={marker.label}
-                aria-hidden="true"
-                className="absolute bottom-0 h-2 w-px bg-neon-cyan/60"
-                style={{ left: `${marker.time / duration * 100}%` }}
-              />
-            ))}
-          </div>
-          <div className="flex flex-wrap gap-1">
-            {markers.map(marker => (
-              <button
-                key={marker.label}
-                type="button"
-                onClick={() => actions.seek(marker.time)}
-                className={`px-1.5 py-0.5 border tabular-nums transition-colors ${
-                  readout.phase === marker.label
-                    ? 'border-neon-cyan text-neon-cyan bg-neon-cyan/15'
-                    : 'border-text-light/20 text-text-light/70 hover:border-neon-cyan/60 hover:text-neon-cyan'
-                }`}
-              >
-                {Number(marker.time.toFixed(2))} {marker.label}
-              </button>
-            ))}
-          </div>
-        </div>
+        <IntroTimeline />
 
         <div className="space-y-1.5">
           <SliderControl
@@ -202,14 +228,7 @@ function IntroDebugger () {
           </div>
         </div>
 
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-1 tabular-nums">
-          {values.map(([name, value]) => (
-            <div key={name} className="flex justify-between gap-2">
-              <dt className="text-text-light/60">{name}</dt>
-              <dd>{value}</dd>
-            </div>
-          ))}
-        </dl>
+        <IntroReadout />
 
         <div className="space-y-1.5">
           <h3 className="text-text-light/60">Layers — switch one off to see what it adds</h3>

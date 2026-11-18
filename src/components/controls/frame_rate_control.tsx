@@ -16,6 +16,11 @@ function FrameRateControl () {
   const frameRateCap = useParticleStore(state => state.frameRateCap)
   const measuredFps = useParticleStore(state => state.measuredFps)
   const setFrameRateCap = useParticleStore(state => state.setFrameRateCap)
+  const adaptiveParticles = useParticleStore(state => state.adaptiveParticles)
+  const activeParticles = useParticleStore(state => state.activeParticles)
+  const numParticles = useParticleStore(state => state.numParticles)
+  const toggleAdaptiveParticles = useParticleStore(state => state.toggleAdaptiveParticles)
+  const trimmed = adaptiveParticles && activeParticles > 0 && activeParticles < numParticles
 
   return (
     <div className="mb-4 pb-4 border-b border-neon-cyan/20">
@@ -41,6 +46,22 @@ function FrameRateControl () {
             {option.label}
           </ToggleButton>
         ))}
+      </div>
+      <div className="flex items-center justify-between mt-3">
+        <div className="flex items-center gap-2">
+          <span className="font-orbitron text-neon-cyan text-sm">Particle Budget</span>
+          <HelpTooltip
+            content="AUTO lowers the particle count when the simulation takes more than 40% of each frame, so motion stays smooth on a slower processor or a high refresh rate display. It raises the count back to your setting once there is room again. OFF always simulates the full count."
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-xs text-text-light/70 tabular-nums">
+            {trimmed ? `${activeParticles.toLocaleString('en-US')} of ${numParticles.toLocaleString('en-US')}` : 'full'}
+          </span>
+          <ToggleButton active={adaptiveParticles} onClick={toggleAdaptiveParticles} className="w-16 font-mono text-xs">
+            {adaptiveParticles ? 'AUTO' : 'OFF'}
+          </ToggleButton>
+        </div>
       </div>
     </div>
   )

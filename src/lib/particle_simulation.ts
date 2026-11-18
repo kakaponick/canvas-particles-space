@@ -230,11 +230,16 @@ export function stepParticles (
   const step = settings.speed * frameScale
   const pulseRate = settings.pulseSpeedMultiplier
   const invFarZ = 1 / farZ
-  const hasHole = holeRadius > 0 && holeX === holeX && holeY === holeY
+  const hasHole = holeRadius > 0 && holeX === holeX && holeY === holeY && (gravityStrength > 0 || orbitalStrength > 0)
   const reachSq = settings.gravityReach * settings.gravityReach
-  // Gravity acts within a depth band around the hole's plane; particles far behind only get lensed
+  const holeRadiusSq = holeRadius * holeRadius
+  // Gravity acts within a depth band around the hole's plane; particles far behind only get lensed.
+  // The band is a compact bell, (1 - u^2 / 4)^3, close to exp(-u^2) but zero beyond |u| = 2 and
+  // free of Math.exp, so most particles leave the gravity path after one subtraction
+  const holeDepthNear = holeDepth - farZ * 0.36
+  const holeDepthFar = holeDepth + farZ * 0.36
   const invDepthBand = 1 / (farZ * 0.18)
-  const pullScale = gravityStrength * 0.6 * frameScale
+  const pullScale = gravityStrength * 0.6 * frameScale * holeRadiusSq
   const orbitScale = orbitalStrength * 0.02
   const invFocal = 1 / focal
   const revealing = revealRadius < Infinity
@@ -251,8 +256,9 @@ export function stepParticles (
     let px = x[i]
     let py = y[i]
     const startZ = z[i]
-    const startX = (px / startZ) * focal + halfW
-    const startY = (py / startZ) * focal + halfH
+    const startScale = focal / startZ
+    const startX = px * startScale + halfW
+    const startY = py * startScale + halfH
 
     const pz = startZ - step * speedMultiplier[i]
     if (pz <= 0) {
@@ -260,42 +266,40 @@ export function stepParticles (
       continue
     }
 
-    let endX = (px / pz) * focal + halfW
-    let endY = (py / pz) * focal + halfH
+    const endScale = focal / pz
+    let endX = px * endScale + halfW
+    let endY = py * endScale + halfH
 
-    if (hasHole) {
+    if (hasHole && pz > holeDepthNear && pz < holeDepthFar) {
       const dx = holeX - endX
       const dy = holeY - endY
       const distSq = dx * dx + dy * dy
 
       if (distSq < reachSq) {
         const depthOffset = (pz - holeDepth) * invDepthBand
-        const depthWeight = Math.exp(-depthOffset * depthOffset)
+        const bell = 1 - depthOffset * depthOffset * 0.25
+        const depthWeight = bell * bell * bell
 
-        if (depthWeight > 0.02) {
-          const distance = Math.sqrt(distSq)
-          if (distance < holeRadius && depthWeight > 0.5) {
-            spawnParticle(field, i, farZ, spawn)
-            continue
-          }
-
-          // Pull and orbit are screen-space pixels per frame, converted back to world units at this depth
-          const invDistance = 1 / Math.max(distance, 1)
-          const towardX = dx * invDistance
-          const towardY = dy * invDistance
-          const proximity = holeRadius * invDistance
-          const pull = pullScale * proximity * proximity * depthWeight
-          const orbit = pull * orbitScale
-          const toWorld = pz * invFocal
-
-          px += (towardX * pull - towardY * orbit) * toWorld
-          py += (towardY * pull + towardX * orbit) * toWorld
-          x[i] = px
-          y[i] = py
-
-          endX = (px / pz) * focal + halfW
-          endY = (py / pz) * focal + halfH
+        if (distSq < holeRadiusSq && depthWeight > 0.5) {
+          spawnParticle(field, i, farZ, spawn)
+          continue
         }
+
+        // Pull and orbit are screen-space pixels per frame, converted back to world units at this depth.
+        // Pull falls off as (radius / distance)^2, so it needs the squared distance, not the distance
+        const clampedSq = distSq > 1 ? distSq : 1
+        const invDistance = 1 / Math.sqrt(clampedSq)
+        const pull = pullScale / clampedSq * depthWeight
+        const orbit = pull * orbitScale
+        const toWorld = pz * invFocal * invDistance
+
+        px += (dx * pull - dy * orbit) * toWorld
+        py += (dy * pull + dx * orbit) * toWorld
+        x[i] = px
+        y[i] = py
+
+        endX = px * endScale + halfW
+        endY = py * endScale + halfH
       }
     }
 

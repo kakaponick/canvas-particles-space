@@ -40,6 +40,10 @@ interface ParticleState {
   lensingAbsorption: number
   frameRateCap: number
   measuredFps: number
+  // Lower the particle count automatically when the simulation overruns the frame
+  adaptiveParticles: boolean
+  // Particles actually simulated; below numParticles while the adaptive budget holds it back
+  activeParticles: number
   introComplete: boolean
   horizonCrossed: boolean
 
@@ -71,6 +75,8 @@ interface ParticleState {
   setLensingAbsorption: (absorption: number) => void
   setFrameRateCap: (fps: number) => void
   setMeasuredFps: (fps: number) => void
+  toggleAdaptiveParticles: () => void
+  setActiveParticles: (count: number) => void
   setIntroComplete: (complete: boolean) => void
   setHorizonCrossed: (crossed: boolean) => void
 }
@@ -106,6 +112,8 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   lensingAbsorption: 0.25,
   frameRateCap: 0,
   measuredFps: 0,
+  adaptiveParticles: true,
+  activeParticles: 0,
   introComplete: false,
   horizonCrossed: false,
   // Star colors by temperature, from ~3500 K amber to ~12000 K blue-white
@@ -141,6 +149,8 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   setLensingAbsorption: (absorption) => set({ lensingAbsorption: absorption }),
   setFrameRateCap: (fps) => set({ frameRateCap: fps }),
   setMeasuredFps: (fps) => set({ measuredFps: fps }),
+  toggleAdaptiveParticles: () => set((state) => ({ adaptiveParticles: !state.adaptiveParticles })),
+  setActiveParticles: (count) => set({ activeParticles: count }),
   setIntroComplete: (complete) => set({ introComplete: complete }),
   setHorizonCrossed: (crossed) => set({ horizonCrossed: crossed }),
 
