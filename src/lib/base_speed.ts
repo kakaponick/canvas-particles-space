@@ -1,7 +1,7 @@
 // Base Speed: its range, and how scrolling or swiping over the scene turns it like a dial
 
 export const BASE_SPEED_MIN = 0
-export const BASE_SPEED_MAX = 20
+export const BASE_SPEED_MAX = 100
 export const BASE_SPEED_STEP = 0.1
 
 // One notch of a mouse wheel is about 100 pixels, which moves the speed by 0.5

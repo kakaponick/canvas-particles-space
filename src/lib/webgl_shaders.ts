@@ -289,7 +289,7 @@ export const compositeFragmentShaderSource = `
       bend = ratio * ratio;
       if (u_falloff != 2.0) bend *= pow(min(u_resolution.x, u_resolution.y) / max(dist, 0.0001), u_falloff - 2.0);
       bend = min(bend, 64.0);
-      if (bend * dist * (1.0 + u_swirl) > 0.01) {
+      if (bend * dist * (1.0 + abs(u_swirl)) > 0.01) {
         // Outside the ring the point-mass law; inside it the image ripples into nested rings and stays
         // within reach of the screen. The two laws meet at the ring with the same value and slope
         float radial = bend <= 1.0 ? 1.0 - bend : 2.0 / PI * cos(0.5 * PI * bend);

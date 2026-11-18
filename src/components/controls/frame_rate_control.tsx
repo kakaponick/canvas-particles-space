@@ -9,7 +9,8 @@ const FRAME_RATE_OPTIONS = [
   { value: 60, label: '60' },
   { value: 90, label: '90' },
   { value: 120, label: '120' },
-  { value: 144, label: '144' }
+  { value: 144, label: '144' },
+  { value: 240, label: '240' }
 ]
 
 function FrameRateControl () {

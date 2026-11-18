@@ -74,20 +74,20 @@ function SettingsSections () {
           id="particles"
           label="Particles"
           field="numParticles"
-          min={1000}
-          max={50000}
-          step={1000}
+          min={500}
+          max={200000}
+          step={500}
           setter="setNumParticles"
           variant="inline"
-          description="Total number of particles rendered in the scene. Higher values create denser visuals but may impact performance."
+          description="Total number of particles rendered in the scene. Higher values create denser visuals but may impact performance; with Particle Budget on AUTO the count is trimmed to what your processor keeps up with."
         />
         <SettingSlider
           id="far-z"
           label="Particle Render Depth"
           field="farZ"
-          min={1000}
-          max={20000}
-          step={1000}
+          min={500}
+          max={50000}
+          step={500}
           setter="setFarZ"
           variant="inline"
           description="Maximum depth distance for particle field. Controls how far particles travel before recycling. Larger values create a deeper sense of space."
@@ -109,12 +109,12 @@ function SettingsSections () {
           label="Speed Variance"
           field="speedVariance"
           min={0}
-          max={1}
+          max={3}
           step={0.05}
           formatValue={(val) => val.toFixed(2)}
           setter="setSpeedVariance"
           variant="inline"
-          description="Randomizes individual particle speeds. 0 = uniform speed, higher values create more speed variation for organic, natural movement."
+          description="Randomizes individual particle speeds. 0 = uniform speed, higher values create more speed variation for organic, natural movement. Above 1 a few particles turn into very fast streaks."
         />
         <SettingSlider
           id="trail-intensity"
@@ -136,7 +136,7 @@ function SettingsSections () {
           label="Base Brightness"
           field="baseBrightness"
           min={0}
-          max={3}
+          max={10}
           step={0.1}
           formatValue={(val) => val.toFixed(1)}
           setter="setBaseBrightness"
@@ -148,7 +148,7 @@ function SettingsSections () {
           label="Speed Glow"
           field="speedGlow"
           min={0}
-          max={3}
+          max={5}
           step={0.05}
           formatValue={(val) => val.toFixed(2)}
           setter="setSpeedGlow"
@@ -159,13 +159,13 @@ function SettingsSections () {
           id="depth-fade"
           label="Depth Fade"
           field="depthFade"
-          min={0}
-          max={1}
+          min={-1}
+          max={3}
           step={0.05}
           formatValue={(val) => val.toFixed(2)}
           setter="setDepthFade"
           variant="inline"
-          description="Controls how much particle opacity decreases with distance. 0 = uniform brightness, 1 = far particles fade significantly."
+          description="Controls how much particle opacity decreases with distance. 0 = uniform brightness, 1 = far particles fade out, above 1 they vanish sooner, below 0 far particles are the brighter ones."
         />
         <SettingSlider
           id="min-opacity"
@@ -196,7 +196,7 @@ function SettingsSections () {
           label="Pulse Intensity"
           field="pulseIntensity"
           min={0}
-          max={1}
+          max={3}
           step={0.05}
           formatValue={(val) => val.toFixed(2)}
           setter="setPulseIntensity"
@@ -208,7 +208,7 @@ function SettingsSections () {
           label="Pulse Speed"
           field="pulseSpeedMultiplier"
           min={0}
-          max={5}
+          max={20}
           step={0.1}
           formatValue={(val) => val.toFixed(1)}
           setter="setPulseSpeedMultiplier"
@@ -223,7 +223,7 @@ function SettingsSections () {
           label="Stars Brightness"
           field="starsBrightness"
           min={0}
-          max={3}
+          max={10}
           step={0.05}
           formatValue={(val) => `${val.toFixed(2)}×`}
           setter="setStarsBrightness"
@@ -235,7 +235,7 @@ function SettingsSections () {
           label="Stars Density"
           field="starDensity"
           min={0}
-          max={0.6}
+          max={1}
           step={0.01}
           formatValue={(val) => val.toFixed(2)}
           setter="setStarDensity"
@@ -246,8 +246,8 @@ function SettingsSections () {
           id="star-cell"
           label="Stars Spacing"
           field="starCell"
-          min={8}
-          max={80}
+          min={4}
+          max={200}
           step={1}
           formatValue={(val) => `${val} px`}
           setter="setStarCell"
@@ -261,20 +261,20 @@ function SettingsSections () {
           id="black-hole-size"
           label="Black Hole Size"
           field="blackHoleSize"
-          min={2}
-          max={20}
+          min={0}
+          max={60}
           step={0.5}
           formatValue={(val) => `${val.toFixed(1)}%`}
           setter="setBlackHoleSize"
           variant="inline"
-          description="Radius of the black hole's shadow as a share of the screen's short side. The photon ring, the lens and the strength and reach of gravity grow with it."
+          description="Radius of the black hole's shadow as a share of the screen's short side. The photon ring, the lens and the strength and reach of gravity grow with it. 0 removes the black hole."
         />
         <SettingSlider
           id="event-horizon"
           label="Event Horizon"
           field="eventHorizon"
           min={0}
-          max={20}
+          max={60}
           step={0.5}
           formatValue={(val) => `${val.toFixed(1)}%`}
           setter="setEventHorizon"
@@ -285,8 +285,8 @@ function SettingsSections () {
           id="gravity-reach"
           label="Gravity Reach"
           field="gravityReach"
-          min={1}
-          max={12}
+          min={0}
+          max={40}
           step={0.5}
           formatValue={(val) => `${val.toFixed(1)}×`}
           setter="setGravityReach"
@@ -297,31 +297,31 @@ function SettingsSections () {
           id="gravity"
           label="Gravity"
           field="gravityStrength"
-          min={0}
-          max={10}
+          min={-20}
+          max={50}
           step={0.5}
           setter="setGravityStrength"
           variant="inline"
-          description="Strength of gravitational attraction toward the black hole center. Higher values create stronger inward pull on particles."
+          description="Strength of gravitational attraction toward the black hole center. Higher values create stronger inward pull on particles. Negative values push them away."
         />
         <SettingSlider
           id="orbital-force"
           label="Orbital Force"
           field="orbitalStrength"
-          min={0}
-          max={200}
+          min={-500}
+          max={500}
           step={5}
           setter="setOrbitalStrength"
           variant="inline"
-          description="Tangential force that causes particles to orbit around the black hole. Creates swirling, accretion disk-like motion patterns."
+          description="Tangential force that causes particles to orbit around the black hole. Creates swirling, accretion disk-like motion patterns. Negative values swirl the other way."
         />
         <SettingSlider
           id="follow-frequency"
           label="Follow Stiffness"
           field="followFrequency"
-          min={0.5}
-          max={30}
-          step={0.5}
+          min={0.1}
+          max={60}
+          step={0.1}
           formatValue={(val) => val.toFixed(1)}
           setter="setFollowFrequency"
           variant="inline"
@@ -335,7 +335,7 @@ function SettingsSections () {
           label="Ring Brightness"
           field="ringBrightness"
           min={0}
-          max={3}
+          max={10}
           step={0.05}
           formatValue={(val) => `${val.toFixed(2)}×`}
           setter="setRingBrightness"
@@ -346,8 +346,8 @@ function SettingsSections () {
           id="ring-width"
           label="Ring Thickness"
           field="ringWidth"
-          min={0.004}
-          max={0.06}
+          min={0.001}
+          max={0.25}
           step={0.001}
           formatValue={(val) => val.toFixed(3)}
           setter="setRingWidth"
@@ -390,7 +390,7 @@ function SettingsSections () {
             label="Ring Base Light"
             field="ringBase"
             min={0}
-            max={1}
+            max={3}
             step={0.01}
             formatValue={(val) => val.toFixed(2)}
             setter="setRingBase"
@@ -402,7 +402,7 @@ function SettingsSections () {
             label="Infall Response"
             field="ringFeed"
             min={0}
-            max={2}
+            max={10}
             step={0.01}
             formatValue={(val) => val.toFixed(2)}
             setter="setRingFeed"
@@ -413,10 +413,10 @@ function SettingsSections () {
             id="ring-afterglow"
             label="Ring Afterglow"
             field="ringAfterglow"
-            min={0.1}
-            max={6}
-            step={0.1}
-            formatValue={(val) => `${val.toFixed(1)} s`}
+            min={0.05}
+            max={30}
+            step={0.05}
+            formatValue={(val) => `${val.toFixed(2)} s`}
             setter="setRingAfterglow"
             variant="inline"
             description="How long the light left by infalling particles lingers on the ring."
@@ -425,13 +425,13 @@ function SettingsSections () {
             id="ring-flow-speed"
             label="Ring Flow Speed"
             field="ringFlowSpeed"
-            min={0}
-            max={4}
+            min={-10}
+            max={10}
             step={0.05}
             formatValue={(val) => `${val.toFixed(2)} rad/s`}
             setter="setRingFlowSpeed"
             variant="inline"
-            description="How fast the bright patches travel around the ring."
+            description="How fast the bright patches travel around the ring. Negative values turn them the other way."
           />
         </div>
       </SettingsSection>
@@ -441,44 +441,44 @@ function SettingsSections () {
           id="lensing-radius"
           label="Lensing Radius"
           field="lensingRadius"
-          min={1}
-          max={3}
+          min={0}
+          max={8}
           step={0.05}
           formatValue={(val) => `${val.toFixed(2)}×`}
           setter="setLensingRadius"
           variant="inline"
-          description="Radius of the Einstein ring, in multiples of the black hole radius. Light from behind the black hole is bent into a ring this size; larger values distort more of the sky."
+          description="Radius of the Einstein ring, in multiples of the black hole radius. Light from behind the black hole is bent into a ring this size; larger values distort more of the sky. 0 turns the lens off."
         />
         <SettingSlider
           id="lensing-rotation"
           label="Angular Deflection"
           field="lensingRotation"
-          min={0}
-          max={2}
+          min={-10}
+          max={10}
           step={0.05}
           formatValue={(val) => val.toFixed(2)}
           setter="setLensingRotation"
           variant="inline"
-          description="Controls the rotational/swirling distortion around the black hole. 0 = no rotation, higher values create spiral vortex effects like light orbiting the event horizon."
+          description="Controls the rotational/swirling distortion around the black hole. 0 = no rotation, higher values create spiral vortex effects like light orbiting the event horizon, negative values twist the other way."
         />
         <SettingSlider
           id="lensing-falloff"
           label="Lensing Falloff"
           field="lensingFalloff"
-          min={1}
-          max={3}
+          min={0.5}
+          max={4}
           step={0.1}
           formatValue={(val) => val.toFixed(1)}
           setter="setLensingFalloff"
           variant="inline"
-          description="How the pull of the lens changes with distance. 1 almost removes the lens, 2 is a point mass (realistic), 3 widens the lens and its dark zone far around the black hole."
+          description="How the pull of the lens changes with distance. Below 1 the lens almost disappears, 2 is a point mass (realistic), 3 and above widen the lens and its dark zone far around the black hole."
         />
         <SettingSlider
           id="lensing-absorption"
           label="Light Absorption"
           field="lensingAbsorption"
           min={0}
-          max={1}
+          max={5}
           step={0.05}
           formatValue={(val) => val.toFixed(2)}
           setter="setLensingAbsorption"
