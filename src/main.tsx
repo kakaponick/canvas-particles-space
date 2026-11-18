@@ -1,7 +1,10 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './app'
+import { startSettingsPersistence } from './store/settings_persistence'
 import './index.css'
+
+startSettingsPersistence()
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

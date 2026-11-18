@@ -44,8 +44,21 @@ function samePalette (a: ParticleColor[], b: ParticleColor[]) {
   })
 }
 
+function sameSetting (key: SimulationSettingKey, a: SimulationSettings, b: SimulationSettings) {
+  return key === 'colorPalette' ? samePalette(a.colorPalette, b.colorPalette) : a[key] === b[key]
+}
+
 export function sameSimulationSettings (a: SimulationSettings, b: SimulationSettings) {
-  return SIMULATION_SETTING_KEYS.every(key => key === 'colorPalette' ? samePalette(a.colorPalette, b.colorPalette) : a[key] === b[key])
+  return SIMULATION_SETTING_KEYS.every(key => sameSetting(key, a, b))
+}
+
+// Only the settings that differ from the defaults
+export function changedSimulationSettings (current: SimulationSettings, defaults: SimulationSettings) {
+  const changed: Record<string, unknown> = {}
+  for (const key of SIMULATION_SETTING_KEYS) {
+    if (!sameSetting(key, current, defaults)) changed[key] = current[key]
+  }
+  return changed
 }
 
 export function normalizePresetName (name: string) {
@@ -66,7 +79,7 @@ function readPalette (value: unknown): ParticleColor[] | null {
 
 // A stored value is used only if it has the right type; anything missing or broken falls back to the
 // default, so a preset saved by an older version still opens
-function readSettings (stored: Record<string, unknown>, defaults: SimulationSettings): SimulationSettings {
+export function readSimulationSettings (stored: Record<string, unknown>, defaults: SimulationSettings): SimulationSettings {
   const settings = pickSimulationSettings(defaults) as unknown as Record<string, unknown>
   for (const key of SIMULATION_SETTING_KEYS) {
     const value = stored[key]
@@ -96,7 +109,7 @@ export function parseSimulationPresets (json: string | null, defaults: Simulatio
     if (!name || seen.has(nameKey) || seen.has(entry.id)) continue
     seen.add(nameKey)
     seen.add(entry.id)
-    presets.push({ id: entry.id, name, settings: readSettings(entry.settings as unknown as Record<string, unknown>, defaults) })
+    presets.push({ id: entry.id, name, settings: readSimulationSettings(entry.settings as unknown as Record<string, unknown>, defaults) })
   }
   return presets
 }
