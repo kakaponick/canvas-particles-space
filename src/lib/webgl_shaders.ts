@@ -213,6 +213,15 @@ export const compositeFragmentShaderSource = `
   uniform float u_titleFlash;
   uniform float u_titleCooling;  // seconds
   uniform float u_titleDust;     // 0 solid letters, 1 grains only
+  uniform float u_titlePull;     // the black hole's gravity relative to its default; negative pushes the dust away
+  uniform float u_titleSwirl;    // radians the falling dust turns around the hole, from the orbital force
+  uniform float u_titleReach;    // reach of gravity; dust beyond it falls late and slowly
+  uniform float u_titleCapture;  // radius of no return; dust inside it is gone
+  uniform float u_titleScale;    // slow push-in of the camera over the title's life
+  uniform float u_titleFringe;   // colour fringing at the title's edges, pixels
+  uniform float u_titleHalo;     // strength of the glow around the letters
+  uniform vec2 u_titleHaloRadius; // reach of that glow across and down, pixels
+  uniform float u_titleRedshift; // how far falling dust reddens
 
   const float PI = 3.14159265359;
   const vec3 RING_COLOR = vec3(1.0, 0.86, 0.66);
@@ -220,6 +229,7 @@ export const compositeFragmentShaderSource = `
   const vec3 RING_RECEDING = vec3(1.0, 0.42, 0.16);
   const vec3 FLASH_COLOR = vec3(1.0, 0.97, 0.92);
   const vec3 TITLE_COLOR = vec3(1.0, 0.9, 0.78);
+  const vec3 EMBER_COLOR = vec3(1.0, 0.36, 0.12);
   const vec3 BLAST_COLOR = vec3(0.86, 0.92, 1.0);
   const vec3 DUST_COLOR = vec3(1.0, 0.84, 0.66);
   // Seconds a background star stays flared after the light front passes it
@@ -269,6 +279,12 @@ export const compositeFragmentShaderSource = `
     float twinkle = 0.85 + 0.15 * sin(u_time * (2.0 + 3.0 * brightness) + presence * 400.0);
     vec3 tint = mix(vec3(1.0, 0.82, 0.62), vec3(0.75, 0.85, 1.0), hash12(cell + 29.0));
     return tint * exp(-d * d / 0.6) * (0.25 + 0.75 * brightness * brightness) * twinkle * (1.0 + flare);
+  }
+
+  // The title mask at a point of the title's own box, -1..1 on both axes; empty outside it
+  float titleMask (vec2 local) {
+    if (abs(local.x) > 1.0 || abs(local.y) > 1.0) return 0.0;
+    return texture2D(u_title, local * 0.5 + 0.5).a;
   }
 
   // Leaves everything below 0.8 untouched and rolls highlights off smoothly instead of clipping
@@ -350,27 +366,58 @@ export const compositeFragmentShaderSource = `
     if (u_titleAlpha > 0.0) {
       vec2 titlePx = samplePx;
       float keep = 1.0;
+      // How far into its fall this grain is; reddens it
+      float infall = 0.0;
       // Each grain of dust is a cell of about two CSS pixels with its own random speed and lifetime
       vec2 grainCell = floor(cssPx / 2.0);
       if (u_titleDissolve > 0.0) {
-        // A grain shows the letter from further back the faster it moves, so the words stream
-        // towards the hole as separate specks, and each speck winks out at its own moment
-        vec2 toHole = u_hole - samplePx;
+        // The dust obeys the black hole it falls into. Its gravity sets how far a grain travels (and
+        // pushes it away when negative), the orbital force turns it around the hole, dust beyond the
+        // reach of gravity crumbles last and barely moves, and what crosses the radius of no return
+        // is gone. A grain shows the letter from further back the faster it moves, so the words
+        // stream towards the hole as separate specks
+        vec2 fromHole = samplePx - u_hole;
+        float holeDist = max(length(fromHole), 1.0);
+        float beyondReach = u_titleReach > 0.0 ? smoothstep(u_titleReach, 2.0 * u_titleReach, holeDist) : 1.0;
         float speed = hash12(grainCell + 41.0);
-        titlePx -= toHole / max(length(toHole), 1.0) * u_titleDrift * u_titleDissolve * u_titleDissolve * (0.2 + 1.6 * speed);
-        float lifetime = hash12(grainCell + 73.0);
+        float fall = u_titleDissolve * u_titleDissolve * (0.2 + 1.6 * speed) * mix(1.0, 0.15, beyondReach);
+        float turn = u_titleSwirl * fall;
+        float c = cos(turn);
+        float s = sin(turn);
+        float stretch = max(1.0 + u_titleDrift * u_titlePull * fall / holeDist, 0.0);
+        titlePx = u_hole + vec2(c * fromHole.x - s * fromHole.y, s * fromHole.x + c * fromHole.y) * stretch;
+        // Each speck winks out at its own moment, the ones nearest the hole first
+        float lifetime = mix(hash12(grainCell + 73.0), 0.35 + 0.65 * beyondReach, 0.3);
         keep = smoothstep(u_titleDissolve - 0.15, u_titleDissolve, lifetime * 0.85);
+        if (u_titleCapture > 0.0) keep *= smoothstep(u_titleCapture, u_titleCapture * 1.25 + 1.0, holeDist);
+        infall = min(fall, 1.0);
       }
-      vec2 local = (titlePx - u_titleCenter) / u_titleHalfSize;
-      if (abs(local.x) <= 1.0 && abs(local.y) <= 1.0) {
-        float mask = texture2D(u_title, local * 0.5 + 0.5).a;
+      vec2 local = (titlePx - u_titleCenter) / (u_titleHalfSize * u_titleScale);
+      vec2 haloStep = u_titleHalo > 0.0 ? u_titleHaloRadius / u_titleHalfSize : vec2(0.0);
+      if (abs(local.x) <= 1.0 + 3.6 * haloStep.x && abs(local.y) <= 1.0 + haloStep.y) {
+        // A lens splits colours towards the edge of the frame: red is read a little closer to the
+        // title's centre and blue a little further out
+        float fringe = u_titleFringe / max(u_titleHalfSize.x, 1.0);
+        vec3 mask = vec3(titleMask(local * (1.0 - fringe)), titleMask(local), titleMask(local * (1.0 + fringe)));
         float grain = 0.55 * valueNoise(cssPx / 2.4) + 0.45 * hash12(grainCell + 7.0);
-        float density = mask * keep * mix(1.0, smoothstep(0.15, 0.8, grain), u_titleDust);
+        vec3 density = mask * keep * mix(1.0, smoothstep(0.15, 0.8, grain), u_titleDust);
+        // Glow around the letters, drawn out sideways like the flare of an anamorphic lens
+        float halo = 0.0;
+        if (u_titleHalo > 0.0) {
+          halo = 0.2 * (titleMask(local + vec2(haloStep.x, 0.0)) + titleMask(local - vec2(haloStep.x, 0.0)))
+            + 0.13 * (titleMask(local + vec2(2.2 * haloStep.x, 0.0)) + titleMask(local - vec2(2.2 * haloStep.x, 0.0)))
+            + 0.07 * (titleMask(local + vec2(3.6 * haloStep.x, 0.0)) + titleMask(local - vec2(3.6 * haloStep.x, 0.0)))
+            + 0.1 * (titleMask(local + vec2(0.0, haloStep.y)) + titleMask(local - vec2(0.0, haloStep.y)));
+          halo *= u_titleHalo * (1.0 - u_titleDissolve);
+        }
         // The front arrives over its own width rather than as a hard edge
         float arrived = smoothstep(-u_lightWidth, u_lightWidth, u_lightRadius - sourceDist);
         float shown = mix(1.0, arrived, u_titleReveal);
         float flash = lit >= 0.0 ? u_titleReveal * exp(-lit / u_titleCooling) : 0.0;
-        emitted += density * u_titleAlpha * (TITLE_COLOR * u_titleGlow * shown + BLAST_COLOR * u_titleFlash * flash);
+        // Dust falling into the hole reddens and dims, as the collapsing core did
+        vec3 warm = mix(TITLE_COLOR, EMBER_COLOR, u_titleRedshift * infall) * (1.0 - 0.5 * u_titleRedshift * infall);
+        vec3 light = warm * u_titleGlow * shown + BLAST_COLOR * u_titleFlash * flash;
+        emitted += u_titleAlpha * (density + halo) * light;
       }
     }
     if (u_backgroundStars > 0.0) {

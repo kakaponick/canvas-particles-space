@@ -39,6 +39,13 @@ const FPS_SAMPLE_MS = 500
 const PIXEL_BUDGET = 4_500_000
 const MAX_PIXEL_RATIO = 2
 
+// The crumbling title follows the black hole's gravity: at these settings (the defaults) the dust
+// travels Dust Drift and turns by this many radians at Dust Swirl 1
+const TITLE_REFERENCE_GRAVITY = 2.5
+const TITLE_REFERENCE_ORBIT = 40
+const TITLE_SWIRL_RADIANS = 0.35
+const TITLE_PULL_LIMIT = 4
+
 // A touch this close to the black hole drags it
 const MIN_TOUCH_GRAB_RADIUS = 48
 // With looping on, the debugger holds the finished intro this long before replaying it
@@ -160,7 +167,10 @@ function ParticleCanvas () {
       frameScale: 1,
       ringTexels: ringEnergy.texels,
       ringFed: true,
-      title: { alpha: 0, x: 0, y: 0, reveal: 1, dissolve: 0, drift: 0, glow: 0, flash: 0, cooling: 1, dust: 0 },
+      title: {
+        alpha: 0, x: 0, y: 0, reveal: 1, dissolve: 0, drift: 0, glow: 0, flash: 0, cooling: 1, dust: 0,
+        pull: 0, swirl: 0, reach: 0, capture: 0, scale: 1, fringe: 0, halo: 0, haloRadiusX: 1, haloRadiusY: 1, redshift: 0
+      },
       composite: {
         time: 0,
         holeX: 0,
@@ -486,6 +496,18 @@ function ParticleCanvas () {
       title.flash = params.titleFlash
       title.cooling = params.titleCooling
       title.dust = params.titleDust
+      // The crumbling dust follows the black hole's own settings: no hole, no pull
+      title.pull = horizon > 0 ? Math.min(Math.max(settings.gravityStrength / TITLE_REFERENCE_GRAVITY, -TITLE_PULL_LIMIT), TITLE_PULL_LIMIT) : 0
+      title.swirl = title.pull * Math.min(Math.max(settings.orbitalStrength / TITLE_REFERENCE_ORBIT, -TITLE_PULL_LIMIT), TITLE_PULL_LIMIT) *
+        TITLE_SWIRL_RADIANS * params.titleSwirl
+      title.reach = settings.gravityReach
+      title.capture = captureRadius
+      title.scale = 1 + params.titlePush * intro.titleAge
+      title.fringe = params.titleFringe
+      title.halo = params.titleHalo
+      title.haloRadiusX = params.titleHaloRadius * params.titleStreak
+      title.haloRadiusY = params.titleHaloRadius
+      title.redshift = params.titleRedshift
 
       const composite = frame.composite
       composite.time = animationTime

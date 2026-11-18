@@ -43,6 +43,8 @@ export interface IntroFrame {
   titleReveal: number
   // 0..1 progress of the letters crumbling away
   titleDissolve: number
+  // 0..1 over the title's life, from the explosion until it is gone
+  titleAge: number
   // While true the black hole stays at the screen center
   holdAtCenter: boolean
   done: boolean
@@ -83,6 +85,7 @@ export function createIntroFrame (): IntroFrame {
     titleAlpha: 0,
     titleReveal: 1,
     titleDissolve: 0,
+    titleAge: 0,
     holdAtCenter: true,
     done: false
   }
@@ -140,6 +143,7 @@ function sampleFullIntro (t: number, p: IntroParams, frame: IntroFrame) {
   frame.titleDissolve = progress(t, p.dissolveAt, p.dissolveDuration)
   frame.titleAlpha = 1 - smoothstep(progress(t, p.dissolveAt + p.dissolveDuration * 0.5, p.dissolveDuration * 0.5))
   frame.titleReveal = 1
+  frame.titleAge = progress(t, p.collapseAt, p.dissolveAt + p.dissolveDuration - p.collapseAt)
 
   frame.holdAtCenter = t < p.releaseAt
   frame.done = t >= p.introEnd
@@ -171,6 +175,7 @@ function sampleReducedIntro (t: number, frame: IntroFrame) {
   frame.titleAlpha = progress(t, 0.6, 0.4) * (1 - progress(t, 2, 0.5))
   frame.titleReveal = 0
   frame.titleDissolve = 0
+  frame.titleAge = 0
   frame.holdAtCenter = t < REDUCED_INTRO_END
   frame.done = t >= REDUCED_INTRO_END
 }

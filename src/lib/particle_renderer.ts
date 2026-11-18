@@ -105,6 +105,22 @@ export interface TitleSettings {
   // Seconds
   cooling: number
   dust: number
+  // The black hole's gravity relative to its default; 0 leaves the crumbling dust where it is
+  pull: number
+  // Radians the falling dust turns around the hole
+  swirl: number
+  // Reach of gravity and radius of no return, CSS pixels
+  reach: number
+  capture: number
+  // Size of the title relative to its sprite
+  scale: number
+  // CSS pixels
+  fringe: number
+  halo: number
+  // CSS pixels across and down
+  haloRadiusX: number
+  haloRadiusY: number
+  redshift: number
 }
 
 export interface FrameInput {
@@ -253,7 +269,8 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     'gravityWaveRadius', 'gravityWaveAmplitude', 'gravityWaveWidth', 'gravityWaveCycles', 'backgroundStars',
     'starCell', 'starDensity', 'starFlare', 'dustScale', 'dustThreshold', 'lightDustContrast',
     'titleCenter', 'titleHalfSize', 'titleAlpha', 'titleReveal', 'titleDissolve', 'titleDrift', 'titleGlow',
-    'titleFlash', 'titleCooling', 'titleDust'
+    'titleFlash', 'titleCooling', 'titleDust', 'titlePull', 'titleSwirl', 'titleReach', 'titleCapture', 'titleScale',
+    'titleFringe', 'titleHalo', 'titleHaloRadius', 'titleRedshift'
   ] as const)
 
   gl.useProgram(compositeProgram)
@@ -392,6 +409,15 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
       setUniform1f(gl, u.titleFlash, title.flash)
       setUniform1f(gl, u.titleCooling, Math.max(title.cooling, 0.01))
       setUniform1f(gl, u.titleDust, title.dust)
+      setUniform1f(gl, u.titlePull, title.pull)
+      setUniform1f(gl, u.titleSwirl, title.swirl)
+      setUniform1f(gl, u.titleReach, title.reach * ratio)
+      setUniform1f(gl, u.titleCapture, title.capture * ratio)
+      setUniform1f(gl, u.titleScale, Math.max(title.scale, 0.01))
+      setUniform1f(gl, u.titleFringe, title.fringe * ratio)
+      setUniform1f(gl, u.titleHalo, title.halo)
+      setUniform2f(gl, u.titleHaloRadius, title.haloRadiusX * ratio, title.haloRadiusY * ratio)
+      setUniform1f(gl, u.titleRedshift, title.redshift)
     }
     setUniform1f(gl, u.time, settings.time)
     setUniform2f(gl, u.hole, settings.holeX * ratio, settings.holeY * ratio)
