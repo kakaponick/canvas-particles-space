@@ -45,6 +45,8 @@ export interface IntroFrame {
   titleDissolve: number
   // 0..1 over the title's life, from the explosion until it is gone
   titleAge: number
+  // 0..1 how far the title has been drawn towards the hole, eased
+  titleFall: number
   // 1 = the dissolving title breaks into specks, 0 = it moves as one image
   titleGrain: number
   // 0..1 progress of the title burning away
@@ -98,6 +100,7 @@ export function createIntroFrame (): IntroFrame {
     titleReveal: 1,
     titleDissolve: 0,
     titleAge: 0,
+    titleFall: 0,
     titleGrain: 1,
     titleBurn: 0,
     titleFly: 1,
@@ -110,7 +113,14 @@ export function createIntroFrame (): IntroFrame {
 }
 
 // How much a title flying past the camera has grown when it is gone
-const FLY_PAST_GROWTH = 6
+const FLY_PAST_GROWTH = 9
+// How much too large a fading title starts, and how much it grows as it fades away
+const FADE_IN_OVERSIZE = 0.12
+const FADE_OUT_OVERSIZE = 0.06
+// Seconds for the blast's punch of zoom to drop to about a third
+const CAMERA_KICK_DECAY = 0.16
+
+const easeOutQuart = (x: number) => 1 - Math.pow(1 - x, 4)
 
 function sampleFullIntro (t: number, p: IntroParams, frame: IntroFrame) {
   const sinceCollapse = Math.max(t - p.collapseAt, 0)
@@ -169,38 +179,57 @@ function sampleFullIntro (t: number, p: IntroParams, frame: IntroFrame) {
   const leaving = progress(t, p.dissolveAt, p.dissolveDuration)
   let alpha = 1
   frame.titleDissolve = 0
+  frame.titleFall = 0
   frame.titleGrain = p.titleGrain
   frame.titleBurn = 0
   frame.titleFly = 1
   frame.titleReveal = entrance === 0 ? 1 : 0
+  // Nothing here moves at a constant rate: arrivals rush in and settle, departures hang and then go
   if (entrance === 1) {
-    alpha = smoothstep(arrived)
+    // Fading in, the title also settles back from slightly too large
+    const settled = easeOutQuart(arrived)
+    alpha = settled
+    frame.titleFly = 1 + FADE_IN_OVERSIZE * (1 - settled)
   } else if (entrance >= 2 && arrived < 1) {
+    // The fall into the hole played backwards: fast out of it, slow into place
     frame.titleDissolve = 1 - arrived
+    frame.titleFall = Math.pow(1 - arrived, 3)
     frame.titleGrain = entrance === 2 ? 1 : 0
-    alpha = smoothstep(Math.min(arrived * 2, 1))
+    alpha = easeOutCubic(Math.min(arrived * 2.5, 1))
   }
   if (leaving > 0) {
     if (exit === 0) {
+      // It hangs for a moment, then goes faster and faster
       frame.titleDissolve = leaving
+      frame.titleFall = leaving * leaving * leaving
       frame.titleGrain = p.titleGrain
-      alpha *= 1 - smoothstep(progress(leaving, 0.5, 0.5))
+      alpha *= 1 - smoothstep(progress(leaving, 0.6, 0.4))
     } else if (exit === 1) {
-      frame.titleFly = 1 + FLY_PAST_GROWTH * leaving * leaving * leaving
-      alpha *= 1 - smoothstep(progress(leaving, 0.35, 0.65))
+      const rush = leaving * leaving * leaving * leaving
+      frame.titleFly = 1 + FLY_PAST_GROWTH * rush
+      alpha *= 1 - smoothstep(progress(leaving, 0.55, 0.45))
     } else if (exit === 2) {
-      frame.titleBurn = leaving
+      frame.titleBurn = leaving * leaving * (3 - 2 * leaving)
       if (leaving >= 1) alpha = 0
     } else {
-      alpha *= 1 - smoothstep(leaving)
+      // Fading out, it drifts a little towards the camera
+      const gone = leaving * leaving * leaving
+      alpha *= 1 - gone
+      frame.titleFly = 1 + FADE_OUT_OVERSIZE * gone
     }
   }
   frame.titleAlpha = alpha
   const titleStart = entrance === 0 ? p.collapseAt : p.titleInAt
-  frame.titleAge = progress(t, titleStart, p.dissolveAt + p.dissolveDuration - titleStart)
+  // The push-in is quickest when the title is lit and eases off
+  const age = progress(t, titleStart, p.dissolveAt + p.dissolveDuration - titleStart)
+  frame.titleAge = 1 - (1 - age) * (1 - age)
 
-  // The camera starts zoomed and settles; the blast jolts it; the film effects lift as the intro ends
-  frame.cameraZoom = 1 + (p.cameraZoom - 1) * (1 - smoothstep(progress(t, 0, p.cameraSettle)))
+  // The camera creeps while it is dark, then the blast throws it: most of the zoom is gone at once
+  // and the rest settles slowly. The blast also punches the zoom in for an instant and jolts the
+  // camera; the film effects lift as the intro ends
+  const zoomDone = 0.1 * progress(t, 0, p.collapseAt) + 0.9 * easeOutQuart(progress(t, p.collapseAt, p.cameraSettle))
+  const kick = exploded ? p.cameraKick * Math.exp(-sinceCollapse / CAMERA_KICK_DECAY) : 0
+  frame.cameraZoom = (1 + (p.cameraZoom - 1) * (1 - zoomDone)) * (1 + kick)
   frame.shake = exploded ? p.shakeAmount * Math.exp(-sinceCollapse / p.shakeDecay) : 0
   frame.film = 1 - smoothstep(progress(t, p.releaseAt, p.introEnd - p.releaseAt))
 
@@ -235,6 +264,7 @@ function sampleReducedIntro (t: number, frame: IntroFrame) {
   frame.titleReveal = 0
   frame.titleDissolve = 0
   frame.titleAge = 0
+  frame.titleFall = 0
   frame.titleGrain = 1
   frame.titleBurn = 0
   frame.titleFly = 1

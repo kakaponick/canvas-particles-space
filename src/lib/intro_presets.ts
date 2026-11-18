@@ -130,8 +130,9 @@ export const INTRO_LOOKS: readonly IntroLook[] = [
     colorFlash: 0xffffff,
     colorLight: 0xcfe6ff,
     colorTitle: 0xffffff,
-    shakeAmount: 30,
-    shakeDecay: 0.35,
+    cameraKick: 0.15,
+    shakeAmount: 18,
+    shakeDecay: 0.3,
     lensFringe: 7
   }, { hidden: ['echo'] }),
 
@@ -302,6 +303,7 @@ export const INTRO_LOOKS: readonly IntroLook[] = [
     colorEmber: 0xff3300,
     cameraZoom: 1.5,
     cameraSettle: 2.2,
+    cameraKick: 0.1,
     shakeAmount: 12,
     shakeDecay: 0.45
   }),

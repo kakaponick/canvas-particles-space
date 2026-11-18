@@ -140,6 +140,8 @@ export interface TitleSettings {
   grain: number
   // 0..1 progress of the title burning away
   burn: number
+  // 0..1 how far the title has been drawn towards the hole
+  fall: number
 }
 
 export interface FrameInput {
@@ -296,7 +298,7 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     'starCell', 'starDensity', 'starFlare', 'dustScale', 'dustThreshold', 'lightDustContrast',
     'titleCenter', 'titleHalfSize', 'titleAlpha', 'titleReveal', 'titleDissolve', 'titleDrift', 'titleGlow',
     'titleFlash', 'titleCooling', 'titleDust', 'titlePull', 'titleSwirl', 'titleReach', 'titleCapture', 'titleScale',
-    'titleFringe', 'titleHalo', 'titleRedshift', 'titleGrain', 'titleBurn', 'dustSweep', 'dustBlow', 'dustDrift',
+    'titleFringe', 'titleHalo', 'titleRedshift', 'titleGrain', 'titleBurn', 'titleFall', 'dustSweep', 'dustBlow', 'dustDrift',
     'colorFlash', 'colorLight', 'colorDust', 'colorTitle', 'colorEmber',
     'cameraZoom', 'shake', 'lensFringe', 'vignette', 'filmGrain', 'letterbox'
   ] as const)
@@ -447,6 +449,7 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
       setUniform1f(gl, u.titleRedshift, title.redshift)
       setUniform1f(gl, u.titleGrain, title.grain)
       setUniform1f(gl, u.titleBurn, title.burn)
+      setUniform1f(gl, u.titleFall, title.fall)
     }
     setUniformColor(gl, u.colorFlash, settings.colorFlash)
     setUniformColor(gl, u.colorLight, settings.colorLight)

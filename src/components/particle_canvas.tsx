@@ -176,7 +176,7 @@ function ParticleCanvas () {
       ringFed: true,
       title: {
         alpha: 0, x: 0, y: 0, reveal: 1, dissolve: 0, drift: 0, glow: 0, flash: 0, cooling: 1, dust: 0,
-        pull: 0, swirl: 0, reach: 0, capture: 0, scale: 1, fringe: 0, halo: 0, redshift: 0, grain: 1, burn: 0
+        pull: 0, swirl: 0, reach: 0, capture: 0, scale: 1, fringe: 0, halo: 0, redshift: 0, grain: 1, burn: 0, fall: 0
       },
       composite: {
         time: 0,
@@ -567,6 +567,7 @@ function ParticleCanvas () {
       title.redshift = params.titleRedshift
       title.grain = intro.titleGrain
       title.burn = intro.titleBurn
+      title.fall = intro.titleFall
 
       const composite = frame.composite
       composite.time = animationTime

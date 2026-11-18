@@ -189,7 +189,7 @@ export const INTRO_TRACKS: IntroTrack[] = [
     key: 'camera',
     label: 'Camera and film',
     layer: 'camera',
-    params: ['cameraZoom', 'cameraSettle', 'shakeAmount', 'shakeDecay', 'lensFringe', 'vignette', 'filmGrain', 'letterbox'],
+    params: ['cameraZoom', 'cameraSettle', 'cameraKick', 'shakeAmount', 'shakeDecay', 'lensFringe', 'vignette', 'filmGrain', 'letterbox'],
     spans: (p, reduced) => full(reduced, [{ start: 0, end: p.introEnd }])
   },
   {

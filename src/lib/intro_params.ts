@@ -102,6 +102,7 @@ export const DEFAULT_INTRO_PARAMS = {
   // Camera and film; all of it is gone by the end of the intro
   cameraZoom: 1,
   cameraSettle: 3,
+  cameraKick: 0,
   shakeAmount: 0,
   shakeDecay: 0.5,
   lensFringe: 0,
@@ -229,7 +230,8 @@ export const INTRO_PARAM_SPECS = Object.fromEntries([
   color('colorTitle', 'Title Colour', 'Colour of the lit letters once the flash has cooled.'),
   color('colorEmber', 'Ember Colour', 'Colour the core cools to as it collapses, and the colour of title dust falling into the hole or burning.'),
   p('cameraZoom', 'Zoom At Start', 0.5, 2.5, 0.01, '×', 'How far the camera is zoomed in on the place of the explosion when the page opens. Above 1 it starts close and pulls back; below 1 it starts wide and pushes in. It always ends at 1.'),
-  p('cameraSettle', 'Zoom Settles', 0.1, 12, 0.05, 's', 'When the zoom reaches 1.'),
+  p('cameraSettle', 'Zoom Settles', 0.1, 12, 0.05, 's', 'Time after the explosion for the zoom to reach 1. The camera only creeps until the explosion, which throws it: most of the way at once, the rest slowly.'),
+  p('cameraKick', 'Zoom Punch', 0, 0.5, 0.01, '×', 'How far the explosion punches the zoom in for an instant, like the camera recoiling. 0 is none.'),
   p('shakeAmount', 'Shake', 0, 60, 0.5, 'px', 'How far the explosion jolts the camera.'),
   p('shakeDecay', 'Shake Decay', 0.05, 3, 0.05, 's', 'Time for the shake to die down to about a third.'),
   p('lensFringe', 'Lens Fringe', 0, 20, 0.1, 'px', 'Red and blue edges on the particles towards the corners of the frame, as a cheap lens gives. 0 removes them.'),
