@@ -1,35 +1,14 @@
 import { createWithEqualityFn } from 'zustand/traditional'
 import { DEFAULT_INTRO_PARAMS, type IntroParamKey, type IntroParams } from '../lib/intro_params'
+import { INTRO_LAYERS, type IntroLayer } from '../lib/intro_tracks'
 
-// Pieces of the opening that can be switched off one by one to see what each contributes
-export const INTRO_LAYERS = [
-  { key: 'star', label: 'STAR' },
-  { key: 'glare', label: 'GLARE' },
-  { key: 'light', label: 'LIGHT FRONT' },
-  { key: 'echo', label: 'DUST ECHO' },
-  { key: 'stars', label: 'FAR STARS' },
-  { key: 'shockwave', label: 'MATTER WAVE' },
-  { key: 'reveal', label: 'REVEAL' },
-  { key: 'burst', label: 'BURST' },
-  { key: 'remnant', label: 'REDSHIFT' },
-  { key: 'ringdown', label: 'RINGDOWN' },
-  { key: 'gravityWave', label: 'GRAV WAVE' },
-  { key: 'title', label: 'TITLE' },
-  { key: 'hole', label: 'HOLE' },
-  { key: 'lens', label: 'LENS' },
-  { key: 'ring', label: 'RING' },
-  { key: 'gravity', label: 'GRAVITY' },
-  { key: 'doppler', label: 'DOPPLER' }
-] as const
-
-export type IntroLayer = typeof INTRO_LAYERS[number]['key']
+export type { IntroLayer }
 
 export interface IntroReadout {
   time: number
   duration: number
   phase: string
   sourcePower: number
-  exposure: number
   lightFront: number
   matterFront: number
   remnantRedshift: number
@@ -103,7 +82,7 @@ function saveParams (params: IntroParams) {
   }
 }
 
-const allShown = Object.fromEntries(INTRO_LAYERS.map(layer => [layer.key, false])) as Record<IntroLayer, boolean>
+const allShown = Object.fromEntries(INTRO_LAYERS.map(layer => [layer, false])) as Record<IntroLayer, boolean>
 
 export const NOTHING_HIDDEN: Readonly<Record<IntroLayer, boolean>> = allShown
 
@@ -122,7 +101,6 @@ export const useIntroDebugStore = createWithEqualityFn<IntroDebugState>((set) =>
     duration: 0,
     phase: '',
     sourcePower: 0,
-    exposure: 1,
     lightFront: 0,
     matterFront: 0,
     remnantRedshift: 0,

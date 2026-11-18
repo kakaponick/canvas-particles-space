@@ -103,6 +103,7 @@ function ControlPanel() {
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <div className="fixed bottom-5 left-5 flex gap-2 z-40" style={{
+        marginBottom: 'var(--intro-dock-height, 0px)',
         opacity: isOpen ? 0 : 1,
         pointerEvents: isOpen ? 'none' : 'auto',
         transition: 'opacity 300ms'

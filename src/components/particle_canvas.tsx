@@ -19,7 +19,8 @@ import {
   type FrameInput,
   type ParticleRenderer
 } from '../lib/particle_renderer'
-import { createIntroFrame, getIntroDuration, getIntroPhase, sampleIntro } from '../lib/intro_timeline'
+import { createIntroFrame, getIntroDuration, sampleIntro } from '../lib/intro_timeline'
+import { getIntroPhase } from '../lib/intro_tracks'
 import { useIntroDebugStore, NOTHING_HIDDEN } from '../store/intro_debug_store'
 import {
   createScrollJourney,
@@ -489,7 +490,6 @@ function ParticleCanvas () {
           duration: introDuration,
           phase: getIntroPhase(introTime, reducedMotion, params),
           sourcePower: intro.sourcePower,
-          exposure: intro.exposure,
           lightFront: intro.lightFront,
           matterFront: intro.matterFront,
           remnantRedshift: intro.remnantRedshift,
@@ -506,7 +506,9 @@ function ParticleCanvas () {
       lastPointerType = event.pointerType
     }
 
+    // Over the debugger dock the cursor is working the timeline, not steering the black hole
     const handleMouseMove = (event: MouseEvent) => {
+      if (event.target instanceof Element && event.target.closest('[data-intro-dock]')) return
       if (lastPointerType === 'mouse' && useParticleStore.getState().blackHoleFollowing) {
         targetX = event.clientX
         targetY = event.clientY

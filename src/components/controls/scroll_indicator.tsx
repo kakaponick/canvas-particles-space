@@ -26,6 +26,7 @@ function ScrollIndicator () {
     <div
       className={`fixed bottom-20 sm:bottom-8 left-1/2 -translate-x-1/2 z-[500] w-[min(84vw,640px)] text-center
         pointer-events-none transition-opacity duration-700 ease-out ${introComplete ? 'opacity-100' : 'opacity-0'}`}
+      style={{ marginBottom: 'var(--intro-dock-height, 0px)' }}
     >
       <div
         className={`font-orbitron text-[11px] leading-relaxed text-neon-cyan mb-2.5 tracking-[1px] text-balance

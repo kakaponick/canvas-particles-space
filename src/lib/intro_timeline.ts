@@ -46,7 +46,7 @@ export interface IntroFrame {
   done: boolean
 }
 
-const REDUCED_INTRO_END = 2.6
+export const REDUCED_INTRO_END = 2.6
 
 function progress (t: number, start: number, duration: number) {
   return Math.min(Math.max((t - start) / Math.max(duration, 0.0001), 0), 1)
@@ -175,50 +175,8 @@ function sampleReducedIntro (t: number, p: IntroParams, frame: IntroFrame) {
   frame.done = t >= REDUCED_INTRO_END
 }
 
-export interface IntroMarker {
-  time: number
-  label: string
-}
-
-// Phase boundaries for the intro debugger's timeline, sorted by time
-export function getIntroMarkers (reducedMotion: boolean, p: IntroParams): IntroMarker[] {
-  if (reducedMotion) {
-    return [
-      { time: 0, label: 'fade in' },
-      { time: 0.6, label: 'title' },
-      { time: 2, label: 'title out' },
-      { time: REDUCED_INTRO_END, label: 'end' }
-    ]
-  }
-  const markers = [
-    { time: 0, label: 'dark' },
-    { time: p.starChargeStart, label: 'star' },
-    { time: p.collapseAt, label: 'collapse' },
-    { time: p.collapseAt + p.lightCrossTime, label: 'light out' },
-    { time: p.remnantAt, label: 'redshift' },
-    { time: p.horizonAt, label: 'horizon' },
-    { time: p.horizonAt + p.horizonGrowth, label: 'ringdown' },
-    { time: p.collapseAt + p.lightCrossTime / p.matterSpeed, label: 'matter out' },
-    { time: p.titleIn, label: 'title' },
-    { time: p.swallowStart, label: 'swallow' },
-    { time: p.releaseAt, label: 'release' },
-    { time: p.introEnd, label: 'end' }
-  ]
-  return markers
-    .map(marker => ({ ...marker, time: Math.round(marker.time * 100) / 100 }))
-    .sort((a, b) => a.time - b.time)
-}
-
 export function getIntroDuration (reducedMotion: boolean, p: IntroParams) {
   return reducedMotion ? REDUCED_INTRO_END : p.introEnd
-}
-
-export function getIntroPhase (t: number, reducedMotion: boolean, p: IntroParams) {
-  let phase = ''
-  for (const marker of getIntroMarkers(reducedMotion, p)) {
-    if (t >= marker.time) phase = marker.label
-  }
-  return phase
 }
 
 export function sampleIntro (t: number, reducedMotion: boolean, p: IntroParams, frame: IntroFrame) {
