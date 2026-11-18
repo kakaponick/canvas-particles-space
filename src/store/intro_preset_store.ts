@@ -2,6 +2,7 @@
 // and case. They are kept in this browser, next to the setup that is being edited.
 import { createWithEqualityFn } from 'zustand/traditional'
 import { DEFAULT_INTRO_PARAMS, type IntroParamKey, type IntroParams } from '../lib/intro_params'
+import { INTRO_LOOKS } from '../lib/intro_presets'
 import { normalizePresetName } from '../lib/simulation_presets'
 import {
   DEFAULT_TITLE_TEXT,
@@ -22,14 +23,37 @@ export interface IntroPreset {
   name: string
   params: IntroParams
   title: TitleText
+  // Ships with the page: it cannot be changed or deleted
+  builtIn?: boolean
+  // Sets the title's face and case and leaves its words as they are
+  keepsText?: boolean
+  description?: string
 }
 
 export const DEFAULT_INTRO_PRESET: Readonly<IntroPreset> = {
   id: DEFAULT_INTRO_PRESET_ID,
   name: DEFAULT_INTRO_PRESET_NAME,
   params: DEFAULT_INTRO_PARAMS,
-  title: DEFAULT_TITLE_TEXT
+  title: DEFAULT_TITLE_TEXT,
+  builtIn: true,
+  description: 'The intro as it ships, with its own title.'
 }
+
+// Default first, then the looks that ship with the page
+export const BUILT_IN_INTRO_PRESETS: readonly IntroPreset[] = [
+  DEFAULT_INTRO_PRESET,
+  ...INTRO_LOOKS.map(look => ({
+    id: `look-${look.id}`,
+    name: look.name,
+    params: look.params,
+    title: { text: DEFAULT_TITLE_TEXT.text, font: look.font, uppercase: look.uppercase },
+    builtIn: true,
+    keepsText: true,
+    description: look.description
+  }))
+]
+
+const builtInNames = new Set(BUILT_IN_INTRO_PRESETS.map(preset => preset.name.toLowerCase()))
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -51,7 +75,7 @@ function loadPresets (): IntroPreset[] {
     if (!isRecord(entry) || typeof entry.id !== 'string' || typeof entry.name !== 'string') continue
     const name = normalizePresetName(entry.name)
     const nameKey = name.toLowerCase()
-    if (!name || seen.has(nameKey) || seen.has(entry.id) || nameKey === DEFAULT_INTRO_PRESET_NAME.toLowerCase()) continue
+    if (!name || seen.has(nameKey) || seen.has(entry.id) || builtInNames.has(nameKey)) continue
     seen.add(nameKey)
     seen.add(entry.id)
     presets.push({
@@ -67,7 +91,8 @@ function loadPresets (): IntroPreset[] {
 function loadActiveId (presets: IntroPreset[]) {
   try {
     const stored = window.localStorage.getItem(ACTIVE_STORAGE_KEY)
-    return presets.some(preset => preset.id === stored) ? stored as string : DEFAULT_INTRO_PRESET_ID
+    const known = presets.some(preset => preset.id === stored) || BUILT_IN_INTRO_PRESETS.some(preset => preset.id === stored)
+    return known ? stored as string : DEFAULT_INTRO_PRESET_ID
   } catch {
     return DEFAULT_INTRO_PRESET_ID
   }
@@ -89,7 +114,7 @@ let nextId = 0
 const createPresetId = () => `intro-${Date.now().toString(36)}-${(nextId++).toString(36)}`
 
 export function isReservedIntroPresetName (name: string) {
-  return normalizePresetName(name).toLowerCase() === DEFAULT_INTRO_PRESET_NAME.toLowerCase()
+  return builtInNames.has(normalizePresetName(name).toLowerCase())
 }
 
 export function findIntroPresetByName (presets: IntroPreset[], name: string) {
@@ -99,7 +124,7 @@ export function findIntroPresetByName (presets: IntroPreset[], name: string) {
 
 export function sameIntroSetup (params: IntroParams, title: TitleText, preset: IntroPreset) {
   return (Object.keys(DEFAULT_INTRO_PARAMS) as IntroParamKey[]).every(key => params[key] === preset.params[key]) &&
-    title.text === preset.title.text && title.font === preset.title.font && title.uppercase === preset.title.uppercase
+    (preset.keepsText || title.text === preset.title.text) && title.font === preset.title.font && title.uppercase === preset.title.uppercase
 }
 
 interface IntroPresetState {
@@ -153,9 +178,10 @@ export const useIntroPresetStore = createWithEqualityFn<IntroPresetState>((set, 
 
     applyPreset: (id) => {
       const { presets } = get()
-      const preset = id === DEFAULT_INTRO_PRESET_ID ? DEFAULT_INTRO_PRESET : presets.find(entry => entry.id === id)
+      const preset = BUILT_IN_INTRO_PRESETS.find(entry => entry.id === id) ?? presets.find(entry => entry.id === id)
       if (!preset) return
-      useIntroDebugStore.getState().applySetup(preset.params, preset.title)
+      const debug = useIntroDebugStore.getState()
+      debug.applySetup(preset.params, preset.keepsText ? { ...preset.title, text: debug.title.text } : preset.title)
       commit(presets, preset.id)
     },
 

@@ -3,9 +3,8 @@ import { Check, Save, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useIntroDebugStore } from '../../store/intro_debug_store'
 import {
+  BUILT_IN_INTRO_PRESETS,
   DEFAULT_INTRO_PRESET,
-  DEFAULT_INTRO_PRESET_ID,
-  DEFAULT_INTRO_PRESET_NAME,
   findIntroPresetByName,
   isReservedIntroPresetName,
   sameIntroSetup,
@@ -31,7 +30,7 @@ function PresetChip ({ preset, active, modified }: PresetChipProps) {
   const updatePreset = useIntroPresetStore(state => state.updatePreset)
   const deletePreset = useIntroPresetStore(state => state.deletePreset)
   const [confirming, setConfirming] = useState(false)
-  const builtIn = preset.id === DEFAULT_INTRO_PRESET_ID
+  const builtIn = preset.builtIn === true
 
   return (
     <li
@@ -41,7 +40,7 @@ function PresetChip ({ preset, active, modified }: PresetChipProps) {
       <button
         type="button"
         aria-pressed={active}
-        title={active && modified ? 'Click to drop the changes and return to this preset' : undefined}
+        title={active && modified ? 'Click to drop the changes and return to this preset' : preset.description}
         onClick={() => applyPreset(preset.id)}
         className={cn(
           'flex h-7 max-w-[14rem] items-center gap-2 px-2 text-left transition-colors duration-150 hover:text-neon-cyan',
@@ -103,7 +102,7 @@ function IntroPresetBar () {
   const savePreset = useIntroPresetStore(state => state.savePreset)
   const [name, setName] = useState('')
 
-  const list = [DEFAULT_INTRO_PRESET, ...presets]
+  const list = [...BUILT_IN_INTRO_PRESETS, ...presets]
   const active = list.find(preset => preset.id === activeId) ?? DEFAULT_INTRO_PRESET
   // Re-renders only when the answer changes, not on every step of a slider
   const modified = useIntroDebugStore(state => !sameIntroSetup(state.params, state.title, active))
@@ -122,7 +121,7 @@ function IntroPresetBar () {
   return (
     <div role="group" aria-label="Intro presets" className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-neon-cyan/20 px-3 py-1.5">
       <span className="text-text-light/60">Presets</span>
-      <ul className="flex min-w-0 flex-1 flex-wrap gap-1">
+      <ul className="flex max-h-[4.25rem] min-w-0 flex-1 flex-wrap gap-1 overflow-y-auto">
         {list.map(preset => (
           <PresetChip key={preset.id} preset={preset} active={preset.id === active.id} modified={modified} />
         ))}
@@ -148,7 +147,7 @@ function IntroPresetBar () {
 
       {reserved && (
         <p role="alert" className="w-full text-neon-yellow/80">
-          {DEFAULT_INTRO_PRESET_NAME} is built in. Choose another name.
+          {cleanName} is built in. Choose another name.
         </p>
       )}
       {storageFailed && (
