@@ -439,18 +439,20 @@ export const compositeFragmentShaderSource = `
       float infall = 0.0;
       // The streak the moving letters leave behind them
       float trail = 0.0;
+      // Each grain of dust is a cell of about two CSS pixels with its own speed and lifetime
+      vec2 grainCell = floor(cssPx / 2.0);
       if (u_titleDissolve > 0.0) {
         // The title obeys the black hole it falls into. Its gravity sets how far the letters are
         // drawn (and pushes them away when negative), the orbital force winds them around the hole,
         // what lies beyond the reach of gravity goes last and barely moves, and what crosses the
-        // radius of no return is gone. Each part of the screen flows at its own speed, taken from a
-        // smooth field rather than from separate cells, so the words pull apart into streams
-        // instead of breaking into pixels
+        // radius of no return is gone
         vec2 fromHole = samplePx - u_hole;
         float holeDist = max(length(fromHole), 1.0);
         float beyondReach = u_titleReach > 0.0 ? smoothstep(u_titleReach, 2.0 * u_titleReach, holeDist) : 1.0;
-        float flow = 0.65 * valueNoise(cssPx / 11.0 + 41.0) + 0.35 * valueNoise(cssPx / 3.5 + 7.0);
-        float speed = mix(0.5, clamp((flow - 0.5) * 1.8 + 0.5, 0.0, 1.0), u_titleGrain);
+        // Every speck has its own speed, and neighbours share a current, so the specks travel in
+        // streams rather than each on its own
+        float current = clamp((valueNoise(cssPx / 11.0 + 41.0) - 0.5) * 1.8 + 0.5, 0.0, 1.0);
+        float speed = mix(0.5, mix(hash12(grainCell + 41.0), current, 0.5), u_titleGrain);
         float fall = u_titleFall * (0.25 + 1.5 * speed) * mix(1.0, 0.15, beyondReach);
         local = (titleSource(fromHole, holeDist, fall) - u_titleCenter) / titleSpan;
         // Where the letters were a moment ago still shows, fainter, so their motion reads as a streak
@@ -459,10 +461,10 @@ export const compositeFragmentShaderSource = `
           trail += (0.6 - 0.15 * float(i)) * titleMask((titleSource(fromHole, holeDist, fall * lag) - u_titleCenter) / titleSpan);
         }
         trail *= TITLE_TRAIL * min(4.0 * u_titleFall, 1.0);
-        // The stream thins out in soft patches, the ones nearest the hole first; without grain the
+        // Each speck winks out at its own moment, the ones nearest the hole first; without grain the
         // letters stay whole until the hole has them
-        float lifetime = mix(1.0, mix(valueNoise(cssPx / 6.0 + 73.0), 0.35 + 0.65 * beyondReach, 0.3), u_titleGrain);
-        keep = smoothstep(u_titleDissolve - 0.2, u_titleDissolve, lifetime * 0.85);
+        float lifetime = mix(1.0, mix(hash12(grainCell + 73.0), 0.35 + 0.65 * beyondReach, 0.3), u_titleGrain);
+        keep = smoothstep(u_titleDissolve - 0.15, u_titleDissolve, lifetime * 0.85);
         if (u_titleCapture > 0.0) keep *= smoothstep(u_titleCapture, u_titleCapture * 1.25 + 1.0, holeDist);
         infall = min(fall, 1.0);
       }
@@ -471,7 +473,7 @@ export const compositeFragmentShaderSource = `
         // title's centre and blue a little further out
         float fringe = u_titleFringe / max(u_titleHalfSize.x, 1.0);
         vec3 mask = max(vec3(titleMask(local * (1.0 - fringe)), titleMask(local), titleMask(local * (1.0 + fringe))), vec3(trail));
-        float grain = 0.55 * valueNoise(cssPx / 2.4) + 0.45 * valueNoise(cssPx / 1.1 + 19.0);
+        float grain = 0.55 * valueNoise(cssPx / 2.4) + 0.45 * hash12(grainCell + 7.0);
         // Fire eats the letters from the ends of the title inwards along a ragged edge, which glows
         float burnRim = 0.0;
         if (u_titleBurn > 0.0) {
