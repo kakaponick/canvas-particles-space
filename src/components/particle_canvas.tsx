@@ -45,6 +45,16 @@ const TITLE_REFERENCE_GRAVITY = 2.5
 const TITLE_REFERENCE_ORBIT = 40
 const TITLE_SWIRL_RADIANS = 0.35
 const TITLE_PULL_LIMIT = 4
+// CSS pixels the title's words keep from the screen's edges and from the letterbox bars
+const TITLE_SAFE_MARGIN = 16
+
+// The centre of something `half` wide, moved as little as needed for it to lie between `inset` and
+// `size - inset`; centred when there is not enough room
+function keepInside (center: number, half: number, inset: number, size: number) {
+  const low = inset + half
+  const high = size - inset - half
+  return low > high ? size / 2 : Math.min(Math.max(center, low), high)
+}
 
 // A touch this close to the black hole drags it
 const MIN_TOUCH_GRAB_RADIUS = 48
@@ -547,8 +557,24 @@ function ParticleCanvas () {
 
       const title = frame.title
       title.alpha = titleSprite ? intro.titleAlpha : 0
-      title.x = centerX
-      title.y = centerY + params.titleOffset * shortSide
+      // The words never leave the frame: whatever the title's position, its size, the screen's shape,
+      // the camera's zoom and the letterbox bars, they stay clear of the bars and the screen's edges.
+      // A title flying past the camera is the one exception, it is meant to outgrow the screen
+      const cameraZoom = hidden.camera ? 1 : intro.cameraZoom
+      let titleScale = 1 + params.titlePush * intro.titleAge
+      let titleX = centerX
+      let titleY = centerY + params.titleOffset * shortSide
+      if (titleSprite && titleSprite.textWidth > 0) {
+        const widest = Math.max(viewportWidth - 2 * TITLE_SAFE_MARGIN, 1) / (titleSprite.textWidth * cameraZoom)
+        titleScale = Math.min(titleScale, widest)
+        const bar = hidden.camera ? 0 : params.letterbox * viewportHeight
+        const halfWidth = titleSprite.textWidth * 0.5 * titleScale * cameraZoom
+        const halfHeight = titleSprite.textHeight * 0.5 * titleScale * cameraZoom
+        titleX = originX + (keepInside(originX + (titleX - originX) * cameraZoom, halfWidth, TITLE_SAFE_MARGIN, viewportWidth) - originX) / cameraZoom
+        titleY = originY + (keepInside(originY + (titleY - originY) * cameraZoom, halfHeight, bar + TITLE_SAFE_MARGIN, viewportHeight) - originY) / cameraZoom
+      }
+      title.x = titleX
+      title.y = titleY
       title.reveal = intro.titleReveal
       title.dissolve = intro.titleDissolve
       title.drift = params.titleDrift
@@ -562,7 +588,7 @@ function ParticleCanvas () {
         TITLE_SWIRL_RADIANS * params.titleSwirl
       title.reach = settings.gravityReach
       title.capture = captureRadius
-      title.scale = (1 + params.titlePush * intro.titleAge) * intro.titleFly
+      title.scale = titleScale * intro.titleFly
       title.fringe = params.titleFringe
       title.halo = params.titleHalo
       title.redshift = params.titleRedshift
@@ -640,7 +666,7 @@ function ParticleCanvas () {
       // by the time the intro ends
       const film = hidden.camera ? 0 : intro.film
       const shake = hidden.camera ? 0 : intro.shake
-      composite.cameraZoom = hidden.camera ? 1 : intro.cameraZoom
+      composite.cameraZoom = cameraZoom
       composite.shakeX = shake * (Math.sin(animationTime * 83.1) + 0.6 * Math.sin(animationTime * 47.3)) / 1.6
       composite.shakeY = shake * (Math.sin(animationTime * 71.7 + 1.3) + 0.6 * Math.sin(animationTime * 39.9 + 0.4)) / 1.6
       composite.lensFringe = params.lensFringe * film

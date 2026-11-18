@@ -32,6 +32,9 @@ export interface TitleSprite {
   // Logical size in CSS pixels; the bitmap is this times the pixel ratio
   width: number
   height: number
+  // Size of the words themselves, without the room left around them for the glow
+  textWidth: number
+  textHeight: number
 }
 
 const LINE_HEIGHT_EM = 1.3
@@ -70,7 +73,7 @@ export function renderTitleSprite (style: TitleStyle, viewportWidth: number, pix
   const canvas = document.createElement('canvas')
   const ctx = canvas.getContext('2d')
   const lines = titleLines(style)
-  if (!ctx || lines.length === 0) return { canvas, width: 0, height: 0 }
+  if (!ctx || lines.length === 0) return { canvas, width: 0, height: 0, textWidth: 0, textHeight: 0 }
 
   const probeSize = 100
   setFont(ctx, style, probeSize)
@@ -126,5 +129,5 @@ export function renderTitleSprite (style: TitleStyle, viewportWidth: number, pix
     }
   }
 
-  return { canvas, width, height }
+  return { canvas, width, height, textWidth: targetWidth, textHeight: lineHeight * lines.length }
 }

@@ -205,7 +205,7 @@ export const INTRO_PARAM_SPECS = Object.fromEntries([
   p('gravityWaveWidth', 'Wave Width', 0.005, 0.3, 0.005, 'share', 'Width of the wave packet.'),
   p('gravityWaveDecay', 'Wave Fade', 0.1, 6, 0.05, 's', 'Time for the wave to fade to about a third.'),
   p('gravityWaveCycles', 'Wave Ripples', 1, 20, 0.5, '', 'Number of ripples inside the packet.'),
-  p('titleOffset', 'Position', -0.5, 0.5, 0.01, 'share', 'Height of the title above (negative) or below the centre of the screen.'),
+  p('titleOffset', 'Position', -0.5, 0.5, 0.01, 'share', 'Height of the title above (negative) or below the centre of the screen. The words are always kept clear of the screen edges and of the letterbox bars, so near an edge the title stops short of this.'),
   p('titleSize', 'Size', 0.2, 0.95, 0.01, '', 'Width of the longest line as a share of the screen width.'),
   p('titleWeight', 'Weight', 100, 900, 10, '', 'Stroke weight. Unbounded and Geist Mono follow it; Orbitron has one weight.'),
   p('titleTracking', 'Letter Spacing', 0, 0.6, 0.01, '', 'Space between letters, in multiples of the font size.'),

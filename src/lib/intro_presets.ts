@@ -144,7 +144,7 @@ export const INTRO_LOOKS: readonly IntroLook[] = [
     lightWidth: 0.004,
     starFlare: 6,
     titleSize: 0.8,
-    titleOffset: 0.3,
+    titleOffset: 0.22,
     titleWeight: 300,
     titleTracking: 0.3,
     titleGlow: 1.2,
