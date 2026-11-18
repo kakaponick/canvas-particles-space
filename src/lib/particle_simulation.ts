@@ -9,7 +9,8 @@ const MAX_FRAME_SCALE = 6
 // Segments are clipped to the viewport plus this margin, wide enough to hide the widest cap
 const CLIP_MARGIN = 4
 
-const SPAWN_SPAN = 2000
+// Particles spawn in a disc so the tunnel reads round on every aspect ratio
+const SPAWN_RADIUS = 1000
 
 // Per-instance layout shared with the renderer: x0, y0, x1, y1, width, opacity, packed rgba
 export const INSTANCE_FLOATS = 7
@@ -46,10 +47,15 @@ export interface StepSettings {
   speed: number
   width: number
   height: number
-  mouseX: number
-  mouseY: number
-  mouseRadius: number
-  eventHorizon: number
+  // Shared focal length in pixels, so both axes project with the same scale
+  focal: number
+  // Black hole on screen; NaN coordinates or a zero radius mean there is none
+  holeX: number
+  holeY: number
+  holeRadius: number
+  gravityReach: number
+  // Depth of the plane where the black hole pulls hardest
+  holeDepth: number
   gravityStrength: number
   orbitalStrength: number
   farZ: number
@@ -59,6 +65,10 @@ export interface StepSettings {
   baseBrightness: number
   minOpacity: number
   maxOpacity: number
+  // Only particles within this distance of the screen center are drawn (the intro shockwave)
+  revealRadius: number
+  revealFeather: number
+  opacityScale: number
 }
 
 export interface InstanceData {
@@ -110,8 +120,10 @@ function samplePaletteColor (palette: PaletteSampler): number {
 }
 
 function spawnParticle (field: ParticleField, i: number, z: number, spawn: SpawnSettings) {
-  field.x[i] = (Math.random() - 0.5) * SPAWN_SPAN
-  field.y[i] = (Math.random() - 0.5) * SPAWN_SPAN
+  const angle = Math.random() * Math.PI * 2
+  const radius = SPAWN_RADIUS * Math.sqrt(Math.random())
+  field.x[i] = Math.cos(angle) * radius
+  field.y[i] = Math.sin(angle) * radius
   field.z[i] = z
   field.color[i] = samplePaletteColor(spawn.palette)
   field.alpha[i] = 0.3 + Math.random() * 0.7
@@ -208,8 +220,9 @@ export function stepParticles (
   const { x, y, z, alpha, pulsePhase, pulseSpeed, speedMultiplier, color } = field
   const { floats, colors } = out
   const {
-    frameScale, time, width, height, mouseX, mouseY, eventHorizon, gravityStrength, orbitalStrength,
-    farZ, depthFade, pulseIntensity, baseBrightness, minOpacity, maxOpacity
+    frameScale, time, width, height, focal, holeX, holeY, holeRadius, holeDepth,
+    gravityStrength, orbitalStrength, farZ, depthFade, pulseIntensity, baseBrightness,
+    minOpacity, maxOpacity, revealRadius, revealFeather, opacityScale
   } = settings
 
   const halfW = width * 0.5
@@ -217,9 +230,16 @@ export function stepParticles (
   const step = settings.speed * frameScale
   const pulseRate = settings.pulseSpeedMultiplier
   const invFarZ = 1 / farZ
-  const hasMouse = mouseX === mouseX && mouseY === mouseY
-  const radiusSq = settings.mouseRadius * settings.mouseRadius
-  const invMouseRadius = settings.mouseRadius > 0 ? 1 / settings.mouseRadius : 0
+  const hasHole = holeRadius > 0 && holeX === holeX && holeY === holeY
+  const reachSq = settings.gravityReach * settings.gravityReach
+  // Gravity acts within a depth band around the hole's plane; particles far behind only get lensed
+  const invDepthBand = 1 / (farZ * 0.18)
+  const pullScale = gravityStrength * 0.6 * frameScale
+  const orbitScale = orbitalStrength * 0.02
+  const invFocal = 1 / focal
+  const revealing = revealRadius < Infinity
+  const revealRadiusSq = revealRadius * revealRadius
+  const invRevealFeather = 1 / Math.max(revealFeather, 1)
   const minX = -CLIP_MARGIN
   const minY = -CLIP_MARGIN
   const maxX = width + CLIP_MARGIN
@@ -231,8 +251,8 @@ export function stepParticles (
     let px = x[i]
     let py = y[i]
     const startZ = z[i]
-    const startX = (px / startZ) * halfW + halfW
-    const startY = (py / startZ) * halfH + halfH
+    const startX = (px / startZ) * focal + halfW
+    const startY = (py / startZ) * focal + halfH
 
     const pz = startZ - step * speedMultiplier[i]
     if (pz <= 0) {
@@ -240,36 +260,42 @@ export function stepParticles (
       continue
     }
 
-    let endX = (px / pz) * halfW + halfW
-    let endY = (py / pz) * halfH + halfH
+    let endX = (px / pz) * focal + halfW
+    let endY = (py / pz) * focal + halfH
 
-    if (hasMouse) {
-      const dx = mouseX - endX
-      const dy = mouseY - endY
+    if (hasHole) {
+      const dx = holeX - endX
+      const dy = holeY - endY
       const distSq = dx * dx + dy * dy
 
-      if (distSq < radiusSq && distSq > 0.0001) {
-        const distance = Math.sqrt(distSq)
-        if (distance < eventHorizon) {
-          spawnParticle(field, i, farZ, spawn)
-          continue
+      if (distSq < reachSq) {
+        const depthOffset = (pz - holeDepth) * invDepthBand
+        const depthWeight = Math.exp(-depthOffset * depthOffset)
+
+        if (depthWeight > 0.02) {
+          const distance = Math.sqrt(distSq)
+          if (distance < holeRadius && depthWeight > 0.5) {
+            spawnParticle(field, i, farZ, spawn)
+            continue
+          }
+
+          // Pull and orbit are screen-space pixels per frame, converted back to world units at this depth
+          const invDistance = 1 / Math.max(distance, 1)
+          const towardX = dx * invDistance
+          const towardY = dy * invDistance
+          const proximity = holeRadius * invDistance
+          const pull = pullScale * proximity * proximity * depthWeight
+          const orbit = pull * orbitScale
+          const toWorld = pz * invFocal
+
+          px += (towardX * pull - towardY * orbit) * toWorld
+          py += (towardY * pull + towardX * orbit) * toWorld
+          x[i] = px
+          y[i] = py
+
+          endX = (px / pz) * focal + halfW
+          endY = (py / pz) * focal + halfH
         }
-
-        const invDistance = 1 / distance
-        const towardX = dx * invDistance
-        const towardY = dy * invDistance
-        const closeFactor = 1 - pz * invFarZ
-        const pull = gravityStrength / (distSq * 0.01) * closeFactor * frameScale
-        const orbit = pull * orbitalStrength
-        const warp = (1 - distance * invMouseRadius) * 0.5 * closeFactor * 20 * frameScale
-
-        px += towardX * (pull + warp) - towardY * orbit
-        py += towardY * (pull + warp) + towardX * orbit
-        x[i] = px
-        y[i] = py
-
-        endX = (px / pz) * halfW + halfW
-        endY = (py / pz) * halfH + halfH
       }
     }
 
@@ -286,6 +312,16 @@ export function stepParticles (
     let opacity = depthFactor * alpha[i] * pulseFactor * baseBrightness
     if (opacity > maxOpacity) opacity = maxOpacity
     if (opacity < minOpacity) opacity = minOpacity
+    opacity *= opacityScale
+
+    if (revealing) {
+      const rx = endX - halfW
+      const ry = endY - halfH
+      const radialSq = rx * rx + ry * ry
+      if (radialSq > revealRadiusSq) continue
+      const edge = (revealRadius - Math.sqrt(radialSq)) * invRevealFeather
+      if (edge < 1) opacity *= edge
+    }
     if (opacity <= 0) continue
 
     let x0 = startX

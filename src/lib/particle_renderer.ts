@@ -7,13 +7,19 @@ import {
   fadeFragmentShaderSource,
   particleVertexShaderSource,
   particleFragmentShaderSource,
+  spriteVertexShaderSource,
+  spriteFragmentShaderSource,
   compositeVertexShaderSource,
   compositeFragmentShaderSource
 } from './webgl_shaders'
 import { INSTANCE_FLOATS } from './particle_simulation'
+import type { TitleSprite } from './title_sprite'
 
 const INSTANCE_STRIDE = INSTANCE_FLOATS * 4
 const INSTANCED_ATTRIBUTES = [ATTRIBUTE_LOCATIONS.segment, ATTRIBUTE_LOCATIONS.style, ATTRIBUTE_LOCATIONS.color]
+
+const SCENE_TEXTURE_UNIT = 0
+const SPRITE_TEXTURE_UNIT = 1
 
 // The output is opaque and fully redrawn every frame, so the context skips alpha, depth and MSAA
 const CONTEXT_ATTRIBUTES: WebGLContextAttributes = {
@@ -25,15 +31,31 @@ const CONTEXT_ATTRIBUTES: WebGLContextAttributes = {
   powerPreference: 'high-performance'
 }
 
-export interface LensingSettings {
-  enabled: boolean
-  mouseX: number
-  mouseY: number
-  mass: number
-  eventHorizon: number
-  rotation: number
+// Every length here is in CSS pixels; the renderer scales to device pixels
+export interface CompositeSettings {
+  holeX: number
+  holeY: number
+  horizon: number
+  einstein: number
   falloff: number
+  swirl: number
   absorption: number
+  ring: number
+  time: number
+  starGlow: number
+  starRadius: number
+  waveRadius: number
+  waveStrength: number
+  waveWidth: number
+  flash: number
+}
+
+export interface TitleSettings {
+  alpha: number
+  x: number
+  y: number
+  scale: number
+  rotation: number
 }
 
 export interface FrameInput {
@@ -41,11 +63,14 @@ export interface FrameInput {
   fadeAlpha: number
   instances: Float32Array
   instanceCount: number
-  lensing: LensingSettings
+  doppler: number
+  title: TitleSettings
+  composite: CompositeSettings
 }
 
 export interface ParticleRenderer {
-  resize: (width: number, height: number, background: readonly [number, number, number]) => void
+  resize: (width: number, height: number, pixelRatio: number, background: readonly [number, number, number]) => void
+  setTitle: (sprite: TitleSprite) => void
   render: (frame: FrameInput) => void
   dispose: () => void
 }
@@ -114,11 +139,18 @@ function setUniform4f (gl: WebGLRenderingContext, uniform: CachedUniform, x: num
   gl.uniform4f(uniform.location, x, y, z, w)
 }
 
+function getUniforms<T extends string> (gl: WebGLRenderingContext, program: WebGLProgram, names: readonly T[]) {
+  const uniforms = {} as Record<T, CachedUniform>
+  for (const name of names) uniforms[name] = getUniform(gl, program, `u_${name}`)
+  return uniforms
+}
+
 /**
  * Draws the particle field with WebGL:
  * 1. fades the persistent scene texture toward the background (the motion trail),
  * 2. draws every particle segment as one instanced, anti-aliased round-capped quad,
- * 3. composites the scene to the screen through the gravitational lensing shader.
+ * 3. draws the intro title into the scene so the lens bends it like starlight,
+ * 4. composites the scene to the screen through the black hole shader.
  * Returns null when the context lacks instancing or a program fails to build.
  */
 export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRenderer | null {
@@ -137,34 +169,29 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     a_style: ATTRIBUTE_LOCATIONS.style,
     a_color: ATTRIBUTE_LOCATIONS.color
   })
+  const spriteProgram = createProgram(gl, spriteVertexShaderSource, spriteFragmentShaderSource, position)
   const compositeProgram = createProgram(gl, compositeVertexShaderSource, compositeFragmentShaderSource, position)
+  const programs = [fadeProgram, particleProgram, spriteProgram, compositeProgram]
 
-  if (!fadeProgram || !particleProgram || !compositeProgram) {
-    for (const program of [fadeProgram, particleProgram, compositeProgram]) {
+  if (!fadeProgram || !particleProgram || !spriteProgram || !compositeProgram) {
+    for (const program of programs) {
       if (program) gl.deleteProgram(program)
     }
     return null
   }
 
-  const fadeUniforms = {
-    color: getUniform(gl, fadeProgram, 'u_color')
-  }
-  const particleUniforms = {
-    resolution: getUniform(gl, particleProgram, 'u_resolution')
-  }
-  const compositeUniforms = {
-    resolution: getUniform(gl, compositeProgram, 'u_resolution'),
-    mouse: getUniform(gl, compositeProgram, 'u_mouse'),
-    mass: getUniform(gl, compositeProgram, 'u_mass'),
-    eventHorizon: getUniform(gl, compositeProgram, 'u_eventHorizon'),
-    active: getUniform(gl, compositeProgram, 'u_active'),
-    rotationMultiplier: getUniform(gl, compositeProgram, 'u_rotationMultiplier'),
-    falloffPower: getUniform(gl, compositeProgram, 'u_falloffPower'),
-    absorptionIntensity: getUniform(gl, compositeProgram, 'u_absorptionIntensity')
-  }
+  const fadeUniforms = getUniforms(gl, fadeProgram, ['color'] as const)
+  const particleUniforms = getUniforms(gl, particleProgram, ['resolution', 'pixelRatio', 'center', 'doppler'] as const)
+  const spriteUniforms = getUniforms(gl, spriteProgram, ['resolution', 'center', 'halfSize', 'rotation', 'color'] as const)
+  const compositeUniforms = getUniforms(gl, compositeProgram, [
+    'resolution', 'hole', 'horizon', 'einstein', 'falloff', 'swirl', 'absorption', 'ring', 'time',
+    'starGlow', 'starRadius', 'waveRadius', 'waveStrength', 'waveWidth', 'flash'
+  ] as const)
 
   gl.useProgram(compositeProgram)
-  gl.uniform1i(gl.getUniformLocation(compositeProgram, 'u_image'), 0)
+  gl.uniform1i(gl.getUniformLocation(compositeProgram, 'u_image'), SCENE_TEXTURE_UNIT)
+  gl.useProgram(spriteProgram)
+  gl.uniform1i(gl.getUniformLocation(spriteProgram, 'u_sprite'), SPRITE_TEXTURE_UNIT)
 
   // Shared quad at location 0, bound once for every program
   const quadBuffer = gl.createBuffer()
@@ -182,16 +209,25 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
   gl.vertexAttribPointer(ATTRIBUTE_LOCATIONS.color, 4, gl.UNSIGNED_BYTE, true, INSTANCE_STRIDE, 24)
   for (const location of INSTANCED_ATTRIBUTES) instancing.setDivisor(location, 1)
 
-  // Persistent scene texture: the trail lives here between frames
-  const sceneTexture = gl.createTexture()
-  gl.activeTexture(gl.TEXTURE0)
-  gl.bindTexture(gl.TEXTURE_2D, sceneTexture)
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
+  function createLinearTexture (unit: number) {
+    const texture = gl.createTexture()
+    gl.activeTexture(gl.TEXTURE0 + unit)
+    gl.bindTexture(gl.TEXTURE_2D, texture)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
+    return texture
+  }
 
+  // Each texture keeps its own unit, so no draw ever rebinds one
+  const spriteTexture = createLinearTexture(SPRITE_TEXTURE_UNIT)
+  let spriteWidth = 0
+  let spriteHeight = 0
+
+  // Persistent scene texture: the trail lives here between frames
+  const sceneTexture = createLinearTexture(SCENE_TEXTURE_UNIT)
   const sceneFramebuffer = gl.createFramebuffer()
   gl.bindFramebuffer(gl.FRAMEBUFFER, sceneFramebuffer)
   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, sceneTexture, 0)
@@ -204,14 +240,15 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
 
   let width = 1
   let height = 1
+  let ratio = 1
 
-  function resize (nextWidth: number, nextHeight: number, background: readonly [number, number, number]) {
-    width = Math.max(1, Math.floor(nextWidth))
-    height = Math.max(1, Math.floor(nextHeight))
+  function resize (cssWidth: number, cssHeight: number, pixelRatio: number, background: readonly [number, number, number]) {
+    ratio = pixelRatio
+    width = Math.max(1, Math.round(cssWidth * pixelRatio))
+    height = Math.max(1, Math.round(cssHeight * pixelRatio))
     if (gl.canvas.width !== width) gl.canvas.width = width
     if (gl.canvas.height !== height) gl.canvas.height = height
 
-    gl.bindTexture(gl.TEXTURE_2D, sceneTexture)
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, sceneFramebuffer)
@@ -222,11 +259,23 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
 
     gl.useProgram(particleProgram)
     setUniform2f(gl, particleUniforms.resolution, width, height)
+    setUniform1f(gl, particleUniforms.pixelRatio, ratio)
+    setUniform2f(gl, particleUniforms.center, cssWidth / 2, cssHeight / 2)
+    gl.useProgram(spriteProgram)
+    setUniform2f(gl, spriteUniforms.resolution, width, height)
     gl.useProgram(compositeProgram)
     setUniform2f(gl, compositeUniforms.resolution, width, height)
   }
 
-  function drawParticles (instances: Float32Array, count: number) {
+  function setTitle (sprite: TitleSprite) {
+    spriteWidth = sprite.width
+    spriteHeight = sprite.height
+    gl.activeTexture(gl.TEXTURE0 + SPRITE_TEXTURE_UNIT)
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, sprite.canvas)
+    gl.activeTexture(gl.TEXTURE0 + SCENE_TEXTURE_UNIT)
+  }
+
+  function drawParticles (instances: Float32Array, count: number, doppler: number) {
     if (count === 0) return
 
     gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuffer)
@@ -237,26 +286,39 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     gl.bufferSubData(gl.ARRAY_BUFFER, 0, instances.subarray(0, count * INSTANCE_FLOATS))
 
     gl.useProgram(particleProgram)
+    setUniform1f(gl, particleUniforms.doppler, doppler)
     for (const location of INSTANCED_ATTRIBUTES) gl.enableVertexAttribArray(location)
     instancing.draw(QUAD_VERTEX_COUNT, count)
     for (const location of INSTANCED_ATTRIBUTES) gl.disableVertexAttribArray(location)
   }
 
-  function composite (lensing: LensingSettings) {
+  function drawTitle (title: TitleSettings) {
+    if (title.alpha <= 0 || title.scale <= 0 || spriteWidth === 0) return
+    gl.useProgram(spriteProgram)
+    setUniform2f(gl, spriteUniforms.center, title.x * ratio, title.y * ratio)
+    setUniform2f(gl, spriteUniforms.halfSize, spriteWidth * 0.5 * title.scale * ratio, spriteHeight * 0.5 * title.scale * ratio)
+    setUniform1f(gl, spriteUniforms.rotation, title.rotation)
+    setUniform4f(gl, spriteUniforms.color, 1, 0.95, 0.9, title.alpha)
+    gl.drawArrays(gl.TRIANGLES, 0, QUAD_VERTEX_COUNT)
+  }
+
+  function composite (settings: CompositeSettings) {
+    const u = compositeUniforms
     gl.useProgram(compositeProgram)
-    if (lensing.enabled) {
-      const mouseX = lensing.mouseX === lensing.mouseX ? lensing.mouseX : width / 2
-      const mouseY = lensing.mouseY === lensing.mouseY ? lensing.mouseY : height / 2
-      setUniform1f(gl, compositeUniforms.active, 1)
-      setUniform2f(gl, compositeUniforms.mouse, mouseX, mouseY)
-      setUniform1f(gl, compositeUniforms.mass, lensing.mass * 0.00001)
-      setUniform1f(gl, compositeUniforms.eventHorizon, lensing.eventHorizon)
-      setUniform1f(gl, compositeUniforms.rotationMultiplier, lensing.rotation)
-      setUniform1f(gl, compositeUniforms.falloffPower, lensing.falloff)
-      setUniform1f(gl, compositeUniforms.absorptionIntensity, lensing.absorption)
-    } else {
-      setUniform1f(gl, compositeUniforms.active, 0)
-    }
+    setUniform2f(gl, u.hole, settings.holeX * ratio, settings.holeY * ratio)
+    setUniform1f(gl, u.horizon, settings.horizon * ratio)
+    setUniform1f(gl, u.einstein, settings.einstein * ratio)
+    setUniform1f(gl, u.falloff, settings.falloff)
+    setUniform1f(gl, u.swirl, settings.swirl)
+    setUniform1f(gl, u.absorption, settings.absorption)
+    setUniform1f(gl, u.ring, settings.ring)
+    setUniform1f(gl, u.time, settings.time)
+    setUniform1f(gl, u.starGlow, settings.starGlow)
+    setUniform1f(gl, u.starRadius, Math.max(settings.starRadius * ratio, 0.5))
+    setUniform1f(gl, u.waveRadius, settings.waveRadius * ratio)
+    setUniform1f(gl, u.waveStrength, settings.waveStrength * ratio)
+    setUniform1f(gl, u.waveWidth, Math.max(settings.waveWidth * ratio, 1))
+    setUniform1f(gl, u.flash, settings.flash)
     gl.drawArrays(gl.TRIANGLES, 0, QUAD_VERTEX_COUNT)
   }
 
@@ -269,10 +331,11 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
       setUniform4f(gl, fadeUniforms.color, r / 255, g / 255, b / 255, frame.fadeAlpha)
       gl.drawArrays(gl.TRIANGLES, 0, QUAD_VERTEX_COUNT)
     }
-    drawParticles(frame.instances, frame.instanceCount)
+    drawParticles(frame.instances, frame.instanceCount, frame.doppler)
+    drawTitle(frame.title)
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-    composite(frame.lensing)
+    composite(frame.composite)
   }
 
   function dispose () {
@@ -281,12 +344,11 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
     gl.deleteFramebuffer(sceneFramebuffer)
     gl.deleteTexture(sceneTexture)
+    gl.deleteTexture(spriteTexture)
     gl.deleteBuffer(quadBuffer)
     gl.deleteBuffer(instanceBuffer)
-    gl.deleteProgram(fadeProgram)
-    gl.deleteProgram(particleProgram)
-    gl.deleteProgram(compositeProgram)
+    for (const program of programs) gl.deleteProgram(program)
   }
 
-  return { resize, render, dispose }
+  return { resize, setTitle, render, dispose }
 }

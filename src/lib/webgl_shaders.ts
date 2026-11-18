@@ -1,5 +1,6 @@
-// WebGL shaders for the particle renderer: trail fade, particle segments and the lensing composite.
-// Written in GLSL ES 1.00 so the same sources run on WebGL2 and on WebGL1 with ANGLE_instanced_arrays.
+// WebGL shaders for the particle renderer: trail fade, particle segments, the intro title sprite
+// and the black hole composite. Written in GLSL ES 1.00 so the same sources run on WebGL2 and on
+// WebGL1 with ANGLE_instanced_arrays.
 
 // Attribute locations shared by every program; location 0 is always the full-screen quad
 export const ATTRIBUTE_LOCATIONS = {
@@ -9,7 +10,7 @@ export const ATTRIBUTE_LOCATIONS = {
   color: 3
 } as const
 
-// Two triangles covering clip space; the particle program reuses them as segment corners
+// Two triangles covering clip space; the particle and sprite programs reuse them as corners
 export const QUAD_VERTICES = new Float32Array([
   -1, -1,
   1, -1,
@@ -20,6 +21,14 @@ export const QUAD_VERTICES = new Float32Array([
 ])
 
 export const QUAD_VERTEX_COUNT = 6
+
+const HIGH_PRECISION = `
+  #ifdef GL_FRAGMENT_PRECISION_HIGH
+  precision highp float;
+  #else
+  precision mediump float;
+  #endif
+`
 
 export const fadeVertexShaderSource = `
   attribute vec2 a_position;
@@ -41,11 +50,14 @@ export const fadeFragmentShaderSource = `
 
 export const particleVertexShaderSource = `
   attribute vec2 a_position;  // quad corner: x picks the segment end, y the side
-  attribute vec4 a_segment;   // x0, y0, x1, y1 in canvas pixels, top-left origin
-  attribute vec2 a_style;     // line width in pixels, opacity
+  attribute vec4 a_segment;   // x0, y0, x1, y1 in CSS pixels, top-left origin
+  attribute vec2 a_style;     // line width in CSS pixels, opacity
   attribute vec4 a_color;     // rgb as normalized bytes
 
-  uniform vec2 u_resolution;
+  uniform vec2 u_resolution;  // drawing buffer size in device pixels
+  uniform float u_pixelRatio;
+  uniform vec2 u_center;      // vanishing point in CSS pixels
+  uniform float u_doppler;    // 0 at rest, 1 near the speed of light
 
   varying vec2 v_ends;        // distance along the segment from its start and from its end
   varying float v_across;     // signed distance from the segment axis
@@ -53,16 +65,18 @@ export const particleVertexShaderSource = `
   varying vec4 v_color;
 
   const float PI = 3.14159265359;
+  const vec3 BLUESHIFT = vec3(0.6, 0.76, 1.0);
+  const vec3 REDSHIFT = vec3(1.0, 0.58, 0.42);
 
   void main () {
-    vec2 start = a_segment.xy;
-    vec2 delta = a_segment.zw - start;
+    vec2 start = a_segment.xy * u_pixelRatio;
+    vec2 delta = a_segment.zw * u_pixelRatio - start;
     float len = length(delta);
     vec2 direction = len > 0.0001 ? delta / len : vec2(1.0, 0.0);
     vec2 normal = vec2(-direction.y, direction.x);
 
     // Lines thinner than a pixel are drawn one pixel wide and dimmed by the area they would cover
-    float width = a_style.x;
+    float width = a_style.x * u_pixelRatio;
     float drawWidth = max(width, 1.0);
     float halfWidth = drawWidth * 0.5;
     float extent = halfWidth + 1.0;
@@ -75,10 +89,15 @@ export const particleVertexShaderSource = `
     float targetArea = len * width + PI * width * width * 0.25;
     float drawnArea = len * drawWidth + PI * (halfWidth * halfWidth + 1.0 / 12.0);
 
+    // Relativistic aberration, stylised: light ahead shifts blue, light at the edges shifts red
+    float radial = length(a_segment.zw - u_center) / max(length(u_center), 1.0);
+    float shift = u_doppler * (1.0 - 1.7 * radial);
+    vec3 tint = shift > 0.0 ? BLUESHIFT : REDSHIFT;
+
     v_ends = vec2(along, len - along);
     v_across = across;
     v_halfWidth = halfWidth;
-    v_color = vec4(a_color.rgb, a_style.y * targetArea / drawnArea);
+    v_color = vec4(mix(a_color.rgb, tint, min(abs(shift), 0.8)), a_style.y * targetArea / drawnArea);
 
     // Rows stay top-down in the scene texture, which is the layout the composite pass samples
     gl_Position = vec4(pixel / u_resolution * 2.0 - 1.0, 0.0, 1.0);
@@ -86,11 +105,7 @@ export const particleVertexShaderSource = `
 `
 
 export const particleFragmentShaderSource = `
-  #ifdef GL_FRAGMENT_PRECISION_HIGH
-  precision highp float;
-  #else
-  precision mediump float;
-  #endif
+  ${HIGH_PRECISION}
 
   varying vec2 v_ends;
   varying float v_across;
@@ -105,74 +120,122 @@ export const particleFragmentShaderSource = `
   }
 `
 
-export const compositeVertexShaderSource = `
+export const spriteVertexShaderSource = `
   attribute vec2 a_position;
 
-  varying vec2 v_texCoord;
+  uniform vec2 u_resolution;  // device pixels
+  uniform vec2 u_center;      // device pixels, top-left origin
+  uniform vec2 u_halfSize;    // device pixels
+  uniform float u_rotation;
+
+  varying vec2 v_uv;
 
   void main () {
-    gl_Position = vec4(a_position, 0.0, 1.0);
-    v_texCoord = vec2(a_position.x * 0.5 + 0.5, 0.5 - a_position.y * 0.5);
+    float c = cos(u_rotation);
+    float s = sin(u_rotation);
+    vec2 local = a_position * u_halfSize;
+    vec2 pixel = u_center + vec2(c * local.x - s * local.y, s * local.x + c * local.y);
+    v_uv = a_position * 0.5 + 0.5;
+    gl_Position = vec4(pixel / u_resolution * 2.0 - 1.0, 0.0, 1.0);
   }
 `
 
-export const compositeFragmentShaderSource = `
+export const spriteFragmentShaderSource = `
   precision mediump float;
 
-  #define PI 3.14159265359
+  uniform sampler2D u_sprite;
+  uniform vec4 u_color;
 
-  uniform sampler2D u_image;
-  varying vec2 v_texCoord;
-
-  uniform vec2 u_resolution;
-  uniform vec2 u_mouse;
-  uniform float u_mass;
-  uniform float u_eventHorizon;
-  uniform float u_active;
-  uniform float u_rotationMultiplier;
-  uniform float u_falloffPower;
-  uniform float u_absorptionIntensity;
-
-  vec2 rotate (vec2 mt, vec2 st, float angle, float rotationMult) {
-    float cos_a = cos(angle * PI);
-    float sin_a = sin(angle * PI * rotationMult);
-
-    float nx = (cos_a * (st.x - mt.x)) + (sin_a * (st.y - mt.y)) + mt.x;
-    float ny = (cos_a * (st.y - mt.y)) - (sin_a * (st.x - mt.x)) + mt.y;
-    return vec2(nx, ny);
-  }
+  varying vec2 v_uv;
 
   void main () {
-    if (u_active < 0.5) {
-      gl_FragColor = vec4(texture2D(u_image, v_texCoord).rgb, 1.0);
-      return;
+    gl_FragColor = vec4(u_color.rgb, u_color.a * texture2D(u_sprite, v_uv).a);
+  }
+`
+
+export const compositeVertexShaderSource = `
+  attribute vec2 a_position;
+
+  void main () {
+    gl_Position = vec4(a_position, 0.0, 1.0);
+  }
+`
+
+// Every length uniform is in device pixels with a top-left origin
+export const compositeFragmentShaderSource = `
+  ${HIGH_PRECISION}
+
+  uniform sampler2D u_image;
+  uniform vec2 u_resolution;
+  uniform vec2 u_hole;
+  uniform float u_horizon;       // shadow radius; 0 before the black hole forms
+  uniform float u_einstein;      // Einstein ring radius; 0 turns the lens off
+  uniform float u_falloff;       // 2 is a point mass
+  uniform float u_swirl;         // frame-dragging twist near the ring
+  uniform float u_absorption;    // darkening halo around the shadow
+  uniform float u_ring;          // photon ring brightness
+  uniform float u_time;
+  uniform float u_starGlow;      // the star that collapses in the intro
+  uniform float u_starRadius;
+  uniform float u_waveRadius;    // intro shockwave front
+  uniform float u_waveStrength;  // refraction at the front, pixels
+  uniform float u_waveWidth;
+  uniform float u_flash;         // white-out, 0..1
+
+  const vec3 RING_COLOR = vec3(1.0, 0.86, 0.66);
+  const vec3 FLASH_COLOR = vec3(1.0, 0.97, 0.92);
+
+  void main () {
+    vec2 frag = vec2(gl_FragCoord.x, u_resolution.y - gl_FragCoord.y);
+    vec2 offset = frag - u_hole;
+    float dist = length(offset);
+    vec2 direction = offset / max(dist, 0.0001);
+    vec2 samplePx = frag;
+
+    // Point-mass lens: a ray passing at distance r arrives from r * (1 - (E / r)^falloff),
+    // which maps the background behind the hole into a ring of radius E
+    if (u_einstein > 0.0) {
+      float ratio = u_einstein / max(dist, 0.0001);
+      float bend = min(u_falloff == 2.0 ? ratio * ratio : pow(ratio, u_falloff), 64.0);
+      if (bend * dist * (1.0 + u_swirl) > 0.01) {
+        vec2 lensed = offset * (1.0 - bend);
+        float angle = u_swirl * bend;
+        float c = cos(angle);
+        float s = sin(angle);
+        samplePx = u_hole + vec2(c * lensed.x - s * lensed.y, s * lensed.x + c * lensed.y);
+      }
     }
 
-    // Both coordinates in browser space (top-left origin)
-    vec2 st = vec2(gl_FragCoord.x, u_resolution.y - gl_FragCoord.y) / u_resolution;
-    vec2 mt = u_mouse / u_resolution;
-    vec2 offset = st - mt;
+    // The shockwave refracts what lies under its front
+    float front = 0.0;
+    if (u_waveStrength > 0.0) {
+      front = (dist - u_waveRadius) / u_waveWidth;
+      samplePx -= direction * u_waveStrength * front * exp(-front * front);
+    }
 
-    // Correct for aspect ratio so the effect stays circular
-    float aspectRatio = u_resolution.x / u_resolution.y;
-    float dist = sqrt(offset.x * offset.x + (offset.y * offset.y) / (aspectRatio * aspectRatio));
+    vec3 color = texture2D(u_image, samplePx / u_resolution).rgb;
 
-    float falloff = u_falloffPower == 2.0 ? dist * dist : pow(dist, u_falloffPower);
-    float pull = u_mass / max(falloff, 0.0001);
+    if (u_horizon > 0.0) {
+      float shadow = smoothstep(u_horizon - 1.0, u_horizon + 1.0, dist);
+      float halo = clamp(1.0 - (dist - u_horizon) / (1.5 * u_horizon), 0.0, 1.0);
+      color *= shadow * (1.0 - u_absorption * halo * halo);
 
-    // Skip the rotation where it would move the sample by less than a hundredth of a pixel
-    float angle = pull * PI;
-    float reachPx = length(offset) * max(u_resolution.x, u_resolution.y);
-    float maxShiftPx = reachPx * angle * (0.5 * angle + u_rotationMultiplier);
-    vec2 sampleCoord = maxShiftPx > 0.01 ? rotate(mt, st, pull, u_rotationMultiplier) : st;
+      // Photon ring, brighter on the side whose light orbits toward the viewer
+      float ringWidth = max(1.2, u_horizon * 0.035);
+      float ringOffset = (dist - u_horizon * 1.03) / ringWidth;
+      float beaming = 0.6 + 0.4 * cos(atan(offset.y, offset.x) - u_time * 0.5);
+      color += RING_COLOR * u_ring * beaming * exp(-ringOffset * ringOffset);
+    }
 
-    vec3 imgcolor = texture2D(u_image, sampleCoord).rgb;
+    if (u_starGlow > 0.0) {
+      color += FLASH_COLOR * u_starGlow * exp(-(dist * dist) / (2.0 * u_starRadius * u_starRadius));
+    }
 
-    // Event horizon: darken near the center
-    float horizonDist = dist * u_resolution.x;
-    float horizonFactor = smoothstep(u_eventHorizon * 0.5, u_eventHorizon * 2.0, horizonDist);
+    if (u_waveStrength > 0.0) {
+      color += RING_COLOR * 0.012 * u_waveStrength * exp(-front * front);
+    }
 
-    gl_FragColor = vec4((imgcolor - pull * u_absorptionIntensity) * horizonFactor, 1.0);
+    gl_FragColor = vec4(mix(color, FLASH_COLOR, u_flash), 1.0);
   }
 `
 

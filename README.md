@@ -43,23 +43,31 @@ pnpm build
 pnpm preview
 ```
 
+## Opening
+
+The page opens on its own, no click needed: a star collapses, the shockwave births the particle field,
+a black hole forms at the center, swallows the title and then drifts to your cursor. With the system
+"reduce motion" setting the flash, shockwave and spin are skipped and the scene fades in.
+
 ## Controls
 
-- **Mouse Movement**: Black hole follows your cursor (when attached)
-- **Click Canvas**: Toggle black hole attachment
-- **Scroll**: Increase particle speed
+- **Mouse Movement**: The black hole follows your cursor with inertia
+- **Click Canvas**: Anchor the black hole where it is, or release it to follow again
+- **Touch**: Drag the black hole with a finger; swipe elsewhere to scroll
+- **Scroll**: Fall toward the black hole and accelerate; at the bottom you cross the event horizon
 - **⚙️ Control Panel**: Adjust physics parameters and colors
 
 ### Parameters
 
-- **Particles**: Number of particles (1000-20000)
+- **Particles**: Number of particles (1000-50000; 24000 by default, 12000 on phones)
 - **Frame Rate**: AUTO follows the display refresh rate; 30-144 caps it. Motion speed does not depend on the frame rate
 - **Pulse Intensity**: Star twinkling effect (0-1)
 - **Base Speed**: Initial particle velocity
-- **Mouse Radius**: Black hole influence area
+- **Black Hole Size**: Shadow radius as a share of the screen's short side
+- **Gravity Reach**: How far gravity reaches, in black hole radii
 - **Gravity**: Gravitational pull strength
 - **Orbital Force**: Tangential force around black hole
-- **Event Horizon**: Point of no return
+- **Lensing Radius**: Einstein ring radius, in black hole radii
 
 ## Project Structure
 
@@ -69,12 +77,14 @@ src/
 │   ├── particle_canvas.tsx    # Animation loop, input and resize handling
 │   ├── control_panel.tsx      # Settings UI
 │   ├── color_palette.tsx      # Color management
-│   ├── start_overlay.tsx      # Initial screen
 │   ├── blackhole_indicator.tsx
-│   └── scroll_indicator.tsx
+│   └── scroll_indicator.tsx   # Interaction hints, speed bar, horizon crossing message
 ├── lib/
 │   ├── particle_simulation.ts # Particle state and per-frame physics
-│   ├── particle_renderer.ts   # WebGL passes: trail fade, particles, lensing composite
+│   ├── particle_renderer.ts   # WebGL passes: trail fade, particles, title, black hole composite
+│   ├── intro_timeline.ts      # Choreography of the opening seconds
+│   ├── black_hole_motion.ts   # Spring follow and the scroll journey to the event horizon
+│   ├── title_sprite.ts        # Intro title rasterised for the lens
 │   └── webgl_shaders.ts       # GLSL sources and program helpers
 ├── store/
 │   └── particle_store.ts      # Zustand state management

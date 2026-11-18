@@ -1,3 +1,19 @@
+@font-face {
+  font-family: 'Orbitron';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/orbitron-latin-400.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Geist Mono';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/geist-mono-latin-variable.woff2') format('woff2');
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -49,7 +65,7 @@
 
 body {
   font-family: 'Geist Mono', monospace;
-  background-color: #0a0a0f;
+  background-color: #000;
   color: #e0e0e0;
   overflow-x: hidden;
 }
@@ -68,8 +84,4 @@ html::-webkit-scrollbar {
   50% { box-shadow: 0 0 40px var(--neon-cyan), 0 0 60px var(--neon-cyan); }
 }
 
-@keyframes text-pulse {
-  0%, 100% { text-shadow: 0 0 20px #00ffff; }
-  50% { text-shadow: 0 0 40px #00ffff, 0 0 60px #00ffff; }
-}
 

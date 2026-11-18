@@ -13,16 +13,18 @@ interface ParticleState {
   baseSpeed: number
   gravityStrength: number
   orbitalStrength: number
+  // Black hole shadow radius, % of the viewport's short side
   eventHorizon: number
-  mouseRadius: number
+  // Reach of the black hole's gravity, in multiples of its radius
+  gravityReach: number
   pulseIntensity: number
   blackHoleFollowing: boolean
   colorPalette: ParticleColor[]
   backgroundR: number
   backgroundG: number
   backgroundB: number
-  isAnimationStarted: boolean
-  lensingMass: number
+  // Einstein ring radius, in multiples of the black hole radius
+  lensingRadius: number
   lensingEnabled: boolean
   farZ: number
   baseBrightness: number
@@ -38,21 +40,22 @@ interface ParticleState {
   lensingAbsorption: number
   frameRateCap: number
   measuredFps: number
-  
+  introComplete: boolean
+  horizonCrossed: boolean
+
   setNumParticles: (num: number) => void
   setBaseSpeed: (speed: number) => void
   setGravityStrength: (gravity: number) => void
   setOrbitalStrength: (orbital: number) => void
   setEventHorizon: (horizon: number) => void
-  setMouseRadius: (radius: number) => void
+  setGravityReach: (reach: number) => void
   setPulseIntensity: (intensity: number) => void
   toggleBlackHoleFollowing: () => void
   addColor: (color: ParticleColor) => void
   removeColor: (index: number) => void
   updateColor: (index: number, updates: Partial<ParticleColor>) => void
   setBackgroundColor: (r: number, g: number, b: number) => void
-  startAnimation: () => void
-  setLensingMass: (mass: number) => void
+  setLensingRadius: (radius: number) => void
   toggleLensing: () => void
   setFarZ: (farZ: number) => void
   setBaseBrightness: (brightness: number) => void
@@ -68,43 +71,50 @@ interface ParticleState {
   setLensingAbsorption: (absorption: number) => void
   setFrameRateCap: (fps: number) => void
   setMeasuredFps: (fps: number) => void
+  setIntroComplete: (complete: boolean) => void
+  setHorizonCrossed: (crossed: boolean) => void
 }
 
+// Phones get half the particles: the simulation runs on the CPU every frame
+const isSmallScreen = typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
+
 export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
-  numParticles: 10000,
-  baseSpeed: 0.5,
-  gravityStrength: 0,
-  orbitalStrength: 0,
-  eventHorizon: 10,
-  mouseRadius: 10,
+  numParticles: isSmallScreen ? 12000 : 24000,
+  baseSpeed: 1.5,
+  gravityStrength: 2.5,
+  orbitalStrength: 40,
+  eventHorizon: 8,
+  gravityReach: 5,
   pulseIntensity: 1,
   blackHoleFollowing: true,
   backgroundR: 0,
   backgroundG: 0,
   backgroundB: 0,
-  isAnimationStarted: false,
-  lensingMass: 20,
+  lensingRadius: 1.7,
   lensingEnabled: true,
   farZ: 5000,
   baseBrightness: 1.0,
   depthFade: 1.0,
-  minOpacity: 0.05,
+  minOpacity: 0.02,
   maxOpacity: 1.0,
   pulseSpeedMultiplier: 1.0,
   trailIntensity: 0.15,
   speedVariance: 0.15,
   isPaused: false,
-  lensingRotation: 0.0,
+  lensingRotation: 0.15,
   lensingFalloff: 2.0,
   lensingAbsorption: 0.25,
   frameRateCap: 0,
   measuredFps: 0,
+  introComplete: false,
+  horizonCrossed: false,
+  // Star colors by temperature, from ~3500 K amber to ~12000 K blue-white
   colorPalette: [
-    { r: 255, g: 0, b: 0, enabled: true, percent: 20 },
-    { r: 0, g: 255, b: 255, enabled: true, percent: 20 },
-    { r: 153, g: 69, b: 255, enabled: true, percent: 20 },
-    { r: 255, g: 255, b: 255, enabled: true, percent: 20 },
-    { r: 255, g: 255, b: 0, enabled: true, percent: 20 }
+    { r: 255, g: 196, b: 137, enabled: true, percent: 12 },
+    { r: 255, g: 222, b: 190, enabled: true, percent: 22 },
+    { r: 255, g: 249, b: 251, enabled: true, percent: 32 },
+    { r: 222, g: 230, b: 255, enabled: true, percent: 22 },
+    { r: 196, g: 213, b: 255, enabled: true, percent: 12 }
   ],
 
   setNumParticles: (num) => set({ numParticles: num }),
@@ -112,10 +122,10 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   setGravityStrength: (gravity) => set({ gravityStrength: gravity }),
   setOrbitalStrength: (orbital) => set({ orbitalStrength: orbital }),
   setEventHorizon: (horizon) => set({ eventHorizon: horizon }),
-  setMouseRadius: (radius) => set({ mouseRadius: radius }),
+  setGravityReach: (reach) => set({ gravityReach: reach }),
   setPulseIntensity: (intensity) => set({ pulseIntensity: intensity }),
   toggleBlackHoleFollowing: () => set((state) => ({ blackHoleFollowing: !state.blackHoleFollowing })),
-  setLensingMass: (mass) => set({ lensingMass: mass }),
+  setLensingRadius: (radius) => set({ lensingRadius: radius }),
   toggleLensing: () => set((state) => ({ lensingEnabled: !state.lensingEnabled })),
   setFarZ: (farZ) => set({ farZ }),
   setBaseBrightness: (brightness) => set({ baseBrightness: brightness }),
@@ -131,22 +141,22 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   setLensingAbsorption: (absorption) => set({ lensingAbsorption: absorption }),
   setFrameRateCap: (fps) => set({ frameRateCap: fps }),
   setMeasuredFps: (fps) => set({ measuredFps: fps }),
-  
+  setIntroComplete: (complete) => set({ introComplete: complete }),
+  setHorizonCrossed: (crossed) => set({ horizonCrossed: crossed }),
+
   addColor: (color) => set((state) => ({
     colorPalette: [...state.colorPalette, color]
   })),
-  
+
   removeColor: (index) => set((state) => ({
     colorPalette: state.colorPalette.filter((_, i) => i !== index)
   })),
-  
+
   updateColor: (index, updates) => set((state) => ({
-    colorPalette: state.colorPalette.map((color, i) => 
+    colorPalette: state.colorPalette.map((color, i) =>
       i === index ? { ...color, ...updates } : color
     )
   })),
-  
-  setBackgroundColor: (r, g, b) => set({ backgroundR: r, backgroundG: g, backgroundB: b }),
-  startAnimation: () => set({ isAnimationStarted: true })
-}))
 
+  setBackgroundColor: (r, g, b) => set({ backgroundR: r, backgroundG: g, backgroundB: b })
+}))

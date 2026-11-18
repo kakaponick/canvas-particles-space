@@ -53,12 +53,12 @@ function ControlPanel() {
     gravityStrength,
     orbitalStrength,
     eventHorizon,
-    mouseRadius,
+    gravityReach,
     pulseIntensity,
     backgroundR,
     backgroundG,
     backgroundB,
-    lensingMass,
+    lensingRadius,
     lensingEnabled,
     farZ,
     baseBrightness,
@@ -73,10 +73,10 @@ function ControlPanel() {
     setGravityStrength,
     setOrbitalStrength,
     setEventHorizon,
-    setMouseRadius,
+    setGravityReach,
     setPulseIntensity,
     setBackgroundColor,
-    setLensingMass,
+    setLensingRadius,
     toggleLensing,
     setFarZ,
     setBaseBrightness,
@@ -179,7 +179,7 @@ function ControlPanel() {
               label="Particles"
               value={numParticles}
               min={1000}
-              max={20000}
+              max={50000}
               step={1000}
               onChange={setNumParticles}
               variant="inline"
@@ -323,15 +323,29 @@ function ControlPanel() {
             <h3 className="font-orbitron text-neon-cyan text-base mb-2">Black Hole Physics</h3>
 
             <SliderControl
-              id="mouse-radius"
-              label="Back Hole Radius"
-              value={mouseRadius}
-              min={0}
-              max={1000}
-              step={10}
-              onChange={setMouseRadius}
+              id="event-horizon"
+              label="Black Hole Size"
+              value={eventHorizon}
+              min={2}
+              max={20}
+              step={0.5}
+              formatValue={(val) => `${val.toFixed(1)}%`}
+              onChange={setEventHorizon}
               variant="inline"
-              description="Radius of gravitational influence around the black hole. Particles within this distance are affected by gravity and orbital forces."
+              description="Radius of the black hole's shadow as a share of the screen's short side. Particles that fall inside it are destroyed and recycled."
+            />
+
+            <SliderControl
+              id="gravity-reach"
+              label="Gravity Reach"
+              value={gravityReach}
+              min={1}
+              max={12}
+              step={0.5}
+              formatValue={(val) => `${val.toFixed(1)}×`}
+              onChange={setGravityReach}
+              variant="inline"
+              description="How far the black hole's gravity reaches, in multiples of its radius. Particles within this distance are affected by gravity and orbital forces."
             />
 
             <SliderControl
@@ -358,18 +372,6 @@ function ControlPanel() {
               description="Tangential force that causes particles to orbit around the black hole. Creates swirling, accretion disk-like motion patterns."
             />
 
-            <SliderControl
-              id="event-horizon"
-              label="Event Horizon"
-              value={eventHorizon}
-              min={0}
-              max={100}
-              step={5}
-              onChange={setEventHorizon}
-              variant="inline"
-              description="Radius of no return around the black hole. Particles crossing this boundary are immediately destroyed and recycled."
-            />
-
 <div className="flex items-center justify-between mb-3">
               <h3 className="font-orbitron text-neon-cyan text-base">Gravitational Lensing WebGL</h3>
               
@@ -379,15 +381,16 @@ function ControlPanel() {
             </div>
 
             <SliderControl
-              id="lensing-mass"
+              id="lensing-radius"
               label="Lensing Radius"
-              value={lensingMass}
-              min={0}
-              max={10000}
-              step={10}
-              onChange={setLensingMass}
+              value={lensingRadius}
+              min={1}
+              max={3}
+              step={0.05}
+              formatValue={(val) => `${val.toFixed(2)}×`}
+              onChange={setLensingRadius}
               variant="inline"
-              description="Intensity of WebGL gravitational lensing effect. Higher values create stronger light distortion around the black hole, simulating space-time curvature."
+              description="Radius of the Einstein ring, in multiples of the black hole radius. Light from behind the black hole is bent into a ring this size; larger values distort more of the sky."
             />
 
             <SliderControl
