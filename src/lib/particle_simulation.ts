@@ -17,8 +17,6 @@ const CLIP_MARGIN = 4
 
 // Particles spawn in a disc so the tunnel reads round on every aspect ratio
 const SPAWN_RADIUS = 1000
-// Below this flight speed gravity eases out, so a stopped field goes completely dark
-const GRAVITY_FULL_SPEED = 0.5
 // Random spawns tried for a captured particle before it is placed right outside the event horizon
 const RESPAWN_TRIES = 4
 const RESPAWN_RIM_SPREAD = 0.5
@@ -278,8 +276,7 @@ export function stepParticles (
   const ringEnergy = settings.ringEnergy
   const skimRadius = holeRadius * RING_SKIM_REACH
   const skimRadiusSq = skimRadius * skimRadius
-  const motion = Math.min(settings.speed / GRAVITY_FULL_SPEED, 1)
-  const skimEnergy = RING_SKIM_ENERGY * frameScale * motion
+  const skimEnergy = RING_SKIM_ENERGY * frameScale
   // Gravity acts within a depth band around the hole's plane; particles far behind only get lensed,
   // though the event horizon takes them at any depth.
   // The band is a compact bell, (1 - u^2 / 4)^3, close to exp(-u^2) but zero beyond |u| = 2 and
@@ -287,7 +284,9 @@ export function stepParticles (
   const holeDepthNear = holeDepth - farZ * 0.36
   const holeDepthFar = holeDepth + farZ * 0.36
   const invDepthBand = 1 / (farZ * 0.18)
-  const pullScale = gravityStrength * 0.6 * frameScale * holeRadiusSq * motion
+  // Gravity does not depend on the flight speed: at Base Speed 0 the particles it moves are the only
+  // ones that light up, and the rest of the field goes dark
+  const pullScale = gravityStrength * 0.6 * frameScale * holeRadiusSq
   const orbitScale = orbitalStrength * 0.02
   const invFocal = 1 / focal
   const revealing = revealRadius < Infinity
