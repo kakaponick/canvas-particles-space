@@ -79,6 +79,8 @@ export interface ParticleState {
   lensingCore: number
   // Cap on the lens's pull; 1 leaves no nested rings inside the Einstein ring
   lensingMaxBend: number
+  // Shape of the lens outside its ring: 0 is the compact bubble of the original canvas, 1 a point mass
+  lensingReach: number
   // Cap on the pull that Angular Deflection follows; the pull is 1 at the Einstein ring and grows inward
   lensingTwistLimit: number
   lensingAbsorption: number
@@ -139,6 +141,7 @@ export interface ParticleState {
   setLensingPivot: (value: number) => void
   setLensingCore: (value: number) => void
   setLensingMaxBend: (value: number) => void
+  setLensingReach: (value: number) => void
   setLensingTwistLimit: (value: number) => void
   setLensingAbsorption: (absorption: number) => void
   setFrameRateCap: (fps: number) => void
@@ -200,6 +203,7 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   lensingPivot: 100,
   lensingCore: 0.3,
   lensingMaxBend: 64,
+  lensingReach: 0,
   lensingTwistLimit: 3,
   lensingAbsorption: 0.25,
   frameRateCap: 0,
@@ -261,6 +265,7 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   setLensingPivot: (value) => set({ lensingPivot: value }),
   setLensingCore: (value) => set({ lensingCore: value }),
   setLensingMaxBend: (value) => set({ lensingMaxBend: value }),
+  setLensingReach: (value) => set({ lensingReach: value }),
   setLensingTwistLimit: (value) => set({ lensingTwistLimit: value }),
   setLensingAbsorption: (absorption) => set({ lensingAbsorption: absorption }),
   setFrameRateCap: (fps) => set({ frameRateCap: fps }),

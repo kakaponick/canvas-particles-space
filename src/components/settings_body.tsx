@@ -510,6 +510,18 @@ function SettingsSections () {
           description="Radius of the Einstein ring, in multiples of the black hole radius. Light from behind the black hole is bent into a ring this size; larger values distort more of the sky. 0 turns the lens off."
         />
         <SettingSlider
+          id="lensing-reach"
+          label="Lens Reach"
+          field="lensingReach"
+          min={0}
+          max={1}
+          step={0.05}
+          formatValue={(val) => val.toFixed(2)}
+          setter="setLensingReach"
+          variant="inline"
+          description="How far the lens is felt outside its ring. 0 = a compact bubble, as in the original version: the distortion dies off quickly and the rest of the sky stays in place. 1 = a point mass (realistic): the whole sky is pulled, weaker with distance."
+        />
+        <SettingSlider
           id="lensing-rotation"
           label="Angular Deflection"
           field="lensingRotation"

@@ -160,6 +160,7 @@ export const compositeFragmentShaderSource = `
   uniform float u_falloffPivot;  // distance at which falloff leaves the pull unchanged
   uniform float u_lensCore;      // closest a bent ray gets to the point behind the hole, in Einstein radii
   uniform float u_maxBend;       // cap on the pull; 1 leaves no nested rings inside the Einstein ring
+  uniform float u_lensReach;     // 0: the compact bubble of the original canvas; 1: a point mass, felt across the screen
   uniform float u_twistLimit;    // cap on the pull the twist follows, so a wide lens does not wind up the scene
   uniform float u_absorption;    // light the lens's pull removes around the shadow
   uniform float u_ring;          // photon ring brightness
@@ -291,8 +292,8 @@ export const compositeFragmentShaderSource = `
       samplePx += fromCenter / max(centerDist, 0.0001) * u_gravityWaveAmplitude * exp(-x * x) * sin(x * u_gravityWaveCycles) * cos(2.0 * angle);
     }
 
-    // Point-mass lens: a ray passing at distance r arrives from r * (1 - (E / r)^2), which maps the
-    // background behind the hole into a ring of radius E. Falloff pivots around
+    // The lens maps the background behind the hole into a ring of radius E, where the pull (E / r)^2
+    // is 1. Falloff pivots around
     // u_falloffPivot: closer than that a higher power pulls harder. With the pivot a screen away the
     // lens and its dark zone grow with falloff; with the pivot at the ring only their shape changes
     float bend = 0.0;
@@ -302,9 +303,12 @@ export const compositeFragmentShaderSource = `
       if (u_falloff != 2.0) bend *= pow(u_falloffPivot / max(dist, 0.0001), u_falloff - 2.0);
       bend = min(bend, u_maxBend);
       if (bend * dist * (1.0 + abs(u_swirl)) > 0.01) {
-        // Outside the ring the point-mass law; inside it the image ripples into nested rings and stays
-        // within reach of the screen. The two laws meet at the ring with the same value and slope
-        float radial = bend <= 1.0 ? 1.0 - bend : 2.0 / PI * cos(0.5 * PI * bend);
+        // The original canvas scaled the picture around the hole by the cosine of the pull: a bubble whose
+        // distortion dies off with the cube of the distance, rippling into nested rings inside the ring.
+        // A point mass, r * (1 - pull), bends rays far across the screen instead. u_lensReach blends the
+        // two; both are zero at the ring, so the ring stays where it is
+        float wave = cos(0.5 * PI * bend);
+        float radial = bend <= 1.0 ? mix(wave, 1.0 - bend, u_lensReach) : wave * mix(1.0, 2.0 / PI, u_lensReach);
         vec2 lensed = (samplePx - u_hole) * radial;
         // Every ray at the ring comes from the single point right behind the hole, which would smear a
         // few pixels into a flat milky band. Rays stop short of that point, so the ring shows real detail
