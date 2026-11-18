@@ -58,7 +58,7 @@ ripples the background stars, swallows the title and then drifts to your cursor.
 - **Click Canvas**: Anchor the black hole where it is, or release it to follow again
 - **Touch**: Drag the black hole with a finger; swipe elsewhere to scroll
 - **Scroll**: Fall toward the black hole and accelerate; at the bottom you cross the event horizon
-- **Intro debugger** (Shift+D, `?debug` in the address, or Settings → Intro Debugger): timeline with phase markers, playback speed from 0 (stopped) to 2×, frame step, loop, the on-screen speed of light and of the ejected matter, and switches to turn each effect of the opening off
+- **Intro debugger** (Shift+D, `?debug` in the address, or Settings → Intro Debugger): timeline with phase markers, playback speed from 0 (stopped) to 2×, frame step, loop, switches to turn each effect of the opening off, and every tunable number of the opening (about 60, grouped; kept across reloads in this browser, with reset and "copy changed" to share the values)
 - **⚙️ Control Panel**: Adjust physics parameters and colors
 
 ### Parameters

@@ -63,7 +63,14 @@ export interface CompositeSettings {
   gravityWaveRadius: number
   gravityWaveAmplitude: number
   gravityWaveWidth: number
+  gravityWaveCycles: number
   backgroundStars: number
+  starCell: number
+  starDensity: number
+  starFlare: number
+  dustScale: number
+  dustThreshold: number
+  lightDustContrast: number
   flash: number
 }
 
@@ -206,7 +213,8 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     'center', 'starGlow', 'starRadius', 'sourcePower', 'glareRadius', 'exposure',
     'lightRadius', 'lightWidth', 'lightPower', 'lightSpeed', 'echoPower', 'echoDecay',
     'waveRadius', 'waveStrength', 'waveWidth', 'remnantGlow', 'remnantRedshift', 'remnantRadius',
-    'gravityWaveRadius', 'gravityWaveAmplitude', 'gravityWaveWidth', 'backgroundStars', 'flash',
+    'gravityWaveRadius', 'gravityWaveAmplitude', 'gravityWaveWidth', 'gravityWaveCycles', 'backgroundStars',
+    'starCell', 'starDensity', 'starFlare', 'dustScale', 'dustThreshold', 'lightDustContrast', 'flash',
     'titleCenter', 'titleHalfSize', 'titleRotation', 'titleAlpha'
   ] as const)
 
@@ -355,7 +363,14 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     setUniform1f(gl, u.gravityWaveRadius, settings.gravityWaveRadius * ratio)
     setUniform1f(gl, u.gravityWaveAmplitude, settings.gravityWaveAmplitude * ratio)
     setUniform1f(gl, u.gravityWaveWidth, Math.max(settings.gravityWaveWidth * ratio, 1))
+    setUniform1f(gl, u.gravityWaveCycles, settings.gravityWaveCycles)
     setUniform1f(gl, u.backgroundStars, settings.backgroundStars)
+    setUniform1f(gl, u.starCell, Math.max(settings.starCell, 1))
+    setUniform1f(gl, u.starDensity, settings.starDensity)
+    setUniform1f(gl, u.starFlare, settings.starFlare)
+    setUniform1f(gl, u.dustScale, Math.max(settings.dustScale, 1))
+    setUniform1f(gl, u.dustThreshold, Math.min(settings.dustThreshold, 0.99))
+    setUniform1f(gl, u.lightDustContrast, settings.lightDustContrast)
     setUniform1f(gl, u.flash, settings.flash)
     gl.drawArrays(gl.TRIANGLES, 0, QUAD_VERTEX_COUNT)
   }

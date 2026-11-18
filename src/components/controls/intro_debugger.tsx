@@ -7,6 +7,7 @@ import { useIntroDebugStore, INTRO_LAYERS } from '../../store/intro_debug_store'
 import { getIntroMarkers } from '../../lib/intro_timeline'
 import SliderControl from './slider_control'
 import ToggleButton from './toggle_button'
+import IntroParamGroups from './intro_param_groups'
 
 const SPEED_PRESETS = [0, 0.1, 0.25, 0.5, 1, 2]
 const SEEK_STEP = 0.1
@@ -30,8 +31,7 @@ function IntroDebugger () {
   const loop = useIntroDebugStore(state => state.loop)
   const hidden = useIntroDebugStore(state => state.hidden)
   const readout = useIntroDebugStore(state => state.readout)
-  const lightCrossTime = useIntroDebugStore(state => state.lightCrossTime)
-  const matterSpeed = useIntroDebugStore(state => state.matterSpeed)
+  const params = useIntroDebugStore(state => state.params)
   const actions = useIntroDebugStore.getState()
 
   useEffect(() => {
@@ -76,7 +76,7 @@ function IntroDebugger () {
 
   if (!open) return null
 
-  const markers = getIntroMarkers(reducedMotion, { lightCrossTime, matterSpeed })
+  const markers = getIntroMarkers(reducedMotion, params)
   const duration = readout.duration || markers[markers.length - 1].time
   const values: [string, string][] = [
     ['glare', readout.sourcePower.toFixed(2)],
@@ -202,33 +202,6 @@ function IntroDebugger () {
           </div>
         </div>
 
-        <div className="space-y-1.5">
-          <SliderControl
-            id="intro-light-speed"
-            label="Light Reaches Corner"
-            value={lightCrossTime}
-            min={0.2}
-            max={3}
-            step={0.05}
-            formatValue={(value) => `${value.toFixed(2)} s`}
-            onChange={actions.setLightCrossTime}
-            variant="inline"
-            description="The on-screen speed of light: seconds the explosion's light front needs to travel from the center to the farthest corner. The gravitational wave travels at the same speed."
-          />
-          <SliderControl
-            id="intro-matter-speed"
-            label="Matter Speed"
-            value={matterSpeed}
-            min={0.1}
-            max={0.95}
-            step={0.05}
-            formatValue={(value) => `${value.toFixed(2)} c`}
-            onChange={actions.setMatterSpeed}
-            variant="inline"
-            description="Speed of the ejected matter, which births the particle field, as a share of the speed of light. It always trails the light front."
-          />
-        </div>
-
         <dl className="grid grid-cols-2 gap-x-4 gap-y-1 tabular-nums">
           {values.map(([name, value]) => (
             <div key={name} className="flex justify-between gap-2">
@@ -253,6 +226,8 @@ function IntroDebugger () {
             ))}
           </div>
         </div>
+
+        <IntroParamGroups />
 
         <p className="text-text-light/50 leading-relaxed">
           Space play/pause · ←/→ seek 0.1 s (Shift: one frame) · . step · R restart

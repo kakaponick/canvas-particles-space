@@ -169,7 +169,14 @@ export const compositeFragmentShaderSource = `
   uniform float u_gravityWaveRadius;
   uniform float u_gravityWaveAmplitude; // pixels
   uniform float u_gravityWaveWidth;
+  uniform float u_gravityWaveCycles;
   uniform float u_backgroundStars;
+  uniform float u_starCell;        // CSS pixels per background-star cell
+  uniform float u_starDensity;     // share of cells holding a star
+  uniform float u_starFlare;
+  uniform float u_dustScale;       // CSS pixels
+  uniform float u_dustThreshold;
+  uniform float u_lightDustContrast;
 
   uniform float u_flash;         // white-out when crossing the event horizon, 0..1
   uniform vec2 u_titleCenter;
@@ -182,8 +189,6 @@ export const compositeFragmentShaderSource = `
   const vec3 TITLE_COLOR = vec3(1.0, 0.95, 0.9);
   const vec3 BLAST_COLOR = vec3(0.86, 0.92, 1.0);
   const vec3 DUST_COLOR = vec3(1.0, 0.84, 0.66);
-  const float STAR_CELL = 26.0;      // CSS pixels per background-star cell
-  const float STAR_DENSITY = 0.12;   // share of cells holding a star
 
   // Hash without sine (Dave Hoskins), stable across GPUs
   float hash12 (vec2 p) {
@@ -205,7 +210,7 @@ export const compositeFragmentShaderSource = `
 
   // Thin filaments: the ridge where rotated octaves of noise cross their midpoint
   float dust (vec2 cssPx) {
-    vec2 p = cssPx / 220.0;
+    vec2 p = cssPx / u_dustScale;
     mat2 turn = mat2(0.8, 0.6, -0.6, 0.8);
     float n = 0.0;
     float amplitude = 0.5;
@@ -214,16 +219,16 @@ export const compositeFragmentShaderSource = `
       p = turn * p * 2.1 + 11.7;
       amplitude *= 0.5;
     }
-    float ridge = smoothstep(0.55, 1.0, 1.0 - abs(2.0 * n - 0.94));
+    float ridge = smoothstep(u_dustThreshold, 1.0, 1.0 - abs(2.0 * n - 0.94));
     return ridge * ridge;
   }
 
   // Static distant stars, one at most per cell; they flare as the light front passes
   vec3 backgroundStar (vec2 cssPx, float flare) {
-    vec2 cell = floor(cssPx / STAR_CELL);
+    vec2 cell = floor(cssPx / u_starCell);
     float presence = hash12(cell);
-    if (presence > STAR_DENSITY) return vec3(0.0);
-    vec2 position = (cell + 0.2 + 0.6 * vec2(hash12(cell + 7.3), hash12(cell + 13.1))) * STAR_CELL;
+    if (presence > u_starDensity) return vec3(0.0);
+    vec2 position = (cell + 0.2 + 0.6 * vec2(hash12(cell + 7.3), hash12(cell + 13.1))) * u_starCell;
     float d = length(cssPx - position);
     float brightness = hash12(cell + 3.7);
     float twinkle = 0.85 + 0.15 * sin(u_time * (2.0 + 3.0 * brightness) + presence * 400.0);
@@ -249,7 +254,7 @@ export const compositeFragmentShaderSource = `
     if (u_gravityWaveAmplitude > 0.0) {
       float x = (centerDist - u_gravityWaveRadius) / u_gravityWaveWidth;
       float angle = atan(fromCenter.y, fromCenter.x);
-      samplePx += fromCenter / max(centerDist, 0.0001) * u_gravityWaveAmplitude * exp(-x * x) * sin(x * 5.0) * cos(2.0 * angle);
+      samplePx += fromCenter / max(centerDist, 0.0001) * u_gravityWaveAmplitude * exp(-x * x) * sin(x * u_gravityWaveCycles) * cos(2.0 * angle);
     }
 
     // Point-mass lens: a ray passing at distance r arrives from r * (1 - (E / r)^falloff),
@@ -298,7 +303,7 @@ export const compositeFragmentShaderSource = `
     vec2 cssPx = samplePx / u_pixelRatio;
     vec3 emitted = vec3(0.0);
     if (u_backgroundStars > 0.0) {
-      emitted += backgroundStar(cssPx, 3.0 * echo * step(0.001, u_echoPower)) * u_backgroundStars;
+      emitted += backgroundStar(cssPx, u_starFlare * echo * step(0.001, u_echoPower)) * u_backgroundStars;
     }
     // Light is invisible in empty space: the front shows where it strikes dust, and the dust
     // keeps glowing for a moment after it passes (the light echo)
@@ -307,7 +312,7 @@ export const compositeFragmentShaderSource = `
     float echoGlow = u_echoPower > 0.0 ? echo : 0.0;
     if (front > 0.001 || echoGlow > 0.001) {
       float density = dust(cssPx);
-      emitted += BLAST_COLOR * u_lightPower * front * (0.06 + 0.94 * density);
+      emitted += BLAST_COLOR * u_lightPower * front * (1.0 - u_lightDustContrast + u_lightDustContrast * density);
       emitted += DUST_COLOR * u_echoPower * echoGlow * density / (1.0 + sourceDist / (0.5 * u_resolution.x));
     }
     if (u_remnantGlow > 0.0) {

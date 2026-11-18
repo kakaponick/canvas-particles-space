@@ -19,7 +19,7 @@ import {
   type FrameInput,
   type ParticleRenderer
 } from '../lib/particle_renderer'
-import { createIntroFrame, getIntroDuration, getIntroPhase, sampleIntro, type IntroTiming } from '../lib/intro_timeline'
+import { createIntroFrame, getIntroDuration, getIntroPhase, sampleIntro } from '../lib/intro_timeline'
 import { useIntroDebugStore, NOTHING_HIDDEN } from '../store/intro_debug_store'
 import {
   createScrollJourney,
@@ -40,16 +40,8 @@ const FPS_SAMPLE_MS = 500
 const PIXEL_BUDGET = 4_500_000
 const MAX_PIXEL_RATIO = 2
 
-const HOLE_FOLLOW_FREQUENCY = 6
-const SCROLL_SPEED_GAIN = 10
-const REDUCED_SCROLL_SPEED_GAIN = 2
-// Explosion scale, in CSS pixels or shares of the viewport's short side
-const SHOCKWAVE_REFRACTION = 24
-const GRAVITY_WAVE_AMPLITUDE = 9
-const LIGHT_FRONT_WIDTH = 0.008
-const GLARE_RADIUS = 0.025
-const REMNANT_RADIUS = 0.012
-const RING_BRIGHTNESS = 0.9
+// Reduced motion caps how much scrolling can speed the flight up
+const REDUCED_SCROLL_GAIN_SHARE = 0.2
 // A touch this close to the black hole drags it instead of scrolling the page
 const MIN_TOUCH_GRAB_RADIUS = 48
 // With looping on, the debugger holds the finished intro this long before replaying it
@@ -109,7 +101,6 @@ function ParticleCanvas () {
     let handledStep = initialDebug.stepRequest
 
     const intro = createIntroFrame()
-    const timing: IntroTiming = { lightCrossTime: 0, matterSpeed: 0 }
     const journey = createScrollJourney()
     const journeyFrame: JourneyFrame = { progress: 0, flash: 0, approach: 1 }
 
@@ -190,7 +181,14 @@ function ParticleCanvas () {
         gravityWaveRadius: 0,
         gravityWaveAmplitude: 0,
         gravityWaveWidth: 1,
+        gravityWaveCycles: 5,
         backgroundStars: 0,
+        starCell: 26,
+        starDensity: 0,
+        starFlare: 0,
+        dustScale: 220,
+        dustThreshold: 0.5,
+        lightDustContrast: 1,
         flash: 0
       }
     }
@@ -313,7 +311,8 @@ function ParticleCanvas () {
       // Intro debugger: playback rate, seeking, single steps and hidden layers apply while it is open
       const debug = useIntroDebugStore.getState()
       const debugging = debug.open
-      const introDuration = getIntroDuration(reducedMotion)
+      const params = debug.params
+      const introDuration = getIntroDuration(reducedMotion, params)
       if (debug.restartRequest !== handledRestart) {
         handledRestart = debug.restartRequest
         restartIntro()
@@ -333,9 +332,7 @@ function ParticleCanvas () {
       introTime += dt
       if (debugging && debug.loop && introTime >= introDuration + LOOP_HOLD_SECONDS) restartIntro()
 
-      timing.lightCrossTime = debug.lightCrossTime
-      timing.matterSpeed = debug.matterSpeed
-      sampleIntro(introTime, reducedMotion, timing, intro)
+      sampleIntro(introTime, reducedMotion, params, intro)
       if (hidden.star) intro.starGlow = 0
       if (hidden.glare) {
         intro.sourcePower = 0
@@ -350,9 +347,9 @@ function ParticleCanvas () {
       if (hidden.remnant) intro.remnantGlow = 0
       if (hidden.gravityWave) intro.gravityWaveAmplitude = 0
       if (hidden.title) intro.titleAlpha = 0
-      // Ring brightness carries the ringdown wobble; take it out together with the size wobble
+      // The photon ring flickers with the ringdown wobble; the RINGDOWN layer removes both
       const ringdown = hidden.ringdown ? 0 : intro.ringdown
-      const ringPower = intro.ringPower / (1 + 6 * intro.ringdown) * (1 + 6 * ringdown)
+      const ringPower = intro.ringFade * Math.max(1 + params.ringFlicker * ringdown, 0)
       if (intro.done && !state.introComplete) state.setIntroComplete(true)
 
       stepScrollJourney(journey, scrollProgress, animationTime, dt, journeyFrame)
@@ -379,12 +376,12 @@ function ParticleCanvas () {
         ? 0
         : state.eventHorizon / 100 * shortSide * intro.holeScale * (1 + ringdown) * journeyFrame.approach
       if (intro.holdAtCenter) {
-        stepSpring(hole, centerX, centerY, dt, HOLE_FOLLOW_FREQUENCY * 2)
+        stepSpring(hole, centerX, centerY, dt, params.centerHoldFrequency)
       } else {
-        stepSpring(hole, targetX, targetY, dt, HOLE_FOLLOW_FREQUENCY)
+        stepSpring(hole, targetX, targetY, dt, params.followFrequency)
       }
 
-      const scrollGain = reducedMotion ? REDUCED_SCROLL_SPEED_GAIN : SCROLL_SPEED_GAIN
+      const scrollGain = params.scrollSpeedGain * (reducedMotion ? REDUCED_SCROLL_GAIN_SHARE : 1)
       const speed = (state.baseSpeed + journeyFrame.progress * scrollGain) * intro.speedBoost
 
       settings.frameScale = frameScale
@@ -408,6 +405,7 @@ function ParticleCanvas () {
       settings.minOpacity = state.minOpacity
       settings.maxOpacity = state.maxOpacity
       settings.revealRadius = intro.reveal >= 1 ? Infinity : explosionReach * intro.reveal
+      settings.revealFeather = params.revealFeather
       settings.opacityScale = intro.opacityScale
 
       // A frozen frame keeps the scene texture; only the composite (lens, flash, title) is redrawn
@@ -442,30 +440,37 @@ function ParticleCanvas () {
       composite.falloff = state.lensingFalloff
       composite.swirl = state.lensingRotation
       composite.absorption = state.lensingAbsorption
-      composite.ring = hidden.ring ? 0 : RING_BRIGHTNESS * ringPower
+      composite.ring = hidden.ring ? 0 : params.ringBrightness * ringPower
       composite.centerX = centerX
       composite.centerY = centerY
       composite.starGlow = intro.starGlow
       composite.starRadius = intro.starRadius * shortSide
       composite.sourcePower = intro.sourcePower
-      composite.glareRadius = GLARE_RADIUS * shortSide
+      composite.glareRadius = params.glareRadius * shortSide
       composite.exposure = intro.exposure
       composite.lightRadius = intro.lightFront * explosionReach
-      composite.lightWidth = LIGHT_FRONT_WIDTH * shortSide
+      composite.lightWidth = params.lightWidth * shortSide
       composite.lightPower = intro.lightPower
-      composite.lightSpeed = explosionReach / timing.lightCrossTime
+      composite.lightSpeed = explosionReach / params.lightCrossTime
+      composite.lightDustContrast = params.lightDustContrast
       composite.echoPower = intro.echoPower
-      composite.echoDecay = intro.echoDecay
+      composite.echoDecay = params.echoDecay
+      composite.dustScale = params.dustScale
+      composite.dustThreshold = params.dustThreshold
       composite.waveRadius = intro.matterFront * explosionReach
-      composite.waveStrength = intro.waveStrength * SHOCKWAVE_REFRACTION
-      composite.waveWidth = shortSide * 0.06
+      composite.waveStrength = intro.waveStrength * params.waveRefraction
+      composite.waveWidth = params.waveWidth * shortSide
       composite.remnantGlow = intro.remnantGlow
       composite.remnantRedshift = intro.remnantRedshift
-      composite.remnantRadius = REMNANT_RADIUS * shortSide
+      composite.remnantRadius = params.remnantRadius * shortSide
       composite.gravityWaveRadius = intro.gravityWaveFront * explosionReach
-      composite.gravityWaveAmplitude = intro.gravityWaveAmplitude * GRAVITY_WAVE_AMPLITUDE
-      composite.gravityWaveWidth = shortSide * 0.05
+      composite.gravityWaveAmplitude = intro.gravityWaveAmplitude * params.gravityWaveAmplitude
+      composite.gravityWaveWidth = params.gravityWaveWidth * shortSide
+      composite.gravityWaveCycles = params.gravityWaveCycles
       composite.backgroundStars = intro.backgroundStars
+      composite.starCell = params.starCell
+      composite.starDensity = params.starDensity
+      composite.starFlare = params.starFlare
       composite.flash = reducedMotion ? 0 : journeyFrame.flash * 0.85
 
       renderer.render(frame)
@@ -475,7 +480,7 @@ function ParticleCanvas () {
         debug.setReadout({
           time: introTime,
           duration: introDuration,
-          phase: getIntroPhase(introTime, reducedMotion, timing),
+          phase: getIntroPhase(introTime, reducedMotion, params),
           sourcePower: intro.sourcePower,
           exposure: intro.exposure,
           lightFront: intro.lightFront,

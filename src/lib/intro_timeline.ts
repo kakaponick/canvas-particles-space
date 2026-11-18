@@ -2,18 +2,9 @@
 // the on-screen speed of light, lighting dust as it passes, while the ejected matter (the particle
 // field) follows more slowly. The core's light reddens away as it collapses, a black hole forms,
 // rings down and sends out a gravitational wave, swallows the title, then drifts to the cursor.
+// Every number comes from IntroParams so the intro debugger can tune it live.
 
-export interface IntroTiming {
-  // Seconds the light front needs to travel from the center to the screen corner
-  lightCrossTime: number
-  // Speed of the ejected matter as a share of the speed of light
-  matterSpeed: number
-}
-
-export const DEFAULT_INTRO_TIMING: IntroTiming = {
-  lightCrossTime: 0.8,
-  matterSpeed: 0.4
-}
+import type { IntroParams } from './intro_params'
 
 // Every front is a share of the distance from the explosion to the farthest screen corner
 export interface IntroFrame {
@@ -27,8 +18,6 @@ export interface IntroFrame {
   lightFront: number
   lightPower: number
   echoPower: number
-  // Seconds a lit patch of dust keeps glowing after the light front passes
-  echoDecay: number
   matterFront: number
   // Refraction at the matter front, 0..1
   waveStrength: number
@@ -42,7 +31,8 @@ export interface IntroFrame {
   holeScale: number
   // Damped oscillation of the new horizon, applied as holeScale * (1 + ringdown)
   ringdown: number
-  ringPower: number
+  // Photon ring fade-in, before the ringdown flicker
+  ringFade: number
   lensScale: number
   gravityWaveFront: number
   gravityWaveAmplitude: number
@@ -56,22 +46,15 @@ export interface IntroFrame {
   done: boolean
 }
 
-const COLLAPSE_AT = 0.6
-const REMNANT_AT = 1
-const HORIZON_AT = 1.3
-const HORIZON_GROWTH = 0.45
-const RINGDOWN_AT = HORIZON_AT + HORIZON_GROWTH
-const GRAVITY_WAVE_AT = RINGDOWN_AT
-const INTRO_END = 5
 const REDUCED_INTRO_END = 2.6
 
-function progress (t: number, start: number, end: number) {
-  return Math.min(Math.max((t - start) / (end - start), 0), 1)
+function progress (t: number, start: number, duration: number) {
+  return Math.min(Math.max((t - start) / Math.max(duration, 0.0001), 0), 1)
 }
 
-const easeInCubic = (p: number) => p * p * p
-const easeOutCubic = (p: number) => 1 - Math.pow(1 - p, 3)
-const smoothstep = (p: number) => p * p * (3 - 2 * p)
+const easeInCubic = (x: number) => x * x * x
+const easeOutCubic = (x: number) => 1 - Math.pow(1 - x, 3)
+const smoothstep = (x: number) => x * x * (3 - 2 * x)
 
 export function createIntroFrame (): IntroFrame {
   return {
@@ -82,7 +65,6 @@ export function createIntroFrame (): IntroFrame {
     lightFront: 0,
     lightPower: 0,
     echoPower: 0,
-    echoDecay: 0.5,
     matterFront: 0,
     waveStrength: 0,
     reveal: 0,
@@ -91,7 +73,7 @@ export function createIntroFrame (): IntroFrame {
     remnantRedshift: 0,
     holeScale: 0,
     ringdown: 0,
-    ringPower: 0,
+    ringFade: 0,
     lensScale: 0,
     gravityWaveFront: 0,
     gravityWaveAmplitude: 0,
@@ -105,63 +87,66 @@ export function createIntroFrame (): IntroFrame {
   }
 }
 
-function sampleFullIntro (t: number, timing: IntroTiming, frame: IntroFrame) {
-  const sinceCollapse = Math.max(t - COLLAPSE_AT, 0)
-  const exploded = t >= COLLAPSE_AT
+function sampleFullIntro (t: number, p: IntroParams, frame: IntroFrame) {
+  const sinceCollapse = Math.max(t - p.collapseAt, 0)
+  const exploded = t >= p.collapseAt
 
   // The progenitor brightens, then is gone the instant it explodes
-  const charge = progress(t, 0.1, COLLAPSE_AT)
-  frame.starGlow = 1.4 * charge * charge * (exploded ? 0 : 1)
-  frame.starRadius = 0.004 + 0.01 * charge
+  const charge = progress(t, p.starChargeStart, p.collapseAt - p.starChargeStart)
+  frame.starGlow = exploded ? 0 : p.starPeakGlow * charge * charge
+  frame.starRadius = p.starRadiusStart + p.starRadiusGrowth * charge
 
   // Light curve of the point source: a near-instant rise and a fast decline. It is gone before the
   // horizon forms; what keeps shining afterwards is the expanding matter, not the core
   frame.sourcePower = exploded
-    ? progress(t, COLLAPSE_AT, COLLAPSE_AT + 0.04) * 6 * Math.exp(-sinceCollapse / 0.2)
+    ? progress(t, p.collapseAt, p.glareRise) * p.glarePeak * Math.exp(-sinceCollapse / p.glareDecay)
     : 0
-  frame.exposure = 1 / (1 + 0.35 * frame.sourcePower)
+  frame.exposure = 1 / (1 + p.exposureDip * frame.sourcePower)
 
   // Light and matter fronts: light at c, matter at a fraction of it
-  frame.lightFront = sinceCollapse / timing.lightCrossTime
-  frame.lightPower = exploded ? 3 * Math.exp(-sinceCollapse / 1.2) : 0
-  frame.echoPower = exploded ? 0.9 * Math.exp(-sinceCollapse / 1.5) : 0
-  frame.echoDecay = 0.18
-  frame.matterFront = frame.lightFront * timing.matterSpeed
+  frame.lightFront = sinceCollapse / p.lightCrossTime
+  frame.lightPower = exploded ? p.lightPower * Math.exp(-sinceCollapse / p.lightPowerDecay) : 0
+  frame.echoPower = exploded ? p.echoPower * Math.exp(-sinceCollapse / p.echoPowerDecay) : 0
+  frame.matterFront = frame.lightFront * p.matterSpeed
   frame.waveStrength = exploded ? Math.max(1 - frame.matterFront, 0) : 0
   frame.reveal = exploded ? Math.min(frame.matterFront, 1) : 0
-  frame.speedBoost = exploded ? 1 + 5 * Math.pow(Math.max(1 - frame.matterFront, 0), 2) : 1
+  frame.speedBoost = exploded ? 1 + p.burstPeak * Math.pow(Math.max(1 - frame.matterFront, 0), p.burstCurve) : 1
   frame.opacityScale = 1
 
   // Distant stars are there all along; the dark opening only lets the eye find them
-  frame.backgroundStars = 0.35 + 0.65 * smoothstep(progress(t, 0, 1.5))
+  frame.backgroundStars = p.starsBrightness * (p.starsInitial + (1 - p.starsInitial) * smoothstep(progress(t, 0, p.starsFadeIn)))
 
   // The core: white-hot after the blast, then its light reddens and fades as it collapses
-  frame.remnantGlow = progress(t, COLLAPSE_AT, REMNANT_AT) * Math.exp(-Math.max(t - REMNANT_AT, 0) / 0.35)
-  frame.remnantRedshift = progress(t, REMNANT_AT, HORIZON_AT + 0.4)
+  frame.remnantGlow = progress(t, p.collapseAt, p.remnantAt - p.collapseAt) * Math.exp(-Math.max(t - p.remnantAt, 0) / p.remnantDecay)
+  frame.remnantRedshift = progress(t, p.remnantAt, p.redshiftDuration)
 
-  // The horizon: grows without overshoot, then rings down like a struck bell
-  frame.holeScale = easeOutCubic(progress(t, HORIZON_AT, RINGDOWN_AT))
-  const sinceRing = t - RINGDOWN_AT
-  frame.ringdown = sinceRing > 0 ? 0.07 * Math.exp(-sinceRing / 0.35) * Math.sin(2 * Math.PI * 4.5 * sinceRing) : 0
-  frame.ringPower = smoothstep(progress(t, HORIZON_AT + 0.1, RINGDOWN_AT + 0.15)) * (1 + 6 * frame.ringdown)
-  frame.lensScale = smoothstep(progress(t, REMNANT_AT, RINGDOWN_AT + 0.2))
+  // The horizon grows without overshoot, then rings down like a struck bell
+  const ringdownAt = p.horizonAt + p.horizonGrowth
+  frame.holeScale = easeOutCubic(progress(t, p.horizonAt, p.horizonGrowth))
+  const sinceRing = t - ringdownAt
+  frame.ringdown = sinceRing > 0
+    ? p.ringdownAmplitude * Math.exp(-sinceRing / p.ringdownDecay) * Math.sin(2 * Math.PI * p.ringdownFrequency * sinceRing)
+    : 0
+  frame.ringFade = smoothstep(progress(t, p.horizonAt + p.ringDelay, p.ringFadeIn))
+  frame.lensScale = smoothstep(progress(t, p.remnantAt, p.lensDuration))
 
   // The ringdown radiates a gravitational wave, which also travels at c
-  const sinceWave = t - GRAVITY_WAVE_AT
-  frame.gravityWaveFront = Math.max(sinceWave, 0) / timing.lightCrossTime
-  frame.gravityWaveAmplitude = sinceWave > 0 && frame.gravityWaveFront < 1.3 ? Math.exp(-sinceWave / 1.5) : 0
+  const sinceWave = t - ringdownAt - p.gravityWaveDelay
+  frame.gravityWaveFront = Math.max(sinceWave, 0) / p.lightCrossTime
+  frame.gravityWaveAmplitude = sinceWave > 0 && frame.gravityWaveFront < 1.3 ? Math.exp(-sinceWave / p.gravityWaveDecay) : 0
 
-  const swallow = progress(t, 3.2, 4.5)
-  frame.titleAlpha = progress(t, 1.7, 2.3) * (1 - progress(t, 4.1, 4.5))
+  const swallow = progress(t, p.swallowStart, p.swallowDuration)
+  const swallowEnd = p.swallowStart + p.swallowDuration
+  frame.titleAlpha = progress(t, p.titleIn, p.titleFade) * (1 - progress(t, swallowEnd - p.titleFadeOut, p.titleFadeOut))
   frame.titleScale = 1 - easeInCubic(swallow)
-  frame.titleSpin = easeInCubic(swallow) * 2.6
+  frame.titleSpin = easeInCubic(swallow) * p.titleSpin
 
-  frame.holdAtCenter = t < 4.6
-  frame.done = t >= INTRO_END
+  frame.holdAtCenter = t < p.releaseAt
+  frame.done = t >= p.introEnd
 }
 
 // Reduced motion: no blast, no fronts, no wobble; the field and the black hole fade in
-function sampleReducedIntro (t: number, frame: IntroFrame) {
+function sampleReducedIntro (t: number, p: IntroParams, frame: IntroFrame) {
   frame.starGlow = 0
   frame.starRadius = 0
   frame.sourcePower = 0
@@ -172,18 +157,18 @@ function sampleReducedIntro (t: number, frame: IntroFrame) {
   frame.matterFront = 1
   frame.waveStrength = 0
   frame.reveal = 1
-  frame.backgroundStars = easeOutCubic(progress(t, 0, 1.2))
+  frame.backgroundStars = p.starsBrightness * easeOutCubic(progress(t, 0, 1.2))
   frame.remnantGlow = 0
   frame.remnantRedshift = 0
-  frame.holeScale = easeOutCubic(progress(t, 0.2, 1.4))
+  frame.holeScale = easeOutCubic(progress(t, 0.2, 1.2))
   frame.ringdown = 0
-  frame.ringPower = frame.holeScale
+  frame.ringFade = frame.holeScale
   frame.lensScale = frame.holeScale
   frame.gravityWaveFront = 0
   frame.gravityWaveAmplitude = 0
   frame.opacityScale = easeOutCubic(progress(t, 0, 1.2))
   frame.speedBoost = 1
-  frame.titleAlpha = progress(t, 0.6, 1) * (1 - progress(t, 2, 2.5))
+  frame.titleAlpha = progress(t, 0.6, 0.4) * (1 - progress(t, 2, 0.5))
   frame.titleScale = 1
   frame.titleSpin = 0
   frame.holdAtCenter = t < REDUCED_INTRO_END
@@ -196,7 +181,7 @@ export interface IntroMarker {
 }
 
 // Phase boundaries for the intro debugger's timeline, sorted by time
-export function getIntroMarkers (reducedMotion: boolean, timing: IntroTiming): IntroMarker[] {
+export function getIntroMarkers (reducedMotion: boolean, p: IntroParams): IntroMarker[] {
   if (reducedMotion) {
     return [
       { time: 0, label: 'fade in' },
@@ -207,36 +192,37 @@ export function getIntroMarkers (reducedMotion: boolean, timing: IntroTiming): I
   }
   const markers = [
     { time: 0, label: 'dark' },
-    { time: 0.1, label: 'star' },
-    { time: COLLAPSE_AT, label: 'collapse' },
-    { time: COLLAPSE_AT + timing.lightCrossTime, label: 'light out' },
-    { time: REMNANT_AT, label: 'redshift' },
-    { time: HORIZON_AT, label: 'horizon' },
-    { time: RINGDOWN_AT, label: 'ringdown' },
-    { time: COLLAPSE_AT + timing.lightCrossTime / timing.matterSpeed, label: 'matter out' },
-    { time: 3.2, label: 'swallow' },
-    { time: 4.6, label: 'release' },
-    { time: INTRO_END, label: 'end' }
+    { time: p.starChargeStart, label: 'star' },
+    { time: p.collapseAt, label: 'collapse' },
+    { time: p.collapseAt + p.lightCrossTime, label: 'light out' },
+    { time: p.remnantAt, label: 'redshift' },
+    { time: p.horizonAt, label: 'horizon' },
+    { time: p.horizonAt + p.horizonGrowth, label: 'ringdown' },
+    { time: p.collapseAt + p.lightCrossTime / p.matterSpeed, label: 'matter out' },
+    { time: p.titleIn, label: 'title' },
+    { time: p.swallowStart, label: 'swallow' },
+    { time: p.releaseAt, label: 'release' },
+    { time: p.introEnd, label: 'end' }
   ]
   return markers
     .map(marker => ({ ...marker, time: Math.round(marker.time * 100) / 100 }))
     .sort((a, b) => a.time - b.time)
 }
 
-export function getIntroDuration (reducedMotion: boolean) {
-  return reducedMotion ? REDUCED_INTRO_END : INTRO_END
+export function getIntroDuration (reducedMotion: boolean, p: IntroParams) {
+  return reducedMotion ? REDUCED_INTRO_END : p.introEnd
 }
 
-export function getIntroPhase (t: number, reducedMotion: boolean, timing: IntroTiming) {
+export function getIntroPhase (t: number, reducedMotion: boolean, p: IntroParams) {
   let phase = ''
-  for (const marker of getIntroMarkers(reducedMotion, timing)) {
+  for (const marker of getIntroMarkers(reducedMotion, p)) {
     if (t >= marker.time) phase = marker.label
   }
   return phase
 }
 
-export function sampleIntro (t: number, reducedMotion: boolean, timing: IntroTiming, frame: IntroFrame) {
-  if (reducedMotion) sampleReducedIntro(t, frame)
-  else sampleFullIntro(t, timing, frame)
+export function sampleIntro (t: number, reducedMotion: boolean, p: IntroParams, frame: IntroFrame) {
+  if (reducedMotion) sampleReducedIntro(t, p, frame)
+  else sampleFullIntro(t, p, frame)
   return frame
 }
