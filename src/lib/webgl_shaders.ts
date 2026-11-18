@@ -190,6 +190,7 @@ export const compositeFragmentShaderSource = `
   uniform float u_titleCooling;  // seconds
   uniform float u_titleDust;     // 0 solid letters, 1 grains only
 
+  const float PI = 3.14159265359;
   const vec3 RING_COLOR = vec3(1.0, 0.86, 0.66);
   const vec3 FLASH_COLOR = vec3(1.0, 0.97, 0.92);
   const vec3 TITLE_COLOR = vec3(1.0, 0.9, 0.78);
@@ -275,7 +276,10 @@ export const compositeFragmentShaderSource = `
       if (u_falloff != 2.0) bend *= pow(min(u_resolution.x, u_resolution.y) / max(dist, 0.0001), u_falloff - 2.0);
       bend = min(bend, 64.0);
       if (bend * dist * (1.0 + u_swirl) > 0.01) {
-        vec2 lensed = (samplePx - u_hole) * (1.0 - bend);
+        // Outside the ring the point-mass law; inside it the image ripples into nested rings and stays
+        // within reach of the screen. The two laws meet at the ring with the same value and slope
+        float radial = bend <= 1.0 ? 1.0 - bend : 2.0 / PI * cos(0.5 * PI * bend);
+        vec2 lensed = (samplePx - u_hole) * radial;
         float twist = u_swirl * bend;
         float c = cos(twist);
         float s = sin(twist);
@@ -293,7 +297,8 @@ export const compositeFragmentShaderSource = `
       samplePx -= sourceOffset / max(sourceDist, 0.0001) * u_waveStrength * front * exp(-front * front);
     }
 
-    vec3 color = texture2D(u_image, samplePx / u_resolution).rgb;
+    // Rays that still leave the screen reflect off its edge instead of smearing the edge pixels
+    vec3 color = texture2D(u_image, 1.0 - abs(1.0 - mod(samplePx / u_resolution, 2.0))).rgb;
 
     // Seconds since the light front passed this point; negative before it arrives
     float lit = u_lightSpeed > 0.0 ? (u_lightRadius - sourceDist) / u_lightSpeed : -1.0;
