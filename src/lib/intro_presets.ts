@@ -70,6 +70,8 @@ export const INTRO_LOOKS: readonly IntroLook[] = [
     ringdownFrequency: 0.9,
     ringdownDecay: 1.4,
     gravityWaveDecay: 3,
+    // Clear of the top bar even while the camera is still zoomed in
+    titleOffset: -0.2,
     titlePush: 0.14,
     titleHalo: 0.8,
     titleEntrance: FADES_IN,
@@ -80,10 +82,10 @@ export const INTRO_LOOKS: readonly IntroLook[] = [
     dissolveDuration: 2.6,
     releaseAt: 10.2,
     introEnd: 11,
-    cameraZoom: 1.3,
+    cameraZoom: 1.2,
     cameraSettle: 9,
     vignette: 0.5,
-    letterbox: 0.12
+    letterbox: 0.09
   }),
 
   look('flashbang', 'Flashbang', 'No warning: a pure white blast that jolts the camera and splits the frame into colours, a title thrown past the lens, over in three seconds.', {
@@ -265,7 +267,7 @@ export const INTRO_LOOKS: readonly IntroLook[] = [
     filmGrain: 0.09
   }, { hidden: ['glare', 'echo', 'burst', 'shockwave', 'gravityWave'], font: 'geistMono' }),
 
-  look('supernova', 'Supernova', 'All fire: a camera that starts close and is thrown back by a swollen orange star, a long hard shake, a wall of ejecta, and a title that burns away from its ends.', {
+  look('supernova', 'Supernova', 'All fire: a camera that starts close and is thrown back by a swollen orange star, a short jolt, a wall of ejecta, and a title that burns away from its ends.', {
     starPeakGlow: 3.5,
     starRadiusGrowth: 0.03,
     glarePeak: 12,
@@ -300,8 +302,8 @@ export const INTRO_LOOKS: readonly IntroLook[] = [
     colorEmber: 0xff3300,
     cameraZoom: 1.5,
     cameraSettle: 2.2,
-    shakeAmount: 42,
-    shakeDecay: 0.8
+    shakeAmount: 12,
+    shakeDecay: 0.45
   }),
 
   look('whirlpool', 'Whirlpool', 'Cold water going down a drain: teal light, and a title whose dust is torn loose early and spirals a long way around the hole, turning deep blue as it falls.', {
