@@ -66,7 +66,6 @@ export const particleVertexShaderSource = `
   varying float v_halfWidth;
   varying vec4 v_color;
 
-  const float PI = 3.14159265359;
   const vec3 BLUESHIFT = vec3(0.6, 0.76, 1.0);
   const vec3 REDSHIFT = vec3(1.0, 0.58, 0.42);
 
@@ -83,23 +82,17 @@ export const particleVertexShaderSource = `
     float halfWidth = drawWidth * 0.5;
     float extent = halfWidth + 1.0;
 
-    // The stroke is a capsule: round caps of the stroke's own width, so a particle reads as a dot
+    // The quad covers a round-capped stroke; the fragment shader lights the part of it that is new
     float along = mix(-extent, len + extent, a_position.x * 0.5 + 0.5);
     float across = a_position.y * extent;
     vec2 pixel = start + direction * along + normal * across;
 
-    // Exact area of the requested round-capped line versus the area the anti-aliased capsule covers
-    float targetArea = len * width + PI * width * width * 0.25;
-    float drawnArea = len * drawWidth + PI * (halfWidth * halfWidth + 1.0 / 12.0);
-
-    // Brightness follows speed. A slow particle's dots overlap frame after frame, so each one is dimmed
-    // by the share of its footprint that is new, length / (width + length): a particle that crosses
-    // its own width in a frame is fully lit, a crawling one is dim, and the light a pixel collects as
-    // the particle passes is the same as from a flat-ended stroke. The link is taken per 60 Hz frame
-    // and raised to u_speedGlow; the last factor spreads it over the frames a faster display draws
-    float referenceLength = len / max(u_frameScale, 0.0001);
-    float link = pow(max(referenceLength / (drawWidth + referenceLength), 0.000001), u_speedGlow);
-    float glow = link * u_frameScale * (drawWidth + referenceLength) / (drawWidth + len);
+    // A particle that moves less than a pixel in a frame lights only a sliver of each pixel, so
+    // brightness grows with speed in step with the length. The setting bends that link: the light
+    // becomes the length to the power of u_speedGlow, with the length taken per 60 Hz frame so the
+    // result is the same at any refresh rate
+    float referenceLength = clamp(len / max(u_frameScale, 0.0001), 0.0001, 1.0);
+    float glow = pow(referenceLength, u_speedGlow - 1.0);
 
     // Relativistic aberration, stylised: light ahead shifts blue, light at the edges shifts red
     float radial = length(a_segment.zw - u_center) / max(length(u_center), 1.0);
@@ -109,7 +102,7 @@ export const particleVertexShaderSource = `
     v_ends = vec2(along, len - along);
     v_across = across;
     v_halfWidth = halfWidth;
-    v_color = vec4(mix(a_color.rgb, tint, min(abs(shift), 0.8)), a_style.y * min(glow, 1.0) * targetArea / drawnArea);
+    v_color = vec4(mix(a_color.rgb, tint, min(abs(shift), 0.8)), a_style.y * glow * width / drawWidth);
 
     // Rows stay top-down in the scene texture, which is the layout the composite pass samples
     gl_Position = vec4(pixel / u_resolution * 2.0 - 1.0, 0.0, 1.0);
@@ -125,11 +118,14 @@ export const particleFragmentShaderSource = `
   varying vec4 v_color;
 
   void main () {
-    // Distance to the segment: past either end it is measured from the end point, which rounds the cap
+    // The particle is a disc that moved from the start of the segment to its end. Only the area the disc
+    // newly covered is lit: the round-capped stroke minus the disc at the start, which the frame before
+    // has already lit. Every pixel is lit once, as the disc's edge passes it, so the head stays sharp and
+    // round, and a disc that advanced a fraction of a pixel lights that fraction: slow particles are dim
     float beyondEnds = max(0.0, -min(v_ends.x, v_ends.y));
-    float dist = length(vec2(beyondEnds, v_across));
-    float coverage = clamp(v_halfWidth + 0.5 - dist, 0.0, 1.0);
-    gl_FragColor = vec4(v_color.rgb, v_color.a * coverage);
+    float strokeCoverage = clamp(v_halfWidth + 0.5 - length(vec2(beyondEnds, v_across)), 0.0, 1.0);
+    float startCoverage = clamp(v_halfWidth + 0.5 - length(vec2(v_ends.x, v_across)), 0.0, 1.0);
+    gl_FragColor = vec4(v_color.rgb, min(v_color.a * max(strokeCoverage - startCoverage, 0.0), 1.0));
   }
 `
 
