@@ -20,7 +20,7 @@ function BackgroundColorControl () {
 
   return (
     <ColorPickerInput
-      label="Background Color"
+      label="Background"
       value={rgbToHex(backgroundR, backgroundG, backgroundB)}
       onChange={(hex) => {
         const rgb = hexToRgb(hex)
@@ -607,7 +607,7 @@ function SettingsSections () {
         />
       </SettingsSection>
 
-      <SettingsSection id="colors" title="Colors">
+      <SettingsSection id="colors" title="Colors" help="The colors particles are born with. Click a swatch to change a color, drag its bar to make it more or less common, and use the eye to leave it out without losing it. The strip on top shows the resulting mix. A particle keeps the color it was born with, so a change spreads through the field as particles are recycled.">
         <ColorPalette />
         <BackgroundColorControl />
       </SettingsSection>

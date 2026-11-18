@@ -14,7 +14,7 @@ function ColorPickerInput ({ value, onChange, label, showLabel = true }: ColorPi
   return (
     <div
       className={`
-        flex h-8 min-w-0 flex-1 items-center gap-2 px-1
+        flex h-7 min-w-0 flex-1 items-center gap-2 px-1
         bg-[rgba(0,0,0,0.3)]
         border transition-all duration-200
         ${isFocused ? 'border-neon-cyan shadow-[0_0_10px_rgba(0,255,255,0.3)]' : 'border-neon-cyan/30'}

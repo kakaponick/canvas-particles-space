@@ -1,122 +1,126 @@
-import { useState } from 'react'
-import { useColorPaletteStore } from '../../hooks/use_color_palette_store'
-import { hexToRgb, rgbToHex } from '../../lib/utils'
-import ColorPickerInput from './color_picker_input'
+import { useEffect, useRef, useState } from 'react'
+import { Eye, EyeOff, Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Slider } from '@/components/ui/slider'
-import { X } from 'lucide-react'
+import { cn, hexToRgb, rgbToHex } from '../../lib/utils'
+import { useColorPaletteStore } from '../../hooks/use_color_palette_store'
+import SliderControl from './slider_control'
 
+// A new color starts white with this weight and opens the picker at once
+const NEW_COLOR = { r: 255, g: 255, b: 255, enabled: true, percent: 10 }
+
+const ICON_BUTTON = 'h-7 w-7 shrink-0 border-text-light/30 text-text-light/70 hover:border-neon-cyan hover:bg-neon-cyan/20 hover:text-neon-cyan'
+
+// The particle colors: each one's swatch opens the picker, its slider sets how common it is, and the
+// bar on top shows the mix the particles are drawn from
 function ColorPalette () {
-  const [selectedColor, setSelectedColor] = useState('#00ffff')
   const { colorPalette, addColor, removeColor, updateColor } = useColorPaletteStore()
+  const pickers = useRef<(HTMLInputElement | null)[]>([])
+  const [openPicker, setOpenPicker] = useState(-1)
 
-  const handleAddColor = () => {
-    const rgb = hexToRgb(selectedColor)
-    if (rgb) {
-      addColor({
-        ...rgb,
-        enabled: true,
-        percent: 10
-      })
-    }
-  }
+  // Opens the picker of a color that was just added, once its row exists
+  useEffect(() => {
+    if (openPicker < 0) return
+    pickers.current[openPicker]?.click()
+    setOpenPicker(-1)
+  }, [openPicker])
+
+  const totalWeight = colorPalette.reduce((total, color) => total + (color.enabled ? color.percent : 0), 0)
+  const share = (percent: number) => totalWeight > 0 ? Math.round(percent / totalWeight * 100) : 0
+  const onlyColor = colorPalette.length <= 1
 
   return (
-    <div>
-      <div className="flex flex-col gap-1 mb-1">
-        {colorPalette.map((color, index) => (
+    <div className="space-y-1">
+      <div
+        className="flex h-1.5 overflow-hidden bg-text-light/10"
+        role="img"
+        aria-label="Mix of the particle colors"
+      >
+        {colorPalette.map((color, index) => color.enabled && (
           <div
             key={index}
-            className={`
-              flex items-center gap-2 p-1 bg-[rgba(255,255,255,0.05)] 
-              border border-[rgba(255,255,255,0.1)] transition-all duration-200
-              ${!color.enabled ? 'opacity-40' : ''} 
-              hover:bg-[rgba(255,255,255,0.1)] hover:border-neon-cyan/50
-            `}
-          >
-            {/* Color preview - clickable to toggle */}
-            <div
-              onClick={() => updateColor(index, { enabled: !color.enabled })}
-              className="w-6 h-6 flex-shrink-0 cursor-pointer transition-all duration-200 hover:scale-110 relative group"
-              style={{ 
-                backgroundColor: `rgb(${color.r}, ${color.g}, ${color.b})`,
-                opacity: color.enabled ? 1 : 0.5,
-                boxShadow: color.enabled ? `0 0 8px rgba(${color.r}, ${color.g}, ${color.b}, 0.5)` : 'none'
-              }}
-              title={color.enabled ? 'Click to disable' : 'Click to enable'}
-            >
-              {!color.enabled && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                  <div className="w-5 h-0.5 bg-white rotate-45 absolute"></div>
-                  <div className="w-5 h-0.5 bg-white -rotate-45 absolute"></div>
-                </div>
-              )}
-            </div>
-            
-            {/* Color info and slider */}
-            <div className="flex-1 min-w-0 flex flex-col gap-1">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[0.65rem] font-mono text-text-light/70 truncate uppercase">
-                  {rgbToHex(color.r, color.g, color.b)}
-                </span>
-                <div className="flex items-center gap-1">
-                  <span className="text-[0.6rem] text-text-light/50 font-mono">Amount:</span>
-                  <span className="text-[0.65rem] font-mono text-neon-cyan tabular-nums">
-                    {color.percent}%
-                  </span>
-                </div>
-              </div>
-              
-              <Slider
-                min={1}
-                max={100}
-                step={1}
-                value={[color.percent]}
-                onValueChange={(values) => updateColor(index, { percent: values[0] })}
-                className="w-full [&_span[role=slider]]:!bg-current [&_span[role=slider]]:!shadow-[0_0_10px_currentColor] [&>span:first-child>span]:!bg-current"
-                style={{ color: `rgb(${color.r}, ${color.g}, ${color.b})` }}
-              />
-            </div>
-            
-            {/* Delete button */}
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={(e) => {
-                e.stopPropagation()
-                if (colorPalette.length > 1) {
-                  removeColor(index)
-                } else {
-                  alert('You must have at least one color!')
-                }
-              }}
-              className="flex-shrink-0 w-6 h-6 border-neon-cyan/50 text-neon-cyan hover:bg-neon-cyan hover:text-bg-dark hover:border-neon-cyan hover:shadow-[0_0_8px_#00ffff]"
-              title="Remove color"
-            >
-              <X className="w-3 h-3" />
-            </Button>
-          </div>
+            className="h-full transition-[flex-grow] duration-150"
+            style={{ flexGrow: color.percent, backgroundColor: rgbToHex(color.r, color.g, color.b) }}
+          />
         ))}
       </div>
 
-      <div className="flex gap-1">
-        <ColorPickerInput
-          value={selectedColor}
-          onChange={setSelectedColor}
-          showLabel={false}
-        />
-        <Button
-          variant="outline"
-          onClick={handleAddColor}
-          className="h-8 w-16 shrink-0 border-neon-cyan text-neon-cyan font-orbitron text-xs px-0 hover:bg-neon-cyan hover:text-bg-dark hover:shadow-[0_0_12px_#00ffff]"
-        >
-          + ADD
-        </Button>
-      </div>
+      {colorPalette.map((color, index) => {
+        const hex = rgbToHex(color.r, color.g, color.b)
+        return (
+          <div key={index} className="flex items-center gap-1">
+            <label
+              className="relative h-7 w-7 shrink-0 cursor-pointer border border-text-light/30 transition-colors duration-150
+                hover:border-neon-cyan focus-within:border-neon-cyan focus-within:outline focus-within:outline-1 focus-within:outline-neon-cyan"
+              style={{ backgroundColor: hex }}
+              title="Change color"
+            >
+              <input
+                ref={(element) => { pickers.current[index] = element }}
+                type="color"
+                value={hex}
+                aria-label={`Color ${index + 1}, ${hex}`}
+                onChange={(event) => {
+                  const rgb = hexToRgb(event.target.value)
+                  if (rgb) updateColor(index, rgb)
+                }}
+                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+              />
+            </label>
 
+            <div className={cn('flex min-w-0 flex-1 transition-opacity duration-150', !color.enabled && 'opacity-40')}>
+              <SliderControl
+                id={`color-weight-${index}`}
+                label={hex.toUpperCase()}
+                value={color.percent}
+                min={1}
+                max={100}
+                step={1}
+                formatValue={() => color.enabled ? `${share(color.percent)}%` : 'OFF'}
+                onChange={(percent) => updateColor(index, { percent })}
+                variant="inline"
+                fillColor={hex}
+              />
+            </div>
+
+            <Button
+              variant="outline"
+              size="icon"
+              aria-pressed={color.enabled}
+              aria-label={color.enabled ? `Hide color ${index + 1}` : `Show color ${index + 1}`}
+              title={color.enabled ? 'Leave this color out' : 'Use this color'}
+              onClick={() => updateColor(index, { enabled: !color.enabled })}
+              className={cn(ICON_BUTTON, color.enabled && 'text-neon-cyan')}
+            >
+              {color.enabled ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label={`Remove color ${index + 1}`}
+              title={onlyColor ? 'The last color cannot be removed' : 'Remove color'}
+              disabled={onlyColor}
+              onClick={() => removeColor(index)}
+              className={ICON_BUTTON}
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        )
+      })}
+
+      <Button
+        variant="outline"
+        onClick={() => {
+          addColor({ ...NEW_COLOR })
+          setOpenPicker(colorPalette.length)
+        }}
+        className="h-7 w-full gap-1.5 border-neon-cyan/50 font-mono text-xs text-neon-cyan hover:bg-neon-cyan/20 hover:text-neon-cyan"
+      >
+        <Plus className="h-3.5 w-3.5" />
+        Add color
+      </Button>
     </div>
   )
 }
 
 export default ColorPalette
-

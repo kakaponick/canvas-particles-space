@@ -16,6 +16,8 @@ interface SliderControlProps {
   trackHeight?: string
   thumbSize?: string
   description?: string
+  // Inline variant: fills the track with this color instead of the accent
+  fillColor?: string
 }
 
 // A slider whose range crosses zero holds on to zero: a drag this close to it, as a share of the
@@ -34,8 +36,11 @@ function SliderControl ({
   variant = 'default',
   trackHeight = 'h-1',
   thumbSize = 'h-4 w-4',
-  description
+  description,
+  fillColor
 }: SliderControlProps) {
+  // Text over the track is blended by difference, so white stays readable on any fill
+  const textColor = fillColor ? 'text-white' : 'text-neon-cyan'
   const containerRef = useRef<HTMLDivElement>(null)
   const crossesZero = min < 0 && max > 0
   const zeroPosition = crossesZero ? -min / (max - min) * 100 : 0
@@ -88,7 +93,8 @@ function SliderControl ({
           onValueChange={(values) => onChange(snapToZero(values[0]))}
           trackHeight="h-7"
           thumbSize="hidden"
-          className="w-full"
+          className={fillColor ? 'w-full [&>span:first-child>span]:!bg-current' : 'w-full'}
+          style={fillColor ? { color: fillColor } : undefined}
         />
         {crossesZero && (
           <div
@@ -99,7 +105,7 @@ function SliderControl ({
         )}
         <div className="absolute inset-0 flex justify-between items-center px-3 pointer-events-none">
           <div className="flex items-center gap-1.5">
-            <span className="text-neon-cyan mix-blend-difference font-mono text-xs">
+            <span className={`${textColor} mix-blend-difference font-mono text-xs`}>
               {label}
             </span>
             {description && (<HelpTooltip 
@@ -108,7 +114,7 @@ function SliderControl ({
                 />
             )}
           </div>
-          <span className="text-neon-cyan mix-blend-difference font-bold font-mono text-xs tabular-nums">
+          <span className={`${textColor} mix-blend-difference font-bold font-mono text-xs tabular-nums`}>
             {formatValue(value)}
           </span>
         </div>
