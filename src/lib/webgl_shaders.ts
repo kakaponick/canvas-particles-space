@@ -146,6 +146,10 @@ export const compositeFragmentShaderSource = `
   uniform float u_swirl;         // frame-dragging twist near the ring
   uniform float u_absorption;    // light the lens's pull removes around the shadow
   uniform float u_ring;          // photon ring brightness
+  uniform float u_ringWidth;     // thickness of the line, in black hole radii
+  uniform float u_ringHalo;      // soft glow outside the line
+  uniform float u_ringDoppler;   // contrast between the approaching and the receding side
+  uniform float u_ringSide;      // direction of the approaching side, radians
 
   // Explosion, all centred on u_center
   uniform vec2 u_center;
@@ -194,6 +198,8 @@ export const compositeFragmentShaderSource = `
   // Closest a bent ray gets to the point behind the hole, in Einstein radii
   const float LENS_CORE = 0.3;
   const vec3 RING_COLOR = vec3(1.0, 0.86, 0.66);
+  const vec3 RING_APPROACHING = vec3(0.8, 0.9, 1.0);
+  const vec3 RING_RECEDING = vec3(1.0, 0.42, 0.16);
   const vec3 FLASH_COLOR = vec3(1.0, 0.97, 0.92);
   const vec3 TITLE_COLOR = vec3(1.0, 0.9, 0.78);
   const vec3 BLAST_COLOR = vec3(0.86, 0.92, 1.0);
@@ -372,11 +378,23 @@ export const compositeFragmentShaderSource = `
     if (u_horizon > 0.0) {
       color *= smoothstep(u_horizon - 1.0, u_horizon + 1.0, dist);
 
-      // Photon ring, brighter on the side whose light orbits toward the viewer
-      float ringWidth = max(1.2, u_horizon * 0.035);
-      float ringOffset = (dist - u_horizon * 1.03) / ringWidth;
-      float beaming = 0.6 + 0.4 * cos(atan(offset.y, offset.x) - u_time * 0.5);
-      color += RING_COLOR * u_ring * beaming * exp(-ringOffset * ringOffset);
+      // Photon ring: light that circled the hole before escaping. A hair-thin subring hugs the shadow,
+      // with a fainter, wider one just outside it
+      if (u_ring > 0.0 && dist < u_horizon * 1.6) {
+        float ringLine = max(u_ringWidth * u_horizon, 1.5);
+        float edge = dist - u_horizon;
+        float inner = (edge - 0.7 * ringLine) / (0.45 * ringLine);
+        float outer = (edge - 2.4 * ringLine) / (1.3 * ringLine);
+        float line = exp(-inner * inner) + 0.3 * exp(-outer * outer);
+        float halo = edge > 0.0 ? u_ringHalo * 0.22 * exp(-edge / (0.09 * u_horizon)) : 0.0;
+
+        // Doppler beaming: light moving towards the viewer is brighter and bluer, the far side dimmer and redder
+        float side = cos(atan(offset.y, offset.x) - u_ringSide);
+        // Scaled so the bright side peaks at the ring's brightness: clipping to white would thicken the line
+        float boost = (1.0 + 0.5 * u_ringDoppler * side) / (1.0 + 0.5 * u_ringDoppler);
+        vec3 tint = mix(RING_COLOR, side > 0.0 ? RING_APPROACHING : RING_RECEDING, abs(side) * u_ringDoppler);
+        color += tint * u_ring * boost * boost * boost * (line + halo);
+      }
     }
 
     // Light from the source itself reaches the camera directly: the progenitor and the blast glare
