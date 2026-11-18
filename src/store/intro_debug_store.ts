@@ -127,7 +127,11 @@ export const useIntroDebugStore = createWithEqualityFn<IntroDebugState>((set) =>
     saveParams(params)
     return { params }
   }),
-  seek: (time) => set({ seekRequest: time }),
+  // The readout follows at once, so a seek straight after another starts from the new time
+  seek: (time) => set((state) => {
+    const clamped = Math.min(Math.max(time, 0), state.readout.duration || Infinity)
+    return { seekRequest: clamped, readout: { ...state.readout, time: clamped } }
+  }),
   clearSeek: () => set({ seekRequest: null }),
   restart: () => set((state) => ({ restartRequest: state.restartRequest + 1 })),
   step: () => set((state) => ({ stepRequest: state.stepRequest + 1, playing: false })),

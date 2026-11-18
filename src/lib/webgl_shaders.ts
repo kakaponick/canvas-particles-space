@@ -189,6 +189,8 @@ export const compositeFragmentShaderSource = `
   const vec3 TITLE_COLOR = vec3(1.0, 0.95, 0.9);
   const vec3 BLAST_COLOR = vec3(0.86, 0.92, 1.0);
   const vec3 DUST_COLOR = vec3(1.0, 0.84, 0.66);
+  // Seconds a background star stays flared after the light front passes it
+  const float STAR_FLARE_DECAY = 0.18;
 
   // Hash without sine (Dave Hoskins), stable across GPUs
   float hash12 (vec2 p) {
@@ -303,7 +305,9 @@ export const compositeFragmentShaderSource = `
     vec2 cssPx = samplePx / u_pixelRatio;
     vec3 emitted = vec3(0.0);
     if (u_backgroundStars > 0.0) {
-      emitted += backgroundStar(cssPx, u_starFlare * echo * step(0.001, u_echoPower)) * u_backgroundStars;
+      // The flare belongs to the light front, not to the dust echo, so hiding the echo keeps it
+      float flare = u_lightPower > 0.0 && lit >= 0.0 ? u_starFlare * exp(-lit / STAR_FLARE_DECAY) : 0.0;
+      emitted += backgroundStar(cssPx, flare) * u_backgroundStars;
     }
     // Light is invisible in empty space: the front shows where it strikes dust, and the dust
     // keeps glowing for a moment after it passes (the light echo)
