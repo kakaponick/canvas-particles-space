@@ -142,6 +142,14 @@ export interface TitleSettings {
   burn: number
   // 0..1 how far the title has been drawn towards the hole
   fall: number
+  // How the fall into the hole looks; see the uniforms of the same names
+  tidal: number
+  spiral: number
+  spread: number
+  stream: number
+  order: number
+  trail: number
+  heat: number
 }
 
 export interface FrameInput {
@@ -298,7 +306,7 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     'starCell', 'starDensity', 'starFlare', 'dustScale', 'dustThreshold', 'lightDustContrast',
     'titleCenter', 'titleHalfSize', 'titleAlpha', 'titleReveal', 'titleDissolve', 'titleDrift', 'titleGlow',
     'titleFlash', 'titleCooling', 'titleDust', 'titlePull', 'titleSwirl', 'titleReach', 'titleCapture', 'titleScale',
-    'titleFringe', 'titleHalo', 'titleRedshift', 'titleGrain', 'titleBurn', 'titleFall', 'dustSweep', 'dustBlow', 'dustDrift',
+    'titleFringe', 'titleHalo', 'titleRedshift', 'titleGrain', 'titleBurn', 'titleFall', 'titleTidal', 'titleSpiral', 'titleSpread', 'titleStream', 'titleOrder', 'titleTrail', 'titleHeat', 'dustSweep', 'dustBlow', 'dustDrift',
     'colorFlash', 'colorLight', 'colorDust', 'colorTitle', 'colorEmber',
     'cameraZoom', 'shake', 'lensFringe', 'vignette', 'filmGrain', 'letterbox'
   ] as const)
@@ -450,6 +458,13 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
       setUniform1f(gl, u.titleGrain, title.grain)
       setUniform1f(gl, u.titleBurn, title.burn)
       setUniform1f(gl, u.titleFall, title.fall)
+      setUniform1f(gl, u.titleTidal, Math.max(title.tidal, 1))
+      setUniform1f(gl, u.titleSpiral, title.spiral)
+      setUniform1f(gl, u.titleSpread, title.spread)
+      setUniform1f(gl, u.titleStream, title.stream)
+      setUniform1f(gl, u.titleOrder, title.order)
+      setUniform1f(gl, u.titleTrail, title.trail)
+      setUniform1f(gl, u.titleHeat, title.heat)
     }
     setUniformColor(gl, u.colorFlash, settings.colorFlash)
     setUniformColor(gl, u.colorLight, settings.colorLight)

@@ -227,6 +227,13 @@ export const compositeFragmentShaderSource = `
   uniform float u_titleRedshift; // how far falling dust reddens
   uniform float u_titleGrain;    // 1 = every speck falls on its own, 0 = the letters fall as one image
   uniform float u_titleBurn;     // 0..1 progress of the title burning away from its ends
+  uniform float u_titleTidal;    // how much sooner the end near the hole is drawn in; 1 moves it all alike
+  uniform float u_titleSpiral;   // 0 turns the title as one piece, 1 winds its inner part further round
+  uniform float u_titleSpread;   // how much the specks' speeds differ
+  uniform float u_titleStream;   // share of its speed a speck takes from the current around it
+  uniform float u_titleOrder;    // 0 specks wink out at random, 1 the ones nearest the hole first
+  uniform float u_titleTrail;    // brightness of the streak behind the moving letters
+  uniform float u_titleHeat;     // how much the falling title brightens midway
 
   // Colours of the intro
   uniform vec3 u_colorFlash;     // the star, the glare and the white-hot core
@@ -252,9 +259,6 @@ export const compositeFragmentShaderSource = `
   // Dust Drift is the distance a letter standing that far from the hole would be drawn; this turns
   // it into the pull that draws the whole title in
   const float TITLE_FALL_GAIN = 2.5;
-  // Brightness of the streak behind the moving letters, and how much they heat up on the way
-  const float TITLE_TRAIL = 0.8;
-  const float TITLE_INFALL_HEAT = 1.6;
   // Seconds a background star stays flared after the light front passes it
   const float STAR_FLARE_DECAY = 0.18;
   // How long dust holds its light, in multiples of the afterglow: thin haze and the thickest cloud
@@ -334,8 +338,11 @@ export const compositeFragmentShaderSource = `
   // the inner part further round than the outer
   vec2 titleSource (vec2 fromHole, float holeDist, float fall) {
     float reach = TITLE_FALL_GAIN * u_titleDrift * u_titlePull * fall;
-    float stretch = sqrt(max(holeDist * holeDist + reach * abs(reach), 0.0)) / holeDist;
-    float turn = u_titleSwirl * fall * clamp(0.3 * u_resolution.y / holeDist, 0.4, 3.0);
+    // u_titleTidal is how much sooner the near end goes: 1 slides the whole title the same distance,
+    // higher values leave the far end standing while the near end is already drawn out
+    float pulled = pow(holeDist, u_titleTidal) + sign(reach) * pow(abs(reach), u_titleTidal);
+    float stretch = pow(max(pulled, 0.0), 1.0 / u_titleTidal) / holeDist;
+    float turn = u_titleSwirl * fall * mix(1.0, clamp(0.3 * u_resolution.y / holeDist, 0.4, 3.0), u_titleSpiral);
     float c = cos(turn);
     float s = sin(turn);
     return u_hole + vec2(c * fromHole.x - s * fromHole.y, s * fromHole.x + c * fromHole.y) * stretch;
@@ -452,18 +459,19 @@ export const compositeFragmentShaderSource = `
         // Every speck has its own speed, and neighbours share a current, so the specks travel in
         // streams rather than each on its own
         float current = clamp((valueNoise(cssPx / 11.0 + 41.0) - 0.5) * 1.8 + 0.5, 0.0, 1.0);
-        float speed = mix(0.5, mix(hash12(grainCell + 41.0), current, 0.5), u_titleGrain);
-        float fall = u_titleFall * (0.25 + 1.5 * speed) * mix(1.0, 0.15, beyondReach);
+        float speed = mix(0.5, mix(hash12(grainCell + 41.0), current, u_titleStream), u_titleGrain);
+        float fall = u_titleFall * max(1.0 + 2.0 * u_titleSpread * (speed - 0.5), 0.0) * mix(1.0, 0.15, beyondReach);
         local = (titleSource(fromHole, holeDist, fall) - u_titleCenter) / titleSpan;
         // Where the letters were a moment ago still shows, fainter, so their motion reads as a streak
         for (int i = 1; i <= 3; i++) {
           float lag = 1.0 - 0.13 * float(i);
           trail += (0.6 - 0.15 * float(i)) * titleMask((titleSource(fromHole, holeDist, fall * lag) - u_titleCenter) / titleSpan);
         }
-        trail *= TITLE_TRAIL * min(4.0 * u_titleFall, 1.0);
+        trail *= u_titleTrail * min(4.0 * u_titleFall, 1.0);
         // Each speck winks out at its own moment, the ones nearest the hole first; without grain the
         // letters stay whole until the hole has them
-        float lifetime = mix(1.0, mix(hash12(grainCell + 73.0), 0.35 + 0.65 * beyondReach, 0.3), u_titleGrain);
+        float nearness = clamp(holeDist / (0.6 * u_resolution.y), 0.0, 1.0);
+        float lifetime = mix(1.0, mix(hash12(grainCell + 73.0), nearness, u_titleOrder), u_titleGrain);
         keep = smoothstep(u_titleDissolve - 0.15, u_titleDissolve, lifetime * 0.85);
         if (u_titleCapture > 0.0) keep *= smoothstep(u_titleCapture, u_titleCapture * 1.25 + 1.0, holeDist);
         infall = min(fall, 1.0);
@@ -492,7 +500,7 @@ export const compositeFragmentShaderSource = `
         // Dust falling into the hole reddens and dims, as the collapsing core did
         // On the way it heats up first, brightest in the middle of its fall
         vec3 warm = mix(u_colorTitle, u_colorEmber, u_titleRedshift * infall) * (1.0 - 0.5 * u_titleRedshift * infall) *
-          (1.0 + TITLE_INFALL_HEAT * infall * (1.0 - infall));
+          (1.0 + u_titleHeat * infall * (1.0 - infall));
         vec3 light = warm * u_titleGlow * shown + u_colorLight * u_titleFlash * flash;
         light = mix(light, u_colorEmber * 2.5, burnRim);
         emitted += u_titleAlpha * (density + halo * (1.0 - u_titleBurn)) * light;
