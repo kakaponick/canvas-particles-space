@@ -195,7 +195,7 @@ function getUniforms<T extends string> (gl: WebGLRenderingContext, program: WebG
 /**
  * Draws the particle field with WebGL:
  * 1. fades the persistent scene texture toward the background (the motion trail),
- * 2. draws every particle segment as one instanced, anti-aliased round-capped quad,
+ * 2. draws every particle segment as one instanced, anti-aliased flat-ended quad,
  * 3. composites the scene to the screen through the black hole shader, which also lays the
  *    intro title behind the lens so it bends like starlight.
  * Returns null when the context lacks instancing or a program fails to build.

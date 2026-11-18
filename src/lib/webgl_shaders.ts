@@ -64,7 +64,6 @@ export const particleVertexShaderSource = `
   varying float v_halfWidth;
   varying vec4 v_color;
 
-  const float PI = 3.14159265359;
   const vec3 BLUESHIFT = vec3(0.6, 0.76, 1.0);
   const vec3 REDSHIFT = vec3(1.0, 0.58, 0.42);
 
@@ -79,15 +78,11 @@ export const particleVertexShaderSource = `
     float width = a_style.x * u_pixelRatio;
     float drawWidth = max(width, 1.0);
     float halfWidth = drawWidth * 0.5;
-    float extent = halfWidth + 1.0;
 
-    float along = mix(-extent, len + extent, a_position.x * 0.5 + 0.5);
-    float across = a_position.y * extent;
+    // The stroke ends flat at its two points, with one pixel of margin for anti-aliasing
+    float along = mix(-1.0, len + 1.0, a_position.x * 0.5 + 0.5);
+    float across = a_position.y * (halfWidth + 1.0);
     vec2 pixel = start + direction * along + normal * across;
-
-    // Exact area of the requested round-capped line versus the area the anti-aliased capsule covers
-    float targetArea = len * width + PI * width * width * 0.25;
-    float drawnArea = len * drawWidth + PI * (halfWidth * halfWidth + 1.0 / 12.0);
 
     // Relativistic aberration, stylised: light ahead shifts blue, light at the edges shifts red
     float radial = length(a_segment.zw - u_center) / max(length(u_center), 1.0);
@@ -97,7 +92,7 @@ export const particleVertexShaderSource = `
     v_ends = vec2(along, len - along);
     v_across = across;
     v_halfWidth = halfWidth;
-    v_color = vec4(mix(a_color.rgb, tint, min(abs(shift), 0.8)), a_style.y * targetArea / drawnArea);
+    v_color = vec4(mix(a_color.rgb, tint, min(abs(shift), 0.8)), a_style.y * width / drawWidth);
 
     // Rows stay top-down in the scene texture, which is the layout the composite pass samples
     gl_Position = vec4(pixel / u_resolution * 2.0 - 1.0, 0.0, 1.0);
@@ -113,10 +108,11 @@ export const particleFragmentShaderSource = `
   varying vec4 v_color;
 
   void main () {
-    float beyondEnds = max(0.0, -min(v_ends.x, v_ends.y));
-    float dist = length(vec2(beyondEnds, v_across));
-    float coverage = clamp(v_halfWidth + 0.5 - dist, 0.0, 1.0);
-    gl_FragColor = vec4(v_color.rgb, v_color.a * coverage);
+    // Share of the pixel the stroke covers: a stroke shorter than a pixel lights only that part of it,
+    // so a particle gets dimmer as it slows down and leaves no light once it stops
+    float alongCoverage = clamp(min(v_ends.x, 0.5) + min(v_ends.y, 0.5), 0.0, 1.0);
+    float acrossCoverage = clamp(v_halfWidth + 0.5 - abs(v_across), 0.0, 1.0);
+    gl_FragColor = vec4(v_color.rgb, v_color.a * alongCoverage * acrossCoverage);
   }
 `
 

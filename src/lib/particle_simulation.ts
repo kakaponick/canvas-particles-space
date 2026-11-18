@@ -12,11 +12,13 @@ const RING_CAPTURE_ENERGY = 2
 const RING_SKIM_REACH = 1.5
 const RING_SKIM_ENERGY = 0.0005
 
-// Segments are clipped to the viewport plus this margin, wide enough to hide the widest cap
+// Segments are clipped to the viewport plus this margin, wide enough to hide their ends
 const CLIP_MARGIN = 4
 
 // Particles spawn in a disc so the tunnel reads round on every aspect ratio
 const SPAWN_RADIUS = 1000
+// Below this flight speed gravity eases out, so a stopped field goes completely dark
+const GRAVITY_FULL_SPEED = 0.5
 // Random spawns tried for a captured particle before it is placed right outside the event horizon
 const RESPAWN_TRIES = 4
 const RESPAWN_RIM_SPREAD = 0.5
@@ -276,7 +278,8 @@ export function stepParticles (
   const ringEnergy = settings.ringEnergy
   const skimRadius = holeRadius * RING_SKIM_REACH
   const skimRadiusSq = skimRadius * skimRadius
-  const skimEnergy = RING_SKIM_ENERGY * frameScale
+  const motion = Math.min(settings.speed / GRAVITY_FULL_SPEED, 1)
+  const skimEnergy = RING_SKIM_ENERGY * frameScale * motion
   // Gravity acts within a depth band around the hole's plane; particles far behind only get lensed,
   // though the event horizon takes them at any depth.
   // The band is a compact bell, (1 - u^2 / 4)^3, close to exp(-u^2) but zero beyond |u| = 2 and
@@ -284,7 +287,7 @@ export function stepParticles (
   const holeDepthNear = holeDepth - farZ * 0.36
   const holeDepthFar = holeDepth + farZ * 0.36
   const invDepthBand = 1 / (farZ * 0.18)
-  const pullScale = gravityStrength * 0.6 * frameScale * holeRadiusSq
+  const pullScale = gravityStrength * 0.6 * frameScale * holeRadiusSq * motion
   const orbitScale = orbitalStrength * 0.02
   const invFocal = 1 / focal
   const revealing = revealRadius < Infinity
@@ -355,7 +358,7 @@ export function stepParticles (
 
     z[i] = pz
 
-    // A particle that did not move leaves no stroke, so a stopped field fades out with its trails
+    // A particle that did not move draws nothing, which also saves its stroke
     if (endX === startX && endY === startY) continue
 
     const distanceFactor = pz * invFarZ
