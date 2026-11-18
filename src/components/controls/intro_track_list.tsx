@@ -2,8 +2,9 @@ import { memo, useMemo, useState, type PointerEvent as ReactPointerEvent } from 
 import { Check, ChevronRight, Copy, Eye, EyeOff, RotateCcw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useIntroDebugStore, getTitleChanges, type TitleText } from '../../store/intro_debug_store'
-import { DEFAULT_INTRO_PARAMS, INTRO_PARAM_SPECS, formatParam, type IntroParamKey, type IntroParams } from '../../lib/intro_params'
+import { DEFAULT_INTRO_PARAMS, INTRO_PARAM_SPECS, colorToCss, cssToColor, formatParam, type IntroParamKey, type IntroParams } from '../../lib/intro_params'
 import { INTRO_TRACKS, type IntroMarker, type IntroSpan, type IntroTrack, type IntroTrackReadout } from '../../lib/intro_tracks'
+import ColorPickerInput from './color_picker_input'
 import SliderControl from './slider_control'
 import TitleTextEditor from './title_text_editor'
 
@@ -256,6 +257,40 @@ const TrackRow = memo(function TrackRow ({ track, duration, params, hidden, expa
             <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-1">
               {track.params.map(key => {
                 const spec = INTRO_PARAM_SPECS[key]
+                const hint = `${spec.description} Default: ${formatParam(DEFAULT_INTRO_PARAMS[key], spec)}.`
+                if (spec.color) {
+                  return (
+                    <div key={key} className="flex min-w-0" title={hint}>
+                      <ColorPickerInput
+                        label={spec.label}
+                        value={colorToCss(params[key])}
+                        onChange={(css) => setParam(key, cssToColor(css))}
+                      />
+                    </div>
+                  )
+                }
+                if (spec.options) {
+                  return (
+                    <label
+                      key={key}
+                      title={hint}
+                      className="flex h-7 min-w-0 items-center gap-2 border border-neon-cyan/30 bg-black/30 pl-3 pr-1 font-mono text-xs
+                        transition-colors duration-150 focus-within:border-neon-cyan hover:border-neon-cyan/60"
+                    >
+                      <span className="shrink-0 text-neon-cyan">{spec.label}</span>
+                      <select
+                        id={`intro-param-${key}`}
+                        value={Math.round(params[key])}
+                        onChange={(event) => setParam(key, Number(event.target.value))}
+                        className="min-w-0 flex-1 cursor-pointer truncate bg-transparent text-right font-bold text-text-light outline-none"
+                      >
+                        {spec.options.map((option, index) => (
+                          <option key={option} value={index} className="bg-[#0b0b11] text-left font-normal">{option}</option>
+                        ))}
+                      </select>
+                    </label>
+                  )
+                }
                 return (
                   <SliderControl
                     key={key}
@@ -269,7 +304,7 @@ const TrackRow = memo(function TrackRow ({ track, duration, params, hidden, expa
                     onChange={(value) => setParam(key, value)}
                     variant="inline"
                     resetValue={DEFAULT_INTRO_PARAMS[key]}
-                    description={`${spec.description} Default: ${formatParam(DEFAULT_INTRO_PARAMS[key], spec)}; the mark on the bar shows it, a double-click returns to it.`}
+                    description={`${hint.slice(0, -1)}; the mark on the bar shows it, a double-click returns to it.`}
                   />
                 )
               })}

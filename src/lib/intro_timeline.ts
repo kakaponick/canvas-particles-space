@@ -45,6 +45,18 @@ export interface IntroFrame {
   titleDissolve: number
   // 0..1 over the title's life, from the explosion until it is gone
   titleAge: number
+  // 1 = the dissolving title breaks into specks, 0 = it moves as one image
+  titleGrain: number
+  // 0..1 progress of the title burning away
+  titleBurn: number
+  // Extra size of a title flying past the camera; 1 leaves it as it is
+  titleFly: number
+  // Zoom of the whole frame around the place of the explosion; 1 is none
+  cameraZoom: number
+  // How far the camera is jolted right now, CSS pixels
+  shake: number
+  // 1 while the film effects (fringe, vignette, grain, letterbox) are on; fades to 0 as the intro ends
+  film: number
   // While true the black hole stays at the screen center
   holdAtCenter: boolean
   done: boolean
@@ -86,10 +98,19 @@ export function createIntroFrame (): IntroFrame {
     titleReveal: 1,
     titleDissolve: 0,
     titleAge: 0,
+    titleGrain: 1,
+    titleBurn: 0,
+    titleFly: 1,
+    cameraZoom: 1,
+    shake: 0,
+    film: 0,
     holdAtCenter: true,
     done: false
   }
 }
+
+// How much a title flying past the camera has grown when it is gone
+const FLY_PAST_GROWTH = 6
 
 function sampleFullIntro (t: number, p: IntroParams, frame: IntroFrame) {
   const sinceCollapse = Math.max(t - p.collapseAt, 0)
@@ -139,11 +160,49 @@ function sampleFullIntro (t: number, p: IntroParams, frame: IntroFrame) {
   frame.gravityWaveFront = Math.max(sinceWave, 0) / p.lightCrossTime
   frame.gravityWaveAmplitude = sinceWave > 0 && frame.gravityWaveFront < 1.3 ? Math.exp(-sinceWave / p.gravityWaveDecay) : 0
 
-  // The title exists from the start as dark dust; the light front lights it, then it crumbles
-  frame.titleDissolve = progress(t, p.dissolveAt, p.dissolveDuration)
-  frame.titleAlpha = 1 - smoothstep(progress(t, p.dissolveAt + p.dissolveDuration * 0.5, p.dissolveDuration * 0.5))
-  frame.titleReveal = 1
-  frame.titleAge = progress(t, p.collapseAt, p.dissolveAt + p.dissolveDuration - p.collapseAt)
+  // The title. By default it exists from the start as dark dust that the light front lights; the
+  // other entrances bring it in on their own clock. Gathering from dust and coming out of the hole
+  // are the fall into the hole played backwards
+  const entrance = Math.round(p.titleEntrance)
+  const exit = Math.round(p.titleExit)
+  const arrived = entrance === 0 ? 1 : progress(t, p.titleInAt, p.titleInDuration)
+  const leaving = progress(t, p.dissolveAt, p.dissolveDuration)
+  let alpha = 1
+  frame.titleDissolve = 0
+  frame.titleGrain = p.titleGrain
+  frame.titleBurn = 0
+  frame.titleFly = 1
+  frame.titleReveal = entrance === 0 ? 1 : 0
+  if (entrance === 1) {
+    alpha = smoothstep(arrived)
+  } else if (entrance >= 2 && arrived < 1) {
+    frame.titleDissolve = 1 - arrived
+    frame.titleGrain = entrance === 2 ? 1 : 0
+    alpha = smoothstep(Math.min(arrived * 2, 1))
+  }
+  if (leaving > 0) {
+    if (exit === 0) {
+      frame.titleDissolve = leaving
+      frame.titleGrain = p.titleGrain
+      alpha *= 1 - smoothstep(progress(leaving, 0.5, 0.5))
+    } else if (exit === 1) {
+      frame.titleFly = 1 + FLY_PAST_GROWTH * leaving * leaving * leaving
+      alpha *= 1 - smoothstep(progress(leaving, 0.35, 0.65))
+    } else if (exit === 2) {
+      frame.titleBurn = leaving
+      if (leaving >= 1) alpha = 0
+    } else {
+      alpha *= 1 - smoothstep(leaving)
+    }
+  }
+  frame.titleAlpha = alpha
+  const titleStart = entrance === 0 ? p.collapseAt : p.titleInAt
+  frame.titleAge = progress(t, titleStart, p.dissolveAt + p.dissolveDuration - titleStart)
+
+  // The camera starts zoomed and settles; the blast jolts it; the film effects lift as the intro ends
+  frame.cameraZoom = 1 + (p.cameraZoom - 1) * (1 - smoothstep(progress(t, 0, p.cameraSettle)))
+  frame.shake = exploded ? p.shakeAmount * Math.exp(-sinceCollapse / p.shakeDecay) : 0
+  frame.film = 1 - smoothstep(progress(t, p.releaseAt, p.introEnd - p.releaseAt))
 
   frame.holdAtCenter = t < p.releaseAt
   frame.done = t >= p.introEnd
@@ -176,6 +235,12 @@ function sampleReducedIntro (t: number, frame: IntroFrame) {
   frame.titleReveal = 0
   frame.titleDissolve = 0
   frame.titleAge = 0
+  frame.titleGrain = 1
+  frame.titleBurn = 0
+  frame.titleFly = 1
+  frame.cameraZoom = 1
+  frame.shake = 0
+  frame.film = 0
   frame.holdAtCenter = t < REDUCED_INTRO_END
   frame.done = t >= REDUCED_INTRO_END
 }

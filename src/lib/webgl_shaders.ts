@@ -222,18 +222,29 @@ export const compositeFragmentShaderSource = `
   uniform float u_titleHalo;     // strength of the glow around the letters
   uniform float u_titleRedshift; // how far falling dust reddens
   uniform float u_titleGrain;    // 1 = every speck falls on its own, 0 = the letters fall as one image
+  uniform float u_titleBurn;     // 0..1 progress of the title burning away from its ends
+
+  // Colours of the intro
+  uniform vec3 u_colorFlash;     // the star, the glare and the white-hot core
+  uniform vec3 u_colorLight;     // the light front and the flash it leaves on the title
+  uniform vec3 u_colorDust;      // dust glowing after the front has passed
+  uniform vec3 u_colorTitle;     // the lit letters
+  uniform vec3 u_colorEmber;     // the cooling core, falling and burning title dust
+
+  // Camera and film
+  uniform float u_cameraZoom;    // zoom of the whole frame around u_center; 1 is none
+  uniform vec2 u_shake;          // jolt of the camera, pixels
+  uniform float u_lensFringe;    // colour fringing of the scene at the frame's corners, pixels
+  uniform float u_vignette;      // darkening of the corners
+  uniform float u_filmGrain;
+  uniform float u_letterbox;     // height of each black bar, pixels
 
   const float PI = 3.14159265359;
   const vec3 RING_COLOR = vec3(1.0, 0.86, 0.66);
   const vec3 RING_APPROACHING = vec3(0.8, 0.9, 1.0);
   const vec3 RING_RECEDING = vec3(1.0, 0.42, 0.16);
-  const vec3 FLASH_COLOR = vec3(1.0, 0.97, 0.92);
-  const vec3 TITLE_COLOR = vec3(1.0, 0.9, 0.78);
-  const vec3 EMBER_COLOR = vec3(1.0, 0.36, 0.12);
   // A blur spreads the letters' light thin; this brings the glow back to a visible level
   const float TITLE_HALO_GAIN = 1.5;
-  const vec3 BLAST_COLOR = vec3(0.86, 0.92, 1.0);
-  const vec3 DUST_COLOR = vec3(1.0, 0.84, 0.66);
   // Seconds a background star stays flared after the light front passes it
   const float STAR_FLARE_DECAY = 0.18;
 
@@ -302,8 +313,15 @@ export const compositeFragmentShaderSource = `
     return min(x, 0.8) + 0.2 * (1.0 - exp(-over / 0.2));
   }
 
+  // The particle scene; rays that leave the screen reflect off its edge instead of smearing the edge pixels
+  vec3 scene (vec2 px) {
+    return texture2D(u_image, 1.0 - abs(1.0 - mod(px / u_resolution, 2.0))).rgb;
+  }
+
   void main () {
-    vec2 frag = vec2(gl_FragCoord.x, u_resolution.y - gl_FragCoord.y);
+    // Where this pixel is on the screen, and where the zoomed and jolted camera looks through it
+    vec2 screen = vec2(gl_FragCoord.x, u_resolution.y - gl_FragCoord.y);
+    vec2 frag = u_center + (screen - u_center) / u_cameraZoom + u_shake;
     vec2 offset = frag - u_hole;
     float dist = length(offset);
     vec2 samplePx = frag;
@@ -359,8 +377,13 @@ export const compositeFragmentShaderSource = `
       samplePx -= sourceOffset / max(sourceDist, 0.0001) * u_waveStrength * front * exp(-front * front);
     }
 
-    // Rays that still leave the screen reflect off its edge instead of smearing the edge pixels
-    vec3 color = texture2D(u_image, 1.0 - abs(1.0 - mod(samplePx / u_resolution, 2.0))).rgb;
+    vec3 color = scene(samplePx);
+    if (u_lensFringe > 0.0) {
+      // A simple lens bends red less and blue more, and more so away from the middle of the frame
+      vec2 split = (screen - 0.5 * u_resolution) / (0.5 * length(u_resolution)) * u_lensFringe;
+      color.r = scene(samplePx - split).r;
+      color.b = scene(samplePx + split).b;
+    }
 
     // Seconds since the light front passed this point; negative before it arrives
     float lit = u_lightSpeed > 0.0 ? (u_lightRadius - sourceDist) / u_lightSpeed : -1.0;
@@ -409,6 +432,14 @@ export const compositeFragmentShaderSource = `
         float fringe = u_titleFringe / max(u_titleHalfSize.x, 1.0);
         vec3 mask = vec3(titleMask(local * (1.0 - fringe)), titleMask(local), titleMask(local * (1.0 + fringe)));
         float grain = 0.55 * valueNoise(cssPx / 2.4) + 0.45 * hash12(grainCell + 7.0);
+        // Fire eats the letters from the ends of the title inwards along a ragged edge, which glows
+        float burnRim = 0.0;
+        if (u_titleBurn > 0.0) {
+          float fuel = mix(0.6 * valueNoise(cssPx / 18.0) + 0.4 * valueNoise(cssPx / 5.0), 1.0 - abs(local.x), 0.45);
+          float burnt = u_titleBurn * 1.15;
+          keep *= smoothstep(burnt - 0.06, burnt, fuel);
+          burnRim = 1.0 - smoothstep(burnt, burnt + 0.1, fuel);
+        }
         vec3 density = mask * keep * mix(1.0, smoothstep(0.15, 0.8, grain), u_titleDust);
         // Glow around the letters, drawn out sideways like the flare of an anamorphic lens
         float halo = u_titleHalo > 0.0 ? TITLE_HALO_GAIN * titleGlow(local) * u_titleHalo * (1.0 - u_titleDissolve) : 0.0;
@@ -417,9 +448,10 @@ export const compositeFragmentShaderSource = `
         float shown = mix(1.0, arrived, u_titleReveal);
         float flash = lit >= 0.0 ? u_titleReveal * exp(-lit / u_titleCooling) : 0.0;
         // Dust falling into the hole reddens and dims, as the collapsing core did
-        vec3 warm = mix(TITLE_COLOR, EMBER_COLOR, u_titleRedshift * infall) * (1.0 - 0.5 * u_titleRedshift * infall);
-        vec3 light = warm * u_titleGlow * shown + BLAST_COLOR * u_titleFlash * flash;
-        emitted += u_titleAlpha * (density + halo) * light;
+        vec3 warm = mix(u_colorTitle, u_colorEmber, u_titleRedshift * infall) * (1.0 - 0.5 * u_titleRedshift * infall);
+        vec3 light = warm * u_titleGlow * shown + u_colorLight * u_titleFlash * flash;
+        light = mix(light, u_colorEmber * 2.5, burnRim);
+        emitted += u_titleAlpha * (density + halo * (1.0 - u_titleBurn)) * light;
       }
     }
     if (u_backgroundStars > 0.0) {
@@ -434,12 +466,13 @@ export const compositeFragmentShaderSource = `
     float echoGlow = u_echoPower > 0.0 ? echo : 0.0;
     if (front > 0.001 || echoGlow > 0.001) {
       float density = dust(cssPx);
-      emitted += BLAST_COLOR * u_lightPower * front * (1.0 - u_lightDustContrast + u_lightDustContrast * density);
-      emitted += DUST_COLOR * u_echoPower * echoGlow * density / (1.0 + sourceDist / (0.5 * u_resolution.x));
+      emitted += u_colorLight * u_lightPower * front * (1.0 - u_lightDustContrast + u_lightDustContrast * density);
+      emitted += u_colorDust * u_echoPower * echoGlow * density / (1.0 + sourceDist / (0.5 * u_resolution.x));
     }
     if (u_remnantGlow > 0.0) {
-      vec3 remnantColor = mix(mix(vec3(1.0, 0.97, 0.92), vec3(1.0, 0.55, 0.2), smoothstep(0.0, 0.5, u_remnantRedshift)),
-        vec3(0.6, 0.05, 0.02), smoothstep(0.5, 1.0, u_remnantRedshift));
+      // White-hot, then the ember colour, then the same colour deep and dark
+      vec3 remnantColor = mix(mix(u_colorFlash, mix(u_colorEmber, u_colorFlash, 0.25), smoothstep(0.0, 0.5, u_remnantRedshift)),
+        0.6 * u_colorEmber * u_colorEmber, smoothstep(0.5, 1.0, u_remnantRedshift));
       emitted += remnantColor * u_remnantGlow * (1.0 - 0.7 * u_remnantRedshift) * exp(-(centerDist * centerDist) / (2.0 * u_remnantRadius * u_remnantRadius));
     }
     color = (color + emitted) * u_exposure;
@@ -474,14 +507,26 @@ export const compositeFragmentShaderSource = `
 
     // Light from the source itself reaches the camera directly: the progenitor and the blast glare
     if (u_starGlow > 0.0) {
-      color += FLASH_COLOR * u_starGlow * exp(-(centerDist * centerDist) / (2.0 * u_starRadius * u_starRadius));
+      color += u_colorFlash * u_starGlow * exp(-(centerDist * centerDist) / (2.0 * u_starRadius * u_starRadius));
     }
     if (u_sourcePower > 0.0) {
       float glare = u_glareRadius * u_glareRadius / (u_glareRadius * u_glareRadius + centerDist * centerDist);
-      color += FLASH_COLOR * u_sourcePower * u_exposure * glare;
+      color += u_colorFlash * u_sourcePower * u_exposure * glare;
     }
 
-    gl_FragColor = vec4(softKnee(color), 1.0);
+    // The film: dark corners, grain that changes every frame, and bars at the top and the bottom
+    if (u_vignette > 0.0) {
+      color *= 1.0 - u_vignette * smoothstep(0.45, 1.45, length(screen / u_resolution * 2.0 - 1.0));
+    }
+    if (u_filmGrain > 0.0) {
+      color = max(color + (hash12(screen + fract(u_time) * vec2(917.0, 613.0)) - 0.5) * u_filmGrain, 0.0);
+    }
+    color = softKnee(color);
+    if (u_letterbox > 0.0) {
+      color *= smoothstep(u_letterbox - 1.0, u_letterbox + 1.0, min(screen.y, u_resolution.y - screen.y));
+    }
+
+    gl_FragColor = vec4(color, 1.0);
   }
 `
 

@@ -7,7 +7,7 @@ import { REDUCED_INTRO_END } from './intro_timeline'
 // Pieces of the opening that can be switched off one by one to see what each contributes
 export const INTRO_LAYERS = [
   'star', 'glare', 'light', 'echo', 'stars', 'shockwave', 'reveal', 'burst', 'remnant',
-  'ringdown', 'gravityWave', 'title', 'hole', 'lens', 'ring', 'gravity', 'doppler'
+  'ringdown', 'gravityWave', 'title', 'hole', 'lens', 'ring', 'gravity', 'doppler', 'camera'
 ] as const
 
 export type IntroLayer = typeof INTRO_LAYERS[number]
@@ -44,6 +44,8 @@ const FADED = 3
 
 const matterOut = (p: IntroParams) => p.collapseAt + p.lightCrossTime / p.matterSpeed
 const ringdownAt = (p: IntroParams) => p.horizonAt + p.horizonGrowth
+// The light front lights the title from the explosion on; any other entrance has its own start
+const titleStart = (p: IntroParams) => Math.round(p.titleEntrance) === 0 ? p.collapseAt : p.titleInAt
 const full = (reduced: boolean, spans: IntroSpan[]) => reduced ? [] : spans
 
 // Reduced motion fades the field and the black hole in over the same stretch
@@ -61,7 +63,7 @@ export const INTRO_TRACKS: IntroTrack[] = [
     key: 'star',
     label: 'Progenitor star',
     layer: 'star',
-    params: ['starChargeStart', 'collapseAt', 'starPeakGlow', 'starRadiusStart', 'starRadiusGrowth'],
+    params: ['starChargeStart', 'collapseAt', 'starPeakGlow', 'starRadiusStart', 'starRadiusGrowth', 'colorFlash'],
     spans: (p, reduced) => full(reduced, [{ start: p.starChargeStart, end: p.collapseAt }]),
     markers: (p, reduced) => reduced ? [] : [{ time: p.starChargeStart, label: 'star' }, { time: p.collapseAt, label: 'collapse' }]
   },
@@ -77,7 +79,7 @@ export const INTRO_TRACKS: IntroTrack[] = [
     key: 'light',
     label: 'Light front',
     layer: 'light',
-    params: ['lightCrossTime', 'lightPower', 'lightPowerDecay', 'lightWidth', 'lightDustContrast'],
+    params: ['lightCrossTime', 'lightPower', 'lightPowerDecay', 'lightWidth', 'lightDustContrast', 'colorLight'],
     readout: { key: 'lightFront', digits: 2 },
     spans: (p, reduced) => full(reduced, [{ start: p.collapseAt, end: p.collapseAt + p.lightCrossTime }]),
     markers: (p, reduced) => reduced ? [] : [{ time: p.collapseAt + p.lightCrossTime, label: 'light out' }]
@@ -86,7 +88,7 @@ export const INTRO_TRACKS: IntroTrack[] = [
     key: 'echo',
     label: 'Dust echo',
     layer: 'echo',
-    params: ['echoPower', 'echoPowerDecay', 'echoDecay', 'dustScale', 'dustThreshold'],
+    params: ['echoPower', 'echoPowerDecay', 'echoDecay', 'dustScale', 'dustThreshold', 'colorDust'],
     spans: (p, reduced) => full(reduced, [{ start: p.collapseAt, end: p.collapseAt + p.echoPowerDecay * FADED }])
   },
   {
@@ -116,7 +118,7 @@ export const INTRO_TRACKS: IntroTrack[] = [
     key: 'remnant',
     label: 'Collapsing core',
     layer: 'remnant',
-    params: ['remnantAt', 'remnantDecay', 'redshiftDuration', 'remnantRadius'],
+    params: ['remnantAt', 'remnantDecay', 'redshiftDuration', 'remnantRadius', 'colorEmber'],
     readout: { key: 'remnantRedshift', digits: 2 },
     spans: (p, reduced) => full(reduced, [{ start: p.collapseAt, end: p.remnantAt + p.remnantDecay * FADED }]),
     markers: (p, reduced) => reduced ? [] : [{ time: p.remnantAt, label: 'redshift' }]
@@ -170,15 +172,25 @@ export const INTRO_TRACKS: IntroTrack[] = [
     layer: 'title',
     editsText: true,
     params: [
-      'titleOffset', 'titleSize', 'titleWeight', 'titleTracking', 'titleGlow', 'titleFlash', 'titleCooling',
+      'titleOffset', 'titleSize', 'titleWeight', 'titleTracking', 'colorTitle', 'titleGlow', 'titleFlash', 'titleCooling',
       'titleDust', 'titlePush', 'titleHalo', 'titleHaloRadius', 'titleStreak', 'titleFringe',
-      'dissolveAt', 'dissolveDuration', 'titleGrain', 'titleDrift', 'titleSwirl', 'titleRedshift'
+      'titleEntrance', 'titleInAt', 'titleInDuration',
+      'titleExit', 'dissolveAt', 'dissolveDuration', 'titleGrain', 'titleDrift', 'titleSwirl', 'titleRedshift'
     ],
     readout: { key: 'titleAlpha', digits: 2 },
-    spans: (p, reduced) => [reduced ? { start: 0.6, end: 2.5 } : { start: p.collapseAt, end: p.dissolveAt + p.dissolveDuration }],
+    spans: (p, reduced) => [reduced ? { start: 0.6, end: 2.5 } : { start: titleStart(p), end: p.dissolveAt + p.dissolveDuration }],
     markers: (p, reduced) => reduced
       ? [{ time: 0.6, label: 'title' }, { time: 2, label: 'title out' }]
-      : [{ time: p.dissolveAt, label: 'dissolve' }]
+      : Math.round(p.titleEntrance) === 0
+        ? [{ time: p.dissolveAt, label: 'dissolve' }]
+        : [{ time: p.titleInAt, label: 'title in' }, { time: p.dissolveAt, label: 'dissolve' }]
+  },
+  {
+    key: 'camera',
+    label: 'Camera and film',
+    layer: 'camera',
+    params: ['cameraZoom', 'cameraSettle', 'shakeAmount', 'shakeDecay', 'lensFringe', 'vignette', 'filmGrain', 'letterbox'],
+    spans: (p, reduced) => full(reduced, [{ start: 0, end: p.introEnd }])
   },
   {
     key: 'motion',

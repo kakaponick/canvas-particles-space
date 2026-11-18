@@ -1,7 +1,9 @@
 // Built-in looks of the intro. Each one lists only what it changes from the defaults, so a new
 // parameter reaches every look with its default value. A look keeps the words of the title and sets
-// only their face and case.
+// only their face and case. Each is built on its own colours, its own way for the title to arrive
+// and leave, its own camera and its own set of layers, so no two share a frame.
 import { DEFAULT_INTRO_PARAMS, type IntroParams } from './intro_params'
+import type { IntroLayer } from './intro_tracks'
 import type { TitleFontKey } from './title_sprite'
 
 export interface IntroLook {
@@ -10,23 +12,40 @@ export interface IntroLook {
   // What the look is going for, shown as a hint on its button
   description: string
   params: IntroParams
+  // Layers of the intro the look leaves out
+  hidden: readonly IntroLayer[]
   font: TitleFontKey
   uppercase: boolean
 }
 
-function look (
-  id: string,
-  name: string,
-  description: string,
-  changes: Partial<IntroParams>,
-  font: TitleFontKey = 'unbounded',
-  uppercase = true
-): IntroLook {
-  return { id, name, description, params: { ...DEFAULT_INTRO_PARAMS, ...changes }, font, uppercase }
+interface LookOptions {
+  hidden?: readonly IntroLayer[]
+  font?: TitleFontKey
+  uppercase?: boolean
+}
+
+// Indexes into TITLE_ENTRANCES and TITLE_EXITS
+const FADES_IN = 1
+const GATHERS_FROM_DUST = 2
+const OUT_OF_THE_HOLE = 3
+const FLIES_PAST = 1
+const BURNS_AWAY = 2
+const FADES_OUT = 3
+
+function look (id: string, name: string, description: string, changes: Partial<IntroParams>, options: LookOptions = {}): IntroLook {
+  return {
+    id,
+    name,
+    description,
+    params: { ...DEFAULT_INTRO_PARAMS, ...changes },
+    hidden: options.hidden ?? [],
+    font: options.font ?? 'unbounded',
+    uppercase: options.uppercase ?? true
+  }
 }
 
 export const INTRO_LOOKS: readonly IntroLook[] = [
-  look('slow-burn', 'Slow Burn', 'A held breath: a long dark, a star that swells for two seconds, then everything unfolds in slow motion over eleven.', {
+  look('slow-burn', 'Slow Burn', 'A held breath behind black bars: a long dark, a star that swells for two seconds, a camera that pulls back for nine, and a title that fades in late and fades out.', {
     starChargeStart: 0.3,
     collapseAt: 2.2,
     starPeakGlow: 2.4,
@@ -52,15 +71,22 @@ export const INTRO_LOOKS: readonly IntroLook[] = [
     ringdownDecay: 1.4,
     gravityWaveDecay: 3,
     titlePush: 0.14,
-    titleCooling: 0.9,
     titleHalo: 0.8,
+    titleEntrance: FADES_IN,
+    titleInAt: 3.4,
+    titleInDuration: 2.5,
+    titleExit: FADES_OUT,
     dissolveAt: 7.4,
     dissolveDuration: 2.6,
     releaseAt: 10.2,
-    introEnd: 11
+    introEnd: 11,
+    cameraZoom: 1.3,
+    cameraSettle: 9,
+    vignette: 0.5,
+    letterbox: 0.12
   }),
 
-  look('flashbang', 'Flashbang', 'No warning: an instant, overexposed blast that whites out the frame, a violent ringdown, and it is over in three seconds.', {
+  look('flashbang', 'Flashbang', 'No warning: a pure white blast that jolts the camera and splits the frame into colours, a title thrown past the lens, over in three seconds.', {
     starChargeStart: 0,
     collapseAt: 0.35,
     glareRise: 0.01,
@@ -72,7 +98,6 @@ export const INTRO_LOOKS: readonly IntroLook[] = [
     lightPower: 7,
     lightWidth: 0.02,
     lightDustContrast: 0.5,
-    echoPower: 2,
     matterSpeed: 0.7,
     waveRefraction: 60,
     burstPeak: 13,
@@ -88,22 +113,33 @@ export const INTRO_LOOKS: readonly IntroLook[] = [
     ringdownFrequency: 3.5,
     ringFlicker: 6,
     gravityWaveAmplitude: 30,
+    titleWeight: 800,
+    titleSize: 0.8,
+    titleOffset: -0.22,
+    titleDust: 0,
     titleFlash: 6,
     titleCooling: 0.12,
     titleFringe: 5,
-    dissolveAt: 2,
-    dissolveDuration: 0.7,
-    titleDrift: 380,
+    titleExit: FLIES_PAST,
+    dissolveAt: 1.9,
+    dissolveDuration: 0.8,
     releaseAt: 2.8,
-    introEnd: 3.2
-  }),
+    introEnd: 3.2,
+    colorFlash: 0xffffff,
+    colorLight: 0xcfe6ff,
+    colorTitle: 0xffffff,
+    shakeAmount: 30,
+    shakeDecay: 0.35,
+    lensFringe: 7
+  }, { hidden: ['echo'] }),
 
-  look('anamorphic', 'Anamorphic', 'Shot through widescreen glass: thin wide-set letters, long sideways flares, colour fringes and a slow push-in.', {
+  look('anamorphic', 'Anamorphic', 'Widescreen glass: black bars, cold blue light, thin wide-set letters with long sideways flares and colour fringes, a slow push-in.', {
     glareRadius: 0.06,
     lightPower: 4,
     lightWidth: 0.004,
     starFlare: 6,
     titleSize: 0.8,
+    titleOffset: 0.3,
     titleWeight: 300,
     titleTracking: 0.3,
     titleGlow: 1.2,
@@ -114,10 +150,20 @@ export const INTRO_LOOKS: readonly IntroLook[] = [
     titleHalo: 1.8,
     titleHaloRadius: 22,
     titleStreak: 8,
-    titleFringe: 4
+    titleFringe: 4,
+    titleExit: FADES_OUT,
+    colorFlash: 0xe6f4ff,
+    colorLight: 0x6fc8ff,
+    colorDust: 0x4f8fd6,
+    colorTitle: 0xd8f1ff,
+    cameraZoom: 0.85,
+    cameraSettle: 4.5,
+    lensFringe: 3,
+    vignette: 0.35,
+    letterbox: 0.14
   }),
 
-  look('event-horizon', 'Event Horizon', 'The black hole is the lead: a heavy, swelling horizon, a deep slow wobble, a wave that bends the whole sky, and the title wound into it.', {
+  look('event-horizon', 'Event Horizon', 'The black hole is the lead: no blinding glare, a heavy swelling horizon, a wave that bends the sky, and a title that comes out of the hole whole and is taken back.', {
     remnantDecay: 0.7,
     redshiftDuration: 1.3,
     remnantRadius: 0.03,
@@ -133,16 +179,29 @@ export const INTRO_LOOKS: readonly IntroLook[] = [
     gravityWaveWidth: 0.11,
     gravityWaveDecay: 2.6,
     gravityWaveCycles: 3,
-    dissolveAt: 3.8,
-    dissolveDuration: 2,
-    titleDrift: 420,
-    titleSwirl: 2.6,
+    titleDust: 0,
+    titleFringe: 0,
+    titleEntrance: OUT_OF_THE_HOLE,
+    titleInAt: 2.3,
+    titleInDuration: 1.3,
+    dissolveAt: 4.2,
+    dissolveDuration: 1.2,
+    titleGrain: 0,
+    titleDrift: 1600,
+    titleSwirl: 1.4,
     titleRedshift: 1,
     releaseAt: 5.8,
-    introEnd: 6.4
-  }),
+    introEnd: 6.4,
+    colorLight: 0xffc58a,
+    colorDust: 0xc4682a,
+    colorTitle: 0xffe2b8,
+    colorEmber: 0xd61f00,
+    cameraZoom: 0.8,
+    cameraSettle: 5,
+    vignette: 0.45
+  }, { hidden: ['glare'] }),
 
-  look('nebula', 'Nebula', 'Painted in dust: a broad soft front lights thick clouds that keep glowing, and the title is made of the same grain.', {
+  look('nebula', 'Nebula', 'Painted in pink and teal dust: a broad soft front lights thick clouds that keep glowing, and the title gathers out of the same grain.', {
     glarePeak: 4,
     lightCrossTime: 1.4,
     lightPower: 2,
@@ -160,43 +219,53 @@ export const INTRO_LOOKS: readonly IntroLook[] = [
     titleDust: 0.85,
     titleHalo: 1,
     titleHaloRadius: 18,
-    dissolveAt: 3.6,
-    dissolveDuration: 2.2,
+    titleEntrance: GATHERS_FROM_DUST,
+    titleInAt: 1.2,
+    titleInDuration: 1.8,
+    dissolveAt: 3.8,
+    dissolveDuration: 2,
     releaseAt: 5.6,
-    introEnd: 6
-  }),
+    introEnd: 6,
+    colorFlash: 0xffe9f7,
+    colorLight: 0x8ef0ff,
+    colorDust: 0xff5fae,
+    colorTitle: 0xffd2ee,
+    colorEmber: 0x9b3cff,
+    filmGrain: 0.05
+  }, { hidden: ['burst'] }),
 
-  look('silent-dark', 'Silent Dark', 'Almost nothing: no glare, no dust, one hair-thin ring of light crossing an empty sky and small solid letters that fade without a sound.', {
+  look('silent-dark', 'Silent Dark', 'Almost nothing, in black and white: no glare, no dust, no burst, one hair-thin ring of light across an empty sky, small letters that fade in and out under film grain.', {
     starPeakGlow: 0.6,
-    glarePeak: 1.5,
-    exposureDip: 0,
     lightPower: 5,
     lightWidth: 0.002,
     lightDustContrast: 0,
-    echoPower: 0,
-    waveRefraction: 6,
-    burstPeak: 1.5,
     starsInitial: 0,
     starsFadeIn: 4,
     starFlare: 0,
     ringdownAmplitude: 0.01,
-    gravityWaveAmplitude: 3,
-    titleSize: 0.5,
+    titleSize: 0.4,
+    titleOffset: 0.36,
     titleWeight: 200,
     titleTracking: 0.4,
-    titleGlow: 0.7,
-    titleFlash: 0.4,
+    titleGlow: 0.8,
     titleDust: 0,
     titlePush: 0.12,
     titleHalo: 0,
     titleFringe: 0,
-    dissolveDuration: 2.4,
-    titleDrift: 60,
-    titleSwirl: 0,
-    titleRedshift: 0.2
-  }, 'geistMono'),
+    titleEntrance: FADES_IN,
+    titleInAt: 1.4,
+    titleInDuration: 1.4,
+    titleExit: FADES_OUT,
+    dissolveDuration: 1.4,
+    colorFlash: 0xffffff,
+    colorLight: 0xffffff,
+    colorTitle: 0xffffff,
+    colorEmber: 0x8c8c8c,
+    vignette: 0.65,
+    filmGrain: 0.09
+  }, { hidden: ['glare', 'echo', 'burst', 'shockwave', 'gravityWave'], font: 'geistMono' }),
 
-  look('supernova', 'Supernova', 'All matter: a swollen star, a wall of ejecta that bends everything behind it, particles thrown past the camera and a core that burns on.', {
+  look('supernova', 'Supernova', 'All fire: a camera that starts close and is thrown back by a swollen orange star, a long hard shake, a wall of ejecta, and a title that burns away from its ends.', {
     starPeakGlow: 3.5,
     starRadiusGrowth: 0.03,
     glarePeak: 12,
@@ -217,13 +286,25 @@ export const INTRO_LOOKS: readonly IntroLook[] = [
     redshiftDuration: 1.2,
     remnantRadius: 0.04,
     horizonAt: 1.9,
+    titleWeight: 700,
     titleFlash: 3.5,
-    dissolveAt: 3.6,
+    titleExit: BURNS_AWAY,
+    dissolveAt: 3.4,
+    dissolveDuration: 1.4,
     releaseAt: 5,
-    introEnd: 5.4
+    introEnd: 5.4,
+    colorFlash: 0xfff0c8,
+    colorLight: 0xffc27a,
+    colorDust: 0xff7a3c,
+    colorTitle: 0xffe0a8,
+    colorEmber: 0xff3300,
+    cameraZoom: 1.5,
+    cameraSettle: 2.2,
+    shakeAmount: 42,
+    shakeDecay: 0.8
   }),
 
-  look('whirlpool', 'Whirlpool', 'The title goes down the drain: its dust is torn loose early and spirals a long way around the hole, reddening as it falls.', {
+  look('whirlpool', 'Whirlpool', 'Cold water going down a drain: teal light, and a title whose dust is torn loose early and spirals a long way around the hole, turning deep blue as it falls.', {
     ringdownFrequency: 2.4,
     gravityWaveAmplitude: 16,
     gravityWaveCycles: 9,
@@ -236,7 +317,11 @@ export const INTRO_LOOKS: readonly IntroLook[] = [
     titleSwirl: 4,
     titleRedshift: 0.9,
     releaseAt: 5.8,
-    introEnd: 6.2
+    introEnd: 6.2,
+    colorLight: 0x9ff5e6,
+    colorDust: 0x3fb8c9,
+    colorTitle: 0xc8fff5,
+    colorEmber: 0x2a6bff
   }),
 
   look('swallowed', 'Swallowed', 'The title stays whole and solid, then the black hole takes it: the letters are drawn in as one smooth image, fast, with no dust and no grain.', {
@@ -250,7 +335,7 @@ export const INTRO_LOOKS: readonly IntroLook[] = [
     titleRedshift: 0.5
   }),
 
-  look('requiem', 'Requiem', 'An ending rather than an opening: a quiet blast, light that lingers and reddens for seconds, a horizon that closes slowly over nine.', {
+  look('requiem', 'Requiem', 'An ending rather than an opening, in crimson: a quiet blast with no burst, light that lingers for seconds, a horizon that closes slowly, heavy dark corners.', {
     glarePeak: 3.5,
     glareDecay: 0.6,
     lightCrossTime: 1.6,
@@ -259,7 +344,6 @@ export const INTRO_LOOKS: readonly IntroLook[] = [
     echoPower: 1.4,
     echoPowerDecay: 4,
     echoDecay: 0.6,
-    burstPeak: 2.5,
     starsInitial: 0.15,
     starsFadeIn: 4,
     remnantAt: 1.2,
@@ -275,6 +359,8 @@ export const INTRO_LOOKS: readonly IntroLook[] = [
     ringdownDecay: 1.8,
     gravityWaveAmplitude: 6,
     gravityWaveDecay: 3.5,
+    titleOffset: 0.3,
+    titleSize: 0.5,
     titleWeight: 300,
     titleTracking: 0.16,
     titleGlow: 1.1,
@@ -289,6 +375,13 @@ export const INTRO_LOOKS: readonly IntroLook[] = [
     titleDrift: 240,
     titleRedshift: 1,
     releaseAt: 8.8,
-    introEnd: 9.4
-  })
+    introEnd: 9.4,
+    colorFlash: 0xffe1d6,
+    colorLight: 0xff9d8a,
+    colorDust: 0xc23b3b,
+    colorTitle: 0xffd2c4,
+    colorEmber: 0x8a0f1f,
+    vignette: 0.75,
+    letterbox: 0.08
+  }, { hidden: ['burst'] })
 ]

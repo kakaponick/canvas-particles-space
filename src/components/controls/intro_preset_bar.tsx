@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Check, Save, Trash2 } from 'lucide-react'
+import { Check, Layers, Save, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useIntroDebugStore } from '../../store/intro_debug_store'
 import {
@@ -49,6 +49,7 @@ function PresetChip ({ preset, active, modified }: PresetChipProps) {
         )}
       >
         <span className="truncate">{preset.name}</span>
+        {preset.scene && <Layers aria-label="Saved with the scene" className="h-3 w-3 shrink-0 text-text-light/60" />}
         {active && modified && <span className="shrink-0 text-text-light/60">modified</span>}
       </button>
 
@@ -100,12 +101,14 @@ function IntroPresetBar () {
   const activeId = useIntroPresetStore(state => state.activeId)
   const storageFailed = useIntroPresetStore(state => state.storageFailed)
   const savePreset = useIntroPresetStore(state => state.savePreset)
+  const withScene = useIntroPresetStore(state => state.withScene)
+  const setWithScene = useIntroPresetStore(state => state.setWithScene)
   const [name, setName] = useState('')
 
   const list = [...BUILT_IN_INTRO_PRESETS, ...presets]
   const active = list.find(preset => preset.id === activeId) ?? DEFAULT_INTRO_PRESET
   // Re-renders only when the answer changes, not on every step of a slider
-  const modified = useIntroDebugStore(state => !sameIntroSetup(state.params, state.title, active))
+  const modified = useIntroDebugStore(state => !sameIntroSetup(state.params, state.title, state.hidden, active))
 
   const cleanName = normalizePresetName(name)
   const reserved = isReservedIntroPresetName(cleanName)
@@ -126,6 +129,17 @@ function IntroPresetBar () {
           <PresetChip key={preset.id} preset={preset} active={preset.id === active.id} modified={modified} />
         ))}
       </ul>
+
+      <ToggleButton
+        active={withScene}
+        aria-pressed={withScene}
+        onClick={() => setWithScene(!withScene)}
+        title="With the scene: a preset is saved together with the settings panel (particles, colours, black hole), and choosing a preset that has them replaces yours. Off: presets touch only the intro."
+        className="h-7 gap-1 px-2 text-xs"
+      >
+        <Layers className="h-3.5 w-3.5" />
+        SCENE
+      </ToggleButton>
 
       <form onSubmit={handleSubmit} className="flex gap-1">
         <input

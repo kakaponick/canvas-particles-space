@@ -80,12 +80,35 @@ export const DEFAULT_INTRO_PARAMS = {
   titleSwirl: 1,
   titleRedshift: 0.7,
   titleGrain: 1,
+  // How the title arrives and leaves; each is the index of an option in its spec
+  titleEntrance: 0,
+  titleInAt: 0.6,
+  titleInDuration: 1,
+  titleExit: 0,
   // Black hole motion and the end of the intro
   releaseAt: 4.6,
   introEnd: 5,
   centerHoldFrequency: 12,
-  originAtHole: 1
+  originAtHole: 1,
+  // Colours, as 0xRRGGBB
+  colorFlash: 0xfff7eb,
+  colorLight: 0xdbebff,
+  colorDust: 0xffd6a8,
+  colorTitle: 0xffe6c7,
+  colorEmber: 0xff5c1f,
+  // Camera and film; all of it is gone by the end of the intro
+  cameraZoom: 1,
+  cameraSettle: 3,
+  shakeAmount: 0,
+  shakeDecay: 0.5,
+  lensFringe: 0,
+  vignette: 0,
+  filmGrain: 0,
+  letterbox: 0
 }
+
+export const TITLE_ENTRANCES = ['Lit by the light front', 'Fades in', 'Gathers from dust', 'Comes out of the black hole'] as const
+export const TITLE_EXITS = ['Falls into the black hole', 'Flies past the camera', 'Burns away', 'Fades out'] as const
 
 export type IntroParams = typeof DEFAULT_INTRO_PARAMS
 export type IntroParamKey = keyof IntroParams
@@ -100,10 +123,23 @@ export interface IntroParamSpec {
   step: number
   unit: ParamUnit
   description: string
+  // A colour is stored as 0xRRGGBB and edited with a colour picker
+  color?: boolean
+  // A choice is stored as the index of one of these and edited with a list
+  options?: readonly string[]
 }
 
 const p = (key: IntroParamKey, label: string, min: number, max: number, step: number, unit: ParamUnit, description: string): IntroParamSpec =>
   ({ key, label, min, max, step, unit, description })
+
+const color = (key: IntroParamKey, label: string, description: string): IntroParamSpec =>
+  ({ key, label, min: 0, max: 0xffffff, step: 1, unit: '', description, color: true })
+
+const choice = (key: IntroParamKey, label: string, options: readonly string[], description: string): IntroParamSpec =>
+  ({ key, label, min: 0, max: options.length - 1, step: 1, unit: '', description, options })
+
+export const colorToCss = (value: number) => `#${Math.round(value).toString(16).padStart(6, '0')}`
+export const cssToColor = (css: string) => Number.parseInt(css.slice(1), 16) || 0
 
 // Range, unit and meaning of every tunable number, keyed by parameter
 export const INTRO_PARAM_SPECS = Object.fromEntries([
@@ -176,10 +212,29 @@ export const INTRO_PARAM_SPECS = Object.fromEntries([
   p('releaseAt', 'Release To Cursor', 0, 12, 0.05, 's', 'When the black hole leaves the center and starts following the cursor.'),
   p('introEnd', 'Intro Ends', 0.5, 12, 0.05, 's', 'When the hints appear; the loop restarts a second later.'),
   p('centerHoldFrequency', 'Hold Stiffness', 1, 40, 0.5, 'rad/s', 'How firmly the black hole is held where the intro happens until it is released.'),
-  p('originAtHole', 'Start At Black Hole', 0, 1, 0.05, '', 'Where the intro happens. 1 = at the black hole position saved in Settings (Position X and Y): the star, the explosion, its light and matter fronts, the waves and the newborn hole are all centred there. 0 = at the centre of the screen. Values between place it part of the way.')
+  p('originAtHole', 'Start At Black Hole', 0, 1, 0.05, '', 'Where the intro happens. 1 = at the black hole position saved in Settings (Position X and Y): the star, the explosion, its light and matter fronts, the waves and the newborn hole are all centred there. 0 = at the centre of the screen. Values between place it part of the way.'),
+  choice('titleEntrance', 'Arrives', TITLE_ENTRANCES, 'How the title appears. Lit by the light front: it is there in the dark and the explosion lights it. The other three start at Arrives At and take Arrival Duration: a plain fade, dust gathering into letters, or the letters coming out of the black hole whole (set Arrives At after the horizon forms).'),
+  p('titleInAt', 'Arrives At', 0, 10, 0.05, 's', 'When the title starts to appear. Not used when the light front lights it.'),
+  p('titleInDuration', 'Arrival Duration', 0.05, 5, 0.05, 's', 'Time for the title to appear completely. Not used when the light front lights it.'),
+  choice('titleExit', 'Leaves', TITLE_EXITS, 'How the title goes, from Dissolve Starts over Dissolve Duration. Falls into the black hole: the dust settings below shape it. Flies past the camera: it grows until it is gone. Burns away: fire eats it from its ends inwards. Fades out: it dims where it stands.'),
+  color('colorFlash', 'Star And Glare Colour', 'Colour of the star and of the explosion as the camera sees it; the core starts at this colour too.'),
+  color('colorLight', 'Light Colour', 'Colour of the light front and of the flash it leaves on the title.'),
+  color('colorDust', 'Dust Colour', 'Colour of the dust that keeps glowing after the light front has passed.'),
+  color('colorTitle', 'Title Colour', 'Colour of the lit letters once the flash has cooled.'),
+  color('colorEmber', 'Ember Colour', 'Colour the core cools to as it collapses, and the colour of title dust falling into the hole or burning.'),
+  p('cameraZoom', 'Zoom At Start', 0.5, 2.5, 0.01, '×', 'How far the camera is zoomed in on the place of the explosion when the page opens. Above 1 it starts close and pulls back; below 1 it starts wide and pushes in. It always ends at 1.'),
+  p('cameraSettle', 'Zoom Settles', 0.1, 12, 0.05, 's', 'When the zoom reaches 1.'),
+  p('shakeAmount', 'Shake', 0, 60, 0.5, 'px', 'How far the explosion jolts the camera.'),
+  p('shakeDecay', 'Shake Decay', 0.05, 3, 0.05, 's', 'Time for the shake to die down to about a third.'),
+  p('lensFringe', 'Lens Fringe', 0, 20, 0.1, 'px', 'Red and blue edges on the particles towards the corners of the frame, as a cheap lens gives. 0 removes them.'),
+  p('vignette', 'Vignette', 0, 1, 0.01, '', 'How much the corners of the frame darken.'),
+  p('filmGrain', 'Film Grain', 0, 0.5, 0.005, '', 'Strength of the flickering grain over the whole frame.'),
+  p('letterbox', 'Letterbox', 0, 0.3, 0.005, 'share', 'Height of the black bar at the top and at the bottom, as a share of the screen height. The bars open when the intro ends.')
 ].map(spec => [spec.key, spec])) as Record<IntroParamKey, IntroParamSpec>
 
 export function formatParam (value: number, spec: IntroParamSpec) {
+  if (spec.color) return colorToCss(value)
+  if (spec.options) return spec.options[Math.round(value)] ?? spec.options[0]
   const decimals = Math.max(0, Math.min(3, Math.ceil(-Math.log10(spec.step))))
   const number = value.toFixed(decimals)
   switch (spec.unit) {

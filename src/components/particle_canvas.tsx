@@ -20,7 +20,7 @@ import {
 } from '../lib/particle_renderer'
 import { createIntroFrame, getIntroDuration, sampleIntro } from '../lib/intro_timeline'
 import { getIntroPhase } from '../lib/intro_tracks'
-import { useIntroDebugStore, NOTHING_HIDDEN } from '../store/intro_debug_store'
+import { useIntroDebugStore } from '../store/intro_debug_store'
 import { stepSpring, type Spring2D } from '../lib/black_hole_motion'
 import { createSpeedDial, turnSpeedDial, wheelPixels, SWIPE_GAIN } from '../lib/base_speed'
 import { createFramePacer, pacedFrameMs } from '../lib/frame_pacing'
@@ -176,7 +176,7 @@ function ParticleCanvas () {
       ringFed: true,
       title: {
         alpha: 0, x: 0, y: 0, reveal: 1, dissolve: 0, drift: 0, glow: 0, flash: 0, cooling: 1, dust: 0,
-        pull: 0, swirl: 0, reach: 0, capture: 0, scale: 1, fringe: 0, halo: 0, redshift: 0, grain: 1
+        pull: 0, swirl: 0, reach: 0, capture: 0, scale: 1, fringe: 0, halo: 0, redshift: 0, grain: 1, burn: 0
       },
       composite: {
         time: 0,
@@ -228,7 +228,19 @@ function ParticleCanvas () {
         starFlare: 0,
         dustScale: 220,
         dustThreshold: 0.5,
-        lightDustContrast: 1
+        lightDustContrast: 1,
+        colorFlash: 0xffffff,
+        colorLight: 0xffffff,
+        colorDust: 0xffffff,
+        colorTitle: 0xffffff,
+        colorEmber: 0xffffff,
+        cameraZoom: 1,
+        shakeX: 0,
+        shakeY: 0,
+        lensFringe: 0,
+        vignette: 0,
+        filmGrain: 0,
+        letterbox: 0
       }
     }
 
@@ -388,7 +400,7 @@ function ParticleCanvas () {
       lastFrameTime = now
       reportFps(now)
 
-      // Intro debugger: playback rate, seeking, single steps and hidden layers apply while it is open
+      // Intro debugger: playback rate, seeking and single steps apply while it is open
       const debug = useIntroDebugStore.getState()
       const debugging = debug.open
       const params = debug.params
@@ -407,7 +419,8 @@ function ParticleCanvas () {
       const motionMs = pacedFrameMs(framePacer, elapsedMs)
       const frameScale = stepping ? 1 : toFrameScale(motionMs) * playbackRate
       const dt = frameScale / REFERENCE_FPS
-      const hidden = debugging ? debug.hidden : NOTHING_HIDDEN
+      // Hidden layers are part of the intro's look, so they stay hidden with the debugger closed
+      const hidden = debug.hidden
 
       animationTime += dt
       introTime += dt
@@ -545,11 +558,12 @@ function ParticleCanvas () {
         TITLE_SWIRL_RADIANS * params.titleSwirl
       title.reach = settings.gravityReach
       title.capture = captureRadius
-      title.scale = 1 + params.titlePush * intro.titleAge
+      title.scale = (1 + params.titlePush * intro.titleAge) * intro.titleFly
       title.fringe = params.titleFringe
       title.halo = params.titleHalo
       title.redshift = params.titleRedshift
-      title.grain = params.titleGrain
+      title.grain = intro.titleGrain
+      title.burn = intro.titleBurn
 
       const composite = frame.composite
       composite.time = animationTime
@@ -602,6 +616,22 @@ function ParticleCanvas () {
       composite.starCell = state.starCell
       composite.starDensity = state.starDensity
       composite.starFlare = params.starFlare
+      composite.colorFlash = params.colorFlash
+      composite.colorLight = params.colorLight
+      composite.colorDust = params.colorDust
+      composite.colorTitle = params.colorTitle
+      composite.colorEmber = params.colorEmber
+      // The camera and the film belong to the intro: its layer switch removes them, and they are gone
+      // by the time the intro ends
+      const film = hidden.camera ? 0 : intro.film
+      const shake = hidden.camera ? 0 : intro.shake
+      composite.cameraZoom = hidden.camera ? 1 : intro.cameraZoom
+      composite.shakeX = shake * (Math.sin(animationTime * 83.1) + 0.6 * Math.sin(animationTime * 47.3)) / 1.6
+      composite.shakeY = shake * (Math.sin(animationTime * 71.7 + 1.3) + 0.6 * Math.sin(animationTime * 39.9 + 0.4)) / 1.6
+      composite.lensFringe = params.lensFringe * film
+      composite.vignette = params.vignette * film
+      composite.filmGrain = params.filmGrain * film
+      composite.letterbox = params.letterbox * viewportHeight * film
 
       renderer.render(frame)
 

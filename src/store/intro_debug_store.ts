@@ -73,8 +73,8 @@ interface IntroDebugState {
   resetParams: (keys?: IntroParamKey[]) => void
   setTitle: (patch: Partial<TitleText>) => void
   resetTitle: () => void
-  // Replaces every parameter and the title at once, as a preset does
-  applySetup: (params: IntroParams, title: TitleText) => void
+  // Replaces every parameter, the title and the hidden layers at once, as a preset does
+  applySetup: (params: IntroParams, title: TitleText, hiddenLayers: readonly IntroLayer[]) => void
   seek: (time: number) => void
   clearSeek: () => void
   restart: () => void
@@ -151,9 +151,7 @@ function saveParams (params: IntroParams) {
 
 const allShown = Object.fromEntries(INTRO_LAYERS.map(layer => [layer, false])) as Record<IntroLayer, boolean>
 
-export const NOTHING_HIDDEN: Readonly<Record<IntroLayer, boolean>> = allShown
-
-// How the debugger was left: open or closed, looping, its speed and the hidden layers
+// How the debugger was left: open or closed, looping and its speed, and the layers the intro hides
 const SESSION_STORAGE_KEY = 'intro-debug-session-v1'
 const MIN_TIME_SCALE = 0.05
 const MAX_TIME_SCALE = 2
@@ -266,11 +264,13 @@ export const useIntroDebugStore = createWithEqualityFn<IntroDebugState>((set, ge
     saveTitle(DEFAULT_TITLE_TEXT)
     return { title: { ...DEFAULT_TITLE_TEXT } }
   }),
-  applySetup: (params, title) => {
-    const next = { params: { ...params }, title: { ...title } }
+  applySetup: (params, title, hiddenLayers) => {
+    const hidden = Object.fromEntries(INTRO_LAYERS.map(layer => [layer, hiddenLayers.includes(layer)])) as Record<IntroLayer, boolean>
+    const next = { params: { ...params }, title: { ...title }, hidden }
     saveParams(next.params)
     saveTitle(next.title)
     set(next)
+    saveSession(get())
   },
   seek: (time) => set((state) => {
     const clamped = Math.min(Math.max(time, 0), state.readout.duration || Infinity)

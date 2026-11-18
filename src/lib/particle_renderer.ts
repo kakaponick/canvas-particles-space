@@ -89,6 +89,21 @@ export interface CompositeSettings {
   dustScale: number
   dustThreshold: number
   lightDustContrast: number
+  // Colours of the intro, 0xRRGGBB
+  colorFlash: number
+  colorLight: number
+  colorDust: number
+  colorTitle: number
+  colorEmber: number
+  // Camera and film
+  cameraZoom: number
+  shakeX: number
+  shakeY: number
+  lensFringe: number
+  vignette: number
+  filmGrain: number
+  // Height of each black bar
+  letterbox: number
 }
 
 export interface TitleSettings {
@@ -119,6 +134,8 @@ export interface TitleSettings {
   halo: number
   redshift: number
   grain: number
+  // 0..1 progress of the title burning away
+  burn: number
 }
 
 export interface FrameInput {
@@ -203,6 +220,13 @@ function setUniform2f (gl: WebGLRenderingContext, uniform: CachedUniform, x: num
   gl.uniform2f(uniform.location, x, y)
 }
 
+// A colour arrives as 0xRRGGBB
+function setUniformColor (gl: WebGLRenderingContext, uniform: CachedUniform, color: number) {
+  if (uniform.x === color) return
+  uniform.x = color
+  gl.uniform3f(uniform.location, (color >> 16 & 255) / 255, (color >> 8 & 255) / 255, (color & 255) / 255)
+}
+
 function setUniform4f (gl: WebGLRenderingContext, uniform: CachedUniform, x: number, y: number, z: number, w: number) {
   if (uniform.x === x && uniform.y === y && uniform.z === z && uniform.w === w) return
   uniform.x = x
@@ -268,7 +292,9 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     'starCell', 'starDensity', 'starFlare', 'dustScale', 'dustThreshold', 'lightDustContrast',
     'titleCenter', 'titleHalfSize', 'titleAlpha', 'titleReveal', 'titleDissolve', 'titleDrift', 'titleGlow',
     'titleFlash', 'titleCooling', 'titleDust', 'titlePull', 'titleSwirl', 'titleReach', 'titleCapture', 'titleScale',
-    'titleFringe', 'titleHalo', 'titleRedshift', 'titleGrain'
+    'titleFringe', 'titleHalo', 'titleRedshift', 'titleGrain', 'titleBurn',
+    'colorFlash', 'colorLight', 'colorDust', 'colorTitle', 'colorEmber',
+    'cameraZoom', 'shake', 'lensFringe', 'vignette', 'filmGrain', 'letterbox'
   ] as const)
 
   gl.useProgram(compositeProgram)
@@ -416,7 +442,19 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
       setUniform1f(gl, u.titleHalo, title.halo)
       setUniform1f(gl, u.titleRedshift, title.redshift)
       setUniform1f(gl, u.titleGrain, title.grain)
+      setUniform1f(gl, u.titleBurn, title.burn)
     }
+    setUniformColor(gl, u.colorFlash, settings.colorFlash)
+    setUniformColor(gl, u.colorLight, settings.colorLight)
+    setUniformColor(gl, u.colorDust, settings.colorDust)
+    setUniformColor(gl, u.colorTitle, settings.colorTitle)
+    setUniformColor(gl, u.colorEmber, settings.colorEmber)
+    setUniform1f(gl, u.cameraZoom, Math.max(settings.cameraZoom, 0.05))
+    setUniform2f(gl, u.shake, settings.shakeX * ratio, settings.shakeY * ratio)
+    setUniform1f(gl, u.lensFringe, settings.lensFringe * ratio)
+    setUniform1f(gl, u.vignette, settings.vignette)
+    setUniform1f(gl, u.filmGrain, settings.filmGrain)
+    setUniform1f(gl, u.letterbox, settings.letterbox * ratio)
     setUniform1f(gl, u.time, settings.time)
     setUniform2f(gl, u.hole, settings.holeX * ratio, settings.holeY * ratio)
     setUniform1f(gl, u.horizon, settings.horizon * ratio)

@@ -1,9 +1,16 @@
-// Named setups of the intro: every tuned number of the opening together with the title's words, font
-// and case. They are kept in this browser, next to the setup that is being edited.
+// Named setups of the intro: every tuned number of the opening, the layers it hides and the title's
+// words, font and case; on request the scene settings too. They are kept in this browser, next to
+// the setup that is being edited.
 import { createWithEqualityFn } from 'zustand/traditional'
 import { DEFAULT_INTRO_PARAMS, type IntroParamKey, type IntroParams } from '../lib/intro_params'
 import { INTRO_LOOKS } from '../lib/intro_presets'
-import { normalizePresetName } from '../lib/simulation_presets'
+import { INTRO_LAYERS, type IntroLayer } from '../lib/intro_tracks'
+import {
+  normalizePresetName,
+  pickSimulationSettings,
+  readSimulationSettings,
+  type SimulationSettings
+} from '../lib/simulation_presets'
 import {
   DEFAULT_TITLE_TEXT,
   readIntroParams,
@@ -11,9 +18,12 @@ import {
   useIntroDebugStore,
   type TitleText
 } from './intro_debug_store'
+import { useParticleStore } from './particle_store'
+import { DEFAULT_PRESET } from './preset_store'
 
 const STORAGE_KEY = 'intro-presets-v1'
 const ACTIVE_STORAGE_KEY = 'intro-preset-active-v1'
+const SCENE_STORAGE_KEY = 'intro-preset-scene-v1'
 
 export const DEFAULT_INTRO_PRESET_ID = 'default'
 export const DEFAULT_INTRO_PRESET_NAME = 'Default'
@@ -23,6 +33,10 @@ export interface IntroPreset {
   name: string
   params: IntroParams
   title: TitleText
+  // Layers of the intro this setup leaves out
+  hidden: IntroLayer[]
+  // The scene settings (particles, colours, black hole) saved with it, when it was saved with them
+  scene?: SimulationSettings
   // Ships with the page: it cannot be changed or deleted
   builtIn?: boolean
   // Sets the title's face and case and leaves its words as they are
@@ -35,6 +49,7 @@ export const DEFAULT_INTRO_PRESET: Readonly<IntroPreset> = {
   name: DEFAULT_INTRO_PRESET_NAME,
   params: DEFAULT_INTRO_PARAMS,
   title: DEFAULT_TITLE_TEXT,
+  hidden: [],
   builtIn: true,
   description: 'The intro as it ships, with its own title.'
 }
@@ -47,6 +62,7 @@ export const BUILT_IN_INTRO_PRESETS: readonly IntroPreset[] = [
     name: look.name,
     params: look.params,
     title: { text: DEFAULT_TITLE_TEXT.text, font: look.font, uppercase: look.uppercase },
+    hidden: [...look.hidden],
     builtIn: true,
     keepsText: true,
     description: look.description
@@ -57,6 +73,8 @@ const builtInNames = new Set(BUILT_IN_INTRO_PRESETS.map(preset => preset.name.to
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
+
+const isLayer = (value: unknown): value is IntroLayer => (INTRO_LAYERS as readonly unknown[]).includes(value)
 
 // A corrupt entry is skipped and the rest survive; a preset saved before a parameter existed gets
 // that parameter's default
@@ -78,12 +96,15 @@ function loadPresets (): IntroPreset[] {
     if (!name || seen.has(nameKey) || seen.has(entry.id) || builtInNames.has(nameKey)) continue
     seen.add(nameKey)
     seen.add(entry.id)
-    presets.push({
+    const preset: IntroPreset = {
       id: entry.id,
       name,
       params: readIntroParams(isRecord(entry.params) ? entry.params : {}),
-      title: readTitleText(isRecord(entry.title) ? entry.title : {})
-    })
+      title: readTitleText(isRecord(entry.title) ? entry.title : {}),
+      hidden: Array.isArray(entry.hidden) ? (entry.hidden as unknown[]).filter(isLayer) : []
+    }
+    if (isRecord(entry.scene)) preset.scene = readSimulationSettings(entry.scene, DEFAULT_PRESET.settings)
+    presets.push(preset)
   }
   return presets
 }
@@ -95,6 +116,14 @@ function loadActiveId (presets: IntroPreset[]) {
     return known ? stored as string : DEFAULT_INTRO_PRESET_ID
   } catch {
     return DEFAULT_INTRO_PRESET_ID
+  }
+}
+
+function loadWithScene () {
+  try {
+    return window.localStorage.getItem(SCENE_STORAGE_KEY) === '1'
+  } catch {
+    return false
   }
 }
 
@@ -122,17 +151,22 @@ export function findIntroPresetByName (presets: IntroPreset[], name: string) {
   return presets.find(preset => preset.name.toLowerCase() === key)
 }
 
-export function sameIntroSetup (params: IntroParams, title: TitleText, preset: IntroPreset) {
+// The scene is left out: it is applied once and then belongs to the settings panel
+export function sameIntroSetup (params: IntroParams, title: TitleText, hidden: Record<IntroLayer, boolean>, preset: IntroPreset) {
   return (Object.keys(DEFAULT_INTRO_PARAMS) as IntroParamKey[]).every(key => params[key] === preset.params[key]) &&
-    (preset.keepsText || title.text === preset.title.text) && title.font === preset.title.font && title.uppercase === preset.title.uppercase
+    (preset.keepsText || title.text === preset.title.text) && title.font === preset.title.font && title.uppercase === preset.title.uppercase &&
+    INTRO_LAYERS.every(layer => hidden[layer] === preset.hidden.includes(layer))
 }
 
 interface IntroPresetState {
   presets: IntroPreset[]
   // The preset the current setup started from
   activeId: string
+  // Presets save the scene settings with the intro, and a preset that has them applies them
+  withScene: boolean
   // The last change could not be written to the browser's storage
   storageFailed: boolean
+  setWithScene: (withScene: boolean) => void
   // Saves the current setup under this name, replacing a preset that already has it
   savePreset: (name: string) => void
   // Replaces a preset's setup with the current one
@@ -147,15 +181,33 @@ export const useIntroPresetStore = createWithEqualityFn<IntroPresetState>((set, 
   const commit = (presets: IntroPreset[], activeId: string) => {
     set({ presets, activeId, storageFailed: !storePresets(presets, activeId) })
   }
-  const currentSetup = () => {
-    const { params, title } = useIntroDebugStore.getState()
-    return { params: { ...params }, title: { ...title } }
+  // With the scene switched off a preset keeps the scene it already has
+  const currentSetup = (previous?: IntroPreset) => {
+    const { params, title, hidden } = useIntroDebugStore.getState()
+    const scene = get().withScene ? pickSimulationSettings(useParticleStore.getState()) : previous?.scene
+    return {
+      params: { ...params },
+      title: { ...title },
+      hidden: INTRO_LAYERS.filter(layer => hidden[layer]),
+      ...(scene ? { scene } : {})
+    }
   }
 
   return {
     presets: initialPresets,
     activeId: typeof window === 'undefined' ? DEFAULT_INTRO_PRESET_ID : loadActiveId(initialPresets),
+    withScene: typeof window === 'undefined' ? false : loadWithScene(),
     storageFailed: false,
+
+    setWithScene: (withScene) => {
+      set({ withScene })
+      try {
+        if (withScene) window.localStorage.setItem(SCENE_STORAGE_KEY, '1')
+        else window.localStorage.removeItem(SCENE_STORAGE_KEY)
+      } catch {
+        // Storage blocked: the choice holds for this session
+      }
+    },
 
     savePreset: (rawName) => {
       const name = normalizePresetName(rawName)
@@ -163,25 +215,26 @@ export const useIntroPresetStore = createWithEqualityFn<IntroPresetState>((set, 
       const { presets } = get()
       const existing = findIntroPresetByName(presets, name)
       if (existing) {
-        commit(presets.map(preset => preset.id === existing.id ? { ...preset, name, ...currentSetup() } : preset), existing.id)
+        commit(presets.map(preset => preset.id === existing.id ? { id: preset.id, name, ...currentSetup(preset) } : preset), existing.id)
         return
       }
-      const preset = { id: createPresetId(), name, ...currentSetup() }
+      const preset: IntroPreset = { id: createPresetId(), name, ...currentSetup() }
       commit([...presets, preset], preset.id)
     },
 
     updatePreset: (id) => {
       const { presets } = get()
       if (!presets.some(preset => preset.id === id)) return
-      commit(presets.map(preset => preset.id === id ? { ...preset, ...currentSetup() } : preset), id)
+      commit(presets.map(preset => preset.id === id ? { id: preset.id, name: preset.name, ...currentSetup(preset) } : preset), id)
     },
 
     applyPreset: (id) => {
-      const { presets } = get()
+      const { presets, withScene } = get()
       const preset = BUILT_IN_INTRO_PRESETS.find(entry => entry.id === id) ?? presets.find(entry => entry.id === id)
       if (!preset) return
       const debug = useIntroDebugStore.getState()
-      debug.applySetup(preset.params, preset.keepsText ? { ...preset.title, text: debug.title.text } : preset.title)
+      debug.applySetup(preset.params, preset.keepsText ? { ...preset.title, text: debug.title.text } : preset.title, preset.hidden)
+      if (withScene && preset.scene) useParticleStore.setState(pickSimulationSettings(preset.scene))
       // Choosing a preset shows it: the intro starts over and runs, even from a pause
       debug.restart()
       if (!debug.playing) debug.togglePlaying()
