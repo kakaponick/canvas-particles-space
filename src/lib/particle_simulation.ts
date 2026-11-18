@@ -17,6 +17,9 @@ const CLIP_MARGIN = 4
 
 // Particles spawn in a disc so the tunnel reads round on every aspect ratio
 const SPAWN_RADIUS = 1000
+// Random spawns tried for a captured particle before it is placed right outside the event horizon
+const RESPAWN_TRIES = 4
+const RESPAWN_RIM_SPREAD = 0.5
 
 // Per-instance layout shared with the renderer: x0, y0, x1, y1, width, opacity, packed rgba
 export const INSTANCE_FLOATS = 7
@@ -145,6 +148,30 @@ function spawnParticle (field: ParticleField, i: number, z: number, spawn: Spawn
   field.speedMultiplier[i] = 1 + spawn.speedVariance * (2 + r * r * r * r * r * 98)
 }
 
+// Brings a captured particle back outside the event horizon, so a horizon wider than the spawn disc
+// cannot swallow the whole field. The hole is given relative to the vanishing point
+function respawnBeyondHorizon (
+  field: ParticleField,
+  i: number,
+  spawn: SpawnSettings,
+  holeOffsetX: number,
+  holeOffsetY: number,
+  captureRadius: number,
+  spawnScale: number
+) {
+  const captureRadiusSq = captureRadius * captureRadius
+  for (let attempt = 0; attempt < RESPAWN_TRIES; attempt++) {
+    spawnParticle(field, i, spawn.farZ, spawn)
+    const dx = field.x[i] * spawnScale - holeOffsetX
+    const dy = field.y[i] * spawnScale - holeOffsetY
+    if (dx * dx + dy * dy >= captureRadiusSq) return
+  }
+  const angle = Math.random() * Math.PI * 2
+  const radius = captureRadius * (1 + Math.random() * RESPAWN_RIM_SPREAD)
+  field.x[i] = (holeOffsetX + Math.cos(angle) * radius) / spawnScale
+  field.y[i] = (holeOffsetY + Math.sin(angle) * radius) / spawnScale
+}
+
 function growFloats (source: Float32Array, capacity: number): Float32Array {
   const grown = new Float32Array(capacity)
   grown.set(source)
@@ -240,15 +267,18 @@ export function stepParticles (
   const step = settings.speed * frameScale
   const pulseRate = settings.pulseSpeedMultiplier
   const invFarZ = 1 / farZ
-  const hasHole = holeRadius > 0 && holeX === holeX && holeY === holeY && (gravityStrength > 0 || orbitalStrength > 0)
+  const hasHole = holeRadius > 0 && holeX === holeX && holeY === holeY
   const reachSq = settings.gravityReach * settings.gravityReach
   const holeRadiusSq = holeRadius * holeRadius
-  const captureRadiusSq = settings.captureRadius * settings.captureRadius
+  const captureRadius = settings.captureRadius
+  const captureRadiusSq = captureRadius * captureRadius
+  const spawnScale = focal / spawn.farZ
   const ringEnergy = settings.ringEnergy
   const skimRadius = holeRadius * RING_SKIM_REACH
   const skimRadiusSq = skimRadius * skimRadius
   const skimEnergy = RING_SKIM_ENERGY * frameScale
-  // Gravity acts within a depth band around the hole's plane; particles far behind only get lensed.
+  // Gravity acts within a depth band around the hole's plane; particles far behind only get lensed,
+  // though the event horizon takes them at any depth.
   // The band is a compact bell, (1 - u^2 / 4)^3, close to exp(-u^2) but zero beyond |u| = 2 and
   // free of Math.exp, so most particles leave the gravity path after one subtraction
   const holeDepthNear = holeDepth - farZ * 0.36
@@ -285,42 +315,48 @@ export function stepParticles (
     let endX = px * endScale + halfW
     let endY = py * endScale + halfH
 
-    if (hasHole && pz > holeDepthNear && pz < holeDepthFar) {
+    if (hasHole) {
       const dx = holeX - endX
       const dy = holeY - endY
       const distSq = dx * dx + dy * dy
 
       if (distSq < reachSq) {
-        const depthOffset = (pz - holeDepth) * invDepthBand
-        const bell = 1 - depthOffset * depthOffset * 0.25
-        const depthWeight = bell * bell * bell
-
-        if (distSq < captureRadiusSq && depthWeight > 0.5) {
+        if (distSq < captureRadiusSq) {
           if (ringEnergy) depositRingEnergy(ringEnergy, -dx, -dy, RING_CAPTURE_ENERGY)
-          spawnParticle(field, i, farZ, spawn)
+          respawnBeyondHorizon(field, i, spawn, holeX - halfW, holeY - halfH, captureRadius, spawnScale)
           continue
         }
-        if (ringEnergy && distSq < skimRadiusSq) depositRingEnergy(ringEnergy, -dx, -dy, skimEnergy * depthWeight)
 
-        // Pull and orbit are screen-space pixels per frame, converted back to world units at this depth.
-        // Pull falls off as (radius / distance)^2, so it needs the squared distance, not the distance
-        const clampedSq = distSq > 1 ? distSq : 1
-        const invDistance = 1 / Math.sqrt(clampedSq)
-        const pull = pullScale / clampedSq * depthWeight
-        const orbit = pull * orbitScale
-        const toWorld = pz * invFocal * invDistance
+        if (pz > holeDepthNear && pz < holeDepthFar) {
+          const depthOffset = (pz - holeDepth) * invDepthBand
+          const bell = 1 - depthOffset * depthOffset * 0.25
+          const depthWeight = bell * bell * bell
 
-        px += (dx * pull - dy * orbit) * toWorld
-        py += (dy * pull + dx * orbit) * toWorld
-        x[i] = px
-        y[i] = py
+          if (ringEnergy && distSq < skimRadiusSq) depositRingEnergy(ringEnergy, -dx, -dy, skimEnergy * depthWeight)
 
-        endX = px * endScale + halfW
-        endY = py * endScale + halfH
+          // Pull and orbit are screen-space pixels per frame, converted back to world units at this depth.
+          // Pull falls off as (radius / distance)^2, so it needs the squared distance, not the distance
+          const clampedSq = distSq > 1 ? distSq : 1
+          const invDistance = 1 / Math.sqrt(clampedSq)
+          const pull = pullScale / clampedSq * depthWeight
+          const orbit = pull * orbitScale
+          const toWorld = pz * invFocal * invDistance
+
+          px += (dx * pull - dy * orbit) * toWorld
+          py += (dy * pull + dx * orbit) * toWorld
+          x[i] = px
+          y[i] = py
+
+          endX = px * endScale + halfW
+          endY = py * endScale + halfH
+        }
       }
     }
 
     z[i] = pz
+
+    // A particle that did not move leaves no stroke, so a stopped field fades out with its trails
+    if (endX === startX && endY === startY) continue
 
     const distanceFactor = pz * invFarZ
     const depthFactor = 1 - distanceFactor * depthFade
