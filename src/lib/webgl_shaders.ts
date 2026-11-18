@@ -221,6 +221,7 @@ export const compositeFragmentShaderSource = `
   uniform float u_titleFringe;   // colour fringing at the title's edges, pixels
   uniform float u_titleHalo;     // strength of the glow around the letters
   uniform float u_titleRedshift; // how far falling dust reddens
+  uniform float u_titleGrain;    // 1 = every speck falls on its own, 0 = the letters fall as one image
 
   const float PI = 3.14159265359;
   const vec3 RING_COLOR = vec3(1.0, 0.86, 0.66);
@@ -387,7 +388,7 @@ export const compositeFragmentShaderSource = `
         vec2 fromHole = samplePx - u_hole;
         float holeDist = max(length(fromHole), 1.0);
         float beyondReach = u_titleReach > 0.0 ? smoothstep(u_titleReach, 2.0 * u_titleReach, holeDist) : 1.0;
-        float speed = hash12(grainCell + 41.0);
+        float speed = mix(0.5, hash12(grainCell + 41.0), u_titleGrain);
         float fall = u_titleDissolve * u_titleDissolve * (0.2 + 1.6 * speed) * mix(1.0, 0.15, beyondReach);
         float turn = u_titleSwirl * fall;
         float c = cos(turn);
@@ -395,7 +396,8 @@ export const compositeFragmentShaderSource = `
         float stretch = max(1.0 + u_titleDrift * u_titlePull * fall / holeDist, 0.0);
         titlePx = u_hole + vec2(c * fromHole.x - s * fromHole.y, s * fromHole.x + c * fromHole.y) * stretch;
         // Each speck winks out at its own moment, the ones nearest the hole first
-        float lifetime = mix(hash12(grainCell + 73.0), 0.35 + 0.65 * beyondReach, 0.3);
+        // Without grain the letters stay whole until the hole has them
+        float lifetime = mix(1.0, mix(hash12(grainCell + 73.0), 0.35 + 0.65 * beyondReach, 0.3), u_titleGrain);
         keep = smoothstep(u_titleDissolve - 0.15, u_titleDissolve, lifetime * 0.85);
         if (u_titleCapture > 0.0) keep *= smoothstep(u_titleCapture, u_titleCapture * 1.25 + 1.0, holeDist);
         infall = min(fall, 1.0);

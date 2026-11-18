@@ -79,6 +79,7 @@ export const DEFAULT_INTRO_PARAMS = {
   titleDrift: 160,
   titleSwirl: 1,
   titleRedshift: 0.7,
+  titleGrain: 1,
   // Black hole motion and the end of the intro
   releaseAt: 4.6,
   introEnd: 5,
@@ -168,7 +169,8 @@ export const INTRO_PARAM_SPECS = Object.fromEntries([
   p('titleFringe', 'Colour Fringe', 0, 12, 0.1, 'px', 'Red and blue edges on the letters, growing towards the ends of the title, as a lens would give. 0 removes them.'),
   p('dissolveAt', 'Dissolve Starts', 0, 10, 0.05, 's', 'When the letters start to crumble into dust.'),
   p('dissolveDuration', 'Dissolve Duration', 0.1, 5, 0.05, 's', 'Time for the letters to crumble away completely.'),
-  p('titleDrift', 'Dust Drift', 0, 600, 5, 'px', 'How far the crumbling dust is pulled towards the black hole at the default Gravity. The Gravity setting scales it and pushes the dust away when negative; dust beyond Gravity Reach crumbles last and barely moves; dust that crosses the Event Horizon is gone.'),
+  p('titleGrain', 'Dissolve Grain', 0, 1, 0.01, '', '1 breaks the letters into specks that each fall at their own speed and wink out at their own moment. 0 keeps the letters whole: they are drawn into the black hole as one smooth image.'),
+  p('titleDrift', 'Dust Drift', 0, 3000, 5, 'px', 'How far the crumbling dust is pulled towards the black hole at the default Gravity. The Gravity setting scales it and pushes the dust away when negative; dust beyond Gravity Reach crumbles last and barely moves; dust that crosses the Event Horizon is gone.'),
   p('titleSwirl', 'Dust Swirl', 0, 4, 0.05, '×', 'How strongly the Orbital Force setting turns the falling dust around the black hole. 0 lets it fall straight.'),
   p('titleRedshift', 'Dust Redshift', 0, 1, 0.01, '', 'How far the dust reddens and dims as it falls, as the collapsing core did. 0 keeps its colour.'),
   p('releaseAt', 'Release To Cursor', 0, 12, 0.05, 's', 'When the black hole leaves the center and starts following the cursor.'),

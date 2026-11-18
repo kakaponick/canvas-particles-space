@@ -239,6 +239,17 @@ export const INTRO_LOOKS: readonly IntroLook[] = [
     introEnd: 6.2
   }),
 
+  look('swallowed', 'Swallowed', 'The title stays whole and solid, then the black hole takes it: the letters are drawn in as one smooth image, fast, with no dust and no grain.', {
+    titleDust: 0,
+    titleFringe: 0,
+    titleHalo: 0.3,
+    titleGrain: 0,
+    dissolveDuration: 0.7,
+    titleDrift: 2200,
+    titleSwirl: 0.6,
+    titleRedshift: 0.5
+  }),
+
   look('requiem', 'Requiem', 'An ending rather than an opening: a quiet blast, light that lingers and reddens for seconds, a horizon that closes slowly over nine.', {
     glarePeak: 3.5,
     glareDecay: 0.6,

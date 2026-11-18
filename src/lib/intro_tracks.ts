@@ -172,7 +172,7 @@ export const INTRO_TRACKS: IntroTrack[] = [
     params: [
       'titleOffset', 'titleSize', 'titleWeight', 'titleTracking', 'titleGlow', 'titleFlash', 'titleCooling',
       'titleDust', 'titlePush', 'titleHalo', 'titleHaloRadius', 'titleStreak', 'titleFringe',
-      'dissolveAt', 'dissolveDuration', 'titleDrift', 'titleSwirl', 'titleRedshift'
+      'dissolveAt', 'dissolveDuration', 'titleGrain', 'titleDrift', 'titleSwirl', 'titleRedshift'
     ],
     readout: { key: 'titleAlpha', digits: 2 },
     spans: (p, reduced) => [reduced ? { start: 0.6, end: 2.5 } : { start: p.collapseAt, end: p.dissolveAt + p.dissolveDuration }],

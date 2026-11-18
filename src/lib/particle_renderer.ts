@@ -118,6 +118,7 @@ export interface TitleSettings {
   fringe: number
   halo: number
   redshift: number
+  grain: number
 }
 
 export interface FrameInput {
@@ -267,7 +268,7 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     'starCell', 'starDensity', 'starFlare', 'dustScale', 'dustThreshold', 'lightDustContrast',
     'titleCenter', 'titleHalfSize', 'titleAlpha', 'titleReveal', 'titleDissolve', 'titleDrift', 'titleGlow',
     'titleFlash', 'titleCooling', 'titleDust', 'titlePull', 'titleSwirl', 'titleReach', 'titleCapture', 'titleScale',
-    'titleFringe', 'titleHalo', 'titleRedshift'
+    'titleFringe', 'titleHalo', 'titleRedshift', 'titleGrain'
   ] as const)
 
   gl.useProgram(compositeProgram)
@@ -414,6 +415,7 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
       setUniform1f(gl, u.titleFringe, title.fringe * ratio)
       setUniform1f(gl, u.titleHalo, title.halo)
       setUniform1f(gl, u.titleRedshift, title.redshift)
+      setUniform1f(gl, u.titleGrain, title.grain)
     }
     setUniform1f(gl, u.time, settings.time)
     setUniform2f(gl, u.hole, settings.holeX * ratio, settings.holeY * ratio)
