@@ -7,17 +7,16 @@ export const REFERENCE_FPS = 60
 // Longest step one frame may advance, so a stall does not teleport the field
 const MAX_FRAME_SCALE = 6
 // Energy a captured particle leaves in the photon ring
-const RING_CAPTURE_ENERGY = 0.9
+const RING_CAPTURE_ENERGY = 2
 // Particles closer than this many black hole radii warm the ring as they pass, per 60 Hz frame
 const RING_SKIM_REACH = 1.5
 const RING_SKIM_ENERGY = 0.0005
 
-// Segments are clipped to the viewport plus this margin, wide enough to hide their ends
+// Segments are clipped to the viewport plus this margin, wide enough to hide the widest cap
 const CLIP_MARGIN = 4
 
-// Particles spawn in a disc so the tunnel reads round on every aspect ratio. The radius sets how many
-// bright strokes pass close to the camera, and this value matches the brightness of the original canvas
-const SPAWN_RADIUS = 700
+// Particles spawn in a disc so the tunnel reads round on every aspect ratio
+const SPAWN_RADIUS = 1000
 // Below this flight speed gravity eases out, so a stopped field goes completely dark
 const GRAVITY_FULL_SPEED = 0.5
 // Random spawns tried for a captured particle before it is placed right outside the event horizon
@@ -359,7 +358,8 @@ export function stepParticles (
 
     z[i] = pz
 
-    // A particle that did not move draws nothing, which also saves its stroke
+    // A particle that did not move leaves no stroke, as the original canvas dropped zero-length lines.
+    // Any other stroke lights a full round dot, so this is what lets a stopped field fade out
     if (endX === startX && endY === startY) continue
 
     const distanceFactor = pz * invFarZ

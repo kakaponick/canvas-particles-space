@@ -151,6 +151,7 @@ function ParticleCanvas () {
       instances: instances.floats,
       instanceCount: 0,
       doppler: 0,
+      frameScale: 1,
       ringTexels: ringEnergy.texels,
       title: { alpha: 0, x: 0, y: 0, reveal: 1, dissolve: 0, drift: 0, glow: 0, flash: 0, cooling: 1, dust: 0 },
       composite: {
@@ -436,6 +437,7 @@ function ParticleCanvas () {
       // A frozen frame keeps the scene texture; only the composite (lens, flash, title) is redrawn
       frame.updateScene = frameScale > 0
       if (frame.updateScene) {
+        frame.frameScale = frameScale
         const simStart = performance.now()
         frame.instanceCount = stepParticles(field, settings, spawn, instances)
         if (ringFed) stepRingEnergy(ringEnergy, dt, state.ringAfterglow, reducedMotion ? 0 : state.ringFlowSpeed)
