@@ -202,6 +202,7 @@ export const compositeFragmentShaderSource = `
   uniform float u_dustScale;       // CSS pixels
   uniform float u_dustThreshold;
   uniform float u_lightDustContrast;
+  uniform float u_dustSweep;       // how completely the matter front clears the dust it passes
 
   uniform vec2 u_titleCenter;
   uniform vec2 u_titleHalfSize;
@@ -266,19 +267,25 @@ export const compositeFragmentShaderSource = `
     );
   }
 
-  // Thin filaments: the ridge where rotated octaves of noise cross their midpoint
+  // Soft clouds with curled edges. The noise is read through a second, slower noise that bends its
+  // coordinates, which hides the grid it is built on and pulls the clouds into wisps; a fine layer
+  // on top gives them grain
   float dust (vec2 cssPx) {
     vec2 p = cssPx / u_dustScale;
+    p += 0.9 * (vec2(valueNoise(p * 0.8 + 3.1), valueNoise(p * 0.8 + 17.4)) - 0.5);
     mat2 turn = mat2(0.8, 0.6, -0.6, 0.8);
     float n = 0.0;
     float amplitude = 0.5;
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 3; i++) {
       n += amplitude * valueNoise(p);
       p = turn * p * 2.1 + 11.7;
       amplitude *= 0.5;
     }
-    float ridge = smoothstep(u_dustThreshold, 1.0, 1.0 - abs(2.0 * n - 0.94));
-    return ridge * ridge;
+    // n spans 0..0.875 around 0.44. The threshold slides the level the clouds start at, from haze
+    // everywhere to a few thin wisps
+    float edge = mix(0.2, 0.62, u_dustThreshold);
+    float cloud = smoothstep(edge, edge + 0.22, n);
+    return cloud * (0.45 + 0.55 * cloud) * (0.7 + 0.3 * valueNoise(p * 1.7));
   }
 
   // Static distant stars, one at most per cell; they flare as the light front passes
@@ -370,6 +377,9 @@ export const compositeFragmentShaderSource = `
     // Where the bent ray comes from, measured from the explosion
     vec2 sourceOffset = samplePx - u_center;
     float sourceDist = length(sourceOffset);
+
+    // The dust is read before the matter front bends the view, so the front does not smear it
+    vec2 dustPx = samplePx / u_pixelRatio;
 
     // The matter front refracts what lies under it
     if (u_waveStrength > 0.0) {
@@ -465,9 +475,13 @@ export const compositeFragmentShaderSource = `
     float front = u_lightPower > 0.0 ? exp(-shell * shell) : 0.0;
     float echoGlow = u_echoPower > 0.0 ? echo : 0.0;
     if (front > 0.001 || echoGlow > 0.001) {
-      float density = dust(cssPx);
+      // Light lights the dust and the ejected matter, which follows more slowly, sweeps it away
+      float swept = mix(1.0, smoothstep(u_waveRadius - u_waveWidth, u_waveRadius + u_waveWidth, sourceDist), u_dustSweep);
+      float density = dust(dustPx) * swept;
       emitted += u_colorLight * u_lightPower * front * (1.0 - u_lightDustContrast + u_lightDustContrast * density);
-      emitted += u_colorDust * u_echoPower * echoGlow * density / (1.0 + sourceDist / (0.5 * u_resolution.x));
+      // Dust the front has just struck still shines with the front's colour and cools to its own
+      vec3 echoColor = mix(u_colorDust, u_colorLight, echoGlow * echoGlow);
+      emitted += echoColor * u_echoPower * echoGlow * density / (1.0 + sourceDist / (0.5 * u_resolution.x));
     }
     if (u_remnantGlow > 0.0) {
       // White-hot, then the ember colour, then the same colour deep and dark

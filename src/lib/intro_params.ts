@@ -27,6 +27,7 @@ export const DEFAULT_INTRO_PARAMS = {
   echoDecay: 0.18,
   dustScale: 220,
   dustThreshold: 0.55,
+  dustSweep: 1,
   // Ejected matter, which births the particle field
   matterSpeed: 0.4,
   waveRefraction: 24,
@@ -162,7 +163,8 @@ export const INTRO_PARAM_SPECS = Object.fromEntries([
   p('echoPowerDecay', 'Echo Fade Over Time', 0.1, 6, 0.05, 's', 'Time for the echo as a whole to fade to about a third.'),
   p('echoDecay', 'Echo Afterglow', 0.02, 2, 0.01, 's', 'How long a patch of dust keeps glowing after the front passes it; sets the width of the glowing band.'),
   p('dustScale', 'Dust Scale', 40, 800, 5, 'px', 'Size of the dust structures.'),
-  p('dustThreshold', 'Dust Sparseness', 0, 0.95, 0.01, '', 'Higher values leave only thin filaments; lower values fill space with haze.'),
+  p('dustThreshold', 'Dust Sparseness', 0, 0.95, 0.01, '', 'Higher values leave only a few thin wisps; lower values fill space with haze.'),
+  p('dustSweep', 'Matter Clears Dust', 0, 1, 0.01, '', 'How completely the ejected matter sweeps away the dust it passes. 1: light lights the dust and the matter front wipes it out. 0: the dust stays where it is.'),
   p('matterSpeed', 'Matter Speed', 0.05, 0.95, 0.01, 'c', 'Speed of the ejected matter, which births the particle field, as a share of the speed of light.'),
   p('waveRefraction', 'Matter Refraction', 0, 80, 1, 'px', 'How strongly the matter front bends what lies behind it.'),
   p('waveWidth', 'Matter Front Width', 0.01, 0.3, 0.005, 'share', 'Width of the refracting band at the matter front.'),

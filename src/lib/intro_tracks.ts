@@ -88,7 +88,7 @@ export const INTRO_TRACKS: IntroTrack[] = [
     key: 'echo',
     label: 'Dust echo',
     layer: 'echo',
-    params: ['echoPower', 'echoPowerDecay', 'echoDecay', 'dustScale', 'dustThreshold', 'colorDust'],
+    params: ['echoPower', 'echoPowerDecay', 'echoDecay', 'dustScale', 'dustThreshold', 'dustSweep', 'colorDust'],
     spans: (p, reduced) => full(reduced, [{ start: p.collapseAt, end: p.collapseAt + p.echoPowerDecay * FADED }])
   },
   {
