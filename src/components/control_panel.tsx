@@ -12,9 +12,9 @@ import { Button } from '@/components/ui/button'
 import { Settings, Maximize, Minimize } from 'lucide-react'
 import SettingsBody from './settings_body'
 
-// Only a press on the scene closes the panel, and the press still reaches the simulation
-function closeOnlyFromScene (event: { detail: { originalEvent: Event }, preventDefault: () => void }) {
-  if (!(event.detail.originalEvent.target instanceof HTMLCanvasElement)) event.preventDefault()
+// The panel closes only on request, so the scene can be used while settings are being tuned
+function keepOpen (event: Event) {
+  event.preventDefault()
 }
 
 function isTextEntry (target: EventTarget | null) {
@@ -112,7 +112,7 @@ function ControlPanel () {
 
       <SheetContent
         side="left"
-        onInteractOutside={closeOnlyFromScene}
+        onInteractOutside={keepOpen}
         className="w-[min(340px,100vw)] max-h-screen overflow-y-auto bg-[rgba(10,10,15,0.98)] p-3 pointer-events-auto sm:max-w-none">
         <SheetHeader className="h-7 flex-row items-center gap-2 text-left sm:text-left">
           <SheetTitle className="font-orbitron text-neon-cyan text-sm tracking-[1px]" style={{ textShadow: '0 0 10px #00ffff' }}>
