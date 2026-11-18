@@ -1,10 +1,11 @@
 import { memo, useMemo, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { Check, ChevronRight, Copy, Eye, EyeOff, RotateCcw } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useIntroDebugStore } from '../../store/intro_debug_store'
+import { useIntroDebugStore, getTitleChanges, type TitleText } from '../../store/intro_debug_store'
 import { DEFAULT_INTRO_PARAMS, INTRO_PARAM_SPECS, formatParam, type IntroParamKey, type IntroParams } from '../../lib/intro_params'
 import { INTRO_TRACKS, type IntroMarker, type IntroSpan, type IntroTrack, type IntroTrackReadout } from '../../lib/intro_tracks'
 import SliderControl from './slider_control'
+import TitleTextEditor from './title_text_editor'
 
 // Horizontal inset of every lane, so markers at 0 s and at the end are not cut in half.
 // Lanes, the ruler and the playhead all map time with the same geometry
@@ -168,17 +169,21 @@ interface TrackRowProps {
   params: IntroParams
   hidden: boolean
   expanded: boolean
+  // Title fields (text, font, case) changed from the default, for the track that edits them
+  textChanges: number
   scrub: Scrub
   onToggleExpanded: (key: string) => void
 }
 
-const TrackRow = memo(function TrackRow ({ track, duration, params, hidden, expanded, scrub, onToggleExpanded }: TrackRowProps) {
+const TrackRow = memo(function TrackRow ({ track, duration, params, hidden, expanded, textChanges, scrub, onToggleExpanded }: TrackRowProps) {
   const toggleLayer = useIntroDebugStore(state => state.toggleLayer)
   const setParam = useIntroDebugStore(state => state.setParam)
   const resetParams = useIntroDebugStore(state => state.resetParams)
+  const resetTitle = useIntroDebugStore(state => state.resetTitle)
   const spans = track.spans(params, reducedMotion)
   const markers = track.markers?.(params, reducedMotion) ?? []
   const changed = track.params.filter(key => params[key] !== DEFAULT_INTRO_PARAMS[key])
+  const changedCount = changed.length + textChanges
   const panelId = `intro-track-${track.key}`
 
   return (
@@ -212,7 +217,7 @@ const TrackRow = memo(function TrackRow ({ track, duration, params, hidden, expa
               >
                 <ChevronRight className={`h-3 w-3 shrink-0 transition-transform duration-150 ${expanded ? 'rotate-90 text-neon-cyan' : 'text-text-light/50'}`} />
                 <span className={`truncate ${hidden ? 'text-text-light/45 line-through' : ''}`}>{track.label}</span>
-                {changed.length > 0 && <ChangedBadge count={changed.length} />}
+                {changedCount > 0 && <ChangedBadge count={changedCount} />}
               </button>
             )
             : <span className={`min-w-0 flex-1 truncate pl-4 text-text-light/85 ${hidden ? 'text-text-light/45 line-through' : ''}`}>{track.label}</span>}
@@ -229,10 +234,13 @@ const TrackRow = memo(function TrackRow ({ track, duration, params, hidden, expa
       {expanded && (
         <div id={panelId} className="grid grid-cols-[var(--label-w)_1fr] pb-2">
           <div className="flex items-start justify-end pr-2 pt-1.5">
-            {changed.length > 0 && (
+            {changedCount > 0 && (
               <button
                 type="button"
-                onClick={() => resetParams(changed)}
+                onClick={() => {
+                  resetParams(changed)
+                  if (textChanges > 0) resetTitle()
+                }}
                 className="flex items-center gap-1 text-text-light/60 transition-colors duration-150 hover:text-neon-cyan
                   focus-visible:outline focus-visible:outline-1 focus-visible:outline-neon-cyan"
               >
@@ -241,25 +249,28 @@ const TrackRow = memo(function TrackRow ({ track, duration, params, hidden, expa
               </button>
             )}
           </div>
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-1 pt-1" style={{ paddingInline: LANE_PAD }}>
-            {track.params.map(key => {
-              const spec = INTRO_PARAM_SPECS[key]
-              return (
-                <SliderControl
-                  key={key}
-                  id={`intro-param-${key}`}
-                  label={spec.label}
-                  value={params[key]}
-                  min={spec.min}
-                  max={spec.max}
-                  step={spec.step}
-                  formatValue={(value) => formatParam(value, spec)}
-                  onChange={(value) => setParam(key, value)}
-                  variant="inline"
-                  description={`${spec.description} Default: ${formatParam(DEFAULT_INTRO_PARAMS[key], spec)}.`}
-                />
-              )
-            })}
+          <div className="pt-1" style={{ paddingInline: LANE_PAD }}>
+            {track.editsText && <TitleTextEditor />}
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-1">
+              {track.params.map(key => {
+                const spec = INTRO_PARAM_SPECS[key]
+                return (
+                  <SliderControl
+                    key={key}
+                    id={`intro-param-${key}`}
+                    label={spec.label}
+                    value={params[key]}
+                    min={spec.min}
+                    max={spec.max}
+                    step={spec.step}
+                    formatValue={(value) => formatParam(value, spec)}
+                    onChange={(value) => setParam(key, value)}
+                    variant="inline"
+                    description={`${spec.description} Default: ${formatParam(DEFAULT_INTRO_PARAMS[key], spec)}.`}
+                  />
+                )
+              })}
+            </div>
           </div>
         </div>
       )}
@@ -282,14 +293,18 @@ const headerAction = cn(
 )
 
 // Changed count over all tracks, with copy for pasting into the defaults and a reset of everything
-function ChangedSummary ({ params }: { params: IntroParams }) {
+function ChangedSummary ({ params, titleChanges }: { params: IntroParams, titleChanges: Partial<TitleText> }) {
   const resetParams = useIntroDebugStore(state => state.resetParams)
+  const resetTitle = useIntroDebugStore(state => state.resetTitle)
   const [copied, setCopied] = useState(false)
   const changedKeys = (Object.keys(params) as IntroParamKey[]).filter(key => params[key] !== DEFAULT_INTRO_PARAMS[key])
-  const none = changedKeys.length === 0
+  const titleCount = Object.keys(titleChanges).length
+  const count = changedKeys.length + titleCount
+  const none = count === 0
 
   const copyChanged = async () => {
-    const changed = Object.fromEntries(changedKeys.map(key => [key, params[key]]))
+    const changed: Record<string, unknown> = Object.fromEntries(changedKeys.map(key => [key, params[key]]))
+    if (titleCount > 0) changed.title = titleChanges
     try {
       await navigator.clipboard.writeText(JSON.stringify(changed, null, 2))
       setCopied(true)
@@ -302,13 +317,16 @@ function ChangedSummary ({ params }: { params: IntroParams }) {
   return (
     <div className="flex min-w-0 items-center gap-3 border-r border-neon-cyan/10 px-2">
       <span className={cn('mr-auto truncate tabular-nums', none ? 'text-text-light/60' : 'text-neon-cyan')}>
-        {none ? 'All defaults' : `${changedKeys.length} changed`}
+        {none ? 'All defaults' : `${count} changed`}
       </span>
       <button type="button" disabled={none} onClick={copyChanged} title="Copy the changed values as JSON" className={headerAction}>
         {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
         {copied ? 'copied' : 'copy'}
       </button>
-      <button type="button" disabled={none} onClick={() => resetParams()} title="Reset every parameter" className={headerAction}>
+      <button type="button" disabled={none} onClick={() => {
+        resetParams()
+        resetTitle()
+      }} title="Reset every parameter and the title" className={headerAction}>
         <RotateCcw className="h-3 w-3" />
         reset
       </button>
@@ -321,6 +339,9 @@ function ChangedSummary ({ params }: { params: IntroParams }) {
 function IntroTrackList ({ duration }: { duration: number }) {
   const params = useIntroDebugStore(state => state.params)
   const hidden = useIntroDebugStore(state => state.hidden)
+  const title = useIntroDebugStore(state => state.title)
+  const titleChanges = useMemo(() => getTitleChanges(title), [title])
+  const textChanges = Object.keys(titleChanges).length
   const scrub = useScrub(duration)
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set())
 
@@ -337,7 +358,7 @@ function IntroTrackList ({ duration }: { duration: number }) {
     <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain [--label-w:168px] sm:[--label-w:248px]">
       <div className="relative">
         <div className="sticky top-0 z-20 grid grid-cols-[var(--label-w)_1fr] border-b border-neon-cyan/20 bg-[#0b0b11]">
-          <ChangedSummary params={params} />
+          <ChangedSummary params={params} titleChanges={titleChanges} />
           <Ruler duration={duration} scrub={scrub} />
         </div>
         {INTRO_TRACKS.map(track => (
@@ -348,6 +369,7 @@ function IntroTrackList ({ duration }: { duration: number }) {
             params={params}
             hidden={track.layer ? hidden[track.layer] : false}
             expanded={expanded.has(track.key)}
+            textChanges={track.editsText ? textChanges : 0}
             scrub={scrub}
             onToggleExpanded={toggleExpanded}
           />

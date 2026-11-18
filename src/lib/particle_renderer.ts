@@ -76,10 +76,18 @@ export interface CompositeSettings {
 
 export interface TitleSettings {
   alpha: number
+  // Centre in CSS pixels
   x: number
   y: number
-  scale: number
-  rotation: number
+  reveal: number
+  dissolve: number
+  // CSS pixels
+  drift: number
+  glow: number
+  flash: number
+  // Seconds
+  cooling: number
+  dust: number
 }
 
 export interface FrameInput {
@@ -215,7 +223,8 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     'waveRadius', 'waveStrength', 'waveWidth', 'remnantGlow', 'remnantRedshift', 'remnantRadius',
     'gravityWaveRadius', 'gravityWaveAmplitude', 'gravityWaveWidth', 'gravityWaveCycles', 'backgroundStars',
     'starCell', 'starDensity', 'starFlare', 'dustScale', 'dustThreshold', 'lightDustContrast', 'flash',
-    'titleCenter', 'titleHalfSize', 'titleRotation', 'titleAlpha'
+    'titleCenter', 'titleHalfSize', 'titleAlpha', 'titleReveal', 'titleDissolve', 'titleDrift', 'titleGlow',
+    'titleFlash', 'titleCooling', 'titleDust'
   ] as const)
 
   gl.useProgram(compositeProgram)
@@ -327,12 +336,18 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
   function composite (settings: CompositeSettings, title: TitleSettings) {
     const u = compositeUniforms
     gl.useProgram(compositeProgram)
-    const titleVisible = title.alpha > 0 && title.scale > 0 && titleWidth > 0
+    const titleVisible = title.alpha > 0 && titleWidth > 0
     setUniform1f(gl, u.titleAlpha, titleVisible ? title.alpha : 0)
     if (titleVisible) {
       setUniform2f(gl, u.titleCenter, title.x * ratio, title.y * ratio)
-      setUniform2f(gl, u.titleHalfSize, titleWidth * 0.5 * title.scale * ratio, titleHeight * 0.5 * title.scale * ratio)
-      setUniform2f(gl, u.titleRotation, Math.cos(title.rotation), Math.sin(title.rotation))
+      setUniform2f(gl, u.titleHalfSize, titleWidth * 0.5 * ratio, titleHeight * 0.5 * ratio)
+      setUniform1f(gl, u.titleReveal, title.reveal)
+      setUniform1f(gl, u.titleDissolve, title.dissolve)
+      setUniform1f(gl, u.titleDrift, title.drift * ratio)
+      setUniform1f(gl, u.titleGlow, title.glow)
+      setUniform1f(gl, u.titleFlash, title.flash)
+      setUniform1f(gl, u.titleCooling, Math.max(title.cooling, 0.01))
+      setUniform1f(gl, u.titleDust, title.dust)
     }
     setUniform1f(gl, u.time, settings.time)
     setUniform2f(gl, u.hole, settings.holeX * ratio, settings.holeY * ratio)

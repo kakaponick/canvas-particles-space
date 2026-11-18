@@ -181,12 +181,18 @@ export const compositeFragmentShaderSource = `
   uniform float u_flash;         // white-out when crossing the event horizon, 0..1
   uniform vec2 u_titleCenter;
   uniform vec2 u_titleHalfSize;
-  uniform vec2 u_titleRotation;  // cos, sin
   uniform float u_titleAlpha;
+  uniform float u_titleReveal;   // 1: lit by the light front; 0: shown whole
+  uniform float u_titleDissolve; // 0..1 crumbling progress
+  uniform float u_titleDrift;    // pixels the crumbling dust moves towards the hole
+  uniform float u_titleGlow;
+  uniform float u_titleFlash;
+  uniform float u_titleCooling;  // seconds
+  uniform float u_titleDust;     // 0 solid letters, 1 grains only
 
   const vec3 RING_COLOR = vec3(1.0, 0.86, 0.66);
   const vec3 FLASH_COLOR = vec3(1.0, 0.97, 0.92);
-  const vec3 TITLE_COLOR = vec3(1.0, 0.95, 0.9);
+  const vec3 TITLE_COLOR = vec3(1.0, 0.9, 0.78);
   const vec3 BLAST_COLOR = vec3(0.86, 0.92, 1.0);
   const vec3 DUST_COLOR = vec3(1.0, 0.84, 0.66);
   // Seconds a background star stays flared after the light front passes it
@@ -285,25 +291,42 @@ export const compositeFragmentShaderSource = `
 
     vec3 color = texture2D(u_image, samplePx / u_resolution).rgb;
 
-    // The title sits behind the black hole, so it is read through the same bent rays as the stars
-    if (u_titleAlpha > 0.0) {
-      vec2 rel = samplePx - u_titleCenter;
-      vec2 local = vec2(
-        u_titleRotation.x * rel.x + u_titleRotation.y * rel.y,
-        u_titleRotation.x * rel.y - u_titleRotation.y * rel.x
-      ) / u_titleHalfSize;
-      if (abs(local.x) <= 1.0 && abs(local.y) <= 1.0) {
-        float mask = texture2D(u_title, local * 0.5 + 0.5).a;
-        color = mix(color, TITLE_COLOR, mask * u_titleAlpha);
-      }
-    }
-
     // Seconds since the light front passed this point; negative before it arrives
     float lit = u_lightSpeed > 0.0 ? (u_lightRadius - sourceDist) / u_lightSpeed : -1.0;
     float echo = lit >= 0.0 ? exp(-lit / u_echoDecay) : 0.0;
 
     vec2 cssPx = samplePx / u_pixelRatio;
     vec3 emitted = vec3(0.0);
+
+    // The title is a cloud of dust shaped like the words, behind the black hole, so it is read through
+    // the same bent rays as the stars. It stays dark until the light front reaches it, flashes as the
+    // front passes, cools to a warm glow, then crumbles and drifts towards the hole
+    if (u_titleAlpha > 0.0) {
+      vec2 titlePx = samplePx;
+      float keep = 1.0;
+      // Each grain of dust is a cell of about two CSS pixels with its own random speed and lifetime
+      vec2 grainCell = floor(cssPx / 2.0);
+      if (u_titleDissolve > 0.0) {
+        // A grain shows the letter from further back the faster it moves, so the words stream
+        // towards the hole as separate specks, and each speck winks out at its own moment
+        vec2 toHole = u_hole - samplePx;
+        float speed = hash12(grainCell + 41.0);
+        titlePx -= toHole / max(length(toHole), 1.0) * u_titleDrift * u_titleDissolve * u_titleDissolve * (0.2 + 1.6 * speed);
+        float lifetime = hash12(grainCell + 73.0);
+        keep = smoothstep(u_titleDissolve - 0.15, u_titleDissolve, lifetime * 0.85);
+      }
+      vec2 local = (titlePx - u_titleCenter) / u_titleHalfSize;
+      if (abs(local.x) <= 1.0 && abs(local.y) <= 1.0) {
+        float mask = texture2D(u_title, local * 0.5 + 0.5).a;
+        float grain = 0.55 * valueNoise(cssPx / 2.4) + 0.45 * hash12(grainCell + 7.0);
+        float density = mask * keep * mix(1.0, smoothstep(0.15, 0.8, grain), u_titleDust);
+        // The front arrives over its own width rather than as a hard edge
+        float arrived = smoothstep(-u_lightWidth, u_lightWidth, u_lightRadius - sourceDist);
+        float shown = mix(1.0, arrived, u_titleReveal);
+        float flash = lit >= 0.0 ? u_titleReveal * exp(-lit / u_titleCooling) : 0.0;
+        emitted += density * u_titleAlpha * (TITLE_COLOR * u_titleGlow * shown + BLAST_COLOR * u_titleFlash * flash);
+      }
+    }
     if (u_backgroundStars > 0.0) {
       // The flare belongs to the light front, not to the dust echo, so hiding the echo keeps it
       float flare = u_lightPower > 0.0 && lit >= 0.0 ? u_starFlare * exp(-lit / STAR_FLARE_DECAY) : 0.0;

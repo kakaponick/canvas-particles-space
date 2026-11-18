@@ -1,7 +1,7 @@
 // Choreography of the opening seconds. A star collapses and explodes: its light races outward at
 // the on-screen speed of light, lighting dust as it passes, while the ejected matter (the particle
 // field) follows more slowly. The core's light reddens away as it collapses, a black hole forms,
-// rings down and sends out a gravitational wave, swallows the title, then drifts to the cursor.
+// rings down and sends out a gravitational wave, crumbles the title, then drifts to the cursor.
 // Every number comes from IntroParams so the intro debugger can tune it live.
 
 import type { IntroParams } from './intro_params'
@@ -39,8 +39,10 @@ export interface IntroFrame {
   opacityScale: number
   speedBoost: number
   titleAlpha: number
-  titleScale: number
-  titleSpin: number
+  // 1 while the light front decides which letters are lit; 0 shows the whole title (reduced motion)
+  titleReveal: number
+  // 0..1 progress of the letters crumbling away
+  titleDissolve: number
   // While true the black hole stays at the screen center
   holdAtCenter: boolean
   done: boolean
@@ -52,7 +54,6 @@ function progress (t: number, start: number, duration: number) {
   return Math.min(Math.max((t - start) / Math.max(duration, 0.0001), 0), 1)
 }
 
-const easeInCubic = (x: number) => x * x * x
 const easeOutCubic = (x: number) => 1 - Math.pow(1 - x, 3)
 const smoothstep = (x: number) => x * x * (3 - 2 * x)
 
@@ -80,8 +81,8 @@ export function createIntroFrame (): IntroFrame {
     opacityScale: 1,
     speedBoost: 1,
     titleAlpha: 0,
-    titleScale: 1,
-    titleSpin: 0,
+    titleReveal: 1,
+    titleDissolve: 0,
     holdAtCenter: true,
     done: false
   }
@@ -135,11 +136,10 @@ function sampleFullIntro (t: number, p: IntroParams, frame: IntroFrame) {
   frame.gravityWaveFront = Math.max(sinceWave, 0) / p.lightCrossTime
   frame.gravityWaveAmplitude = sinceWave > 0 && frame.gravityWaveFront < 1.3 ? Math.exp(-sinceWave / p.gravityWaveDecay) : 0
 
-  const swallow = progress(t, p.swallowStart, p.swallowDuration)
-  const swallowEnd = p.swallowStart + p.swallowDuration
-  frame.titleAlpha = progress(t, p.titleIn, p.titleFade) * (1 - progress(t, swallowEnd - p.titleFadeOut, p.titleFadeOut))
-  frame.titleScale = 1 - easeInCubic(swallow)
-  frame.titleSpin = easeInCubic(swallow) * p.titleSpin
+  // The title exists from the start as dark dust; the light front lights it, then it crumbles
+  frame.titleDissolve = progress(t, p.dissolveAt, p.dissolveDuration)
+  frame.titleAlpha = 1 - smoothstep(progress(t, p.dissolveAt + p.dissolveDuration * 0.5, p.dissolveDuration * 0.5))
+  frame.titleReveal = 1
 
   frame.holdAtCenter = t < p.releaseAt
   frame.done = t >= p.introEnd
@@ -169,8 +169,8 @@ function sampleReducedIntro (t: number, p: IntroParams, frame: IntroFrame) {
   frame.opacityScale = easeOutCubic(progress(t, 0, 1.2))
   frame.speedBoost = 1
   frame.titleAlpha = progress(t, 0.6, 0.4) * (1 - progress(t, 2, 0.5))
-  frame.titleScale = 1
-  frame.titleSpin = 0
+  frame.titleReveal = 0
+  frame.titleDissolve = 0
   frame.holdAtCenter = t < REDUCED_INTRO_END
   frame.done = t >= REDUCED_INTRO_END
 }

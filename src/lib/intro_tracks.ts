@@ -31,6 +31,8 @@ export interface IntroTrack {
   key: string
   label: string
   layer?: IntroLayer
+  // The track also edits the title's text, font and case
+  editsText?: boolean
   params: IntroParamKey[]
   readout?: { key: IntroTrackReadout, digits: number }
   spans: (p: IntroParams, reduced: boolean) => IntroSpan[]
@@ -166,12 +168,16 @@ export const INTRO_TRACKS: IntroTrack[] = [
     key: 'title',
     label: 'Title',
     layer: 'title',
-    params: ['titleIn', 'titleFade', 'swallowStart', 'swallowDuration', 'titleSpin', 'titleFadeOut'],
+    editsText: true,
+    params: [
+      'titleOffset', 'titleSize', 'titleWeight', 'titleTracking', 'titleGlow', 'titleFlash', 'titleCooling',
+      'titleDust', 'dissolveAt', 'dissolveDuration', 'titleDrift'
+    ],
     readout: { key: 'titleAlpha', digits: 2 },
-    spans: (p, reduced) => [reduced ? { start: 0.6, end: 2.5 } : { start: p.titleIn, end: p.swallowStart + p.swallowDuration }],
+    spans: (p, reduced) => [reduced ? { start: 0.6, end: 2.5 } : { start: p.collapseAt, end: p.dissolveAt + p.dissolveDuration }],
     markers: (p, reduced) => reduced
       ? [{ time: 0.6, label: 'title' }, { time: 2, label: 'title out' }]
-      : [{ time: p.titleIn, label: 'title' }, { time: p.swallowStart, label: 'swallow' }]
+      : [{ time: p.dissolveAt, label: 'dissolve' }]
   },
   {
     key: 'motion',

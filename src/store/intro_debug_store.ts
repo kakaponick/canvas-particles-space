@@ -1,8 +1,34 @@
 import { createWithEqualityFn } from 'zustand/traditional'
 import { DEFAULT_INTRO_PARAMS, type IntroParamKey, type IntroParams } from '../lib/intro_params'
 import { INTRO_LAYERS, type IntroLayer } from '../lib/intro_tracks'
+import { TITLE_FONTS, type TitleFontKey } from '../lib/title_sprite'
 
 export type { IntroLayer }
+
+// The words of the intro title and how they are set; numbers such as weight and size are params
+export interface TitleText {
+  // Lines are separated by \n
+  text: string
+  font: TitleFontKey
+  uppercase: boolean
+}
+
+export const DEFAULT_TITLE_TEXT: Readonly<TitleText> = {
+  text: 'Experience\nthe speed of light',
+  font: 'unbounded',
+  uppercase: true
+}
+
+export const TITLE_TEXT_MAX_LENGTH = 120
+
+// Fields of the title that differ from the default
+export function getTitleChanges (title: TitleText): Partial<TitleText> {
+  return Object.fromEntries(
+    (Object.keys(DEFAULT_TITLE_TEXT) as (keyof TitleText)[])
+      .filter(key => title[key] !== DEFAULT_TITLE_TEXT[key])
+      .map(key => [key, title[key]])
+  )
+}
 
 export interface IntroReadout {
   time: number
@@ -28,6 +54,7 @@ interface IntroDebugState {
   hidden: Record<IntroLayer, boolean>
   // Tuned numbers of the opening; applied whether or not the panel is open, kept across reloads
   params: IntroParams
+  title: TitleText
   // Commands for the animation loop, consumed on its next frame
   seekRequest: number | null
   restartRequest: number
@@ -41,6 +68,8 @@ interface IntroDebugState {
   toggleLayer: (layer: IntroLayer) => void
   setParam: (key: IntroParamKey, value: number) => void
   resetParams: (keys?: IntroParamKey[]) => void
+  setTitle: (patch: Partial<TitleText>) => void
+  resetTitle: () => void
   seek: (time: number) => void
   clearSeek: () => void
   restart: () => void
@@ -51,6 +80,31 @@ interface IntroDebugState {
 const openFromUrl = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('debug')
 
 const PARAMS_STORAGE_KEY = 'intro-debug-params-v1'
+const TITLE_STORAGE_KEY = 'intro-debug-title-v1'
+
+// A stored title survives only field by field, with the right types, so old saves never break it
+function loadTitle (): TitleText {
+  const title = { ...DEFAULT_TITLE_TEXT }
+  try {
+    const stored = JSON.parse(window.localStorage.getItem(TITLE_STORAGE_KEY) ?? '{}') as Record<string, unknown>
+    if (typeof stored.text === 'string') title.text = stored.text.slice(0, TITLE_TEXT_MAX_LENGTH)
+    if (typeof stored.font === 'string' && stored.font in TITLE_FONTS) title.font = stored.font as TitleFontKey
+    if (typeof stored.uppercase === 'boolean') title.uppercase = stored.uppercase
+  } catch {
+    // Storage blocked or corrupt: fall back to the default title
+  }
+  return title
+}
+
+function saveTitle (title: TitleText) {
+  try {
+    const changed = getTitleChanges(title)
+    if (Object.keys(changed).length === 0) window.localStorage.removeItem(TITLE_STORAGE_KEY)
+    else window.localStorage.setItem(TITLE_STORAGE_KEY, JSON.stringify(changed))
+  } catch {
+    // Storage blocked: the title holds for this session
+  }
+}
 
 // Only keys that still exist and hold numbers survive a stored value, so old saves never break the intro
 function loadParams (): IntroParams {
@@ -93,6 +147,7 @@ export const useIntroDebugStore = createWithEqualityFn<IntroDebugState>((set) =>
   loop: openFromUrl,
   hidden: allShown,
   params: typeof window === 'undefined' ? { ...DEFAULT_INTRO_PARAMS } : loadParams(),
+  title: typeof window === 'undefined' ? { ...DEFAULT_TITLE_TEXT } : loadTitle(),
   seekRequest: null,
   restartRequest: 0,
   stepRequest: 0,
@@ -128,6 +183,16 @@ export const useIntroDebugStore = createWithEqualityFn<IntroDebugState>((set) =>
     return { params }
   }),
   // The readout follows at once, so a seek straight after another starts from the new time
+  setTitle: (patch) => set((state) => {
+    const title = { ...state.title, ...patch }
+    title.text = title.text.slice(0, TITLE_TEXT_MAX_LENGTH)
+    saveTitle(title)
+    return { title }
+  }),
+  resetTitle: () => set(() => {
+    saveTitle(DEFAULT_TITLE_TEXT)
+    return { title: { ...DEFAULT_TITLE_TEXT } }
+  }),
   seek: (time) => set((state) => {
     const clamped = Math.min(Math.max(time, 0), state.readout.duration || Infinity)
     return { seekRequest: clamped, readout: { ...state.readout, time: clamped } }

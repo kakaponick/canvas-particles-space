@@ -29,10 +29,11 @@ import {
   type JourneyFrame,
   type Spring2D
 } from '../lib/black_hole_motion'
-import { renderTitleSprite, waitForTitleFont, type TitleSprite } from '../lib/title_sprite'
+import { renderTitleSprite, waitForTitleFont, type TitleSprite, type TitleStyle } from '../lib/title_sprite'
 import { createParticleBudget, updateParticleBudget } from '../lib/particle_budget'
 
-const TITLE_TEXT = 'EXPERIENCE THE SPEED OF LIGHT'
+// The light front reaches the title about 0.85 s in; a face that is not ready by then is swapped in later
+const TITLE_FONT_TIMEOUT_MS = 700
 
 // rAF timestamps jitter; a frame this close to its slot still counts as on time
 const FRAME_SLOT_TOLERANCE_MS = 1
@@ -76,6 +77,8 @@ function ParticleCanvas () {
     let pixelRatio = 1
     let resizeFrameId = 0
     let titleSprite: TitleSprite | null = null
+    let titleKey = ''
+    let titleBuild = 0
 
     const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
     let reducedMotion = motionQuery.matches
@@ -151,7 +154,7 @@ function ParticleCanvas () {
       instances: instances.floats,
       instanceCount: 0,
       doppler: 0,
-      title: { alpha: 0, x: 0, y: 0, scale: 1, rotation: 0 },
+      title: { alpha: 0, x: 0, y: 0, reveal: 1, dissolve: 0, drift: 0, glow: 0, flash: 0, cooling: 1, dust: 0 },
       composite: {
         time: 0,
         holeX: 0,
@@ -216,17 +219,29 @@ function ParticleCanvas () {
       hole.vx = 0
       hole.vy = 0
       renderer?.clearScene(readBackground())
-      if (renderer && !titleSprite) {
-        titleSprite = renderTitleSprite(TITLE_TEXT, viewportWidth, pixelRatio)
-        renderer.setTitle(titleSprite)
-      }
+      rebuildTitle()
       state.setIntroComplete(false)
     }
 
-    function refreshTitleSprite () {
-      if (!renderer || intro.done || !titleSprite) return
-      titleSprite = renderTitleSprite(TITLE_TEXT, viewportWidth, pixelRatio)
-      renderer.setTitle(titleSprite)
+    function readTitleStyle (): TitleStyle {
+      const { title, params } = useIntroDebugStore.getState()
+      return { ...title, weight: params.titleWeight, tracking: params.titleTracking, size: params.titleSize }
+    }
+
+    // Rebuilds the title mask when its text, face, layout or the viewport changes, once the face
+    // has the glyphs. Only the latest request draws, so fast typing never shows an older text
+    function rebuildTitle (force = false) {
+      if (!renderer) return
+      const style = readTitleStyle()
+      const key = `${JSON.stringify(style)}|${viewportWidth}|${pixelRatio}`
+      if (!force && key === titleKey) return
+      titleKey = key
+      const build = ++titleBuild
+      waitForTitleFont(style, TITLE_FONT_TIMEOUT_MS).then(() => {
+        if (disposed || !renderer || build !== titleBuild) return
+        titleSprite = renderTitleSprite(style, viewportWidth, pixelRatio)
+        renderer.setTitle(titleSprite)
+      })
     }
 
     // World coordinates do not depend on the viewport, so a resize only reallocates GPU buffers
@@ -250,7 +265,7 @@ function ParticleCanvas () {
       viewportHeight = height
       pixelRatio = getRenderScale(width, height)
       renderer.resize(width, height, pixelRatio, readBackground())
-      refreshTitleSprite()
+      rebuildTitle()
 
       // Resizing clears the canvas; while the loop is idle, show the background right away
       if (!frameId) {
@@ -434,10 +449,15 @@ function ParticleCanvas () {
 
       const title = frame.title
       title.alpha = titleSprite ? intro.titleAlpha : 0
-      title.x = hole.x
-      title.y = hole.y
-      title.scale = intro.titleScale
-      title.rotation = intro.titleSpin
+      title.x = centerX
+      title.y = centerY + params.titleOffset * shortSide
+      title.reveal = intro.titleReveal
+      title.dissolve = intro.titleDissolve
+      title.drift = params.titleDrift
+      title.glow = params.titleGlow
+      title.flash = params.titleFlash
+      title.cooling = params.titleCooling
+      title.dust = params.titleDust
 
       const composite = frame.composite
       composite.time = animationTime
@@ -577,11 +597,17 @@ function ParticleCanvas () {
 
     applyViewportSize(true)
 
-    // The title appears 1.7 s in; waiting longer than that for the font would leave a gap
-    waitForTitleFont(1400).then(() => {
-      if (disposed || !renderer || intro.done) return
-      titleSprite = renderTitleSprite(TITLE_TEXT, viewportWidth, pixelRatio)
-      renderer.setTitle(titleSprite)
+    // A face that missed the timeout is swapped in once every pending font has loaded
+    document.fonts?.ready.then(() => {
+      if (!disposed) rebuildTitle(true)
+    })
+    let lastTitle = useIntroDebugStore.getState().title
+    let lastParams = useIntroDebugStore.getState().params
+    const unsubscribeTitle = useIntroDebugStore.subscribe((state) => {
+      if (state.title === lastTitle && state.params === lastParams) return
+      lastTitle = state.title
+      lastParams = state.params
+      rebuildTitle()
     })
 
     const unsubscribeStore = useParticleStore.subscribe(syncLoop)
@@ -607,6 +633,7 @@ function ParticleCanvas () {
     return () => {
       disposed = true
       unsubscribeStore()
+      unsubscribeTitle()
       unsubscribeScroll()
       window.removeEventListener('pointerdown', handlePointerDown)
       window.removeEventListener('mousemove', handleMouseMove)
