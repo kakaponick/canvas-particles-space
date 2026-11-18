@@ -402,10 +402,10 @@ function ParticleCanvas () {
       if (intro.holdAtCenter) {
         stepSpring(hole, centerX, centerY, dt, params.centerHoldFrequency)
       } else {
-        stepSpring(hole, targetX, targetY, dt, params.followFrequency)
+        stepSpring(hole, targetX, targetY, dt, state.followFrequency)
       }
 
-      const scrollGain = params.scrollSpeedGain * (reducedMotion ? REDUCED_SCROLL_GAIN_SHARE : 1)
+      const scrollGain = state.scrollSpeedGain * (reducedMotion ? REDUCED_SCROLL_GAIN_SHARE : 1)
       const speed = (state.baseSpeed + journeyFrame.progress * scrollGain) * intro.speedBoost
 
       settings.frameScale = frameScale
@@ -475,10 +475,10 @@ function ParticleCanvas () {
       composite.falloff = state.lensingFalloff
       composite.swirl = state.lensingRotation
       composite.absorption = state.lensingAbsorption
-      composite.ring = hidden.ring ? 0 : params.ringBrightness * ringPower
-      composite.ringWidth = params.ringWidth
-      composite.ringDoppler = params.ringDoppler
-      composite.ringSide = params.ringSide
+      composite.ring = hidden.ring ? 0 : state.ringBrightness * ringPower
+      composite.ringWidth = state.ringWidth
+      composite.ringDoppler = state.ringDoppler
+      composite.ringSide = state.ringSide
       composite.centerX = centerX
       composite.centerY = centerY
       composite.starGlow = intro.starGlow
@@ -505,9 +505,9 @@ function ParticleCanvas () {
       composite.gravityWaveAmplitude = intro.gravityWaveAmplitude * params.gravityWaveAmplitude
       composite.gravityWaveWidth = params.gravityWaveWidth * shortSide
       composite.gravityWaveCycles = params.gravityWaveCycles
-      composite.backgroundStars = intro.backgroundStars
-      composite.starCell = params.starCell
-      composite.starDensity = params.starDensity
+      composite.backgroundStars = intro.backgroundStars * state.starsBrightness
+      composite.starCell = state.starCell
+      composite.starDensity = state.starDensity
       composite.starFlare = params.starFlare
       composite.flash = reducedMotion ? 0 : journeyFrame.flash * 0.85
 

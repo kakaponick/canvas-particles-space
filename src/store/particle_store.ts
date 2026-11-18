@@ -20,6 +20,20 @@ interface ParticleState {
   eventHorizon: number
   // Reach of the black hole's gravity, in multiples of its size
   gravityReach: number
+  // Photon ring: brightness, line thickness in black hole radii, contrast between its sides,
+  // and the direction of its bright side in radians
+  ringBrightness: number
+  ringWidth: number
+  ringDoppler: number
+  ringSide: number
+  // How quickly the black hole catches up with its target, radians per second
+  followFrequency: number
+  // Flight speed added at full scroll
+  scrollSpeedGain: number
+  // Static background stars: brightness, share of grid cells holding a star, grid cell size in CSS pixels
+  starsBrightness: number
+  starDensity: number
+  starCell: number
   pulseIntensity: number
   blackHoleFollowing: boolean
   colorPalette: ParticleColor[]
@@ -57,6 +71,15 @@ interface ParticleState {
   setBlackHoleSize: (size: number) => void
   setEventHorizon: (horizon: number) => void
   setGravityReach: (reach: number) => void
+  setRingBrightness: (value: number) => void
+  setRingWidth: (value: number) => void
+  setRingDoppler: (value: number) => void
+  setRingSide: (value: number) => void
+  setFollowFrequency: (value: number) => void
+  setScrollSpeedGain: (value: number) => void
+  setStarsBrightness: (value: number) => void
+  setStarDensity: (value: number) => void
+  setStarCell: (value: number) => void
   setPulseIntensity: (intensity: number) => void
   toggleBlackHoleFollowing: () => void
   addColor: (color: ParticleColor) => void
@@ -96,6 +119,15 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   blackHoleSize: 8,
   eventHorizon: 8,
   gravityReach: 5,
+  ringBrightness: 0.9,
+  ringWidth: 0.012,
+  ringDoppler: 0.45,
+  ringSide: 1.9,
+  followFrequency: 6,
+  scrollSpeedGain: 10,
+  starsBrightness: 1,
+  starDensity: 0.12,
+  starCell: 26,
   pulseIntensity: 1,
   blackHoleFollowing: true,
   backgroundR: 0,
@@ -137,6 +169,15 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   setBlackHoleSize: (size) => set({ blackHoleSize: size }),
   setEventHorizon: (horizon) => set({ eventHorizon: horizon }),
   setGravityReach: (reach) => set({ gravityReach: reach }),
+  setRingBrightness: (value) => set({ ringBrightness: value }),
+  setRingWidth: (value) => set({ ringWidth: value }),
+  setRingDoppler: (value) => set({ ringDoppler: value }),
+  setRingSide: (value) => set({ ringSide: value }),
+  setFollowFrequency: (value) => set({ followFrequency: value }),
+  setScrollSpeedGain: (value) => set({ scrollSpeedGain: value }),
+  setStarsBrightness: (value) => set({ starsBrightness: value }),
+  setStarDensity: (value) => set({ starDensity: value }),
+  setStarCell: (value) => set({ starCell: value }),
   setPulseIntensity: (intensity) => set({ pulseIntensity: intensity }),
   toggleBlackHoleFollowing: () => set((state) => ({ blackHoleFollowing: !state.blackHoleFollowing })),
   setLensingRadius: (radius) => set({ lensingRadius: radius }),

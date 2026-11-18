@@ -54,7 +54,7 @@ export const INTRO_TRACKS: IntroTrack[] = [
     key: 'stars',
     label: 'Far stars',
     layer: 'stars',
-    params: ['starsInitial', 'starsFadeIn', 'starsBrightness', 'starDensity', 'starCell', 'starFlare'],
+    params: ['starsInitial', 'starsFadeIn', 'starFlare'],
     spans: (p, reduced) => [{ start: 0, end: reduced ? 1.2 : p.starsFadeIn, holds: true }]
   },
   {
@@ -141,7 +141,7 @@ export const INTRO_TRACKS: IntroTrack[] = [
     key: 'ring',
     label: 'Photon ring',
     layer: 'ring',
-    params: ['ringDelay', 'ringFadeIn', 'ringBrightness', 'ringWidth', 'ringDoppler', 'ringSide'],
+    params: ['ringDelay', 'ringFadeIn'],
     spans: (p, reduced) => [reduced ? REDUCED_FADE : { start: p.horizonAt + p.ringDelay, end: p.horizonAt + p.ringDelay + p.ringFadeIn, holds: true }]
   },
   {
@@ -182,7 +182,7 @@ export const INTRO_TRACKS: IntroTrack[] = [
   {
     key: 'motion',
     label: 'Black hole motion',
-    params: ['releaseAt', 'introEnd', 'centerHoldFrequency', 'followFrequency'],
+    params: ['releaseAt', 'introEnd', 'centerHoldFrequency'],
     spans: (p, reduced) => [{ start: 0, end: reduced ? REDUCED_INTRO_END : p.releaseAt }],
     markers: (p, reduced) => reduced
       ? [{ time: REDUCED_INTRO_END, label: 'end' }]
@@ -191,7 +191,7 @@ export const INTRO_TRACKS: IntroTrack[] = [
   {
     key: 'flight',
     label: 'Flight',
-    params: ['scrollSpeedGain'],
+    params: [],
     readout: { key: 'speed', digits: 2 },
     spans: () => [{ start: 0, end: 0, holds: true }]
   },

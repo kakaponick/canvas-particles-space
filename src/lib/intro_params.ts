@@ -37,9 +37,6 @@ export const DEFAULT_INTRO_PARAMS = {
   // Static background stars
   starsInitial: 0.35,
   starsFadeIn: 1.5,
-  starsBrightness: 1,
-  starDensity: 0.12,
-  starCell: 26,
   starFlare: 3,
   // Collapsing core
   remnantAt: 1,
@@ -52,10 +49,6 @@ export const DEFAULT_INTRO_PARAMS = {
   lensDuration: 0.95,
   ringDelay: 0.1,
   ringFadeIn: 0.5,
-  ringBrightness: 0.9,
-  ringWidth: 0.012,
-  ringDoppler: 0.45,
-  ringSide: 1.9,
   // Ringdown
   ringdownAmplitude: 0.035,
   ringdownFrequency: 1.6,
@@ -82,10 +75,7 @@ export const DEFAULT_INTRO_PARAMS = {
   // Black hole motion and the end of the intro
   releaseAt: 4.6,
   introEnd: 5,
-  centerHoldFrequency: 12,
-  followFrequency: 6,
-  // Flight
-  scrollSpeedGain: 10
+  centerHoldFrequency: 12
 }
 
 export type IntroParams = typeof DEFAULT_INTRO_PARAMS
@@ -136,9 +126,6 @@ export const INTRO_PARAM_SPECS = Object.fromEntries([
   p('revealFeather', 'Birth Edge Softness', 1, 400, 1, 'px', 'Width of the fade where new particles appear behind the matter front.'),
   p('starsInitial', 'Stars At Start', 0, 1, 0.01, '', 'Brightness of the background stars when the page opens.'),
   p('starsFadeIn', 'Stars Fade In', 0, 5, 0.05, 's', 'Time for the background stars to reach full brightness.'),
-  p('starsBrightness', 'Stars Brightness', 0, 3, 0.05, '×', 'Overall brightness of the background stars.'),
-  p('starDensity', 'Stars Density', 0, 0.6, 0.01, '', 'Share of the star grid cells that hold a star.'),
-  p('starCell', 'Stars Spacing', 8, 80, 1, 'px', 'Size of one star grid cell; smaller cells mean more, closer stars.'),
   p('starFlare', 'Stars Flare', 0, 10, 0.1, '×', 'How much a star brightens as the light front passes.'),
   p('remnantAt', 'Core Starts Fading', 0.1, 5, 0.05, 's', 'When the hot core starts to dim; it is fully lit from the explosion until then.'),
   p('remnantDecay', 'Core Fade', 0.05, 3, 0.01, 's', 'Time for the core to dim to about a third.'),
@@ -149,10 +136,6 @@ export const INTRO_PARAM_SPECS = Object.fromEntries([
   p('lensDuration', 'Lens Build-up', 0.05, 4, 0.05, 's', 'Time for the lens to reach full strength, starting when the core starts fading.'),
   p('ringDelay', 'Ring Delay', 0, 2, 0.05, 's', 'Delay after the horizon forms before the photon ring appears.'),
   p('ringFadeIn', 'Ring Fade In', 0.02, 3, 0.02, 's', 'Time for the photon ring to reach full brightness.'),
-  p('ringBrightness', 'Ring Brightness', 0, 3, 0.05, '×', 'Brightness of the photon ring.'),
-  p('ringWidth', 'Ring Thickness', 0.004, 0.06, 0.001, '', 'Thickness of the line in black hole radii. It never gets thinner than about a pixel and a half.'),
-  p('ringDoppler', 'Doppler Contrast', 0, 1, 0.01, '', 'How much brighter and bluer the approaching side is than the dim, red receding side.'),
-  p('ringSide', 'Bright Side', 0, 6.28, 0.05, 'rad', 'Direction of the approaching side around the ring.'),
   p('ringdownAmplitude', 'Wobble Size', 0, 0.3, 0.005, '×', 'How much the horizon swells and shrinks, as a share of its radius.'),
   p('ringdownFrequency', 'Wobble Frequency', 0.1, 10, 0.1, 'Hz', 'Oscillations per second.'),
   p('ringdownDecay', 'Wobble Decay', 0.05, 4, 0.05, 's', 'Time for the wobble to die down to about a third.'),
@@ -175,9 +158,7 @@ export const INTRO_PARAM_SPECS = Object.fromEntries([
   p('titleDrift', 'Dust Drift', 0, 600, 5, 'px', 'How far the crumbling dust is pulled towards the black hole.'),
   p('releaseAt', 'Release To Cursor', 0, 12, 0.05, 's', 'When the black hole leaves the center and starts following the cursor.'),
   p('introEnd', 'Intro Ends', 0.5, 12, 0.05, 's', 'When the hints appear; the loop restarts a second later.'),
-  p('centerHoldFrequency', 'Center Stiffness', 1, 40, 0.5, 'rad/s', 'How firmly the black hole is held at the center during the intro.'),
-  p('followFrequency', 'Follow Stiffness', 0.5, 30, 0.5, 'rad/s', 'How quickly the black hole catches up with the cursor; lower feels heavier.'),
-  p('scrollSpeedGain', 'Scroll Speed Gain', 0, 40, 0.5, '×', 'Flight speed added at full scroll.')
+  p('centerHoldFrequency', 'Center Stiffness', 1, 40, 0.5, 'rad/s', 'How firmly the black hole is held at the center during the intro.')
 ].map(spec => [spec.key, spec])) as Record<IntroParamKey, IntroParamSpec>
 
 export function formatParam (value: number, spec: IntroParamSpec) {

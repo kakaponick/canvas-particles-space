@@ -115,7 +115,7 @@ function sampleFullIntro (t: number, p: IntroParams, frame: IntroFrame) {
   frame.opacityScale = 1
 
   // Distant stars are there all along; the dark opening only lets the eye find them
-  frame.backgroundStars = p.starsBrightness * (p.starsInitial + (1 - p.starsInitial) * smoothstep(progress(t, 0, p.starsFadeIn)))
+  frame.backgroundStars = p.starsInitial + (1 - p.starsInitial) * smoothstep(progress(t, 0, p.starsFadeIn))
 
   // The core: white-hot after the blast, then its light reddens and fades as it collapses
   frame.remnantGlow = progress(t, p.collapseAt, p.remnantAt - p.collapseAt) * Math.exp(-Math.max(t - p.remnantAt, 0) / p.remnantDecay)
@@ -146,7 +146,7 @@ function sampleFullIntro (t: number, p: IntroParams, frame: IntroFrame) {
 }
 
 // Reduced motion: no blast, no fronts, no wobble; the field and the black hole fade in
-function sampleReducedIntro (t: number, p: IntroParams, frame: IntroFrame) {
+function sampleReducedIntro (t: number, frame: IntroFrame) {
   frame.starGlow = 0
   frame.starRadius = 0
   frame.sourcePower = 0
@@ -157,7 +157,7 @@ function sampleReducedIntro (t: number, p: IntroParams, frame: IntroFrame) {
   frame.matterFront = 1
   frame.waveStrength = 0
   frame.reveal = 1
-  frame.backgroundStars = p.starsBrightness * easeOutCubic(progress(t, 0, 1.2))
+  frame.backgroundStars = easeOutCubic(progress(t, 0, 1.2))
   frame.remnantGlow = 0
   frame.remnantRedshift = 0
   frame.holeScale = easeOutCubic(progress(t, 0.2, 1.2))
@@ -180,7 +180,7 @@ export function getIntroDuration (reducedMotion: boolean, p: IntroParams) {
 }
 
 export function sampleIntro (t: number, reducedMotion: boolean, p: IntroParams, frame: IntroFrame) {
-  if (reducedMotion) sampleReducedIntro(t, p, frame)
+  if (reducedMotion) sampleReducedIntro(t, frame)
   else sampleFullIntro(t, p, frame)
   return frame
 }

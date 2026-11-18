@@ -56,6 +56,15 @@ function ControlPanel() {
     blackHoleSize,
     eventHorizon,
     gravityReach,
+    ringBrightness,
+    ringWidth,
+    ringDoppler,
+    ringSide,
+    followFrequency,
+    scrollSpeedGain,
+    starsBrightness,
+    starDensity,
+    starCell,
     pulseIntensity,
     backgroundR,
     backgroundG,
@@ -77,6 +86,15 @@ function ControlPanel() {
     setBlackHoleSize,
     setEventHorizon,
     setGravityReach,
+    setRingBrightness,
+    setRingWidth,
+    setRingDoppler,
+    setRingSide,
+    setFollowFrequency,
+    setScrollSpeedGain,
+    setStarsBrightness,
+    setStarDensity,
+    setStarCell,
     setPulseIntensity,
     setBackgroundColor,
     setLensingRadius,
@@ -230,6 +248,19 @@ function ControlPanel() {
             />
 
             <SliderControl
+              id="scroll-speed-gain"
+              label="Scroll Speed Gain"
+              value={scrollSpeedGain}
+              min={0}
+              max={40}
+              step={0.5}
+              formatValue={(val) => `${val.toFixed(1)}×`}
+              onChange={setScrollSpeedGain}
+              variant="inline"
+              description="Flight speed added when the page is scrolled all the way down."
+            />
+
+            <SliderControl
               id="speed-variance"
               label="Speed Variance"
               value={speedVariance}
@@ -338,6 +369,47 @@ function ControlPanel() {
               description="Speed multiplier for the pulsating effect. Higher values create faster breathing animations. Set to 0 to disable pulsation."
             />
 
+            <h3 className="font-orbitron text-neon-cyan text-base mb-2">Background Stars</h3>
+
+            <SliderControl
+              id="stars-brightness"
+              label="Stars Brightness"
+              value={starsBrightness}
+              min={0}
+              max={3}
+              step={0.05}
+              formatValue={(val) => `${val.toFixed(2)}×`}
+              onChange={setStarsBrightness}
+              variant="inline"
+              description="Overall brightness of the distant background stars."
+            />
+
+            <SliderControl
+              id="star-density"
+              label="Stars Density"
+              value={starDensity}
+              min={0}
+              max={0.6}
+              step={0.01}
+              formatValue={(val) => val.toFixed(2)}
+              onChange={setStarDensity}
+              variant="inline"
+              description="Share of the star grid cells that hold a star."
+            />
+
+            <SliderControl
+              id="star-cell"
+              label="Stars Spacing"
+              value={starCell}
+              min={8}
+              max={80}
+              step={1}
+              formatValue={(val) => `${val} px`}
+              onChange={setStarCell}
+              variant="inline"
+              description="Size of one star grid cell; smaller cells mean more, closer stars."
+            />
+
             <h3 className="font-orbitron text-neon-cyan text-base mb-2">Black Hole Physics</h3>
 
             <SliderControl
@@ -401,6 +473,71 @@ function ControlPanel() {
               onChange={setOrbitalStrength}
               variant="inline"
               description="Tangential force that causes particles to orbit around the black hole. Creates swirling, accretion disk-like motion patterns."
+            />
+
+            <SliderControl
+              id="follow-frequency"
+              label="Follow Stiffness"
+              value={followFrequency}
+              min={0.5}
+              max={30}
+              step={0.5}
+              formatValue={(val) => val.toFixed(1)}
+              onChange={setFollowFrequency}
+              variant="inline"
+              description="How quickly the black hole catches up with the cursor; lower values feel heavier."
+            />
+
+            <SliderControl
+              id="ring-brightness"
+              label="Ring Brightness"
+              value={ringBrightness}
+              min={0}
+              max={3}
+              step={0.05}
+              formatValue={(val) => `${val.toFixed(2)}×`}
+              onChange={setRingBrightness}
+              variant="inline"
+              description="Brightness of the photon ring at the edge of the shadow."
+            />
+
+            <SliderControl
+              id="ring-width"
+              label="Ring Thickness"
+              value={ringWidth}
+              min={0.004}
+              max={0.06}
+              step={0.001}
+              formatValue={(val) => val.toFixed(3)}
+              onChange={setRingWidth}
+              variant="inline"
+              description="Thickness of the photon ring in black hole radii. It never gets thinner than about a pixel and a half."
+            />
+
+            <SliderControl
+              id="ring-doppler"
+              label="Doppler Contrast"
+              value={ringDoppler}
+              min={0}
+              max={1}
+              step={0.01}
+              formatValue={(val) => val.toFixed(2)}
+              onChange={setRingDoppler}
+              variant="inline"
+              description="How much brighter and bluer the approaching side of the ring is than the dim, red receding side."
+            />
+
+            <SliderControl
+              id="ring-side"
+              label="Bright Side"
+              value={ringSide}
+              min={0}
+              max={6.28}
+              step={0.05}
+              formatValue={(val) => `${val.toFixed(2)} rad`}
+              onChange={setRingSide}
+              variant="inline"
+              description="Direction of the bright, approaching side around the ring."
             />
 
 <div className="flex items-center justify-between mb-3">
