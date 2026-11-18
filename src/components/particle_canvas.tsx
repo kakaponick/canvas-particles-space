@@ -130,6 +130,7 @@ function ParticleCanvas () {
       holeX: NaN,
       holeY: NaN,
       holeRadius: 0,
+      captureRadius: 0,
       gravityReach: 0,
       holeDepth: 0,
       gravityStrength: 0,
@@ -390,9 +391,11 @@ function ParticleCanvas () {
       const shortSide = Math.min(viewportWidth, viewportHeight)
       const halfDiagonal = Math.hypot(centerX, centerY)
       const explosionReach = halfDiagonal * 1.15
-      const horizon = hidden.hole
-        ? 0
-        : state.eventHorizon / 100 * shortSide * intro.holeScale * (1 + ringdown) * journeyFrame.approach
+      // The visible size and the radius of no return are set apart; both grow as the horizon forms
+      // and as the scroll approaches the hole
+      const holeGrowth = hidden.hole ? 0 : intro.holeScale * journeyFrame.approach
+      const horizon = state.blackHoleSize / 100 * shortSide * holeGrowth * (1 + ringdown)
+      const captureRadius = state.eventHorizon / 100 * shortSide * holeGrowth
       if (intro.holdAtCenter) {
         stepSpring(hole, centerX, centerY, dt, params.centerHoldFrequency)
       } else {
@@ -411,6 +414,7 @@ function ParticleCanvas () {
       settings.holeX = hole.x
       settings.holeY = hole.y
       settings.holeRadius = horizon
+      settings.captureRadius = captureRadius
       settings.gravityReach = horizon * state.gravityReach
       settings.holeDepth = state.farZ * 0.3
       settings.gravityStrength = hidden.gravity ? 0 : state.gravityStrength

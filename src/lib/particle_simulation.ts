@@ -49,10 +49,12 @@ export interface StepSettings {
   height: number
   // Shared focal length in pixels, so both axes project with the same scale
   focal: number
-  // Black hole on screen; NaN coordinates or a zero radius mean there is none
+  // Black hole on screen; NaN coordinates or a zero radius mean there is none. The radius sets
+  // the strength of gravity; particles closer than the capture radius are recycled
   holeX: number
   holeY: number
   holeRadius: number
+  captureRadius: number
   gravityReach: number
   // Depth of the plane where the black hole pulls hardest
   holeDepth: number
@@ -233,6 +235,7 @@ export function stepParticles (
   const hasHole = holeRadius > 0 && holeX === holeX && holeY === holeY && (gravityStrength > 0 || orbitalStrength > 0)
   const reachSq = settings.gravityReach * settings.gravityReach
   const holeRadiusSq = holeRadius * holeRadius
+  const captureRadiusSq = settings.captureRadius * settings.captureRadius
   // Gravity acts within a depth band around the hole's plane; particles far behind only get lensed.
   // The band is a compact bell, (1 - u^2 / 4)^3, close to exp(-u^2) but zero beyond |u| = 2 and
   // free of Math.exp, so most particles leave the gravity path after one subtraction
@@ -280,7 +283,7 @@ export function stepParticles (
         const bell = 1 - depthOffset * depthOffset * 0.25
         const depthWeight = bell * bell * bell
 
-        if (distSq < holeRadiusSq && depthWeight > 0.5) {
+        if (distSq < captureRadiusSq && depthWeight > 0.5) {
           spawnParticle(field, i, farZ, spawn)
           continue
         }

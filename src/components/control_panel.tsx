@@ -53,6 +53,7 @@ function ControlPanel() {
     baseSpeed,
     gravityStrength,
     orbitalStrength,
+    blackHoleSize,
     eventHorizon,
     gravityReach,
     pulseIntensity,
@@ -73,6 +74,7 @@ function ControlPanel() {
     setBaseSpeed,
     setGravityStrength,
     setOrbitalStrength,
+    setBlackHoleSize,
     setEventHorizon,
     setGravityReach,
     setPulseIntensity,
@@ -339,16 +341,29 @@ function ControlPanel() {
             <h3 className="font-orbitron text-neon-cyan text-base mb-2">Black Hole Physics</h3>
 
             <SliderControl
-              id="event-horizon"
+              id="black-hole-size"
               label="Black Hole Size"
-              value={eventHorizon}
+              value={blackHoleSize}
               min={2}
+              max={20}
+              step={0.5}
+              formatValue={(val) => `${val.toFixed(1)}%`}
+              onChange={setBlackHoleSize}
+              variant="inline"
+              description="Radius of the black hole's shadow as a share of the screen's short side. The photon ring, the lens and the strength and reach of gravity grow with it."
+            />
+
+            <SliderControl
+              id="event-horizon"
+              label="Event Horizon"
+              value={eventHorizon}
+              min={0}
               max={20}
               step={0.5}
               formatValue={(val) => `${val.toFixed(1)}%`}
               onChange={setEventHorizon}
               variant="inline"
-              description="Radius of the black hole's shadow as a share of the screen's short side. Particles that fall inside it are destroyed and recycled."
+              description="Radius of no return as a share of the screen's short side. Particles that cross it are destroyed and recycled. Below the black hole size they vanish inside the shadow; above it they vanish before reaching it; 0 lets them fly through."
             />
 
             <SliderControl
@@ -361,7 +376,7 @@ function ControlPanel() {
               formatValue={(val) => `${val.toFixed(1)}×`}
               onChange={setGravityReach}
               variant="inline"
-              description="How far the black hole's gravity reaches, in multiples of its radius. Particles within this distance are affected by gravity and orbital forces."
+              description="How far the black hole's gravity reaches, in multiples of its size. Particles within this distance are affected by gravity and orbital forces."
             />
 
             <SliderControl

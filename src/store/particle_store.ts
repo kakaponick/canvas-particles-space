@@ -13,9 +13,12 @@ interface ParticleState {
   baseSpeed: number
   gravityStrength: number
   orbitalStrength: number
-  // Black hole shadow radius, % of the viewport's short side
+  // Visible black hole: radius of its shadow, % of the viewport's short side. The photon ring,
+  // the lens and the strength and reach of gravity scale with it
+  blackHoleSize: number
+  // Radius of no return, % of the viewport's short side: particles crossing it are recycled
   eventHorizon: number
-  // Reach of the black hole's gravity, in multiples of its radius
+  // Reach of the black hole's gravity, in multiples of its size
   gravityReach: number
   pulseIntensity: number
   blackHoleFollowing: boolean
@@ -51,6 +54,7 @@ interface ParticleState {
   setBaseSpeed: (speed: number) => void
   setGravityStrength: (gravity: number) => void
   setOrbitalStrength: (orbital: number) => void
+  setBlackHoleSize: (size: number) => void
   setEventHorizon: (horizon: number) => void
   setGravityReach: (reach: number) => void
   setPulseIntensity: (intensity: number) => void
@@ -89,6 +93,7 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   baseSpeed: 1.5,
   gravityStrength: 2.5,
   orbitalStrength: 40,
+  blackHoleSize: 8,
   eventHorizon: 8,
   gravityReach: 5,
   pulseIntensity: 1,
@@ -129,6 +134,7 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   setBaseSpeed: (speed) => set({ baseSpeed: speed }),
   setGravityStrength: (gravity) => set({ gravityStrength: gravity }),
   setOrbitalStrength: (orbital) => set({ orbitalStrength: orbital }),
+  setBlackHoleSize: (size) => set({ blackHoleSize: size }),
   setEventHorizon: (horizon) => set({ eventHorizon: horizon }),
   setGravityReach: (reach) => set({ gravityReach: reach }),
   setPulseIntensity: (intensity) => set({ pulseIntensity: intensity }),
