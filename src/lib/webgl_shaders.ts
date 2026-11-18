@@ -191,6 +191,8 @@ export const compositeFragmentShaderSource = `
   uniform float u_titleDust;     // 0 solid letters, 1 grains only
 
   const float PI = 3.14159265359;
+  // Closest a bent ray gets to the point behind the hole, in Einstein radii
+  const float LENS_CORE = 0.3;
   const vec3 RING_COLOR = vec3(1.0, 0.86, 0.66);
   const vec3 FLASH_COLOR = vec3(1.0, 0.97, 0.92);
   const vec3 TITLE_COLOR = vec3(1.0, 0.9, 0.78);
@@ -280,6 +282,11 @@ export const compositeFragmentShaderSource = `
         // within reach of the screen. The two laws meet at the ring with the same value and slope
         float radial = bend <= 1.0 ? 1.0 - bend : 2.0 / PI * cos(0.5 * PI * bend);
         vec2 lensed = (samplePx - u_hole) * radial;
+        // Every ray at the ring comes from the single point right behind the hole, which would smear a
+        // few pixels into a flat milky band. Rays stop short of that point, so the ring shows real detail
+        float sourceRadius = length(lensed);
+        float lensCore = LENS_CORE * u_einstein;
+        lensed *= sqrt(sourceRadius * sourceRadius + lensCore * lensCore) / max(sourceRadius, 0.0001);
         float twist = u_swirl * bend;
         float c = cos(twist);
         float s = sin(twist);
