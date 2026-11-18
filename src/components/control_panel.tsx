@@ -125,7 +125,7 @@ function ControlPanel () {
         </SheetHeader>
         <PreparedSettings host={settingsHost} />
       </SheetContent>
-      {createPortal(<SettingsBody active={isOpen} />, settingsHost)}
+      {createPortal(<SettingsBody />, settingsHost)}
     </Sheet>
   )
 }

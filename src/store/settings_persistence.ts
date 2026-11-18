@@ -11,6 +11,8 @@ import {
 const STORAGE_KEY = 'simulation-settings-v1'
 // A slider drag or a scroll writes once, after it settles
 const SAVE_DELAY_MS = 250
+// The write waits for an idle moment between frames, but no longer than this
+const SAVE_IDLE_TIMEOUT_MS = 1000
 
 interface StoredSettings {
   settings?: Record<string, unknown>
@@ -82,19 +84,28 @@ export function startSettingsPersistence () {
   restoreSettings()
 
   let saveTimer = 0
+  let unsaved = false
+  const saveIfNeeded = () => {
+    if (!unsaved) return
+    unsaved = false
+    saveSettings()
+  }
   const scheduleSave = () => {
+    unsaved = true
     window.clearTimeout(saveTimer)
     saveTimer = window.setTimeout(() => {
-      saveTimer = 0
-      saveSettings()
+      // Safari has no idle callback
+      if (typeof window.requestIdleCallback === 'function') {
+        window.requestIdleCallback(saveIfNeeded, { timeout: SAVE_IDLE_TIMEOUT_MS })
+      } else {
+        saveIfNeeded()
+      }
     }, SAVE_DELAY_MS)
   }
   // A change made right before leaving the page must not wait for the delay
   const saveNow = () => {
-    if (!saveTimer) return
     window.clearTimeout(saveTimer)
-    saveTimer = 0
-    saveSettings()
+    saveIfNeeded()
   }
 
   useParticleStore.subscribe((state, previous) => {

@@ -1,6 +1,5 @@
 import { useState, type FormEvent } from 'react'
 import { Check, Save, Trash2 } from 'lucide-react'
-import { useShallow } from 'zustand/react/shallow'
 import { cn } from '@/lib/utils'
 import { useParticleStore } from '../../store/particle_store'
 import {
@@ -15,7 +14,6 @@ import {
   PRESET_NAME_MAX_LENGTH,
   normalizePresetName,
   sameSimulationSettings,
-  selectSimulationSettings,
   type SimulationPreset
 } from '../../lib/simulation_presets'
 import ToggleButton from './toggle_button'
@@ -105,12 +103,12 @@ function PresetControl () {
   const activeId = usePresetStore(state => state.activeId)
   const storageFailed = usePresetStore(state => state.storageFailed)
   const savePreset = usePresetStore(state => state.savePreset)
-  const current = useParticleStore(useShallow(selectSimulationSettings))
   const [name, setName] = useState('')
 
   const list = [DEFAULT_PRESET, ...presets]
   const active = list.find(preset => preset.id === activeId) ?? DEFAULT_PRESET
-  const modified = !sameSimulationSettings(current, active.settings)
+  // Re-renders only when the answer changes, not on every change of a setting
+  const modified = useParticleStore(state => !sameSimulationSettings(state, active.settings))
 
   const cleanName = normalizePresetName(name)
   const reserved = isReservedPresetName(cleanName)

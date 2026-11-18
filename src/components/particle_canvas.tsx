@@ -23,6 +23,7 @@ import { getIntroPhase } from '../lib/intro_tracks'
 import { useIntroDebugStore, NOTHING_HIDDEN } from '../store/intro_debug_store'
 import { stepSpring, type Spring2D } from '../lib/black_hole_motion'
 import { createSpeedDial, turnSpeedDial, wheelPixels, SWIPE_GAIN } from '../lib/base_speed'
+import { createFramePacer, pacedFrameMs } from '../lib/frame_pacing'
 import { renderTitleSprite, waitForTitleFont, type TitleSprite, type TitleStyle } from '../lib/title_sprite'
 import { createParticleBudget, updateParticleBudget } from '../lib/particle_budget'
 import { clearRingEnergy, createRingEnergy, stepRingEnergy } from '../lib/ring_energy'
@@ -93,6 +94,7 @@ function ParticleCanvas () {
     let animationTime = 0
     let introTime = 0
     let fadeBacklog = 0
+    const framePacer = createFramePacer()
     let fpsFrames = 0
     let fpsWindowStart = 0
     let lastReadoutTime = 0
@@ -347,7 +349,8 @@ function ParticleCanvas () {
       const stepping = debug.stepRequest !== handledStep
       handledStep = debug.stepRequest
       const playbackRate = !debugging || stepping ? 1 : debug.playing ? debug.timeScale : 0
-      const frameScale = stepping ? 1 : toFrameScale(elapsedMs) * playbackRate
+      const motionMs = pacedFrameMs(framePacer, elapsedMs)
+      const frameScale = stepping ? 1 : toFrameScale(motionMs) * playbackRate
       const dt = frameScale / REFERENCE_FPS
       const hidden = debugging ? debug.hidden : NOTHING_HIDDEN
 
