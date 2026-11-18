@@ -74,7 +74,7 @@ function SliderControl ({
           step={step}
           value={[value]}
           onValueChange={(values) => onChange(values[0])}
-          trackHeight="h-8"
+          trackHeight="h-7"
           thumbSize="hidden"
           className="w-full"
         />

@@ -20,6 +20,9 @@ export interface ParticleState {
   eventHorizon: number
   // Reach of the black hole's gravity, in multiples of its size
   gravityReach: number
+  ringEnabled: boolean
+  // Whether particles falling in light the ring; off leaves it burning evenly
+  ringFeedEnabled: boolean
   // Photon ring: brightness, line thickness in black hole radii, contrast between its sides,
   // and the direction of its bright side in radians
   ringBrightness: number
@@ -77,6 +80,8 @@ export interface ParticleState {
   setBlackHoleSize: (size: number) => void
   setEventHorizon: (horizon: number) => void
   setGravityReach: (reach: number) => void
+  toggleRing: () => void
+  toggleRingFeed: () => void
   setRingBrightness: (value: number) => void
   setRingWidth: (value: number) => void
   setRingDoppler: (value: number) => void
@@ -129,6 +134,8 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   blackHoleSize: 8,
   eventHorizon: 8,
   gravityReach: 5,
+  ringEnabled: true,
+  ringFeedEnabled: true,
   ringBrightness: 0.9,
   ringWidth: 0.012,
   ringDoppler: 0.45,
@@ -183,6 +190,8 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   setBlackHoleSize: (size) => set({ blackHoleSize: size }),
   setEventHorizon: (horizon) => set({ eventHorizon: horizon }),
   setGravityReach: (reach) => set({ gravityReach: reach }),
+  toggleRing: () => set((state) => ({ ringEnabled: !state.ringEnabled })),
+  toggleRingFeed: () => set((state) => ({ ringFeedEnabled: !state.ringFeedEnabled })),
   setRingBrightness: (value) => set({ ringBrightness: value }),
   setRingWidth: (value) => set({ ringWidth: value }),
   setRingDoppler: (value) => set({ ringDoppler: value }),

@@ -113,6 +113,7 @@ function ParticleCanvas () {
     const initialState = useParticleStore.getState()
     const particleBudget = createParticleBudget(initialState.numParticles)
     const ringEnergy = createRingEnergy()
+    let ringWasFed = true
     const field = createParticleField()
     const instances = createInstanceData()
     const spawn: SpawnSettings = {
@@ -426,6 +427,11 @@ function ParticleCanvas () {
       settings.holeY = hole.y
       settings.holeRadius = horizon
       settings.captureRadius = captureRadius
+      // With the feed off the simulation stops collecting light, and old light does not return later
+      const ringFed = state.ringEnabled && state.ringFeedEnabled
+      if (ringWasFed && !ringFed) clearRingEnergy(ringEnergy)
+      ringWasFed = ringFed
+      settings.ringEnergy = ringFed ? ringEnergy : null
       settings.gravityReach = horizon * state.gravityReach
       settings.holeDepth = state.farZ * 0.3
       settings.gravityStrength = hidden.gravity ? 0 : state.gravityStrength
@@ -446,7 +452,7 @@ function ParticleCanvas () {
       if (frame.updateScene) {
         const simStart = performance.now()
         frame.instanceCount = stepParticles(field, settings, spawn, instances)
-        stepRingEnergy(ringEnergy, dt, state.ringAfterglow, reducedMotion ? 0 : state.ringFlowSpeed)
+        if (ringFed) stepRingEnergy(ringEnergy, dt, state.ringAfterglow, reducedMotion ? 0 : state.ringFlowSpeed)
         frame.instances = instances.floats
         const active = updateParticleBudget(
           particleBudget, state.numParticles, performance.now() - simStart, elapsedMs, now, state.adaptiveParticles
@@ -484,13 +490,13 @@ function ParticleCanvas () {
       composite.falloff = state.lensingFalloff
       composite.swirl = state.lensingRotation
       composite.absorption = state.lensingAbsorption
-      composite.ring = hidden.ring ? 0 : state.ringBrightness * ringPower
+      composite.ring = hidden.ring || !state.ringEnabled ? 0 : state.ringBrightness * ringPower
       composite.ringWidth = state.ringWidth
       composite.ringDoppler = state.ringDoppler
       composite.ringSide = state.ringSide
       composite.ringPhase = ringEnergy.phase
-      composite.ringBase = state.ringBase
-      composite.ringFeed = state.ringFeed
+      composite.ringBase = ringFed ? state.ringBase : 1
+      composite.ringFeed = ringFed ? state.ringFeed : 0
       composite.centerX = centerX
       composite.centerY = centerY
       composite.starGlow = intro.starGlow

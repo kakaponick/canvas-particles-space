@@ -22,17 +22,13 @@ function ColorPalette () {
   }
 
   return (
-    <div className="mb-6 pb-5 border-b border-[rgba(0,255,255,0.3)]">
-      <h3 className="font-orbitron text-neon-cyan text-base mb-2">
-        Colors
-      </h3>
-      
-      <div className="flex flex-col gap-2 mb-3">
+    <div>
+      <div className="flex flex-col gap-1 mb-1">
         {colorPalette.map((color, index) => (
           <div
             key={index}
             className={`
-              flex items-center gap-2 p-2 bg-[rgba(255,255,255,0.05)] 
+              flex items-center gap-2 p-1 bg-[rgba(255,255,255,0.05)] 
               border border-[rgba(255,255,255,0.1)] transition-all duration-200
               ${!color.enabled ? 'opacity-40' : ''} 
               hover:bg-[rgba(255,255,255,0.1)] hover:border-neon-cyan/50
@@ -41,7 +37,7 @@ function ColorPalette () {
             {/* Color preview - clickable to toggle */}
             <div
               onClick={() => updateColor(index, { enabled: !color.enabled })}
-              className="w-8 h-8 flex-shrink-0 cursor-pointer transition-all duration-200 hover:scale-110 relative group"
+              className="w-6 h-6 flex-shrink-0 cursor-pointer transition-all duration-200 hover:scale-110 relative group"
               style={{ 
                 backgroundColor: `rgb(${color.r}, ${color.g}, ${color.b})`,
                 opacity: color.enabled ? 1 : 0.5,
@@ -58,7 +54,7 @@ function ColorPalette () {
             </div>
             
             {/* Color info and slider */}
-            <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+            <div className="flex-1 min-w-0 flex flex-col gap-1">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[0.65rem] font-mono text-text-light/70 truncate uppercase">
                   {rgbToHex(color.r, color.g, color.b)}
@@ -103,7 +99,7 @@ function ColorPalette () {
         ))}
       </div>
 
-      <div className="space-y-2">
+      <div className="flex gap-1">
         <ColorPickerInput
           value={selectedColor}
           onChange={setSelectedColor}
@@ -112,26 +108,12 @@ function ColorPalette () {
         <Button
           variant="outline"
           onClick={handleAddColor}
-          className="w-full border-neon-cyan text-neon-cyan font-orbitron text-xs px-3 py-1.5 hover:bg-neon-cyan hover:text-bg-dark hover:shadow-[0_0_12px_#00ffff]"
+          className="h-8 w-16 shrink-0 border-neon-cyan text-neon-cyan font-orbitron text-xs px-0 hover:bg-neon-cyan hover:text-bg-dark hover:shadow-[0_0_12px_#00ffff]"
         >
           + ADD
         </Button>
       </div>
 
-      <style>{`
-        .overflow-y-auto::-webkit-scrollbar {
-          width: 6px;
-        }
-        
-        .overflow-y-auto::-webkit-scrollbar-track {
-          background: rgba(255, 255, 255, 0.05);
-        }
-        
-        .overflow-y-auto::-webkit-scrollbar-thumb {
-          background: #00ffff;
-          border-radius: 3px;
-        }
-      `}</style>
     </div>
   )
 }

@@ -103,4 +103,15 @@ html::-webkit-scrollbar {
   50% { box-shadow: 0 0 40px var(--neon-cyan), 0 0 60px var(--neon-cyan); }
 }
 
+.overflow-y-auto::-webkit-scrollbar {
+  width: 6px;
+}
 
+.overflow-y-auto::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb {
+  background: #00ffff;
+  border-radius: 3px;
+}
