@@ -57,6 +57,9 @@ export interface ParticleState {
   maxOpacity: number
   pulseSpeedMultiplier: number
   trailIntensity: number
+  // How strongly a particle's brightness follows its speed: 0 lights every moving particle in full,
+  // 1 is the original canvas, higher values dim slow particles further
+  speedGlow: number
   speedVariance: number
   isPaused: boolean
   lensingRotation: number
@@ -106,6 +109,7 @@ export interface ParticleState {
   setMaxOpacity: (opacity: number) => void
   setPulseSpeedMultiplier: (multiplier: number) => void
   setTrailIntensity: (intensity: number) => void
+  setSpeedGlow: (value: number) => void
   setSpeedVariance: (variance: number) => void
   togglePause: () => void
   setLensingRotation: (rotation: number) => void
@@ -157,6 +161,7 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   maxOpacity: 1.0,
   pulseSpeedMultiplier: 1.0,
   trailIntensity: 0.15,
+  speedGlow: 1,
   speedVariance: 0.15,
   isPaused: false,
   lensingRotation: 0.15,
@@ -208,6 +213,7 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   setMaxOpacity: (opacity) => set({ maxOpacity: opacity }),
   setPulseSpeedMultiplier: (multiplier) => set({ pulseSpeedMultiplier: multiplier }),
   setTrailIntensity: (intensity) => set({ trailIntensity: intensity }),
+  setSpeedGlow: (value) => set({ speedGlow: value }),
   setSpeedVariance: (variance) => set({ speedVariance: variance }),
   togglePause: () => set((state) => ({ isPaused: !state.isPaused })),
   setLensingRotation: (rotation) => set({ lensingRotation: rotation }),

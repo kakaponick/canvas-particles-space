@@ -144,6 +144,18 @@ function SettingsSections () {
           description="Global brightness multiplier for all particles. Values above 1.0 increase luminosity, below 1.0 create dimmer effects."
         />
         <SettingSlider
+          id="speed-glow"
+          label="Speed Glow"
+          field="speedGlow"
+          min={0}
+          max={3}
+          step={0.05}
+          formatValue={(val) => val.toFixed(2)}
+          setter="setSpeedGlow"
+          variant="inline"
+          description="How strongly brightness follows a particle's speed. 0 = every moving particle is fully lit, 1 = slow particles are dimmer and fast ones brighter, higher values leave only the fast ones glowing. A particle that stands still is always dark."
+        />
+        <SettingSlider
           id="depth-fade"
           label="Depth Fade"
           field="depthFade"

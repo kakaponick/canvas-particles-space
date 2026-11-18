@@ -108,6 +108,9 @@ export interface FrameInput {
   instances: Float32Array
   instanceCount: number
   doppler: number
+  // How strongly brightness follows speed, and the frame length in 60 Hz reference frames it is judged by
+  speedGlow: number
+  frameScale: number
   // Photon ring energy around the circle, RING_BINS values
   ringTexels: Uint8Array
   title: TitleSettings
@@ -227,7 +230,7 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
   }
 
   const fadeUniforms = getUniforms(gl, fadeProgram, ['color'] as const)
-  const particleUniforms = getUniforms(gl, particleProgram, ['resolution', 'pixelRatio', 'center', 'doppler'] as const)
+  const particleUniforms = getUniforms(gl, particleProgram, ['resolution', 'pixelRatio', 'center', 'doppler', 'speedGlow', 'frameScale'] as const)
   const compositeUniforms = getUniforms(gl, compositeProgram, [
     'resolution', 'pixelRatio', 'time', 'hole', 'horizon', 'einstein', 'falloff', 'swirl', 'absorption', 'ring',
     'ringWidth', 'ringDoppler', 'ringSide', 'ringPhase', 'ringBase', 'ringFeed',
@@ -334,7 +337,7 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     gl.activeTexture(gl.TEXTURE0 + SCENE_TEXTURE_UNIT)
   }
 
-  function drawParticles (instances: Float32Array, count: number, doppler: number) {
+  function drawParticles (instances: Float32Array, count: number, doppler: number, speedGlow: number, frameScale: number) {
     if (count === 0) return
 
     gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuffer)
@@ -346,6 +349,8 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
 
     gl.useProgram(particleProgram)
     setUniform1f(gl, particleUniforms.doppler, doppler)
+    setUniform1f(gl, particleUniforms.speedGlow, speedGlow)
+    setUniform1f(gl, particleUniforms.frameScale, frameScale)
     for (const location of INSTANCED_ATTRIBUTES) gl.enableVertexAttribArray(location)
     instancing.draw(QUAD_VERTEX_COUNT, count)
     for (const location of INSTANCED_ATTRIBUTES) gl.disableVertexAttribArray(location)
@@ -423,7 +428,7 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
         setUniform4f(gl, fadeUniforms.color, r / 255, g / 255, b / 255, frame.fadeAlpha)
         gl.drawArrays(gl.TRIANGLES, 0, QUAD_VERTEX_COUNT)
       }
-      drawParticles(frame.instances, frame.instanceCount, frame.doppler)
+      drawParticles(frame.instances, frame.instanceCount, frame.doppler, frame.speedGlow, frame.frameScale)
       gl.bindFramebuffer(gl.FRAMEBUFFER, null)
 
       gl.activeTexture(gl.TEXTURE0 + RING_TEXTURE_UNIT)

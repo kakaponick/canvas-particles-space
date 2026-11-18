@@ -153,6 +153,8 @@ function ParticleCanvas () {
       instances: instances.floats,
       instanceCount: 0,
       doppler: 0,
+      speedGlow: 1,
+      frameScale: 1,
       ringTexels: ringEnergy.texels,
       title: { alpha: 0, x: 0, y: 0, reveal: 1, dissolve: 0, drift: 0, glow: 0, flash: 0, cooling: 1, dust: 0 },
       composite: {
@@ -448,6 +450,8 @@ function ParticleCanvas () {
         )
         if (active !== state.activeParticles) state.setActiveParticles(active)
       }
+      frame.speedGlow = state.speedGlow
+      if (frameScale > 0) frame.frameScale = frameScale
       frame.doppler = hidden.doppler ? 0 : Math.min(Math.max((speed - 2) / 10, 0), 1) * (reducedMotion ? 0.5 : 1)
       readBackground()
       // The 8-bit scene texture rounds away fades smaller than half a step, so on fast displays

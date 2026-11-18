@@ -58,6 +58,8 @@ export const particleVertexShaderSource = `
   uniform float u_pixelRatio;
   uniform vec2 u_center;      // vanishing point in CSS pixels
   uniform float u_doppler;    // 0 at rest, 1 near the speed of light
+  uniform float u_speedGlow;  // how strongly brightness follows speed; 1 is plain pixel coverage
+  uniform float u_frameScale; // length of this frame in 60 Hz reference frames
 
   varying vec2 v_ends;        // distance along the segment from its start and from its end
   varying float v_across;     // signed distance from the segment axis
@@ -84,6 +86,12 @@ export const particleVertexShaderSource = `
     float across = a_position.y * (halfWidth + 1.0);
     vec2 pixel = start + direction * along + normal * across;
 
+    // A stroke shorter than a pixel lights only its share of it, so brightness grows with speed in step
+    // with the length. The setting bends that link: the light becomes the length to the power of
+    // u_speedGlow, with the length taken per 60 Hz frame so the result is the same at any refresh rate
+    float referenceLength = clamp(len / max(u_frameScale, 0.0001), 0.0001, 1.0);
+    float glow = pow(referenceLength, u_speedGlow - 1.0);
+
     // Relativistic aberration, stylised: light ahead shifts blue, light at the edges shifts red
     float radial = length(a_segment.zw - u_center) / max(length(u_center), 1.0);
     float shift = u_doppler * (1.0 - 1.7 * radial);
@@ -92,7 +100,7 @@ export const particleVertexShaderSource = `
     v_ends = vec2(along, len - along);
     v_across = across;
     v_halfWidth = halfWidth;
-    v_color = vec4(mix(a_color.rgb, tint, min(abs(shift), 0.8)), a_style.y * width / drawWidth);
+    v_color = vec4(mix(a_color.rgb, tint, min(abs(shift), 0.8)), a_style.y * glow * width / drawWidth);
 
     // Rows stay top-down in the scene texture, which is the layout the composite pass samples
     gl_Position = vec4(pixel / u_resolution * 2.0 - 1.0, 0.0, 1.0);
