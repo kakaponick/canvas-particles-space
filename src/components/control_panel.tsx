@@ -447,7 +447,7 @@ function ControlPanel() {
               formatValue={(val) => val.toFixed(1)}
               onChange={setLensingFalloff}
               variant="inline"
-              description="Controls how quickly the lensing effect diminishes with distance. 1 = linear falloff (spread out), 2 = quadratic (realistic), 3 = sharp falloff (concentrated)."
+              description="How the pull of the lens changes with distance. 1 almost removes the lens, 2 is a point mass (realistic), 3 widens the lens and its dark zone far around the black hole."
             />
 
             <SliderControl
@@ -460,7 +460,7 @@ function ControlPanel() {
               formatValue={(val) => val.toFixed(2)}
               onChange={setLensingAbsorption}
               variant="inline"
-              description="Controls how much light is absorbed near the black hole. 0 = no darkening, higher values create stronger shadow and darkness around the event horizon."
+              description="How much light the pull of the lens removes around the black hole. 0 = none; higher values open a wider dark zone around the shadow. The zone also grows with Lensing Radius and Lensing Falloff."
             />
           </div>
 

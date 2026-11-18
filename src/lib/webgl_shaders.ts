@@ -142,9 +142,9 @@ export const compositeFragmentShaderSource = `
   uniform vec2 u_hole;
   uniform float u_horizon;       // shadow radius; 0 before the black hole forms
   uniform float u_einstein;      // Einstein ring radius; 0 turns the lens off
-  uniform float u_falloff;       // 2 is a point mass
+  uniform float u_falloff;       // 2 is a point mass; higher widens the lens, lower shrinks it
   uniform float u_swirl;         // frame-dragging twist near the ring
-  uniform float u_absorption;    // darkening halo around the shadow
+  uniform float u_absorption;    // light the lens's pull removes around the shadow
   uniform float u_ring;          // photon ring brightness
 
   // Explosion, all centred on u_center
@@ -265,11 +265,15 @@ export const compositeFragmentShaderSource = `
       samplePx += fromCenter / max(centerDist, 0.0001) * u_gravityWaveAmplitude * exp(-x * x) * sin(x * u_gravityWaveCycles) * cos(2.0 * angle);
     }
 
-    // Point-mass lens: a ray passing at distance r arrives from r * (1 - (E / r)^falloff),
-    // which maps the background behind the hole into a ring of radius E
+    // Point-mass lens: a ray passing at distance r arrives from r * (1 - (E / r)^2), which maps the
+    // background behind the hole into a ring of radius E. Falloff pivots around a distance of one
+    // screen: inside it a higher power pulls harder, so the lens and its dark zone grow with falloff
+    float bend = 0.0;
     if (u_einstein > 0.0) {
       float ratio = u_einstein / max(dist, 0.0001);
-      float bend = min(u_falloff == 2.0 ? ratio * ratio : pow(ratio, u_falloff), 64.0);
+      bend = ratio * ratio;
+      if (u_falloff != 2.0) bend *= pow(min(u_resolution.x, u_resolution.y) / max(dist, 0.0001), u_falloff - 2.0);
+      bend = min(bend, 64.0);
       if (bend * dist * (1.0 + u_swirl) > 0.01) {
         vec2 lensed = (samplePx - u_hole) * (1.0 - bend);
         float twist = u_swirl * bend;
@@ -349,10 +353,12 @@ export const compositeFragmentShaderSource = `
     }
     color = (color + emitted) * u_exposure;
 
+    // Light is lost in proportion to the lens's pull. Subtracting takes faint light first, so a dark
+    // zone opens around the shadow and grows with absorption, lens radius and falloff
+    if (bend > 0.0 && u_absorption > 0.0) color = max(color - 0.5 * bend * u_absorption, 0.0);
+
     if (u_horizon > 0.0) {
-      float shadow = smoothstep(u_horizon - 1.0, u_horizon + 1.0, dist);
-      float halo = clamp(1.0 - (dist - u_horizon) / (1.5 * u_horizon), 0.0, 1.0);
-      color *= shadow * (1.0 - u_absorption * halo * halo);
+      color *= smoothstep(u_horizon - 1.0, u_horizon + 1.0, dist);
 
       // Photon ring, brighter on the side whose light orbits toward the viewer
       float ringWidth = max(1.2, u_horizon * 0.035);
