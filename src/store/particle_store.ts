@@ -8,7 +8,7 @@ export interface ParticleColor {
   percent: number
 }
 
-interface ParticleState {
+export interface ParticleState {
   numParticles: number
   baseSpeed: number
   gravityStrength: number

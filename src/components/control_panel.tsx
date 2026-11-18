@@ -19,6 +19,7 @@ import { Play, Pause, Settings, Maximize, Minimize } from 'lucide-react'
 import HelpTooltip from './controls/help_tooltip'
 import ToggleButton from './controls/toggle_button'
 import FrameRateControl from './controls/frame_rate_control'
+import PresetControl from './controls/preset_control'
 import { useIntroDebugStore } from '../store/intro_debug_store'
 
 function ControlPanel() {
@@ -176,6 +177,8 @@ function ControlPanel() {
           </SheetHeader>
 
           <div className="mt-6 space-y-2">
+
+            <PresetControl />
 
             {/* Play/Pause Control */}
             <div className="flex items-center justify-between mb-4 pb-4 border-b border-neon-cyan/20">
