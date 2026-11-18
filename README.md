@@ -58,7 +58,7 @@ ripples the background stars, swallows the title and then drifts to your cursor.
 - **Scroll**: Change Base Speed over the scene; down is faster, up is slower
 - **Touch**: Drag the black hole with a finger; swipe up or down elsewhere to change Base Speed
 - **Intro debugger** (Shift+D, `?debug` in the address, or Settings → Intro Debugger): timeline with phase markers, playback speed from 0 (stopped) to 2×, frame step, loop, switches to turn each effect of the opening off, and every tunable number of the opening (about 60, grouped; kept across reloads in this browser, with reset and "copy changed" to share the values)
-- **⚙️ Control Panel**: Adjust physics parameters and colors; the current settings are kept in this browser across reloads
+- **⚙️ Control Panel**: Adjust physics parameters and colors; Esc opens and closes it, and the current settings are kept in this browser across reloads
 
 ### Parameters
 

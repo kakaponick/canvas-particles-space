@@ -23,6 +23,16 @@ import PresetControl from './controls/preset_control'
 import { useIntroDebugStore } from '../store/intro_debug_store'
 import { BASE_SPEED_MAX, BASE_SPEED_MIN, BASE_SPEED_STEP } from '../lib/base_speed'
 
+// Only a press on the scene closes the panel, and the press still reaches the simulation
+function closeOnlyFromScene (event: { detail: { originalEvent: Event }, preventDefault: () => void }) {
+  if (!(event.detail.originalEvent.target instanceof HTMLCanvasElement)) event.preventDefault()
+}
+
+function isTextEntry (target: EventTarget | null) {
+  return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement || (target instanceof HTMLElement && target.isContentEditable)
+}
+
 function ControlPanel () {
   const [isOpen, setIsOpen] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -48,6 +58,18 @@ function ControlPanel () {
 
     document.addEventListener('fullscreenchange', handleFullscreenChange)
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange)
+  }, [])
+
+  // The open panel closes on Escape by itself and marks the key as handled; this opens it again
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented || event.repeat) return
+      if (event.ctrlKey || event.altKey || event.metaKey || event.shiftKey || isTextEntry(event.target)) return
+      setIsOpen(true)
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
 
   const {
@@ -133,17 +155,21 @@ function ControlPanel () {
   const togglePause = useParticleStore(state => state.togglePause)
 
   return (
-    <Sheet open={isOpen} onOpenChange={setIsOpen}>
+    <Sheet open={isOpen} onOpenChange={setIsOpen} modal={false}>
       <div className="fixed bottom-5 left-5 flex gap-2 z-40" style={{
         marginBottom: 'var(--intro-dock-height, 0px)',
         opacity: isOpen ? 0 : 1,
         pointerEvents: isOpen ? 'none' : 'auto',
-        transition: 'opacity 300ms'
+        visibility: isOpen ? 'hidden' : 'visible',
+        transition: 'opacity 300ms, visibility 300ms'
       }}>
         <SheetTrigger asChild>
           <Button
             variant="outline"
             size="icon"
+            aria-label="Settings"
+            aria-keyshortcuts="Escape"
+            title="Settings (Esc)"
             className="bg-[rgba(10,10,15,0.95)] border-neon-cyan text-neon-cyan hover:bg-[rgba(0,255,255,0.1)] hover:text-neon-cyan font-mono"
             style={{
               boxShadow: '0 0 20px rgba(0, 255, 255, 0.3)'
@@ -157,6 +183,7 @@ function ControlPanel () {
           variant="outline"
           size="icon"
           onClick={toggleFullscreen}
+          aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
           className="bg-[rgba(10,10,15,0.95)] border-neon-cyan text-neon-cyan hover:bg-[rgba(0,255,255,0.1)] hover:text-neon-cyan font-mono"
           style={{
             boxShadow: '0 0 20px rgba(0, 255, 255, 0.3)'
@@ -168,12 +195,14 @@ function ControlPanel () {
 
       <SheetContent
         side="left"
+        onInteractOutside={closeOnlyFromScene}
         className="w-[min(340px,100vw)] max-h-screen overflow-y-auto bg-[rgba(10,10,15,0.98)] p-3 pointer-events-auto sm:max-w-none">
         <TooltipProvider delayDuration={500} skipDelayDuration={0}>
-          <SheetHeader className="h-7 justify-center text-left sm:text-left">
+          <SheetHeader className="h-7 flex-row items-center gap-2 text-left sm:text-left">
             <SheetTitle className="font-orbitron text-neon-cyan text-sm tracking-[1px]" style={{ textShadow: '0 0 10px #00ffff' }}>
               SETTINGS
             </SheetTitle>
+            <kbd aria-hidden="true" className="border border-neon-cyan/30 px-1 font-mono text-[0.65rem] leading-4 text-text-light/70">ESC</kbd>
             <SheetDescription className="sr-only">
               Adjust particle simulation parameters
             </SheetDescription>
