@@ -9,7 +9,7 @@ export const SIMULATION_SETTING_KEYS = [
   'starsBrightness', 'starDensity', 'starCell',
   'blackHoleSize', 'eventHorizon', 'gravityReach', 'gravityStrength', 'orbitalStrength', 'followFrequency',
   'ringEnabled', 'ringFeedEnabled', 'ringBrightness', 'ringWidth', 'ringDoppler', 'ringSide', 'ringBase', 'ringFeed', 'ringAfterglow', 'ringFlowSpeed',
-  'lensingEnabled', 'lensingRadius', 'lensingRotation', 'lensingFalloff', 'lensingAbsorption',
+  'lensingEnabled', 'lensingRadius', 'lensingRotation', 'lensingFalloff', 'lensingPivot', 'lensingCore', 'lensingMaxBend', 'lensingAbsorption',
   'colorPalette', 'backgroundR', 'backgroundG', 'backgroundB'
 ] as const satisfies readonly (keyof ParticleState)[]
 

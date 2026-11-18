@@ -39,6 +39,11 @@ export interface CompositeSettings {
   horizon: number
   einstein: number
   falloff: number
+  // Distance from the black hole at which falloff leaves the pull unchanged
+  falloffPivot: number
+  // In Einstein radii
+  lensCore: number
+  maxBend: number
   swirl: number
   absorption: number
   ring: number
@@ -232,7 +237,7 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
   const fadeUniforms = getUniforms(gl, fadeProgram, ['color'] as const)
   const particleUniforms = getUniforms(gl, particleProgram, ['resolution', 'pixelRatio', 'center', 'doppler', 'speedGlow', 'frameScale'] as const)
   const compositeUniforms = getUniforms(gl, compositeProgram, [
-    'resolution', 'pixelRatio', 'time', 'hole', 'horizon', 'einstein', 'falloff', 'swirl', 'absorption', 'ring',
+    'resolution', 'pixelRatio', 'time', 'hole', 'horizon', 'einstein', 'falloff', 'falloffPivot', 'lensCore', 'maxBend', 'swirl', 'absorption', 'ring',
     'ringWidth', 'ringDoppler', 'ringSide', 'ringPhase', 'ringBase', 'ringFeed',
     'center', 'starGlow', 'starRadius', 'sourcePower', 'glareRadius', 'exposure',
     'lightRadius', 'lightWidth', 'lightPower', 'lightSpeed', 'echoPower', 'echoDecay',
@@ -377,6 +382,9 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     setUniform1f(gl, u.horizon, settings.horizon * ratio)
     setUniform1f(gl, u.einstein, settings.einstein * ratio)
     setUniform1f(gl, u.falloff, settings.falloff)
+    setUniform1f(gl, u.falloffPivot, Math.max(settings.falloffPivot * ratio, 1))
+    setUniform1f(gl, u.lensCore, settings.lensCore)
+    setUniform1f(gl, u.maxBend, settings.maxBend)
     setUniform1f(gl, u.swirl, settings.swirl)
     setUniform1f(gl, u.absorption, settings.absorption)
     setUniform1f(gl, u.ring, settings.ring)

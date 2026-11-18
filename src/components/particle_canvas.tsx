@@ -167,6 +167,9 @@ function ParticleCanvas () {
         horizon: 0,
         einstein: 0,
         falloff: 2,
+        falloffPivot: 1,
+        lensCore: 0.3,
+        maxBend: 64,
         swirl: 0,
         absorption: 0,
         ring: 0,
@@ -487,6 +490,9 @@ function ParticleCanvas () {
       composite.horizon = horizon
       composite.einstein = state.lensingEnabled && !hidden.lens ? horizon * state.lensingRadius * intro.lensScale : 0
       composite.falloff = state.lensingFalloff
+      composite.falloffPivot = state.lensingPivot / 100 * shortSide
+      composite.lensCore = state.lensingCore
+      composite.maxBend = state.lensingMaxBend
       composite.swirl = state.lensingRotation
       composite.absorption = state.lensingAbsorption
       composite.ring = hidden.ring || !state.ringEnabled ? 0 : state.ringBrightness * ringPower

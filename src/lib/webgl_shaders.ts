@@ -153,6 +153,9 @@ export const compositeFragmentShaderSource = `
   uniform float u_einstein;      // Einstein ring radius; 0 turns the lens off
   uniform float u_falloff;       // 2 is a point mass; higher widens the lens, lower shrinks it
   uniform float u_swirl;         // frame-dragging twist near the ring
+  uniform float u_falloffPivot;  // distance at which falloff leaves the pull unchanged
+  uniform float u_lensCore;      // closest a bent ray gets to the point behind the hole, in Einstein radii
+  uniform float u_maxBend;       // cap on the pull; 1 leaves no nested rings inside the Einstein ring
   uniform float u_absorption;    // light the lens's pull removes around the shadow
   uniform float u_ring;          // photon ring brightness
   uniform float u_ringWidth;     // thickness of the line, in black hole radii
@@ -206,8 +209,6 @@ export const compositeFragmentShaderSource = `
   uniform float u_titleDust;     // 0 solid letters, 1 grains only
 
   const float PI = 3.14159265359;
-  // Closest a bent ray gets to the point behind the hole, in Einstein radii
-  const float LENS_CORE = 0.3;
   const vec3 RING_COLOR = vec3(1.0, 0.86, 0.66);
   const vec3 RING_APPROACHING = vec3(0.8, 0.9, 1.0);
   const vec3 RING_RECEDING = vec3(1.0, 0.42, 0.16);
@@ -286,14 +287,15 @@ export const compositeFragmentShaderSource = `
     }
 
     // Point-mass lens: a ray passing at distance r arrives from r * (1 - (E / r)^2), which maps the
-    // background behind the hole into a ring of radius E. Falloff pivots around a distance of one
-    // screen: inside it a higher power pulls harder, so the lens and its dark zone grow with falloff
+    // background behind the hole into a ring of radius E. Falloff pivots around
+    // u_falloffPivot: closer than that a higher power pulls harder. With the pivot a screen away the
+    // lens and its dark zone grow with falloff; with the pivot at the ring only their shape changes
     float bend = 0.0;
     if (u_einstein > 0.0) {
       float ratio = u_einstein / max(dist, 0.0001);
       bend = ratio * ratio;
-      if (u_falloff != 2.0) bend *= pow(min(u_resolution.x, u_resolution.y) / max(dist, 0.0001), u_falloff - 2.0);
-      bend = min(bend, 64.0);
+      if (u_falloff != 2.0) bend *= pow(u_falloffPivot / max(dist, 0.0001), u_falloff - 2.0);
+      bend = min(bend, u_maxBend);
       if (bend * dist * (1.0 + abs(u_swirl)) > 0.01) {
         // Outside the ring the point-mass law; inside it the image ripples into nested rings and stays
         // within reach of the screen. The two laws meet at the ring with the same value and slope
@@ -302,7 +304,7 @@ export const compositeFragmentShaderSource = `
         // Every ray at the ring comes from the single point right behind the hole, which would smear a
         // few pixels into a flat milky band. Rays stop short of that point, so the ring shows real detail
         float sourceRadius = length(lensed);
-        float lensCore = LENS_CORE * u_einstein;
+        float lensCore = u_lensCore * u_einstein;
         lensed *= sqrt(sourceRadius * sourceRadius + lensCore * lensCore) / max(sourceRadius, 0.0001);
         float twist = u_swirl * bend;
         float c = cos(twist);

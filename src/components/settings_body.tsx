@@ -534,6 +534,42 @@ function SettingsSections () {
           description="How the pull of the lens changes with distance. Below 1 the lens almost disappears, 2 is a point mass (realistic), 3 and above widen the lens and its dark zone far around the black hole."
         />
         <SettingSlider
+          id="lensing-pivot"
+          label="Falloff Pivot"
+          field="lensingPivot"
+          min={1}
+          max={300}
+          step={1}
+          formatValue={(val) => `${val}%`}
+          setter="setLensingPivot"
+          variant="inline"
+          description="Distance from the black hole, as a share of the screen's short side, where Lensing Falloff changes nothing. Closer than this a higher falloff pulls harder, farther away it pulls less. At 100% a higher falloff strengthens the lens over the whole screen; set it to the Einstein ring's radius (Black Hole Size times Lensing Radius) and falloff reshapes the lens without resizing it."
+        />
+        <SettingSlider
+          id="lensing-max-bend"
+          label="Inner Rings"
+          field="lensingMaxBend"
+          min={1}
+          max={256}
+          step={1}
+          formatValue={(val) => String(val)}
+          setter="setLensingMaxBend"
+          variant="inline"
+          description="Cap on how hard the lens can pull. Inside the Einstein ring a stronger pull folds the sky into more nested, mirrored rings; 1 leaves none, higher values allow more of them toward the centre."
+        />
+        <SettingSlider
+          id="lensing-core"
+          label="Lens Core"
+          field="lensingCore"
+          min={0}
+          max={2}
+          step={0.05}
+          formatValue={(val) => val.toFixed(2)}
+          setter="setLensingCore"
+          variant="inline"
+          description="How far from the point right behind the black hole the bent rays stay, in Einstein ring radii. 0 smears that single point into a flat band along the ring; higher values fill the ring with detail from farther around it."
+        />
+        <SettingSlider
           id="lensing-absorption"
           label="Light Absorption"
           field="lensingAbsorption"

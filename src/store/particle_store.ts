@@ -73,6 +73,12 @@ export interface ParticleState {
   isPaused: boolean
   lensingRotation: number
   lensingFalloff: number
+  // Distance from the black hole at which Lensing Falloff leaves the pull unchanged, % of the viewport's short side
+  lensingPivot: number
+  // Closest a bent ray gets to the point right behind the hole, in Einstein radii
+  lensingCore: number
+  // Cap on the lens's pull; 1 leaves no nested rings inside the Einstein ring
+  lensingMaxBend: number
   lensingAbsorption: number
   frameRateCap: number
   measuredFps: number
@@ -128,6 +134,9 @@ export interface ParticleState {
   togglePause: () => void
   setLensingRotation: (rotation: number) => void
   setLensingFalloff: (falloff: number) => void
+  setLensingPivot: (value: number) => void
+  setLensingCore: (value: number) => void
+  setLensingMaxBend: (value: number) => void
   setLensingAbsorption: (absorption: number) => void
   setFrameRateCap: (fps: number) => void
   setMeasuredFps: (fps: number) => void
@@ -185,6 +194,9 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   isPaused: false,
   lensingRotation: 0.15,
   lensingFalloff: 2.0,
+  lensingPivot: 100,
+  lensingCore: 0.3,
+  lensingMaxBend: 64,
   lensingAbsorption: 0.25,
   frameRateCap: 0,
   measuredFps: 0,
@@ -242,6 +254,9 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   togglePause: () => set((state) => ({ isPaused: !state.isPaused })),
   setLensingRotation: (rotation) => set({ lensingRotation: rotation }),
   setLensingFalloff: (falloff) => set({ lensingFalloff: falloff }),
+  setLensingPivot: (value) => set({ lensingPivot: value }),
+  setLensingCore: (value) => set({ lensingCore: value }),
+  setLensingMaxBend: (value) => set({ lensingMaxBend: value }),
   setLensingAbsorption: (absorption) => set({ lensingAbsorption: absorption }),
   setFrameRateCap: (fps) => set({ frameRateCap: fps }),
   setMeasuredFps: (fps) => set({ measuredFps: fps }),
