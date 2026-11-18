@@ -167,7 +167,6 @@ function ParticleCanvas () {
         absorption: 0,
         ring: 0,
         ringWidth: 0,
-        ringHalo: 0,
         ringDoppler: 0,
         ringSide: 0,
         centerX: 0,
@@ -478,7 +477,6 @@ function ParticleCanvas () {
       composite.absorption = state.lensingAbsorption
       composite.ring = hidden.ring ? 0 : params.ringBrightness * ringPower
       composite.ringWidth = params.ringWidth
-      composite.ringHalo = params.ringHalo
       composite.ringDoppler = params.ringDoppler
       composite.ringSide = params.ringSide
       composite.centerX = centerX

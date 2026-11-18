@@ -141,7 +141,7 @@ export const INTRO_TRACKS: IntroTrack[] = [
     key: 'ring',
     label: 'Photon ring',
     layer: 'ring',
-    params: ['ringDelay', 'ringFadeIn', 'ringBrightness', 'ringWidth', 'ringHalo', 'ringDoppler', 'ringSide'],
+    params: ['ringDelay', 'ringFadeIn', 'ringBrightness', 'ringWidth', 'ringDoppler', 'ringSide'],
     spans: (p, reduced) => [reduced ? REDUCED_FADE : { start: p.horizonAt + p.ringDelay, end: p.horizonAt + p.ringDelay + p.ringFadeIn, holds: true }]
   },
   {

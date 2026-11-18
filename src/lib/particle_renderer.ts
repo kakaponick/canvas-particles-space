@@ -42,7 +42,6 @@ export interface CompositeSettings {
   ring: number
   // In black hole radii
   ringWidth: number
-  ringHalo: number
   ringDoppler: number
   // Radians
   ringSide: number
@@ -224,7 +223,7 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
   const particleUniforms = getUniforms(gl, particleProgram, ['resolution', 'pixelRatio', 'center', 'doppler'] as const)
   const compositeUniforms = getUniforms(gl, compositeProgram, [
     'resolution', 'pixelRatio', 'time', 'hole', 'horizon', 'einstein', 'falloff', 'swirl', 'absorption', 'ring',
-    'ringWidth', 'ringHalo', 'ringDoppler', 'ringSide',
+    'ringWidth', 'ringDoppler', 'ringSide',
     'center', 'starGlow', 'starRadius', 'sourcePower', 'glareRadius', 'exposure',
     'lightRadius', 'lightWidth', 'lightPower', 'lightSpeed', 'echoPower', 'echoDecay',
     'waveRadius', 'waveStrength', 'waveWidth', 'remnantGlow', 'remnantRedshift', 'remnantRadius',
@@ -365,7 +364,6 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     setUniform1f(gl, u.absorption, settings.absorption)
     setUniform1f(gl, u.ring, settings.ring)
     setUniform1f(gl, u.ringWidth, settings.ringWidth)
-    setUniform1f(gl, u.ringHalo, settings.ringHalo)
     setUniform1f(gl, u.ringDoppler, settings.ringDoppler)
     setUniform1f(gl, u.ringSide, settings.ringSide)
     setUniform2f(gl, u.center, settings.centerX * ratio, settings.centerY * ratio)

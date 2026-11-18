@@ -54,7 +54,6 @@ export const DEFAULT_INTRO_PARAMS = {
   ringFadeIn: 0.5,
   ringBrightness: 0.9,
   ringWidth: 0.012,
-  ringHalo: 0.5,
   ringDoppler: 0.45,
   ringSide: 1.9,
   // Ringdown
@@ -152,7 +151,6 @@ export const INTRO_PARAM_SPECS = Object.fromEntries([
   p('ringFadeIn', 'Ring Fade In', 0.02, 3, 0.02, 's', 'Time for the photon ring to reach full brightness.'),
   p('ringBrightness', 'Ring Brightness', 0, 3, 0.05, '×', 'Brightness of the photon ring.'),
   p('ringWidth', 'Ring Thickness', 0.004, 0.06, 0.001, '', 'Thickness of the line in black hole radii. It never gets thinner than about a pixel and a half.'),
-  p('ringHalo', 'Ring Halo', 0, 2, 0.05, '×', 'Soft glow just outside the line.'),
   p('ringDoppler', 'Doppler Contrast', 0, 1, 0.01, '', 'How much brighter and bluer the approaching side is than the dim, red receding side.'),
   p('ringSide', 'Bright Side', 0, 6.28, 0.05, 'rad', 'Direction of the approaching side around the ring.'),
   p('ringdownAmplitude', 'Wobble Size', 0, 0.3, 0.005, '×', 'How much the horizon swells and shrinks, as a share of its radius.'),

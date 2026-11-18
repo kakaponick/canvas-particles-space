@@ -147,7 +147,6 @@ export const compositeFragmentShaderSource = `
   uniform float u_absorption;    // light the lens's pull removes around the shadow
   uniform float u_ring;          // photon ring brightness
   uniform float u_ringWidth;     // thickness of the line, in black hole radii
-  uniform float u_ringHalo;      // soft glow outside the line
   uniform float u_ringDoppler;   // contrast between the approaching and the receding side
   uniform float u_ringSide;      // direction of the approaching side, radians
 
@@ -378,22 +377,19 @@ export const compositeFragmentShaderSource = `
     if (u_horizon > 0.0) {
       color *= smoothstep(u_horizon - 1.0, u_horizon + 1.0, dist);
 
-      // Photon ring: light that circled the hole before escaping. A hair-thin subring hugs the shadow,
-      // with a fainter, wider one just outside it
+      // Photon ring: light that circled the hole before escaping, a hair-thin line hugging the shadow
       if (u_ring > 0.0 && dist < u_horizon * 1.6) {
         float ringLine = max(u_ringWidth * u_horizon, 1.5);
         float edge = dist - u_horizon;
         float inner = (edge - 0.7 * ringLine) / (0.45 * ringLine);
-        float outer = (edge - 2.4 * ringLine) / (1.3 * ringLine);
-        float line = exp(-inner * inner) + 0.3 * exp(-outer * outer);
-        float halo = edge > 0.0 ? u_ringHalo * 0.22 * exp(-edge / (0.09 * u_horizon)) : 0.0;
+        float line = exp(-inner * inner);
 
         // Doppler beaming: light moving towards the viewer is brighter and bluer, the far side dimmer and redder
         float side = cos(atan(offset.y, offset.x) - u_ringSide);
         // Scaled so the bright side peaks at the ring's brightness: clipping to white would thicken the line
         float boost = (1.0 + 0.5 * u_ringDoppler * side) / (1.0 + 0.5 * u_ringDoppler);
         vec3 tint = mix(RING_COLOR, side > 0.0 ? RING_APPROACHING : RING_RECEDING, abs(side) * u_ringDoppler);
-        color += tint * u_ring * boost * boost * boost * (line + halo);
+        color += tint * u_ring * boost * boost * boost * line;
       }
     }
 
