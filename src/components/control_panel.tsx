@@ -60,6 +60,10 @@ function ControlPanel() {
     ringWidth,
     ringDoppler,
     ringSide,
+    ringBase,
+    ringFeed,
+    ringAfterglow,
+    ringFlowSpeed,
     followFrequency,
     scrollSpeedGain,
     starsBrightness,
@@ -90,6 +94,10 @@ function ControlPanel() {
     setRingWidth,
     setRingDoppler,
     setRingSide,
+    setRingBase,
+    setRingFeed,
+    setRingAfterglow,
+    setRingFlowSpeed,
     setFollowFrequency,
     setScrollSpeedGain,
     setStarsBrightness,
@@ -538,6 +546,58 @@ function ControlPanel() {
               onChange={setRingSide}
               variant="inline"
               description="Direction of the bright, approaching side around the ring."
+            />
+
+            <SliderControl
+              id="ring-base"
+              label="Ring Base Light"
+              value={ringBase}
+              min={0}
+              max={1}
+              step={0.01}
+              formatValue={(val) => val.toFixed(2)}
+              onChange={setRingBase}
+              variant="inline"
+              description="How brightly the photon ring shines when nothing is falling into the black hole."
+            />
+
+            <SliderControl
+              id="ring-feed"
+              label="Infall Response"
+              value={ringFeed}
+              min={0}
+              max={2}
+              step={0.01}
+              formatValue={(val) => val.toFixed(2)}
+              onChange={setRingFeed}
+              variant="inline"
+              description="How much the ring lights up where particles fall into or skim past the black hole."
+            />
+
+            <SliderControl
+              id="ring-afterglow"
+              label="Ring Afterglow"
+              value={ringAfterglow}
+              min={0.1}
+              max={6}
+              step={0.1}
+              formatValue={(val) => `${val.toFixed(1)} s`}
+              onChange={setRingAfterglow}
+              variant="inline"
+              description="How long the light left by infalling particles lingers on the ring."
+            />
+
+            <SliderControl
+              id="ring-flow-speed"
+              label="Ring Flow Speed"
+              value={ringFlowSpeed}
+              min={0}
+              max={4}
+              step={0.05}
+              formatValue={(val) => `${val.toFixed(2)} rad/s`}
+              onChange={setRingFlowSpeed}
+              variant="inline"
+              description="How fast the bright patches travel around the ring."
             />
 
 <div className="flex items-center justify-between mb-3">

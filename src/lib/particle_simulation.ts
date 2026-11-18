@@ -1,10 +1,16 @@
 import type { ParticleColor } from '../store/particle_store'
+import { depositRingEnergy, type RingEnergy } from './ring_energy'
 
 // Simulation runs in 60 Hz frame units: speeds and forces are tuned per 1/60 s
 export const REFERENCE_FPS = 60
 
 // Longest step one frame may advance, so a stall does not teleport the field
 const MAX_FRAME_SCALE = 6
+// Energy a captured particle leaves in the photon ring
+const RING_CAPTURE_ENERGY = 2
+// Particles closer than this many black hole radii warm the ring as they pass, per 60 Hz frame
+const RING_SKIM_REACH = 1.5
+const RING_SKIM_ENERGY = 0.0005
 
 // Segments are clipped to the viewport plus this margin, wide enough to hide the widest cap
 const CLIP_MARGIN = 4
@@ -55,6 +61,8 @@ export interface StepSettings {
   holeY: number
   holeRadius: number
   captureRadius: number
+  // Collects the light of matter falling in or skimming past; null leaves the photon ring unfed
+  ringEnergy: RingEnergy | null
   gravityReach: number
   // Depth of the plane where the black hole pulls hardest
   holeDepth: number
@@ -236,6 +244,10 @@ export function stepParticles (
   const reachSq = settings.gravityReach * settings.gravityReach
   const holeRadiusSq = holeRadius * holeRadius
   const captureRadiusSq = settings.captureRadius * settings.captureRadius
+  const ringEnergy = settings.ringEnergy
+  const skimRadius = holeRadius * RING_SKIM_REACH
+  const skimRadiusSq = skimRadius * skimRadius
+  const skimEnergy = RING_SKIM_ENERGY * frameScale
   // Gravity acts within a depth band around the hole's plane; particles far behind only get lensed.
   // The band is a compact bell, (1 - u^2 / 4)^3, close to exp(-u^2) but zero beyond |u| = 2 and
   // free of Math.exp, so most particles leave the gravity path after one subtraction
@@ -284,9 +296,11 @@ export function stepParticles (
         const depthWeight = bell * bell * bell
 
         if (distSq < captureRadiusSq && depthWeight > 0.5) {
+          if (ringEnergy) depositRingEnergy(ringEnergy, -dx, -dy, RING_CAPTURE_ENERGY)
           spawnParticle(field, i, farZ, spawn)
           continue
         }
+        if (ringEnergy && distSq < skimRadiusSq) depositRingEnergy(ringEnergy, -dx, -dy, skimEnergy * depthWeight)
 
         // Pull and orbit are screen-space pixels per frame, converted back to world units at this depth.
         // Pull falls off as (radius / distance)^2, so it needs the squared distance, not the distance

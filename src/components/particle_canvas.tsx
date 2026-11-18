@@ -31,6 +31,7 @@ import {
 } from '../lib/black_hole_motion'
 import { renderTitleSprite, waitForTitleFont, type TitleSprite, type TitleStyle } from '../lib/title_sprite'
 import { createParticleBudget, updateParticleBudget } from '../lib/particle_budget'
+import { clearRingEnergy, createRingEnergy, stepRingEnergy } from '../lib/ring_energy'
 
 // The light front reaches the title about 0.85 s in; a face that is not ready by then is swapped in later
 const TITLE_FONT_TIMEOUT_MS = 700
@@ -111,6 +112,7 @@ function ParticleCanvas () {
 
     const initialState = useParticleStore.getState()
     const particleBudget = createParticleBudget(initialState.numParticles)
+    const ringEnergy = createRingEnergy()
     const field = createParticleField()
     const instances = createInstanceData()
     const spawn: SpawnSettings = {
@@ -131,6 +133,7 @@ function ParticleCanvas () {
       holeY: NaN,
       holeRadius: 0,
       captureRadius: 0,
+      ringEnergy,
       gravityReach: 0,
       holeDepth: 0,
       gravityStrength: 0,
@@ -155,6 +158,7 @@ function ParticleCanvas () {
       instances: instances.floats,
       instanceCount: 0,
       doppler: 0,
+      ringTexels: ringEnergy.texels,
       title: { alpha: 0, x: 0, y: 0, reveal: 1, dissolve: 0, drift: 0, glow: 0, flash: 0, cooling: 1, dust: 0 },
       composite: {
         time: 0,
@@ -169,6 +173,9 @@ function ParticleCanvas () {
         ringWidth: 0,
         ringDoppler: 0,
         ringSide: 0,
+        ringPhase: 0,
+        ringBase: 1,
+        ringFeed: 0,
         centerX: 0,
         centerY: 0,
         starGlow: 0,
@@ -217,6 +224,7 @@ function ParticleCanvas () {
       introTime = 0
       fadeBacklog = 0
       field.count = 0
+      clearRingEnergy(ringEnergy)
       setParticleCount(field, particleBudget.active, spawn)
       hole.x = targetX = viewportWidth / 2
       hole.y = targetY = viewportHeight / 2
@@ -438,6 +446,7 @@ function ParticleCanvas () {
       if (frame.updateScene) {
         const simStart = performance.now()
         frame.instanceCount = stepParticles(field, settings, spawn, instances)
+        stepRingEnergy(ringEnergy, dt, state.ringAfterglow, reducedMotion ? 0 : state.ringFlowSpeed)
         frame.instances = instances.floats
         const active = updateParticleBudget(
           particleBudget, state.numParticles, performance.now() - simStart, elapsedMs, now, state.adaptiveParticles
@@ -479,6 +488,9 @@ function ParticleCanvas () {
       composite.ringWidth = state.ringWidth
       composite.ringDoppler = state.ringDoppler
       composite.ringSide = state.ringSide
+      composite.ringPhase = ringEnergy.phase
+      composite.ringBase = state.ringBase
+      composite.ringFeed = state.ringFeed
       composite.centerX = centerX
       composite.centerY = centerY
       composite.starGlow = intro.starGlow

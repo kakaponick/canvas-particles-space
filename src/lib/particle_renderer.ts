@@ -12,12 +12,14 @@ import {
 } from './webgl_shaders'
 import { INSTANCE_FLOATS } from './particle_simulation'
 import type { TitleSprite } from './title_sprite'
+import { RING_BINS } from './ring_energy'
 
 const INSTANCE_STRIDE = INSTANCE_FLOATS * 4
 const INSTANCED_ATTRIBUTES = [ATTRIBUTE_LOCATIONS.segment, ATTRIBUTE_LOCATIONS.style, ATTRIBUTE_LOCATIONS.color]
 
 const SCENE_TEXTURE_UNIT = 0
 const TITLE_TEXTURE_UNIT = 1
+const RING_TEXTURE_UNIT = 2
 
 // The output is opaque and fully redrawn every frame, so the context skips alpha, depth and MSAA
 const CONTEXT_ATTRIBUTES: WebGLContextAttributes = {
@@ -45,6 +47,10 @@ export interface CompositeSettings {
   ringDoppler: number
   // Radians
   ringSide: number
+  // Radians the energy pattern has turned
+  ringPhase: number
+  ringBase: number
+  ringFeed: number
   // Explosion center and its light
   centerX: number
   centerY: number
@@ -103,6 +109,8 @@ export interface FrameInput {
   instances: Float32Array
   instanceCount: number
   doppler: number
+  // Photon ring energy around the circle, RING_BINS values
+  ringTexels: Uint8Array
   title: TitleSettings
   composite: CompositeSettings
 }
@@ -223,7 +231,7 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
   const particleUniforms = getUniforms(gl, particleProgram, ['resolution', 'pixelRatio', 'center', 'doppler'] as const)
   const compositeUniforms = getUniforms(gl, compositeProgram, [
     'resolution', 'pixelRatio', 'time', 'hole', 'horizon', 'einstein', 'falloff', 'swirl', 'absorption', 'ring',
-    'ringWidth', 'ringDoppler', 'ringSide',
+    'ringWidth', 'ringDoppler', 'ringSide', 'ringPhase', 'ringBase', 'ringFeed',
     'center', 'starGlow', 'starRadius', 'sourcePower', 'glareRadius', 'exposure',
     'lightRadius', 'lightWidth', 'lightPower', 'lightSpeed', 'echoPower', 'echoDecay',
     'waveRadius', 'waveStrength', 'waveWidth', 'remnantGlow', 'remnantRedshift', 'remnantRadius',
@@ -236,6 +244,7 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
   gl.useProgram(compositeProgram)
   gl.uniform1i(gl.getUniformLocation(compositeProgram, 'u_image'), SCENE_TEXTURE_UNIT)
   gl.uniform1i(gl.getUniformLocation(compositeProgram, 'u_title'), TITLE_TEXTURE_UNIT)
+  gl.uniform1i(gl.getUniformLocation(compositeProgram, 'u_ringEnergy'), RING_TEXTURE_UNIT)
 
   // Shared quad at location 0, bound once for every program
   const quadBuffer = gl.createBuffer()
@@ -266,6 +275,10 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
   }
 
   // Each texture keeps its own unit, so no draw ever rebinds one
+  // One row around the ring; it repeats so the pattern has no seam
+  const ringTexture = createLinearTexture(RING_TEXTURE_UNIT)
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT)
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, RING_BINS, 1, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, null)
   const titleTexture = createLinearTexture(TITLE_TEXTURE_UNIT)
   let titleWidth = 0
   let titleHeight = 0
@@ -366,6 +379,9 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     setUniform1f(gl, u.ringWidth, settings.ringWidth)
     setUniform1f(gl, u.ringDoppler, settings.ringDoppler)
     setUniform1f(gl, u.ringSide, settings.ringSide)
+    setUniform1f(gl, u.ringPhase, settings.ringPhase)
+    setUniform1f(gl, u.ringBase, settings.ringBase)
+    setUniform1f(gl, u.ringFeed, settings.ringFeed)
     setUniform2f(gl, u.center, settings.centerX * ratio, settings.centerY * ratio)
     setUniform1f(gl, u.starGlow, settings.starGlow)
     setUniform1f(gl, u.starRadius, Math.max(settings.starRadius * ratio, 0.5))
@@ -411,6 +427,10 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
       }
       drawParticles(frame.instances, frame.instanceCount, frame.doppler)
       gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+
+      gl.activeTexture(gl.TEXTURE0 + RING_TEXTURE_UNIT)
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, RING_BINS, 1, gl.LUMINANCE, gl.UNSIGNED_BYTE, frame.ringTexels)
+      gl.activeTexture(gl.TEXTURE0 + SCENE_TEXTURE_UNIT)
     }
     composite(frame.composite, frame.title)
   }
@@ -422,6 +442,7 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     gl.deleteFramebuffer(sceneFramebuffer)
     gl.deleteTexture(sceneTexture)
     gl.deleteTexture(titleTexture)
+    gl.deleteTexture(ringTexture)
     gl.deleteBuffer(quadBuffer)
     gl.deleteBuffer(instanceBuffer)
     for (const program of programs) gl.deleteProgram(program)

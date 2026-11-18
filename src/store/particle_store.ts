@@ -26,6 +26,12 @@ interface ParticleState {
   ringWidth: number
   ringDoppler: number
   ringSide: number
+  // Photon ring fed by the simulation: share of its light that always shines, share added by infalling
+  // matter, seconds that light lingers, and radians per second the pattern turns
+  ringBase: number
+  ringFeed: number
+  ringAfterglow: number
+  ringFlowSpeed: number
   // How quickly the black hole catches up with its target, radians per second
   followFrequency: number
   // Flight speed added at full scroll
@@ -75,6 +81,10 @@ interface ParticleState {
   setRingWidth: (value: number) => void
   setRingDoppler: (value: number) => void
   setRingSide: (value: number) => void
+  setRingBase: (value: number) => void
+  setRingFeed: (value: number) => void
+  setRingAfterglow: (value: number) => void
+  setRingFlowSpeed: (value: number) => void
   setFollowFrequency: (value: number) => void
   setScrollSpeedGain: (value: number) => void
   setStarsBrightness: (value: number) => void
@@ -123,6 +133,10 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   ringWidth: 0.012,
   ringDoppler: 0.45,
   ringSide: 1.9,
+  ringBase: 0.45,
+  ringFeed: 0.9,
+  ringAfterglow: 0.6,
+  ringFlowSpeed: 0.6,
   followFrequency: 6,
   scrollSpeedGain: 10,
   starsBrightness: 1,
@@ -173,6 +187,10 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   setRingWidth: (value) => set({ ringWidth: value }),
   setRingDoppler: (value) => set({ ringDoppler: value }),
   setRingSide: (value) => set({ ringSide: value }),
+  setRingBase: (value) => set({ ringBase: value }),
+  setRingFeed: (value) => set({ ringFeed: value }),
+  setRingAfterglow: (value) => set({ ringAfterglow: value }),
+  setRingFlowSpeed: (value) => set({ ringFlowSpeed: value }),
   setFollowFrequency: (value) => set({ followFrequency: value }),
   setScrollSpeedGain: (value) => set({ scrollSpeedGain: value }),
   setStarsBrightness: (value) => set({ starsBrightness: value }),

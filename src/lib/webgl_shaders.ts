@@ -149,6 +149,10 @@ export const compositeFragmentShaderSource = `
   uniform float u_ringWidth;     // thickness of the line, in black hole radii
   uniform float u_ringDoppler;   // contrast between the approaching and the receding side
   uniform float u_ringSide;      // direction of the approaching side, radians
+  uniform sampler2D u_ringEnergy; // light left around the ring by infalling matter
+  uniform float u_ringPhase;     // radians the energy pattern has turned
+  uniform float u_ringBase;      // share of the ring's light that shines with nothing falling in
+  uniform float u_ringFeed;      // share of the ring's light that infalling matter adds
 
   // Explosion, all centred on u_center
   uniform vec2 u_center;
@@ -384,8 +388,13 @@ export const compositeFragmentShaderSource = `
         float inner = (edge - 0.7 * ringLine) / (0.45 * ringLine);
         float line = exp(-inner * inner);
 
+        // The ring burns brighter where the simulation drops matter into the hole
+        float ringAngle = atan(offset.y, offset.x);
+        float infall = texture2D(u_ringEnergy, vec2((ringAngle - u_ringPhase) / (2.0 * PI), 0.5)).r;
+        line *= u_ringBase + u_ringFeed * infall;
+
         // Doppler beaming: light moving towards the viewer is brighter and bluer, the far side dimmer and redder
-        float side = cos(atan(offset.y, offset.x) - u_ringSide);
+        float side = cos(ringAngle - u_ringSide);
         // Scaled so the bright side peaks at the ring's brightness: clipping to white would thicken the line
         float boost = (1.0 + 0.5 * u_ringDoppler * side) / (1.0 + 0.5 * u_ringDoppler);
         vec3 tint = mix(RING_COLOR, side > 0.0 ? RING_APPROACHING : RING_RECEDING, abs(side) * u_ringDoppler);
