@@ -103,6 +103,48 @@ function sampleReducedIntro (t: number, frame: IntroFrame) {
   frame.done = t >= REDUCED_INTRO_END
 }
 
+export interface IntroMarker {
+  time: number
+  label: string
+}
+
+// Phase boundaries, for the intro debugger's timeline
+const FULL_MARKERS: IntroMarker[] = [
+  { time: 0, label: 'dark' },
+  { time: 0.1, label: 'star' },
+  { time: COLLAPSE_AT, label: 'collapse' },
+  { time: 1.3, label: 'hole forms' },
+  { time: 1.7, label: 'title' },
+  { time: WAVE_END, label: 'wave out' },
+  { time: 3.2, label: 'swallow' },
+  { time: 4.6, label: 'release' },
+  { time: INTRO_END, label: 'end' }
+]
+
+const REDUCED_MARKERS: IntroMarker[] = [
+  { time: 0, label: 'fade in' },
+  { time: 0.6, label: 'title' },
+  { time: 2, label: 'title out' },
+  { time: REDUCED_INTRO_END, label: 'end' }
+]
+
+export function getIntroMarkers (reducedMotion: boolean) {
+  return reducedMotion ? REDUCED_MARKERS : FULL_MARKERS
+}
+
+export function getIntroDuration (reducedMotion: boolean) {
+  return reducedMotion ? REDUCED_INTRO_END : INTRO_END
+}
+
+export function getIntroPhase (t: number, reducedMotion: boolean) {
+  const markers = getIntroMarkers(reducedMotion)
+  let phase = markers[0].label
+  for (const marker of markers) {
+    if (t >= marker.time) phase = marker.label
+  }
+  return phase
+}
+
 export function sampleIntro (t: number, reducedMotion: boolean, frame: IntroFrame) {
   if (reducedMotion) sampleReducedIntro(t, frame)
   else sampleFullIntro(t, frame)

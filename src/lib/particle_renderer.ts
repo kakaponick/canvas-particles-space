@@ -7,8 +7,6 @@ import {
   fadeFragmentShaderSource,
   particleVertexShaderSource,
   particleFragmentShaderSource,
-  spriteVertexShaderSource,
-  spriteFragmentShaderSource,
   compositeVertexShaderSource,
   compositeFragmentShaderSource
 } from './webgl_shaders'
@@ -19,7 +17,7 @@ const INSTANCE_STRIDE = INSTANCE_FLOATS * 4
 const INSTANCED_ATTRIBUTES = [ATTRIBUTE_LOCATIONS.segment, ATTRIBUTE_LOCATIONS.style, ATTRIBUTE_LOCATIONS.color]
 
 const SCENE_TEXTURE_UNIT = 0
-const SPRITE_TEXTURE_UNIT = 1
+const TITLE_TEXTURE_UNIT = 1
 
 // The output is opaque and fully redrawn every frame, so the context skips alpha, depth and MSAA
 const CONTEXT_ATTRIBUTES: WebGLContextAttributes = {
@@ -60,6 +58,8 @@ export interface TitleSettings {
 
 export interface FrameInput {
   background: readonly [number, number, number]
+  // False keeps the scene texture as it is (a frozen frame) and only recomposites it
+  updateScene: boolean
   fadeAlpha: number
   instances: Float32Array
   instanceCount: number
@@ -71,6 +71,7 @@ export interface FrameInput {
 export interface ParticleRenderer {
   resize: (width: number, height: number, pixelRatio: number, background: readonly [number, number, number]) => void
   setTitle: (sprite: TitleSprite) => void
+  clearScene: (background: readonly [number, number, number]) => void
   render: (frame: FrameInput) => void
   dispose: () => void
 }
@@ -149,8 +150,8 @@ function getUniforms<T extends string> (gl: WebGLRenderingContext, program: WebG
  * Draws the particle field with WebGL:
  * 1. fades the persistent scene texture toward the background (the motion trail),
  * 2. draws every particle segment as one instanced, anti-aliased round-capped quad,
- * 3. draws the intro title into the scene so the lens bends it like starlight,
- * 4. composites the scene to the screen through the black hole shader.
+ * 3. composites the scene to the screen through the black hole shader, which also lays the
+ *    intro title behind the lens so it bends like starlight.
  * Returns null when the context lacks instancing or a program fails to build.
  */
 export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRenderer | null {
@@ -169,11 +170,10 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     a_style: ATTRIBUTE_LOCATIONS.style,
     a_color: ATTRIBUTE_LOCATIONS.color
   })
-  const spriteProgram = createProgram(gl, spriteVertexShaderSource, spriteFragmentShaderSource, position)
   const compositeProgram = createProgram(gl, compositeVertexShaderSource, compositeFragmentShaderSource, position)
-  const programs = [fadeProgram, particleProgram, spriteProgram, compositeProgram]
+  const programs = [fadeProgram, particleProgram, compositeProgram]
 
-  if (!fadeProgram || !particleProgram || !spriteProgram || !compositeProgram) {
+  if (!fadeProgram || !particleProgram || !compositeProgram) {
     for (const program of programs) {
       if (program) gl.deleteProgram(program)
     }
@@ -182,16 +182,15 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
 
   const fadeUniforms = getUniforms(gl, fadeProgram, ['color'] as const)
   const particleUniforms = getUniforms(gl, particleProgram, ['resolution', 'pixelRatio', 'center', 'doppler'] as const)
-  const spriteUniforms = getUniforms(gl, spriteProgram, ['resolution', 'center', 'halfSize', 'rotation', 'color'] as const)
   const compositeUniforms = getUniforms(gl, compositeProgram, [
     'resolution', 'hole', 'horizon', 'einstein', 'falloff', 'swirl', 'absorption', 'ring', 'time',
-    'starGlow', 'starRadius', 'waveRadius', 'waveStrength', 'waveWidth', 'flash'
+    'starGlow', 'starRadius', 'waveRadius', 'waveStrength', 'waveWidth', 'flash',
+    'titleCenter', 'titleHalfSize', 'titleRotation', 'titleAlpha'
   ] as const)
 
   gl.useProgram(compositeProgram)
   gl.uniform1i(gl.getUniformLocation(compositeProgram, 'u_image'), SCENE_TEXTURE_UNIT)
-  gl.useProgram(spriteProgram)
-  gl.uniform1i(gl.getUniformLocation(spriteProgram, 'u_sprite'), SPRITE_TEXTURE_UNIT)
+  gl.uniform1i(gl.getUniformLocation(compositeProgram, 'u_title'), TITLE_TEXTURE_UNIT)
 
   // Shared quad at location 0, bound once for every program
   const quadBuffer = gl.createBuffer()
@@ -222,9 +221,9 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
   }
 
   // Each texture keeps its own unit, so no draw ever rebinds one
-  const spriteTexture = createLinearTexture(SPRITE_TEXTURE_UNIT)
-  let spriteWidth = 0
-  let spriteHeight = 0
+  const titleTexture = createLinearTexture(TITLE_TEXTURE_UNIT)
+  let titleWidth = 0
+  let titleHeight = 0
 
   // Persistent scene texture: the trail lives here between frames
   const sceneTexture = createLinearTexture(SCENE_TEXTURE_UNIT)
@@ -251,26 +250,28 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
 
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
 
-    gl.bindFramebuffer(gl.FRAMEBUFFER, sceneFramebuffer)
     gl.viewport(0, 0, width, height)
-    gl.clearColor(background[0] / 255, background[1] / 255, background[2] / 255, 1)
-    gl.clear(gl.COLOR_BUFFER_BIT)
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+    clearScene(background)
 
     gl.useProgram(particleProgram)
     setUniform2f(gl, particleUniforms.resolution, width, height)
     setUniform1f(gl, particleUniforms.pixelRatio, ratio)
     setUniform2f(gl, particleUniforms.center, cssWidth / 2, cssHeight / 2)
-    gl.useProgram(spriteProgram)
-    setUniform2f(gl, spriteUniforms.resolution, width, height)
     gl.useProgram(compositeProgram)
     setUniform2f(gl, compositeUniforms.resolution, width, height)
   }
 
+  function clearScene (background: readonly [number, number, number]) {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, sceneFramebuffer)
+    gl.clearColor(background[0] / 255, background[1] / 255, background[2] / 255, 1)
+    gl.clear(gl.COLOR_BUFFER_BIT)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+  }
+
   function setTitle (sprite: TitleSprite) {
-    spriteWidth = sprite.width
-    spriteHeight = sprite.height
-    gl.activeTexture(gl.TEXTURE0 + SPRITE_TEXTURE_UNIT)
+    titleWidth = sprite.width
+    titleHeight = sprite.height
+    gl.activeTexture(gl.TEXTURE0 + TITLE_TEXTURE_UNIT)
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, sprite.canvas)
     gl.activeTexture(gl.TEXTURE0 + SCENE_TEXTURE_UNIT)
   }
@@ -292,19 +293,16 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     for (const location of INSTANCED_ATTRIBUTES) gl.disableVertexAttribArray(location)
   }
 
-  function drawTitle (title: TitleSettings) {
-    if (title.alpha <= 0 || title.scale <= 0 || spriteWidth === 0) return
-    gl.useProgram(spriteProgram)
-    setUniform2f(gl, spriteUniforms.center, title.x * ratio, title.y * ratio)
-    setUniform2f(gl, spriteUniforms.halfSize, spriteWidth * 0.5 * title.scale * ratio, spriteHeight * 0.5 * title.scale * ratio)
-    setUniform1f(gl, spriteUniforms.rotation, title.rotation)
-    setUniform4f(gl, spriteUniforms.color, 1, 0.95, 0.9, title.alpha)
-    gl.drawArrays(gl.TRIANGLES, 0, QUAD_VERTEX_COUNT)
-  }
-
-  function composite (settings: CompositeSettings) {
+  function composite (settings: CompositeSettings, title: TitleSettings) {
     const u = compositeUniforms
     gl.useProgram(compositeProgram)
+    const titleVisible = title.alpha > 0 && title.scale > 0 && titleWidth > 0
+    setUniform1f(gl, u.titleAlpha, titleVisible ? title.alpha : 0)
+    if (titleVisible) {
+      setUniform2f(gl, u.titleCenter, title.x * ratio, title.y * ratio)
+      setUniform2f(gl, u.titleHalfSize, titleWidth * 0.5 * title.scale * ratio, titleHeight * 0.5 * title.scale * ratio)
+      setUniform2f(gl, u.titleRotation, Math.cos(title.rotation), Math.sin(title.rotation))
+    }
     setUniform2f(gl, u.hole, settings.holeX * ratio, settings.holeY * ratio)
     setUniform1f(gl, u.horizon, settings.horizon * ratio)
     setUniform1f(gl, u.einstein, settings.einstein * ratio)
@@ -325,17 +323,17 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
   function render (frame: FrameInput) {
     const [r, g, b] = frame.background
 
-    gl.bindFramebuffer(gl.FRAMEBUFFER, sceneFramebuffer)
-    if (frame.fadeAlpha > 0) {
-      gl.useProgram(fadeProgram)
-      setUniform4f(gl, fadeUniforms.color, r / 255, g / 255, b / 255, frame.fadeAlpha)
-      gl.drawArrays(gl.TRIANGLES, 0, QUAD_VERTEX_COUNT)
+    if (frame.updateScene) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, sceneFramebuffer)
+      if (frame.fadeAlpha > 0) {
+        gl.useProgram(fadeProgram)
+        setUniform4f(gl, fadeUniforms.color, r / 255, g / 255, b / 255, frame.fadeAlpha)
+        gl.drawArrays(gl.TRIANGLES, 0, QUAD_VERTEX_COUNT)
+      }
+      drawParticles(frame.instances, frame.instanceCount, frame.doppler)
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null)
     }
-    drawParticles(frame.instances, frame.instanceCount, frame.doppler)
-    drawTitle(frame.title)
-
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-    composite(frame.composite)
+    composite(frame.composite, frame.title)
   }
 
   function dispose () {
@@ -344,11 +342,11 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
     gl.deleteFramebuffer(sceneFramebuffer)
     gl.deleteTexture(sceneTexture)
-    gl.deleteTexture(spriteTexture)
+    gl.deleteTexture(titleTexture)
     gl.deleteBuffer(quadBuffer)
     gl.deleteBuffer(instanceBuffer)
     for (const program of programs) gl.deleteProgram(program)
   }
 
-  return { resize, setTitle, render, dispose }
+  return { resize, setTitle, clearScene, render, dispose }
 }

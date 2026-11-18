@@ -1,5 +1,5 @@
-// WebGL shaders for the particle renderer: trail fade, particle segments, the intro title sprite
-// and the black hole composite. Written in GLSL ES 1.00 so the same sources run on WebGL2 and on
+// WebGL shaders for the particle renderer: trail fade, particle segments and the black hole
+// composite, which also lays the intro title behind the lens. Written in GLSL ES 1.00 so the same sources run on WebGL2 and on
 // WebGL1 with ANGLE_instanced_arrays.
 
 // Attribute locations shared by every program; location 0 is always the full-screen quad
@@ -10,7 +10,7 @@ export const ATTRIBUTE_LOCATIONS = {
   color: 3
 } as const
 
-// Two triangles covering clip space; the particle and sprite programs reuse them as corners
+// Two triangles covering clip space; the particle program reuses them as segment corners
 export const QUAD_VERTICES = new Float32Array([
   -1, -1,
   1, -1,
@@ -120,39 +120,6 @@ export const particleFragmentShaderSource = `
   }
 `
 
-export const spriteVertexShaderSource = `
-  attribute vec2 a_position;
-
-  uniform vec2 u_resolution;  // device pixels
-  uniform vec2 u_center;      // device pixels, top-left origin
-  uniform vec2 u_halfSize;    // device pixels
-  uniform float u_rotation;
-
-  varying vec2 v_uv;
-
-  void main () {
-    float c = cos(u_rotation);
-    float s = sin(u_rotation);
-    vec2 local = a_position * u_halfSize;
-    vec2 pixel = u_center + vec2(c * local.x - s * local.y, s * local.x + c * local.y);
-    v_uv = a_position * 0.5 + 0.5;
-    gl_Position = vec4(pixel / u_resolution * 2.0 - 1.0, 0.0, 1.0);
-  }
-`
-
-export const spriteFragmentShaderSource = `
-  precision mediump float;
-
-  uniform sampler2D u_sprite;
-  uniform vec4 u_color;
-
-  varying vec2 v_uv;
-
-  void main () {
-    gl_FragColor = vec4(u_color.rgb, u_color.a * texture2D(u_sprite, v_uv).a);
-  }
-`
-
 export const compositeVertexShaderSource = `
   attribute vec2 a_position;
 
@@ -166,6 +133,7 @@ export const compositeFragmentShaderSource = `
   ${HIGH_PRECISION}
 
   uniform sampler2D u_image;
+  uniform sampler2D u_title;     // white alpha mask of the intro title
   uniform vec2 u_resolution;
   uniform vec2 u_hole;
   uniform float u_horizon;       // shadow radius; 0 before the black hole forms
@@ -181,9 +149,14 @@ export const compositeFragmentShaderSource = `
   uniform float u_waveStrength;  // refraction at the front, pixels
   uniform float u_waveWidth;
   uniform float u_flash;         // white-out, 0..1
+  uniform vec2 u_titleCenter;
+  uniform vec2 u_titleHalfSize;
+  uniform vec2 u_titleRotation;  // cos, sin
+  uniform float u_titleAlpha;
 
   const vec3 RING_COLOR = vec3(1.0, 0.86, 0.66);
   const vec3 FLASH_COLOR = vec3(1.0, 0.97, 0.92);
+  const vec3 TITLE_COLOR = vec3(1.0, 0.95, 0.9);
 
   void main () {
     vec2 frag = vec2(gl_FragCoord.x, u_resolution.y - gl_FragCoord.y);
@@ -214,6 +187,19 @@ export const compositeFragmentShaderSource = `
     }
 
     vec3 color = texture2D(u_image, samplePx / u_resolution).rgb;
+
+    // The title sits behind the black hole, so it is read through the same bent rays as the stars
+    if (u_titleAlpha > 0.0) {
+      vec2 rel = samplePx - u_titleCenter;
+      vec2 local = vec2(
+        u_titleRotation.x * rel.x + u_titleRotation.y * rel.y,
+        u_titleRotation.x * rel.y - u_titleRotation.y * rel.x
+      ) / u_titleHalfSize;
+      if (abs(local.x) <= 1.0 && abs(local.y) <= 1.0) {
+        float mask = texture2D(u_title, local * 0.5 + 0.5).a;
+        color = mix(color, TITLE_COLOR, mask * u_titleAlpha);
+      }
+    }
 
     if (u_horizon > 0.0) {
       float shadow = smoothstep(u_horizon - 1.0, u_horizon + 1.0, dist);

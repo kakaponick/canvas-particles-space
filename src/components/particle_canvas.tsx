@@ -19,7 +19,8 @@ import {
   type FrameInput,
   type ParticleRenderer
 } from '../lib/particle_renderer'
-import { createIntroFrame, sampleIntro } from '../lib/intro_timeline'
+import { createIntroFrame, getIntroDuration, getIntroPhase, sampleIntro } from '../lib/intro_timeline'
+import { useIntroDebugStore, type IntroLayer } from '../store/intro_debug_store'
 import {
   createScrollJourney,
   stepScrollJourney,
@@ -45,6 +46,22 @@ const REDUCED_SCROLL_SPEED_GAIN = 2
 const SHOCKWAVE_REFRACTION = 24
 // A touch this close to the black hole drags it instead of scrolling the page
 const MIN_TOUCH_GRAB_RADIUS = 48
+// With looping on, the debugger holds the finished intro this long before replaying it
+const LOOP_HOLD_SECONDS = 1
+const READOUT_INTERVAL_MS = 66
+const NOTHING_HIDDEN: Record<IntroLayer, boolean> = {
+  star: false,
+  flash: false,
+  shockwave: false,
+  reveal: false,
+  burst: false,
+  title: false,
+  hole: false,
+  lens: false,
+  ring: false,
+  gravity: false,
+  doppler: false
+}
 
 function getRenderScale (width: number, height: number) {
   const budgetScale = Math.sqrt(PIXEL_BUDGET / Math.max(width * height, 1))
@@ -93,6 +110,10 @@ function ParticleCanvas () {
     let fadeBacklog = 0
     let fpsFrames = 0
     let fpsWindowStart = 0
+    let lastReadoutTime = 0
+    const initialDebug = useIntroDebugStore.getState()
+    let handledRestart = initialDebug.restartRequest
+    let handledStep = initialDebug.stepRequest
 
     const intro = createIntroFrame()
     const journey = createScrollJourney()
@@ -137,6 +158,7 @@ function ParticleCanvas () {
     const background: [number, number, number] = [0, 0, 0]
     const frame: FrameInput = {
       background,
+      updateScene: true,
       fadeAlpha: 0,
       instances: instances.floats,
       instanceCount: 0,
@@ -167,6 +189,25 @@ function ParticleCanvas () {
       background[1] = state.backgroundG
       background[2] = state.backgroundB
       return background
+    }
+
+    // Replays the opening from its first frame with a fresh particle field
+    function restartIntro () {
+      const state = useParticleStore.getState()
+      introTime = 0
+      fadeBacklog = 0
+      field.count = 0
+      setParticleCount(field, state.numParticles, spawn)
+      hole.x = targetX = viewportWidth / 2
+      hole.y = targetY = viewportHeight / 2
+      hole.vx = 0
+      hole.vy = 0
+      renderer?.clearScene(readBackground())
+      if (renderer && !titleSprite) {
+        titleSprite = renderTitleSprite(TITLE_TEXT, viewportWidth, pixelRatio)
+        renderer.setTitle(titleSprite)
+      }
+      state.setIntroComplete(false)
     }
 
     function refreshTitleSprite () {
@@ -255,13 +296,38 @@ function ParticleCanvas () {
 
       const elapsedMs = lastFrameTime < 0 ? 1000 / REFERENCE_FPS : now - lastFrameTime
       lastFrameTime = now
-      const frameScale = toFrameScale(elapsedMs)
-      const dt = frameScale / REFERENCE_FPS
-      animationTime += dt
-      introTime += dt
       reportFps(now)
 
+      // Intro debugger: playback rate, seeking, single steps and hidden layers apply while it is open
+      const debug = useIntroDebugStore.getState()
+      const debugging = debug.open
+      const introDuration = getIntroDuration(reducedMotion)
+      if (debug.restartRequest !== handledRestart) {
+        handledRestart = debug.restartRequest
+        restartIntro()
+      }
+      if (debug.seekRequest !== null) {
+        introTime = Math.min(Math.max(debug.seekRequest, 0), introDuration)
+        debug.clearSeek()
+      }
+      const stepping = debug.stepRequest !== handledStep
+      handledStep = debug.stepRequest
+      const playbackRate = !debugging || stepping ? 1 : debug.playing ? debug.timeScale : 0
+      const frameScale = stepping ? 1 : toFrameScale(elapsedMs) * playbackRate
+      const dt = frameScale / REFERENCE_FPS
+      const hidden = debugging ? debug.hidden : NOTHING_HIDDEN
+
+      animationTime += dt
+      introTime += dt
+      if (debugging && debug.loop && introTime >= introDuration + LOOP_HOLD_SECONDS) restartIntro()
+
       sampleIntro(introTime, reducedMotion, intro)
+      if (hidden.star) intro.starGlow = 0
+      if (hidden.flash) intro.flash = 0
+      if (hidden.shockwave) intro.waveStrength = 0
+      if (hidden.reveal) intro.reveal = 1
+      if (hidden.burst) intro.speedBoost = 1
+      if (hidden.title) intro.titleAlpha = 0
       if (intro.done && !state.introComplete) state.setIntroComplete(true)
 
       stepScrollJourney(journey, scrollProgress, animationTime, dt, journeyFrame)
@@ -283,7 +349,7 @@ function ParticleCanvas () {
       const centerY = viewportHeight / 2
       const shortSide = Math.min(viewportWidth, viewportHeight)
       const halfDiagonal = Math.hypot(centerX, centerY)
-      const horizon = state.eventHorizon / 100 * shortSide * intro.holeScale * journeyFrame.approach
+      const horizon = hidden.hole ? 0 : state.eventHorizon / 100 * shortSide * intro.holeScale * journeyFrame.approach
       if (intro.holdAtCenter) {
         stepSpring(hole, centerX, centerY, dt, HOLE_FOLLOW_FREQUENCY * 2)
       } else {
@@ -305,8 +371,8 @@ function ParticleCanvas () {
       settings.holeRadius = horizon
       settings.gravityReach = horizon * state.gravityReach
       settings.holeDepth = state.farZ * 0.3
-      settings.gravityStrength = state.gravityStrength
-      settings.orbitalStrength = state.orbitalStrength
+      settings.gravityStrength = hidden.gravity ? 0 : state.gravityStrength
+      settings.orbitalStrength = hidden.gravity ? 0 : state.orbitalStrength
       settings.farZ = state.farZ
       settings.depthFade = state.depthFade
       settings.pulseSpeedMultiplier = state.pulseSpeedMultiplier
@@ -317,9 +383,13 @@ function ParticleCanvas () {
       settings.revealRadius = intro.reveal >= 1 ? Infinity : halfDiagonal * 1.15 * intro.reveal
       settings.opacityScale = intro.opacityScale
 
-      frame.instanceCount = stepParticles(field, settings, spawn, instances)
-      frame.instances = instances.floats
-      frame.doppler = Math.min(Math.max((speed - 2) / 10, 0), 1) * (reducedMotion ? 0.5 : 1)
+      // A frozen frame keeps the scene texture; only the composite (lens, flash, title) is redrawn
+      frame.updateScene = frameScale > 0
+      if (frame.updateScene) {
+        frame.instanceCount = stepParticles(field, settings, spawn, instances)
+        frame.instances = instances.floats
+      }
+      frame.doppler = hidden.doppler ? 0 : Math.min(Math.max((speed - 2) / 10, 0), 1) * (reducedMotion ? 0.5 : 1)
       readBackground()
       // The 8-bit scene texture rounds away fades smaller than half a step, so on fast displays
       // a per-frame fade would leave a grey haze. Fading in whole 60 Hz steps keeps the trail
@@ -340,20 +410,38 @@ function ParticleCanvas () {
       composite.holeX = hole.x
       composite.holeY = hole.y
       composite.horizon = horizon
-      composite.einstein = state.lensingEnabled ? horizon * state.lensingRadius : 0
+      composite.einstein = state.lensingEnabled && !hidden.lens ? horizon * state.lensingRadius : 0
       composite.falloff = state.lensingFalloff
       composite.swirl = state.lensingRotation
       composite.absorption = state.lensingAbsorption
-      composite.ring = 0.9
+      composite.ring = hidden.ring ? 0 : 0.9
       composite.time = animationTime
       composite.starGlow = intro.starGlow
       composite.starRadius = intro.starRadius * shortSide
       composite.waveRadius = shockwaveRadius
       composite.waveStrength = intro.waveStrength * SHOCKWAVE_REFRACTION
       composite.waveWidth = shortSide * 0.06
-      composite.flash = Math.max(intro.flash, reducedMotion ? 0 : journeyFrame.flash * 0.85)
+      composite.flash = Math.max(intro.flash, reducedMotion || hidden.flash ? 0 : journeyFrame.flash * 0.85)
 
       renderer.render(frame)
+
+      if (debugging && now - lastReadoutTime >= READOUT_INTERVAL_MS) {
+        lastReadoutTime = now
+        debug.setReadout({
+          time: introTime,
+          duration: introDuration,
+          phase: getIntroPhase(introTime, reducedMotion),
+          starGlow: intro.starGlow,
+          flash: composite.flash,
+          wave: intro.wave,
+          reveal: intro.reveal,
+          speedBoost: intro.speedBoost,
+          holeScale: intro.holeScale,
+          titleAlpha: title.alpha,
+          speed,
+          particlesDrawn: frame.instanceCount
+        })
+      }
     }
 
     const handlePointerDown = (event: PointerEvent) => {

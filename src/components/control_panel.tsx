@@ -19,6 +19,7 @@ import { Play, Pause, Settings, Maximize, Minimize } from 'lucide-react'
 import HelpTooltip from './controls/help_tooltip'
 import ToggleButton from './controls/toggle_button'
 import FrameRateControl from './controls/frame_rate_control'
+import { useIntroDebugStore } from '../store/intro_debug_store'
 
 function ControlPanel() {
   const [isOpen, setIsOpen] = useState(false)
@@ -95,6 +96,8 @@ function ControlPanel() {
   } = useControlPanelStore()
 
   const isPaused = useParticleStore(state => state.isPaused)
+  const introDebugOpen = useIntroDebugStore(state => state.open)
+  const setIntroDebugOpen = useIntroDebugStore(state => state.setOpen)
   const togglePause = useParticleStore(state => state.togglePause)
 
   return (
@@ -173,6 +176,18 @@ function ControlPanel() {
             </div>
 
             <FrameRateControl />
+
+            <div className="flex items-center justify-between mb-4 pb-4 border-b border-neon-cyan/20">
+              <div className="flex items-center gap-2">
+                <h3 className="font-orbitron text-neon-cyan text-base">Intro Debugger</h3>
+                <HelpTooltip
+                  content="Replays the opening seconds with a timeline, playback speed down to a full stop, and switches for each effect. Shortcut: Shift+D, or open the page with ?debug in the address."
+                />
+              </div>
+              <ToggleButton active={introDebugOpen} onClick={() => setIntroDebugOpen(!introDebugOpen)}>
+                {introDebugOpen ? 'ON' : 'OFF'}
+              </ToggleButton>
+            </div>
 
             <SliderControl
               id="particles"

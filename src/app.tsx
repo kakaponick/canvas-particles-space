@@ -1,6 +1,7 @@
 import { Analytics } from '@vercel/analytics/react'
 import ParticleCanvas from './components/particle_canvas'
 import ControlPanel from './components/control_panel'
+import IntroDebugger from './components/controls/intro_debugger'
 import BlackHoleIndicator from './components/controls/blackhole_indicator'
 import ScrollIndicator from './components/controls/scroll_indicator'
 
@@ -12,6 +13,7 @@ function App () {
       <BlackHoleIndicator />
       <ScrollIndicator />
       <ControlPanel />
+      <IntroDebugger />
     </div>
   )
 }
