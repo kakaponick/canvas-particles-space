@@ -10,18 +10,25 @@ const MIN_PARTICLES = 4000
 const CHECK_INTERVAL_MS = 500
 const GROW_AFTER_MS = 2000
 const SMOOTHING = 0.1
+// The frame the simulation has to fit in is the display's, not the one a slow frame took: a frame held
+// up by the GPU or by the simulation itself must not earn the simulation more time. Short frames pull
+// the estimate down quickly; long ones raise it slowly, so a slower display or a frame rate limit is
+// still picked up within a couple of seconds
+const DISPLAY_FASTER = 0.2
+const DISPLAY_SLOWER = 0.01
 
 export interface ParticleBudget {
   active: number
   requested: number
   simMs: number
-  frameMs: number
+  // Estimated interval between frames when nothing holds them up
+  displayMs: number
   lastCheck: number
   calmSince: number
 }
 
 export function createParticleBudget (initial: number): ParticleBudget {
-  return { active: initial, requested: initial, simMs: 0, frameMs: 1000 / 60, lastCheck: 0, calmSince: 0 }
+  return { active: initial, requested: initial, simMs: 0, displayMs: 1000 / 60, lastCheck: 0, calmSince: 0 }
 }
 
 // Feeds one frame's measurements and returns the particle count to simulate next
@@ -40,7 +47,8 @@ export function updateParticleBudget (
   }
 
   budget.simMs += (simMs - budget.simMs) * SMOOTHING
-  budget.frameMs += (Math.max(frameMs, MIN_FRAME_MS) - budget.frameMs) * SMOOTHING
+  const interval = Math.max(frameMs, MIN_FRAME_MS)
+  budget.displayMs += (interval - budget.displayMs) * (interval < budget.displayMs ? DISPLAY_FASTER : DISPLAY_SLOWER)
   // A new count from the slider is tried as asked; the budget trims it again only if it overruns
   if (requested !== budget.requested) {
     budget.requested = requested
@@ -50,7 +58,7 @@ export function updateParticleBudget (
   if (now - budget.lastCheck < CHECK_INTERVAL_MS) return budget.active
   budget.lastCheck = now
 
-  const allowedMs = budget.frameMs * FRAME_SHARE
+  const allowedMs = budget.displayMs * FRAME_SHARE
   if (budget.simMs > allowedMs && budget.active > MIN_PARTICLES) {
     const factor = Math.min(Math.max(allowedMs / budget.simMs, 0.6), 0.92)
     budget.active = Math.max(MIN_PARTICLES, Math.round(budget.active * factor / 100) * 100)
