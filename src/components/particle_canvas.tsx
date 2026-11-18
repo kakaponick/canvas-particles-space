@@ -113,7 +113,8 @@ function ParticleCanvas () {
     const spawn: SpawnSettings = {
       palette: createPaletteSampler(initialState.colorPalette),
       farZ: initialState.farZ,
-      speedVariance: initialState.speedVariance
+      speedVariance: initialState.speedVariance,
+      radius: initialState.spawnRadius
     }
     setParticleCount(field, initialState.numParticles, spawn)
 
@@ -131,6 +132,8 @@ function ParticleCanvas () {
       ringEnergy,
       gravityReach: 0,
       holeDepth: 0,
+      gravityDepth: 1,
+      lineWidth: 3,
       gravityStrength: 0,
       orbitalStrength: 0,
       farZ: 1,
@@ -384,6 +387,7 @@ function ParticleCanvas () {
       }
       spawn.farZ = state.farZ
       spawn.speedVariance = state.speedVariance
+      spawn.radius = state.spawnRadius
 
       if (particleBudget.active !== field.count) {
         setParticleCount(field, particleBudget.active, spawn)
@@ -424,7 +428,9 @@ function ParticleCanvas () {
       ringWasFed = ringFed
       settings.ringEnergy = ringFed ? ringEnergy : null
       settings.gravityReach = horizon * state.gravityReach
-      settings.holeDepth = state.farZ * 0.3
+      settings.holeDepth = state.farZ * state.blackHoleDepth / 100
+      settings.gravityDepth = state.farZ * state.gravityDepth / 100
+      settings.lineWidth = state.particleSize
       settings.gravityStrength = hidden.gravity ? 0 : state.gravityStrength
       settings.orbitalStrength = hidden.gravity ? 0 : state.orbitalStrength
       settings.farZ = state.farZ
@@ -573,7 +579,7 @@ function ParticleCanvas () {
     // The store is written only when the setting moves by a whole step
     const changeBaseSpeed = (pixels: number) => {
       const state = useParticleStore.getState()
-      const baseSpeed = turnSpeedDial(speedDial, state.baseSpeed, pixels)
+      const baseSpeed = turnSpeedDial(speedDial, state.baseSpeed, pixels, state.scrollSpeedStep)
       if (baseSpeed !== state.baseSpeed) state.setBaseSpeed(baseSpeed)
     }
 

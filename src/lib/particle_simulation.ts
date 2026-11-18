@@ -12,12 +12,11 @@ const RING_CAPTURE_ENERGY = 0.9
 const RING_SKIM_REACH = 1.5
 const RING_SKIM_ENERGY = 0.0005
 
-// Segments are clipped to the viewport plus this margin, wide enough to hide their ends
-const CLIP_MARGIN = 4
+// Segments are clipped to the viewport plus at least this margin, wide enough to hide their ends
+const MIN_CLIP_MARGIN = 4
+// Thinnest stroke, in CSS pixels; the far end of the field is drawn this wide
+const MIN_LINE_WIDTH = 0.3
 
-// Particles spawn in a disc so the tunnel reads round on every aspect ratio. The radius sets how many
-// bright strokes pass close to the camera, and this value matches the brightness of the original canvas
-const SPAWN_RADIUS = 700
 // Random spawns tried for a captured particle before it is placed right outside the event horizon
 const RESPAWN_TRIES = 4
 const RESPAWN_RIM_SPREAD = 0.5
@@ -49,6 +48,9 @@ export interface SpawnSettings {
   palette: PaletteSampler
   farZ: number
   speedVariance: number
+  // Particles spawn in a disc of this radius, so the tunnel reads round on every aspect ratio. The
+  // radius sets how many bright strokes pass close to the camera
+  radius: number
 }
 
 export interface StepSettings {
@@ -70,6 +72,10 @@ export interface StepSettings {
   gravityReach: number
   // Depth of the plane where the black hole pulls hardest
   holeDepth: number
+  // Scale of the depth band the black hole pulls in; gravity ends two scales away from its plane
+  gravityDepth: number
+  // Stroke width of the nearest particles, in CSS pixels
+  lineWidth: number
   gravityStrength: number
   orbitalStrength: number
   farZ: number
@@ -135,7 +141,7 @@ function samplePaletteColor (palette: PaletteSampler): number {
 
 function spawnParticle (field: ParticleField, i: number, z: number, spawn: SpawnSettings) {
   const angle = Math.random() * Math.PI * 2
-  const radius = SPAWN_RADIUS * Math.sqrt(Math.random())
+  const radius = spawn.radius * Math.sqrt(Math.random())
   field.x[i] = Math.cos(angle) * radius
   field.y[i] = Math.sin(angle) * radius
   field.z[i] = z
@@ -282,9 +288,11 @@ export function stepParticles (
   // though the event horizon takes them at any depth.
   // The band is a compact bell, (1 - u^2 / 4)^3, close to exp(-u^2) but zero beyond |u| = 2 and
   // free of Math.exp, so most particles leave the gravity path after one subtraction
-  const holeDepthNear = holeDepth - farZ * 0.36
-  const holeDepthFar = holeDepth + farZ * 0.36
-  const invDepthBand = 1 / (farZ * 0.18)
+  const depthBand = Math.max(settings.gravityDepth, 1e-6)
+  const holeDepthNear = holeDepth - depthBand * 2
+  const holeDepthFar = holeDepth + depthBand * 2
+  const invDepthBand = 1 / depthBand
+  const nearLineWidth = settings.lineWidth
   // Gravity does not depend on the flight speed: at Base Speed 0 the particles it moves are the only
   // ones that light up, and the rest of the field goes dark
   const pullScale = gravityStrength * 0.6 * frameScale * holeRadiusSq
@@ -293,10 +301,11 @@ export function stepParticles (
   const revealing = revealRadius < Infinity
   const revealRadiusSq = revealRadius * revealRadius
   const invRevealFeather = 1 / Math.max(revealFeather, 1)
-  const minX = -CLIP_MARGIN
-  const minY = -CLIP_MARGIN
-  const maxX = width + CLIP_MARGIN
-  const maxY = height + CLIP_MARGIN
+  const clipMargin = Math.max(MIN_CLIP_MARGIN, nearLineWidth * 0.5 + 2)
+  const minX = -clipMargin
+  const minY = -clipMargin
+  const maxX = width + clipMargin
+  const maxY = height + clipMargin
 
   let written = 0
 
@@ -363,8 +372,8 @@ export function stepParticles (
 
     const distanceFactor = pz * invFarZ
     const depthFactor = 1 - distanceFactor * depthFade
-    const depthWidth = (1 - distanceFactor) * 3
-    const lineWidth = depthWidth > 0.3 ? depthWidth : 0.3
+    const depthWidth = (1 - distanceFactor) * nearLineWidth
+    const lineWidth = depthWidth > MIN_LINE_WIDTH ? depthWidth : MIN_LINE_WIDTH
 
     const pulse = Math.sin(time * pulseSpeed[i] * pulseRate + pulsePhase[i])
     const pulseFactor = 1 + pulse * pulseIntensity * distanceFactor

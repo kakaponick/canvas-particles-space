@@ -105,6 +105,18 @@ function SettingsSections () {
           description="Speed of the flight through space. Scrolling over the scene changes it too: down is faster, up is slower."
         />
         <SettingSlider
+          id="scroll-speed-step"
+          label="Scroll Speed Step"
+          field="scrollSpeedStep"
+          min={0}
+          max={10}
+          step={0.1}
+          formatValue={(val) => val.toFixed(1)}
+          setter="setScrollSpeedStep"
+          variant="inline"
+          description="How much one notch of the mouse wheel over the scene changes Base Speed; a swipe on a touch screen follows it too. 0 turns scrolling the speed off."
+        />
+        <SettingSlider
           id="speed-variance"
           label="Speed Variance"
           field="speedVariance"
@@ -127,6 +139,30 @@ function SettingsSections () {
           setter="setTrailIntensity"
           variant="inline"
           description="Controls motion blur trail effect. Lower values create longer, more pronounced trails. Higher values produce shorter, crisper trails."
+        />
+        <SettingSlider
+          id="particle-size"
+          label="Particle Size"
+          field="particleSize"
+          min={0.3}
+          max={20}
+          step={0.1}
+          formatValue={(val) => `${val.toFixed(1)} px`}
+          setter="setParticleSize"
+          variant="inline"
+          description="Stroke width of the nearest particles. Particles get thinner with distance, down to 0.3 px at the far end of the field."
+        />
+        <SettingSlider
+          id="spawn-radius"
+          label="Spawn Radius"
+          field="spawnRadius"
+          min={50}
+          max={5000}
+          step={50}
+          formatValue={(val) => String(val)}
+          setter="setSpawnRadius"
+          variant="inline"
+          description="Radius of the disc particles are born in. A smaller disc keeps more particles on screen and close to the camera, a larger one spreads them out and sends more of them past the edges. Particles already flying keep their place until they are recycled."
         />
       </SettingsSection>
 
@@ -292,6 +328,30 @@ function SettingsSections () {
           setter="setGravityReach"
           variant="inline"
           description="How far the black hole's gravity reaches, in multiples of its size. Particles within this distance are affected by gravity and orbital forces."
+        />
+        <SettingSlider
+          id="black-hole-depth"
+          label="Black Hole Depth"
+          field="blackHoleDepth"
+          min={0}
+          max={100}
+          step={1}
+          formatValue={(val) => `${val}%`}
+          setter="setBlackHoleDepth"
+          variant="inline"
+          description="How deep in the particle field the black hole sits, as a share of Particle Render Depth. Its gravity is strongest for particles at this depth."
+        />
+        <SettingSlider
+          id="gravity-depth"
+          label="Gravity Depth"
+          field="gravityDepth"
+          min={1}
+          max={100}
+          step={1}
+          formatValue={(val) => `${val}%`}
+          setter="setGravityDepth"
+          variant="inline"
+          description="How thick the layer of particles that gravity acts on is, as a share of Particle Render Depth. Gravity fades with distance from the black hole's depth and ends at twice this value; 50% and above reaches the whole field."
         />
         <SettingSlider
           id="gravity"

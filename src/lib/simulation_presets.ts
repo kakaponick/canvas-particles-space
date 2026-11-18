@@ -4,6 +4,7 @@ import type { ParticleColor, ParticleState } from '../store/particle_store'
 
 export const SIMULATION_SETTING_KEYS = [
   'numParticles', 'baseSpeed', 'speedVariance', 'farZ', 'trailIntensity', 'speedGlow',
+  'particleSize', 'spawnRadius', 'blackHoleDepth', 'gravityDepth', 'scrollSpeedStep',
   'baseBrightness', 'depthFade', 'minOpacity', 'maxOpacity', 'pulseIntensity', 'pulseSpeedMultiplier',
   'starsBrightness', 'starDensity', 'starCell',
   'blackHoleSize', 'eventHorizon', 'gravityReach', 'gravityStrength', 'orbitalStrength', 'followFrequency',

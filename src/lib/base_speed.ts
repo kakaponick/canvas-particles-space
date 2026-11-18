@@ -4,8 +4,8 @@ export const BASE_SPEED_MIN = 0
 export const BASE_SPEED_MAX = 100
 export const BASE_SPEED_STEP = 0.1
 
-// One notch of a mouse wheel is about 100 pixels, which moves the speed by 0.5
-const SPEED_PER_PIXEL = 0.005
+// One notch of a mouse wheel is about 100 pixels
+const WHEEL_NOTCH_PIXELS = 100
 // A finger travels less than a wheel, so a swipe counts double
 export const SWIPE_GAIN = 2
 const WHEEL_LINE_PIXELS = 33
@@ -30,10 +30,11 @@ export function createSpeedDial (): SpeedDial {
   return { position: NaN, value: NaN }
 }
 
-// Returns the Base Speed after turning the dial; scrolling down or swiping up goes faster
-export function turnSpeedDial (dial: SpeedDial, current: number, pixels: number) {
+// Returns the Base Speed after turning the dial; scrolling down or swiping up goes faster.
+// `notchStep` is the speed one wheel notch adds
+export function turnSpeedDial (dial: SpeedDial, current: number, pixels: number, notchStep: number) {
   if (current !== dial.value) dial.position = current
-  const position = dial.position + pixels * SPEED_PER_PIXEL
+  const position = dial.position + pixels * notchStep / WHEEL_NOTCH_PIXELS
   dial.position = Math.min(Math.max(position, BASE_SPEED_MIN), BASE_SPEED_MAX)
   dial.value = Math.round(dial.position / BASE_SPEED_STEP) / Math.round(1 / BASE_SPEED_STEP)
   return dial.value

@@ -60,6 +60,15 @@ export interface ParticleState {
   // How strongly a particle's brightness follows its speed: 0 lights every moving particle in full,
   // 1 is the original canvas, higher values dim slow particles further
   speedGlow: number
+  // Stroke width of the nearest particles, CSS pixels
+  particleSize: number
+  // Radius of the disc particles spawn in, world units
+  spawnRadius: number
+  // Depth of the black hole's plane and the scale of the depth band its gravity acts in, % of the render depth
+  blackHoleDepth: number
+  gravityDepth: number
+  // Base Speed one wheel notch over the scene adds
+  scrollSpeedStep: number
   speedVariance: number
   isPaused: boolean
   lensingRotation: number
@@ -110,6 +119,11 @@ export interface ParticleState {
   setPulseSpeedMultiplier: (multiplier: number) => void
   setTrailIntensity: (intensity: number) => void
   setSpeedGlow: (value: number) => void
+  setParticleSize: (value: number) => void
+  setSpawnRadius: (value: number) => void
+  setBlackHoleDepth: (value: number) => void
+  setGravityDepth: (value: number) => void
+  setScrollSpeedStep: (value: number) => void
   setSpeedVariance: (variance: number) => void
   togglePause: () => void
   setLensingRotation: (rotation: number) => void
@@ -162,6 +176,11 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   pulseSpeedMultiplier: 1.0,
   trailIntensity: 0.15,
   speedGlow: 1,
+  particleSize: 3,
+  spawnRadius: 700,
+  blackHoleDepth: 30,
+  gravityDepth: 18,
+  scrollSpeedStep: 0.5,
   speedVariance: 0.15,
   isPaused: false,
   lensingRotation: 0.15,
@@ -214,6 +233,11 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   setPulseSpeedMultiplier: (multiplier) => set({ pulseSpeedMultiplier: multiplier }),
   setTrailIntensity: (intensity) => set({ trailIntensity: intensity }),
   setSpeedGlow: (value) => set({ speedGlow: value }),
+  setParticleSize: (value) => set({ particleSize: value }),
+  setSpawnRadius: (value) => set({ spawnRadius: value }),
+  setBlackHoleDepth: (value) => set({ blackHoleDepth: value }),
+  setGravityDepth: (value) => set({ gravityDepth: value }),
+  setScrollSpeedStep: (value) => set({ scrollSpeedStep: value }),
   setSpeedVariance: (variance) => set({ speedVariance: variance }),
   togglePause: () => set((state) => ({ isPaused: !state.isPaused })),
   setLensingRotation: (rotation) => set({ lensingRotation: rotation }),
