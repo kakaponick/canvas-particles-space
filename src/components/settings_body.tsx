@@ -391,7 +391,7 @@ function SettingsSections () {
         />
         <SettingsRow
           label="Follow Cursor"
-          help="ON: the black hole follows the mouse. OFF: it rests at Position X and Y. A click on the scene switches this too and saves the place the black hole was anchored at."
+          help="ON: the black hole follows the mouse. OFF: it rests at Position X and Y. A click on the scene switches this too and saves the place the black hole was anchored at. An anchored black hole can be dragged to a new place, and a double-click on the scene returns it to the middle."
         >
           <SettingsSwitch on={blackHoleFollowing} onToggle={toggleBlackHoleFollowing} label="Black hole follows the cursor" />
         </SettingsRow>

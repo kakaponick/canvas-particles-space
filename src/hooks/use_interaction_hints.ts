@@ -28,6 +28,8 @@ export function useInteractionHints (): InteractionsUsed {
       lastX = event.clientX
       lastY = event.clientY
       if (travelled > MOVE_DISTANCE) mark('move')
+      // The canvas shows the grabbing cursor while the mouse carries the black hole
+      if (event.buttons & 1 && event.target instanceof HTMLCanvasElement && event.target.style.cursor === 'grabbing') mark('drag')
     }
     const handleClick = (event: MouseEvent) => {
       if (event.target instanceof HTMLCanvasElement) mark('click')

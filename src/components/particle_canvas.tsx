@@ -58,6 +58,12 @@ function keepInside (center: number, half: number, inset: number, size: number) 
 
 // A touch this close to the black hole drags it
 const MIN_TOUCH_GRAB_RADIUS = 48
+// An anchored black hole is grabbed by a mouse press this close to it, or within its shadow when that
+// is larger
+const MIN_MOUSE_GRAB_RADIUS = 24
+const MOUSE_GRAB_SHADOWS = 1.5
+// A press on the black hole becomes a drag once the mouse moves this far; less is still a click
+const MOUSE_DRAG_THRESHOLD = 4
 // With looping on, the debugger holds the finished intro this long before replaying it
 const LOOP_HOLD_SECONDS = 1
 const READOUT_INTERVAL_MS = 66
@@ -98,6 +104,19 @@ function ParticleCanvas () {
     let targetX = window.innerWidth / 2
     let targetY = window.innerHeight / 2
     let draggingTouch = -1
+    // A finger or the mouse is carrying the black hole: it heads for the pointer, not its anchor
+    let holding = false
+    // A mouse press landed on the anchored black hole; it turns into a drag once the mouse moves
+    let mouseGrabbed = false
+    let mouseDragging = false
+    let pressX = 0
+    let pressY = 0
+    // Where on the black hole it was grabbed, so it does not jump to the cursor
+    let grabOffsetX = 0
+    let grabOffsetY = 0
+    // The click that ends a drag is the drop, not a switch between following and anchored
+    let swallowClick = false
+    let canvasCursor = ''
     let swipingTouch = -1
     let swipeY = 0
     const speedDial = createSpeedDial()
@@ -480,7 +499,7 @@ function ParticleCanvas () {
       const centerY = viewportHeight / 2
       const shortSide = Math.min(viewportWidth, viewportHeight)
       locateHole()
-      if (!state.blackHoleFollowing && draggingTouch === -1) {
+      if (!state.blackHoleFollowing && !holding) {
         targetX = anchorX
         targetY = anchorY
       }
@@ -703,18 +722,105 @@ function ParticleCanvas () {
       lastPointerType = event.pointerType
     }
 
+    const setCanvasCursor = (cursor: string) => {
+      if (cursor === canvasCursor) return
+      canvasCursor = cursor
+      canvas.style.cursor = cursor
+    }
+
+    // An anchored black hole can be picked up; a following one already moves with the cursor, and one
+    // that has no size yet (or at all) is not there to grab
+    const isOverAnchoredHole = (x: number, y: number) => {
+      if (useParticleStore.getState().blackHoleFollowing || frame.composite.horizon <= 0) return false
+      const grabRadius = Math.max(frame.composite.horizon * MOUSE_GRAB_SHADOWS, MIN_MOUSE_GRAB_RADIUS)
+      return Math.hypot(x - hole.x, y - hole.y) <= grabRadius
+    }
+
+    const showHoverCursor = (x: number, y: number) => {
+      setCanvasCursor(mouseDragging ? 'grabbing' : isOverAnchoredHole(x, y) ? 'grab' : '')
+    }
+
+    const handleMouseDown = (event: MouseEvent) => {
+      swallowClick = false
+      if (event.button !== 0 || lastPointerType !== 'mouse') return
+      if (!isOverAnchoredHole(event.clientX, event.clientY)) return
+      mouseGrabbed = true
+      pressX = event.clientX
+      pressY = event.clientY
+      grabOffsetX = hole.x - event.clientX
+      grabOffsetY = hole.y - event.clientY
+      // Keeps the drag from selecting text on the panels it passes over
+      event.preventDefault()
+    }
+
+    // Carries the black hole with the cursor; it stays on screen
+    const carryHole = (event: MouseEvent) => {
+      targetX = Math.min(Math.max(event.clientX + grabOffsetX, 0), viewportWidth)
+      targetY = Math.min(Math.max(event.clientY + grabOffsetY, 0), viewportHeight)
+    }
+
     // Over the debugger dock the cursor is working the timeline, not steering the black hole
     const handleMouseMove = (event: MouseEvent) => {
+      if (mouseGrabbed && !mouseDragging && Math.hypot(event.clientX - pressX, event.clientY - pressY) > MOUSE_DRAG_THRESHOLD) {
+        mouseDragging = true
+        holding = true
+        setCanvasCursor('grabbing')
+      }
+      if (mouseDragging) {
+        carryHole(event)
+        return
+      }
       if (event.target instanceof Element && event.target.closest('[data-intro-dock]')) return
-      if (lastPointerType === 'mouse' && useParticleStore.getState().blackHoleFollowing) {
+      if (lastPointerType !== 'mouse') return
+      if (useParticleStore.getState().blackHoleFollowing) {
         targetX = event.clientX
         targetY = event.clientY
       }
+      if (event.target === canvas) showHoverCursor(event.clientX, event.clientY)
+      else setCanvasCursor('')
+    }
+
+    // The black hole stays where it was dropped, anchored, and the place is saved with the settings
+    const dropHole = () => {
+      mouseGrabbed = false
+      if (!mouseDragging) return
+      mouseDragging = false
+      holding = false
+      swallowClick = true
+      if (viewportWidth > 0 && viewportHeight > 0) {
+        useParticleStore.getState().anchorBlackHoleAt(targetX / viewportWidth, targetY / viewportHeight)
+      }
+    }
+
+    const handleMouseUp = (event: MouseEvent) => {
+      if (event.button !== 0) return
+      const dropped = mouseDragging
+      dropHole()
+      // A dropped black hole is still catching up with the cursor that holds it
+      if (dropped) setCanvasCursor(event.target === canvas ? 'grab' : '')
+      else showHoverCursor(event.clientX, event.clientY)
+    }
+
+    // Leaving the window mid-drag drops the black hole where it is
+    const handleWindowBlur = () => {
+      dropHole()
+      setCanvasCursor('')
+    }
+
+    // Double-click returns the black hole to the middle of the screen and anchors it there
+    const handleDoubleClick = () => {
+      useParticleStore.getState().anchorBlackHoleAt(0.5, 0.5)
+      setCanvasCursor('')
     }
 
     // Click anchors the black hole where it is, or sets it following again from the click point
     const handleClick = (event: MouseEvent) => {
-      if (lastPointerType !== 'mouse') return
+      if (swallowClick) {
+        swallowClick = false
+        return
+      }
+      // The second click of a double-click is the reset, not another switch
+      if (lastPointerType !== 'mouse' || event.detail > 1) return
       const state = useParticleStore.getState()
       const wasFollowing = state.blackHoleFollowing
       state.toggleBlackHoleFollowing()
@@ -727,6 +833,7 @@ function ParticleCanvas () {
         targetX = event.clientX
         targetY = event.clientY
       }
+      showHoverCursor(event.clientX, event.clientY)
     }
 
     // The store is written only when the setting moves by a whole step
@@ -755,6 +862,7 @@ function ParticleCanvas () {
         return
       }
       draggingTouch = touch.identifier
+      holding = true
       targetX = touch.clientX
       targetY = touch.clientY
       event.preventDefault()
@@ -777,6 +885,7 @@ function ParticleCanvas () {
       for (const touch of Array.from(event.changedTouches)) {
         if (touch.identifier === draggingTouch) {
           draggingTouch = -1
+          holding = mouseDragging
           // Where the finger left the black hole is saved with the settings
           if (viewportWidth > 0 && viewportHeight > 0) {
             useParticleStore.getState().setBlackHolePosition(targetX / viewportWidth, targetY / viewportHeight)
@@ -823,8 +932,12 @@ function ParticleCanvas () {
 
     window.addEventListener('pointerdown', handlePointerDown)
     window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+    window.addEventListener('blur', handleWindowBlur)
     window.addEventListener('resize', scheduleViewportSize)
+    canvas.addEventListener('mousedown', handleMouseDown)
     canvas.addEventListener('click', handleClick)
+    canvas.addEventListener('dblclick', handleDoubleClick)
     canvas.addEventListener('wheel', handleWheel, { passive: true })
     canvas.addEventListener('touchstart', handleTouchStart, { passive: false })
     canvas.addEventListener('touchmove', handleTouchMove, { passive: false })
@@ -843,8 +956,12 @@ function ParticleCanvas () {
       unsubscribeTitle()
       window.removeEventListener('pointerdown', handlePointerDown)
       window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+      window.removeEventListener('blur', handleWindowBlur)
       window.removeEventListener('resize', scheduleViewportSize)
+      canvas.removeEventListener('mousedown', handleMouseDown)
       canvas.removeEventListener('click', handleClick)
+      canvas.removeEventListener('dblclick', handleDoubleClick)
       canvas.removeEventListener('wheel', handleWheel)
       canvas.removeEventListener('touchstart', handleTouchStart)
       canvas.removeEventListener('touchmove', handleTouchMove)

@@ -10,7 +10,13 @@ function InteractionHints () {
 
   const hints = isTouchScreen
     ? [!used.drag && 'DRAG THE BLACK HOLE', !used.scroll && 'SWIPE TO CHANGE SPEED']
-    : [!used.move && 'MOVE TO BEND LIGHT', !used.click && 'CLICK TO ANCHOR', !used.scroll && 'SCROLL TO CHANGE SPEED']
+    // Only an anchored black hole can be dragged, so that hint waits for the first click
+    : [
+      !used.move && 'MOVE TO BEND LIGHT',
+      !used.click && 'CLICK TO ANCHOR',
+      used.click && !used.drag && 'DRAG IT TO MOVE · DOUBLE-CLICK TO CENTRE',
+      !used.scroll && 'SCROLL TO CHANGE SPEED'
+    ]
   const label = hints.filter(Boolean).join(' · ')
 
   return (

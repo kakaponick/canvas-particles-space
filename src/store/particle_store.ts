@@ -123,6 +123,8 @@ export interface ParticleState {
   setBlackHoleX: (x: number) => void
   setBlackHoleY: (y: number) => void
   setBlackHolePosition: (x: number, y: number) => void
+  // Drops the black hole at a place on the screen, as shares of its width and height, and anchors it
+  anchorBlackHoleAt: (x: number, y: number) => void
   addColor: (color: ParticleColor) => void
   removeColor: (index: number) => void
   updateColor: (index: number, updates: Partial<ParticleColor>) => void
@@ -259,6 +261,7 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   setBlackHoleX: (x) => set({ blackHoleX: toShare(x), blackHoleFollowing: false }),
   setBlackHoleY: (y) => set({ blackHoleY: toShare(y), blackHoleFollowing: false }),
   setBlackHolePosition: (x, y) => set({ blackHoleX: toShare(x), blackHoleY: toShare(y) }),
+  anchorBlackHoleAt: (x, y) => set({ blackHoleX: toShare(x), blackHoleY: toShare(y), blackHoleFollowing: false }),
   setLensingRadius: (radius) => set({ lensingRadius: radius }),
   toggleLensing: () => set((state) => ({ lensingEnabled: !state.lensingEnabled })),
   setFarZ: (farZ) => set({ farZ }),
