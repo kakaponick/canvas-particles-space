@@ -1,22 +1,39 @@
 import { useParticleStore } from '../../store/particle_store'
 import { SettingsRow, SettingsSwitch } from './settings_section'
-import ToggleButton from './toggle_button'
+import SliderControl from './slider_control'
 
-// 0 follows the display refresh rate
-const FRAME_RATE_OPTIONS = [
-  { value: 0, label: 'AUTO' },
-  { value: 30, label: '30' },
-  { value: 60, label: '60' },
-  { value: 90, label: '90' },
-  { value: 120, label: '120' },
-  { value: 144, label: '144' },
-  { value: 240, label: '240' }
-]
+const MIN_FRAME_RATE = 30
+const MAX_FRAME_RATE = 240
+// The slider's last stop, one past the highest limit, is no limit at all (a cap of 0): the scene
+// follows the display's refresh rate
+const AUTO_POSITION = MAX_FRAME_RATE + 1
+
+const toPosition = (cap: number) => cap <= 0 ? AUTO_POSITION : Math.min(Math.max(cap, MIN_FRAME_RATE), MAX_FRAME_RATE)
+const formatPosition = (position: number) => position >= AUTO_POSITION ? 'AUTO' : `${position} FPS`
+
+// Kept apart from the measured FPS readout, so the readout's updates do not re-render the slider
+function FrameRateSlider () {
+  const frameRateCap = useParticleStore(state => state.frameRateCap)
+  const setFrameRateCap = useParticleStore(state => state.setFrameRateCap)
+
+  return (
+    <SliderControl
+      id="frame-rate-cap"
+      label="Limit"
+      value={toPosition(frameRateCap)}
+      min={MIN_FRAME_RATE}
+      max={AUTO_POSITION}
+      step={1}
+      formatValue={formatPosition}
+      onChange={(position) => setFrameRateCap(position >= AUTO_POSITION ? 0 : position)}
+      variant="inline"
+      resetValue={AUTO_POSITION}
+    />
+  )
+}
 
 function FrameRateControl () {
-  const frameRateCap = useParticleStore(state => state.frameRateCap)
   const measuredFps = useParticleStore(state => state.measuredFps)
-  const setFrameRateCap = useParticleStore(state => state.setFrameRateCap)
   const adaptiveParticles = useParticleStore(state => state.adaptiveParticles)
   const activeParticles = useParticleStore(state => state.activeParticles)
   const numParticles = useParticleStore(state => state.numParticles)
@@ -27,24 +44,13 @@ function FrameRateControl () {
     <>
       <SettingsRow
         label="Frame Rate"
-        help="AUTO renders at your display's refresh rate. A fixed limit saves power and GPU time; motion speed stays the same at any frame rate. A limit above the display's refresh rate has no effect."
+        help={`Limits how many frames per second the scene renders, from ${MIN_FRAME_RATE} to ${MAX_FRAME_RATE}. The far right end of the slider is AUTO: no limit, the scene renders at your display's refresh rate. A lower limit saves power and GPU time; motion speed stays the same at any frame rate. A limit above the display's refresh rate has no effect. A double-click returns the slider to AUTO.`}
       >
         <span className="font-mono text-xs text-text-light/70 tabular-nums">
           {measuredFps > 0 ? `${measuredFps} FPS` : '—'}
         </span>
       </SettingsRow>
-      <div className="flex gap-1">
-        {FRAME_RATE_OPTIONS.map(option => (
-          <ToggleButton
-            key={option.value}
-            active={frameRateCap === option.value}
-            onClick={() => setFrameRateCap(option.value)}
-            className="h-7 flex-1 px-0 font-mono text-xs"
-          >
-            {option.label}
-          </ToggleButton>
-        ))}
-      </div>
+      <FrameRateSlider />
       <SettingsRow
         label="Particle Budget"
         help="AUTO lowers the particle count when the simulation takes more than 40% of each frame, so motion stays smooth on a slower processor or a high refresh rate display. It raises the count back to your setting once there is room again. OFF always simulates the full count."
