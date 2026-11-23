@@ -1,4 +1,4 @@
-import { memo, useMemo, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { memo, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { Check, ChevronRight, Copy, Eye, EyeOff, RotateCcw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useIntroDebugStore, getTitleChanges, type TitleText } from '../../store/intro_debug_store'
@@ -18,9 +18,12 @@ const reducedMotion = typeof window !== 'undefined' && window.matchMedia('(prefe
 const share = (time: number, duration: number) => Math.min(Math.max(time / duration, 0), 1)
 const percent = (time: number, duration: number) => `${share(time, duration) * 100}%`
 
-// Pointer down on a lane or the ruler seeks there; dragging scrubs
+// Pointer down on a lane or the ruler seeks there; dragging scrubs. Playback holds while the pointer
+// is down, so the frame under it stays put, and goes on from there once it is released
 function useScrub (duration: number) {
   const seek = useIntroDebugStore(state => state.seek)
+  const setPlaying = useIntroDebugStore(state => state.setPlaying)
+  const resumeOnRelease = useRef(false)
   return useMemo(() => {
     const seekFrom = (event: ReactPointerEvent<HTMLElement>) => {
       const rect = event.currentTarget.getBoundingClientRect()
@@ -32,13 +35,22 @@ function useScrub (duration: number) {
       onPointerDown: (event: ReactPointerEvent<HTMLElement>) => {
         if (event.button !== 0) return
         event.currentTarget.setPointerCapture(event.pointerId)
+        // Only a timeline that was running when it was pressed starts again on release
+        resumeOnRelease.current = useIntroDebugStore.getState().playing
+        setPlaying(false)
         seekFrom(event)
       },
       onPointerMove: (event: ReactPointerEvent<HTMLElement>) => {
         if (event.currentTarget.hasPointerCapture(event.pointerId)) seekFrom(event)
+      },
+      // The capture ends on release, on a cancelled touch and when the window loses the pointer
+      onLostPointerCapture: () => {
+        if (!resumeOnRelease.current) return
+        resumeOnRelease.current = false
+        setPlaying(true)
       }
     }
-  }, [duration, seek])
+  }, [duration, seek, setPlaying])
 }
 
 type Scrub = ReturnType<typeof useScrub>

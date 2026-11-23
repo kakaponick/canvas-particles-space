@@ -63,6 +63,7 @@ interface IntroDebugState {
 
   setOpen: (open: boolean) => void
   togglePlaying: () => void
+  setPlaying: (playing: boolean) => void
   setTimeScale: (scale: number) => void
   toggleLoop: () => void
   toggleLayer: (layer: IntroLayer) => void
@@ -218,6 +219,9 @@ export const useIntroDebugStore = createWithEqualityFn<IntroDebugState>((set, ge
     saveSession(get())
   },
   togglePlaying: () => set((state) => ({ playing: !state.playing })),
+  setPlaying: (playing) => {
+    if (get().playing !== playing) set({ playing })
+  },
   setTimeScale: (timeScale) => {
     set({ timeScale })
     saveSession(get())
