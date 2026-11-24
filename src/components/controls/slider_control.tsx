@@ -13,10 +13,8 @@ interface SliderControlProps {
   step: number
   formatValue?: (value: number) => string
   onChange: (value: number) => void
-  // Shown under the slider while descriptions are on, and always read by screen readers
+  // In the slider's context menu (hint_menu.tsx), and always read by screen readers
   description?: string
-  // Read by screen readers only, never shown, for a slider in a row with no room for a hint line
-  quietDescription?: boolean
   // Fills the range with this colour instead of the accent
   fillColor?: string
   // The value a double-click returns to, marked on the track. A slider whose range crosses zero
@@ -68,7 +66,6 @@ function SliderControl ({
   formatValue = (val) => String(val),
   onChange,
   description,
-  quietDescription = false,
   fillColor,
   resetValue
 }: SliderControlProps) {
@@ -81,8 +78,8 @@ function SliderControl ({
     crossesZero && Math.abs(next) <= (max - min) * ZERO_SNAP_SHARE ? 0 : next
 
   // The listeners are attached once and read the current props from here
-  const live = useRef({ value, min, max, step, onChange, crossesZero })
-  live.current = { value, min, max, step, onChange, crossesZero }
+  const live = useRef({ value, min, max, step, onChange, crossesZero, markValue })
+  live.current = { value, min, max, step, onChange, crossesZero, markValue }
   // A finger on the slider: where and when it landed, whether it drags, and the slider's box for the drag
   const touch = useRef<{ id: number, x: number, y: number, at: number, dragging: boolean, rect: DOMRect | null } | null>(null)
 
@@ -125,10 +122,17 @@ function SliderControl ({
       if (container.querySelector('[role="slider"]')?.matches(':focus-visible')) listen(true)
     }
     const handleFocusOut = () => listen(false)
+    // Reset from the context menu
+    const handleReset = () => {
+      const { value: current, onChange: change, markValue: mark } = live.current
+      if (mark !== undefined && mark !== current) change(mark)
+    }
     listen(false)
     container.addEventListener('focusin', handleFocusIn)
     container.addEventListener('focusout', handleFocusOut)
+    container.addEventListener('hint-reset', handleReset)
     return () => {
+      container.removeEventListener('hint-reset', handleReset)
       container.removeEventListener('wheel', handleWheel)
       container.removeEventListener('focusin', handleFocusIn)
       container.removeEventListener('focusout', handleFocusOut)
@@ -150,6 +154,11 @@ function SliderControl ({
   // Touch is handled here instead of by the slider, which would take every finger that lands on it
   const touchHandlers = {
     onPointerDownCapture: (event: ReactPointerEvent<HTMLDivElement>) => {
+      // The slider would take any button; a right-click opens the hint menu and must not move the value
+      if (event.pointerType !== 'touch' && event.button !== 0) {
+        event.stopPropagation()
+        return
+      }
       if (event.pointerType !== 'touch') return
       event.stopPropagation()
       // A finger that lands while the panel scrolls is stopping the scroll, and taps nothing
@@ -205,7 +214,12 @@ function SliderControl ({
             event.preventDefault()
             if (markValue !== value) onChange(markValue)
           }}
-        title={markValue === undefined ? undefined : `Double-click or Delete: back to ${formatValue(markValue)}`}
+        title={markValue === undefined
+          ? (description ? 'Right-click: what it does' : undefined)
+          : `Double-click or Delete: back to ${formatValue(markValue)}${description ? ' · Right-click: what it does' : ''}`}
+        data-hint={description}
+        data-hint-label={description ? (ariaLabel ?? label) : undefined}
+        data-hint-reset={description && markValue !== undefined ? formatValue(markValue) : undefined}
         style={{ cursor: CURSOR }}
         {...touchHandlers}
       >
@@ -241,7 +255,7 @@ function SliderControl ({
           <span className="shrink-0 whitespace-nowrap font-semibold tabular-nums text-neon-cyan">{formatValue(value)}</span>
         </div>
       </div>
-      {description && <p id={descriptionId} className={quietDescription ? 'sr-only' : 'setting-description'}>{description}</p>}
+      {description && <p id={descriptionId} className="sr-only">{description}</p>}
     </div>
   )
 }

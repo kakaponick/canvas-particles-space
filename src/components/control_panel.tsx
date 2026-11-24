@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button'
 import { Settings, Maximize, Minimize, X } from 'lucide-react'
 import SettingsBody from './settings_body'
 import { isTextEntry } from '@/lib/utils'
-import DescriptionsToggle from './controls/descriptions_toggle'
+import HintMenu from './controls/hint_menu'
 
 // The panel closes only on request, so the scene can be used while settings are being tuned
 function keepOpen (event: Event) {
@@ -137,21 +137,20 @@ function ControlPanel () {
         // The scroll padding keeps a row reached by Shift+Tab clear of the sticky header
         className="w-[min(340px,100vw)] max-h-screen scroll-pt-14 gap-2 overflow-y-auto bg-[rgba(10,10,15,0.98)] p-3 pointer-events-auto outline-none sm:max-w-none
           motion-reduce:!animate-none">
-        {/* Stays at the top while the panel scrolls, so HELP and close are always in reach; -top-3 because a
+        {/* Stays at the top while the panel scrolls, so the title and close are always in reach; -top-3 because a
             sticky element stops at the scroll padding, and the panel has p-3 */}
         <SheetHeader className="sticky -top-3 z-10 -mx-3 -mt-3 flex-row items-center gap-2 space-y-0 border-b border-neon-cyan/20 bg-[rgb(10,10,15)] px-3 pb-2 pt-3 text-left sm:text-left">
           <SheetTitle className="font-orbitron text-neon-cyan text-sm tracking-[1px]" style={{ textShadow: '0 0 10px #00ffff' }}>
             SETTINGS
           </SheetTitle>
-          {/* The key is a hint like the others: shown with HELP, and never on a touch screen */}
-          <kbd title="Esc opens and closes Settings" className="help-only border border-neon-cyan/40 px-1 font-mono text-[11px] leading-4 text-text-light/70">ESC</kbd>
           <SheetDescription className="sr-only">
-            Adjust particle simulation parameters. Escape opens and closes this panel.
+            Adjust particle simulation parameters. Escape opens and closes this panel. Shift+F10 on a setting
+            opens its menu with a reset to the default.
           </SheetDescription>
-          <DescriptionsToggle className="ml-auto" />
           <SheetClose
             aria-label="Close Settings"
-            className="flex h-7 w-7 shrink-0 items-center justify-center text-neon-cyan opacity-80 transition-opacity hover:opacity-100
+            title="Close (Esc)"
+            className="ml-auto flex h-7 w-7 shrink-0 items-center justify-center text-neon-cyan opacity-80 transition-opacity hover:opacity-100
               focus-visible:opacity-100 focus-visible:outline focus-visible:outline-1 focus-visible:outline-neon-cyan"
           >
             <X aria-hidden="true" className="h-4 w-4" />
@@ -160,6 +159,8 @@ function ControlPanel () {
         <PreparedSettings host={settingsHost} />
       </SheetContent>
       {createPortal(<SettingsBody />, settingsHost)}
+      {/* The hint behind a right-click, Shift+F10 or a long press, for both panels */}
+      <HintMenu />
     </Sheet>
   )
 }

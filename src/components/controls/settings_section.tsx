@@ -55,7 +55,7 @@ export function SettingsSwitch ({ on, onToggle, label, describedBy }: SettingsSw
 
 interface SettingsRowProps {
   label: string
-  // What the row does: shown under it while HELP is on, and read with its control
+  // What the row does: in its context menu (hint_menu.tsx), and read with its control
   help?: string
   // Gets the id of the help text, for the control's aria-describedby
   children: (describedBy: string | undefined) => ReactNode
@@ -68,12 +68,12 @@ interface SettingsRowProps {
 export function SettingsRow ({ label, help, children, className }: SettingsRowProps) {
   const helpId = useId()
   return (
-    <div className={className}>
+    <div className={className} data-hint={help} data-hint-label={help ? label : undefined}>
       <div className="flex h-7 items-center justify-between gap-2 bg-text-light/[0.06] pl-3">
         <span className="min-w-0 truncate font-mono text-xs text-text-light/90">{label}</span>
         <div className="flex shrink-0 items-center gap-2">{children(help ? helpId : undefined)}</div>
       </div>
-      {help && <p id={helpId} className="setting-description">{help}</p>}
+      {help && <p id={helpId} className="sr-only">{help}</p>}
     </div>
   )
 }
@@ -81,7 +81,7 @@ export function SettingsRow ({ label, help, children, className }: SettingsRowPr
 interface SettingsSectionProps {
   id: string
   title: string
-  // What the whole section is for: shown at its top while HELP is on
+  // What the whole section is for: in its header's context menu, and read with the header
   help?: string
   // A control or readout kept in the header, reachable while the section is closed
   action?: ReactNode
@@ -117,6 +117,8 @@ function SettingsSection ({ id, title, help, action, collapsedAction, defaultOpe
             aria-expanded={open}
             aria-controls={panelId}
             aria-describedby={help ? helpId : undefined}
+            data-hint={help}
+            data-hint-label={help ? title : undefined}
             onClick={toggle}
             className="flex h-8 w-full items-center gap-1 text-left font-orbitron text-xs tracking-[0.5px] text-neon-cyan transition-colors duration-150
               hover:text-text-light focus-visible:outline focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-neon-cyan"
@@ -129,7 +131,7 @@ function SettingsSection ({ id, title, help, action, collapsedAction, defaultOpe
         {collapsedAction && !open && collapsedAction}
         {action}
       </div>
-      {help && <p id={helpId} className={cn('setting-description', !open && '!hidden')}>{help}</p>}
+      {help && <p id={helpId} className="sr-only">{help}</p>}
       {/* Built with the page and only hidden while closed, so opening a section builds nothing while the scene runs */}
       <div
         id={panelId}

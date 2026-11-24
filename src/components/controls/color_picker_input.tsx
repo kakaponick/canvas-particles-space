@@ -6,7 +6,7 @@ interface ColorPickerInputProps {
   label: string
   // Name for screen readers when the visible label alone does not say what the color is for
   ariaLabel?: string
-  // Shown under the row while descriptions are on, and always read by screen readers
+  // In the row's context menu (hint_menu.tsx), and always read by screen readers
   description?: string
 }
 
@@ -15,7 +15,7 @@ function ColorPickerInput ({ value, onChange, label, ariaLabel, description }: C
   const descriptionId = useId()
 
   return (
-    <div className="min-w-0 flex-1">
+    <div className="min-w-0 flex-1" data-hint={description} data-hint-label={description ? (ariaLabel ?? label) : undefined}>
       <label
         className="relative flex h-7 min-w-0 cursor-pointer items-center gap-2 bg-text-light/[0.06] px-3 font-mono text-xs
           transition-colors duration-150 hover:bg-neon-cyan/[0.08]
@@ -34,7 +34,7 @@ function ColorPickerInput ({ value, onChange, label, ariaLabel, description }: C
           className="pointer-events-none absolute h-0 w-0 opacity-0"
         />
       </label>
-      {description && <p id={descriptionId} className="setting-description">{description}</p>}
+      {description && <p id={descriptionId} className="sr-only">{description}</p>}
     </div>
   )
 }

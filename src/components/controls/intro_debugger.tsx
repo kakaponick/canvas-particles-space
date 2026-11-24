@@ -11,7 +11,6 @@ import ToggleButton from './toggle_button'
 import HelpTooltip from './help_tooltip'
 import IntroTrackList from './intro_track_list'
 import IntroPresetBar from './intro_preset_bar'
-import DescriptionsToggle from './descriptions_toggle'
 
 // Pausing is the PLAY button's job, so the speed never reaches zero
 const MIN_SPEED = 0.05
@@ -419,7 +418,7 @@ function IntroDebugger () {
         </div>
 
         {/* The header measures its own width, not the window's: with Settings open the dock is narrower. On a
-            wide dock everything sits on one row; on a narrower one the title row keeps HELP, KEYS and close at its
+            wide dock everything sits on one row; on a narrower one the title row keeps KEYS and close at its
             right end and the transport, time and speed wrap onto the row below it. On a phone the speed joins
             the title row, so the header keeps to two rows: the group around the transport gives way to its
             children there, and the transport and time take the second row */}
@@ -462,8 +461,8 @@ function IntroDebugger () {
                 <TimeReadout duration={duration} />
               </div>
 
-              {/* The slider sets any speed, and a double-click or Delete returns it to 1×. Its hint is read by
-                  screen readers only, so HELP does not push the slider off the transport's line */}
+              {/* The slider sets any speed, and a double-click or Delete returns it to 1×. Its hint is in its
+                  context menu and read by screen readers */}
               <div className="flex min-w-0 max-sm:flex-1 sm:w-44">
                 <SliderControl
                   id="intro-speed"
@@ -476,13 +475,11 @@ function IntroDebugger () {
                   onChange={actions.setTimeScale}
                   resetValue={1}
                   description={SPEED_HINT}
-                  quietDescription
                 />
               </div>
             </div>
 
             <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
-              <DescriptionsToggle />
               {/* The shortcuts are for a keyboard, so a phone goes without them */}
               <HelpTooltip
                 label="Keys: keyboard shortcuts"

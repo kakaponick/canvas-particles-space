@@ -525,7 +525,7 @@ const IntroParamControl = memo(function IntroParamControl ({ paramKey }: { param
   const setParam = useIntroDebugStore(state => state.setParam)
   const spec = INTRO_PARAM_SPECS[paramKey]
   const id = `intro-param-${paramKey}`
-  // One line under the control; the default is the mark on the bar and the double-click's target
+  // One line in the control's context menu; the default is the mark on the bar and the double-click's target
   const description = spec.hint
   if (spec.color) {
     return (
@@ -540,7 +540,7 @@ const IntroParamControl = memo(function IntroParamControl ({ paramKey }: { param
   }
   if (spec.options) {
     return (
-      <div className="min-w-0">
+      <div className="min-w-0" data-hint={description} data-hint-label={spec.spokenName ?? spec.label}>
         <label
           className="flex h-7 min-w-0 items-center gap-2 border border-neon-cyan/40 bg-black/30 pl-3 pr-1 font-mono text-xs
             transition-colors duration-150 hover:border-neon-cyan/70
@@ -560,7 +560,7 @@ const IntroParamControl = memo(function IntroParamControl ({ paramKey }: { param
             ))}
           </select>
         </label>
-        <p id={`${id}-description`} className="setting-description">{description}</p>
+        <p id={`${id}-description`} className="sr-only">{description}</p>
       </div>
     )
   }
