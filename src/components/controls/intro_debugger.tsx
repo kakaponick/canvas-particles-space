@@ -283,7 +283,7 @@ function IntroDebugger () {
                 onChange={actions.setTimeScale}
                 variant="inline"
                 resetValue={1}
-                description="Speed of the whole scene while the debugger is open. PAUSE stops everything; the lens, flash and title still follow the timeline when you scrub. A double-click returns to 1×."
+                description="Speed of the intro, kept across reloads and used with the debugger closed too: the intro plays at it, then the scene eases back to 1× once the intro is over. While the debugger is open it holds the whole scene, and PAUSE stops everything; the lens, flash and title still follow the timeline when you scrub. A double-click returns to 1×."
               />
             </div>
             {SPEED_PRESETS.map(speed => (

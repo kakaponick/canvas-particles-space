@@ -67,6 +67,9 @@ const MOUSE_DRAG_THRESHOLD = 4
 // With looping on, the debugger holds the finished intro this long before replaying it
 const LOOP_HOLD_SECONDS = 1
 const READOUT_INTERVAL_MS = 66
+// With the debugger closed the intro plays at the debugger's speed; once it is over the scene eases back
+// to full speed over about this long, instead of jumping
+const SPEED_RETURN_MS = 800
 // A ringdown wobble smaller than this share of the radius no longer shows, so the oval is switched off
 const MIN_HOLE_OVAL = 1e-4
 // The gravitational wave is switched off this many wobble decay times after its front left the screen
@@ -138,6 +141,8 @@ function ParticleCanvas () {
     let nextFrameSlot = 0
     let animationTime = 0
     let introTime = 0
+    // Playback speed with the debugger closed: the debugger's speed during the intro, 1 after it
+    let closedRate = useIntroDebugStore.getState().timeScale
     let fadeBacklog = 0
     const framePacer = createFramePacer()
     let fpsFrames = 0
@@ -461,8 +466,17 @@ function ParticleCanvas () {
       }
       const stepping = debug.stepRequest !== handledStep
       handledStep = debug.stepRequest
-      const playbackRate = !debugging || stepping ? 1 : debug.playing ? debug.timeScale : 0
       const motionMs = pacedFrameMs(framePacer, elapsedMs)
+      // The debugger's speed is the intro's speed whether the debugger is open or not. Open, it holds
+      // the whole scene and PAUSE stops it; closed, it holds the intro only, and the scene eases back
+      // to full speed once the intro is over. Pause belongs to the open debugger
+      if (debugging) {
+        closedRate = debug.timeScale
+      } else {
+        const targetRate = introTime < introDuration ? debug.timeScale : 1
+        closedRate += (targetRate - closedRate) * Math.min(motionMs / SPEED_RETURN_MS, 1)
+      }
+      const playbackRate = stepping ? 1 : debugging ? (debug.playing ? debug.timeScale : 0) : closedRate
       const frameScale = stepping ? 1 : toFrameScale(motionMs) * playbackRate
       const dt = frameScale / REFERENCE_FPS
       // Hidden layers are part of the intro's look, so they stay hidden with the debugger closed

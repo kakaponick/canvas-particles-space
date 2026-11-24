@@ -49,7 +49,8 @@ export interface IntroReadout {
 interface IntroDebugState {
   open: boolean
   playing: boolean
-  // Playback rate of the whole scene; 0 freezes it
+  // Playback rate of the intro, kept across reloads: with the debugger open it holds the whole scene,
+  // closed it holds the intro and the scene returns to 1× after it
   timeScale: number
   loop: boolean
   hidden: Record<IntroLayer, boolean>
