@@ -1,10 +1,11 @@
 // The scene for AI agents (and the console): window.space describes, reads and changes every simulation
-// setting and every intro parameter, drives the intro's timeline, and captures frames. It wraps the stores
-// the animation loop already reads, so it adds nothing to the frame; the UI and saved settings follow every
-// change by themselves. Values are checked against the same registries the panels are built from.
+// setting and every intro parameter and drives the intro's timeline. It wraps the stores the animation loop
+// already reads, so it adds nothing to the frame; the UI and saved settings follow every change by
+// themselves. Values are checked against the same registries the panels are built from.
 //
-// Loaded in development, and on any build with ?agent in the address. In development the Vite bridge
-// (src/dev/scene_bridge.ts) also lets an agent outside the browser call it through the dev server.
+// Loaded in development, and on any build with ?agent in the address. An agent reaches it through a browser
+// tool that evaluates scripts in the page (the chrome-devtools MCP server in .mcp.json), and takes
+// screenshots with that tool.
 import { useParticleStore, type ParticleColor, type ParticleState } from '../store/particle_store'
 import { DEFAULT_PRESET, usePresetStore } from '../store/preset_store'
 import { useIntroDebugStore, DEFAULT_TITLE_TEXT, type TitleText } from '../store/intro_debug_store'
@@ -14,7 +15,6 @@ import { SIMULATION_SETTING_SPECS } from './simulation_specs'
 import { DEFAULT_INTRO_PARAMS, INTRO_PARAM_SPECS, colorToCss, cssToColor, type IntroParamKey } from './intro_params'
 import { INTRO_LAYERS, type IntroLayer } from './intro_tracks'
 import { TITLE_FONTS, type TitleFontKey } from './title_sprite'
-import { requestFrameCapture } from './scene_capture'
 
 type Patch = Record<string, unknown>
 
@@ -38,11 +38,12 @@ const HELP = `window.space: the scene for agents. Every call returns plain JSON-
   preset.list() / preset.apply(name)        saved simulation presets
   intro.describe(filter?) / intro.get(keys?) / intro.set(patch) / intro.reset(keys?)
   intro.seek(seconds) / intro.play() / intro.pause() / intro.step() / intro.restart() / intro.speed(x) / intro.loop(on)
+                           a paused timeline freezes the particle field: after a seek it moves only the lens, flash
+                           and title, so play (or step) before a screenshot of the particles at the new moment
   intro.layers({ hide?: [], show?: [], only?: layer }) / intro.title(patch?) / intro.preset.list() / intro.preset.apply(name)
   debug(open?)             open or close the intro debugger; the intro readout is live only while it is open
   readout()                fps, particles, pause state, intro time and phase
-  frames(n)                wait for n drawn frames
-  capture()                the next drawn frame as a PNG data URL (through the dev bridge: a file path)
+  frames(n)                wait for n drawn frames, e.g. after a change and before a screenshot
 Colours take '#rrggbb'; choices take an option index or its name.`
 
 function fail (message: string): never {
@@ -407,8 +408,7 @@ export const sceneApi = {
       hidden: document.hidden
     }
   },
-  frames: waitFrames,
-  capture: () => requestFrameCapture()
+  frames: waitFrames
 }
 
 export type SceneApi = typeof sceneApi

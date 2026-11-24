@@ -27,7 +27,6 @@ import { createFramePacer, pacedFrameMs } from '../lib/frame_pacing'
 import { renderTitleSprite, waitForTitleFont, type TitleSprite, type TitleStyle } from '../lib/title_sprite'
 import { createParticleBudget, updateParticleBudget } from '../lib/particle_budget'
 import { clearRingEnergy, createRingEnergy, stepRingEnergy } from '../lib/ring_energy'
-import { answerFrameCaptures, captureRequests } from '../lib/scene_capture'
 
 // The light front reaches the title about 0.85 s in; a face that is not ready by then is swapped in later
 const TITLE_FONT_TIMEOUT_MS = 700
@@ -748,8 +747,6 @@ function ParticleCanvas () {
       composite.letterbox = params.letterbox * viewportHeight * film
 
       renderer.render(frame)
-      // A frame the agent API asked for is read now, while the drawing buffer still holds it
-      if (captureRequests.length > 0 && canvas) answerFrameCaptures(canvas)
 
       if (debugging && now - lastReadoutTime >= READOUT_INTERVAL_MS) {
         lastReadoutTime = now
