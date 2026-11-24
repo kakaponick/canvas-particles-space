@@ -71,7 +71,14 @@ function PresetChip ({ preset, active, modified }: PresetChipProps) {
             type="button"
             autoFocus
             aria-label={`Confirm deleting ${preset.name}`}
-            onClick={() => deletePreset(preset.id)}
+            onClick={(event) => {
+              // The chip and its focused button go away; the focus moves to the neighbouring preset
+              // instead of falling back to the page
+              const chip = event.currentTarget.closest('li')
+              const neighbour = (chip?.nextElementSibling ?? chip?.previousElementSibling)?.querySelector('button')
+              neighbour?.focus()
+              deletePreset(preset.id)
+            }}
             onBlur={() => setConfirming(false)}
             className="flex h-7 shrink-0 items-center gap-1 px-2 text-neon-magenta transition-colors duration-150
               hover:text-text-light focus-visible:outline focus-visible:outline-1 focus-visible:outline-neon-magenta"
@@ -124,7 +131,9 @@ function IntroPresetBar () {
   return (
     <div role="group" aria-label="Intro presets" className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-neon-cyan/20 px-3 py-1.5">
       <span className="text-text-light/60">Presets</span>
-      <ul className="flex max-h-[4.25rem] min-w-0 flex-1 flex-wrap gap-1 overflow-y-auto">
+      {/* On a low screen the presets keep to one row that scrolls sideways, so the timeline keeps its room */}
+      <ul className="flex max-h-[4.25rem] min-w-0 flex-1 flex-wrap gap-1 overflow-y-auto
+        [@media(max-height:760px)]:flex-nowrap [@media(max-height:760px)]:overflow-x-auto [@media(max-height:760px)]:overflow-y-hidden">
         {list.map(preset => (
           <PresetChip key={preset.id} preset={preset} active={preset.id === active.id} modified={modified} />
         ))}

@@ -39,6 +39,8 @@
 
 @layer base {
   :root {
+    /* Native controls (select lists, colour pickers, scrollbars) draw dark to match */
+    color-scheme: dark;
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
     --card: 222.2 84% 4.9%;
@@ -136,12 +138,12 @@ html::-webkit-scrollbar {
 }
 
 .seek-bar:focus-visible .seek-track {
-  box-shadow: 0 0 0 1px rgba(0, 255, 255, 0.55);
+  box-shadow: 0 0 0 1px theme('colors.neon-cyan / 55%');
 }
 
 .seek-bar:focus-visible .seek-thumb {
   scale: 1.25;
-  box-shadow: 0 0 0 2px #0b0b11, 0 0 0 3px #00ffff;
+  box-shadow: 0 0 0 2px theme('colors.bg-panel'), 0 0 0 3px theme('colors.neon-cyan');
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -162,6 +164,6 @@ html::-webkit-scrollbar {
 }
 
 .overflow-y-auto::-webkit-scrollbar-thumb {
-  background: #00ffff;
+  background: theme('colors.neon-cyan');
   border-radius: 3px;
 }

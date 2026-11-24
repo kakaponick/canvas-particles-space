@@ -10,6 +10,8 @@ export default {
       colors: {
         'bg-dark': '#0a0a0f',
         'bg-darker': '#050508',
+        // Opaque surface of docked panels: the intro debugger's timeline header, labels and cuts
+        'bg-panel': '#0b0b11',
         'neon-cyan': '#00ffff',
         'neon-magenta': '#ff00ff',
         'neon-purple': '#9945ff',

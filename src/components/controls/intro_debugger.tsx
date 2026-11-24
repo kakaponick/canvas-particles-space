@@ -24,7 +24,7 @@ const HEIGHT_STEP = 40
 
 const reducedMotion = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
-const SHORTCUTS = 'Space: play or pause (a focused button takes Space itself) · ← →: 0.1 s back or forward, with Shift one frame · Page Up, Page Down on the timeline: 1 s · [ ]: previous or next moment · Home, End: start or end · . one frame forward · R: restart · L: loop · Shift+D: open or close'
+const SHORTCUTS = 'While the focus is in the debugger or on the page: Space: play or pause (a focused button takes Space itself) · ← →: 0.1 s back or forward, with Shift one frame · Page Up, Page Down on the timeline: 1 s · [ ]: previous or next moment · Home, End: start or end · . one frame forward · R: restart · L: loop · Shift+D anywhere: open or close'
 
 function formatSpeed (speed: number) {
   return `${speed.toFixed(2)}×`
@@ -39,6 +39,12 @@ function isAdjustingSlider (target: EventTarget | null) {
 function isActivatable (target: EventTarget | null) {
   return target instanceof HTMLElement &&
     target.closest('button, a[href], summary, [role="button"], [role="checkbox"], [role="switch"], [role="tab"], [role="menuitem"], [role="option"]') !== null
+}
+
+// The playback keys belong to the debugger: they work while the focus is in it or on the page itself, never
+// behind a control elsewhere, such as the Settings panel
+function isInDebuggerScope (target: EventTarget | null) {
+  return !(target instanceof HTMLElement) || target === document.body || target.closest('[data-intro-dock]') !== null
 }
 
 function isTyping (target: EventTarget | null) {
@@ -108,7 +114,7 @@ function IntroDebugger () {
         event.preventDefault()
         return
       }
-      if (!debug.open) return
+      if (!debug.open || !isInDebuggerScope(event.target)) return
       if (event.code === 'Space' && isActivatable(event.target)) return
 
       const arrow = event.code === 'ArrowLeft' || event.code === 'ArrowRight' || event.code === 'Home' || event.code === 'End'
@@ -193,11 +199,16 @@ function IntroDebugger () {
     setHeight(clampHeight(window.innerHeight - event.clientY))
   }
   const resizeWithKeys = (event: ReactKeyboardEvent<HTMLDivElement>) => {
-    const delta = event.key === 'ArrowUp' ? HEIGHT_STEP : event.key === 'ArrowDown' ? -HEIGHT_STEP : 0
-    if (delta === 0) return
+    let next: number
+    switch (event.key) {
+    case 'ArrowUp': next = clampHeight(height + HEIGHT_STEP); break
+    case 'ArrowDown': next = clampHeight(height - HEIGHT_STEP); break
+    case 'Home': next = clampHeight(MIN_HEIGHT); break
+    case 'End': next = clampHeight(Infinity); break
+    default: return
+    }
     event.preventDefault()
     event.stopPropagation()
-    const next = clampHeight(height + delta)
     setHeight(next)
     saveHeight(next)
   }
@@ -208,7 +219,7 @@ function IntroDebugger () {
         ref={dockRef}
         data-intro-dock=""
         aria-label="Intro debugger"
-        className="fixed inset-x-0 bottom-0 z-[45] flex flex-col border-t border-neon-cyan/40 bg-[rgba(10,10,15,0.94)]
+        className="fixed inset-x-0 bottom-0 z-[45] flex flex-col border-t border-neon-cyan/40 bg-bg-dark/[0.94]
           font-mono text-xs text-text-light shadow-[0_-12px_32px_rgba(0,0,0,0.45)]"
         style={{ height }}
       >
@@ -225,9 +236,11 @@ function IntroDebugger () {
             event.currentTarget.setPointerCapture(event.pointerId)
           }}
           onPointerMove={resizeFrom}
-          onPointerUp={() => saveHeight(height)}
+          // The capture also ends when a drag is cancelled, and the height reached so far is kept then too
+          onLostPointerCapture={() => saveHeight(height)}
           onKeyDown={resizeWithKeys}
-          className="group absolute inset-x-0 -top-1.5 z-30 flex h-3 cursor-ns-resize touch-none items-center justify-center
+          aria-keyshortcuts="ArrowUp ArrowDown Home End"
+          className="group absolute inset-x-0 -top-4 z-30 flex h-6 cursor-ns-resize touch-none items-center justify-center pt-2
             focus-visible:outline-none"
         >
           <span className="h-[3px] w-10 rounded-full bg-neon-cyan/35 transition-colors duration-150 group-hover:bg-neon-cyan group-focus-visible:bg-neon-cyan" />
@@ -257,8 +270,8 @@ function IntroDebugger () {
 
           <TimeReadout duration={duration} />
 
-          <div className="flex items-center gap-1">
-            <div className="w-48">
+          <div className="flex flex-wrap items-center gap-1">
+            <div className="w-full sm:w-48">
               <SliderControl
                 id="intro-speed"
                 label="Speed"
@@ -286,12 +299,14 @@ function IntroDebugger () {
             ))}
           </div>
 
-          <SegmentCount />
-
           <div className="ml-auto flex items-center gap-3">
+            {/* A diagnostic, not a control: it gives up its room on screens where the header would wrap */}
+            <span className="hidden min-[1440px]:inline">
+              <SegmentCount />
+            </span>
             <span className="flex items-center gap-1.5 text-text-light/60">
-              Keys
-              <HelpTooltip content={SHORTCUTS} side="top" iconClassName="h-3.5 w-3.5" />
+              <span aria-hidden="true">Keys</span>
+              <HelpTooltip content={SHORTCUTS} side="top" label="Keyboard shortcuts" iconClassName="h-3.5 w-3.5" />
             </span>
             <Button
               variant="ghost"

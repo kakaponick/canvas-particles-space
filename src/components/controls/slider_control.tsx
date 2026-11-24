@@ -45,6 +45,8 @@ function SliderControl ({
 }: SliderControlProps) {
   // Text over the track is blended by difference, so white stays readable on any fill
   const textColor = fillColor ? 'text-white' : 'text-neon-cyan'
+  // The help icon is for the mouse; the keyboard and screen readers get the description from the slider
+  const descriptionId = description ? `${id}-description` : undefined
   const containerRef = useRef<HTMLDivElement>(null)
   const crossesZero = min < 0 && max > 0
   const markValue = resetValue ?? (crossesZero ? 0 : undefined)
@@ -82,11 +84,12 @@ function SliderControl ({
     return (
       <div 
         ref={containerRef}
-        className="relative group flex-1 min-w-0 transition-all hover:bg-neon-cyan/5 rounded"
+        className="relative group flex-1 min-w-0 transition-all hover:bg-neon-cyan/5 rounded
+          has-[:focus-visible]:outline has-[:focus-visible]:outline-1 has-[:focus-visible]:outline-neon-cyan"
         onDoubleClick={markValue === undefined ? undefined : () => onChange(markValue)}
         title={markValue === undefined ? undefined : resetValue === undefined ? 'Double-click to reset to 0' : 'Double-click to reset to the default'}
         style={{
-          cursor: `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" style="mix-blend-mode:difference" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%2300ffff" stroke-width="2"><rect x="8" y="4" width="8" height="16" rx="2"/><path d="M12 8v8"/><path d="m10 10 2-2 2 2"/><path d="m10 14 2 2 2-2"/></svg>') 12 12, auto`
+          cursor: 'url(\'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" style="mix-blend-mode:difference" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%2300ffff" stroke-width="2"><rect x="8" y="4" width="8" height="16" rx="2"/><path d="M12 8v8"/><path d="m10 10 2-2 2 2"/><path d="m10 14 2 2 2-2"/></svg>\') 12 12, auto'
         }}
       >
         <Slider
@@ -97,7 +100,10 @@ function SliderControl ({
           value={[value]}
           onValueChange={(values) => onChange(snapToZero(values[0]))}
           trackHeight="h-7"
-          thumbSize="hidden"
+          // The fill shows the value; the thumb stays invisible but takes the focus and the arrow keys
+          thumbSize="h-7 w-px opacity-0"
+          thumbLabel={label}
+          thumbDescribedBy={descriptionId}
           className={fillColor ? 'w-full [&>span:first-child>span]:!bg-current' : 'w-full'}
           style={fillColor ? { color: fillColor } : undefined}
         />
@@ -113,11 +119,12 @@ function SliderControl ({
             <span className={`${textColor} mix-blend-difference font-mono text-xs`}>
               {label}
             </span>
-            {description && (<HelpTooltip 
-                  content={description}
-                  iconClassName="mix-blend-difference"
-                />
+            {description && (<HelpTooltip
+              content={description}
+              iconClassName="mix-blend-difference"
+            />
             )}
+            {description && <span id={descriptionId} className="sr-only">{description}</span>}
           </div>
           <span className={`${textColor} mix-blend-difference font-bold font-mono text-xs tabular-nums`}>
             {formatValue(value)}
@@ -149,8 +156,11 @@ function SliderControl ({
         onValueChange={(values) => onChange(values[0])}
         trackHeight={trackHeight}
         thumbSize={thumbSize}
+        thumbLabel={label}
+        thumbDescribedBy={descriptionId}
         className="w-full"
       />
+      {description && <span id={descriptionId} className="sr-only">{description}</span>}
     </div>
   )
 }

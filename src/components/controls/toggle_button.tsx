@@ -15,7 +15,7 @@ function ToggleButton ({ active, className, ...props }: ToggleButtonProps) {
       className={cn(
         active
           ? 'bg-neon-cyan/20 border-neon-cyan text-neon-cyan'
-          : 'bg-transparent border-text-light/30 text-text-light/50',
+          : 'bg-transparent border-text-light/30 text-text-light/60',
         'hover:bg-neon-cyan/30',
         className
       )}

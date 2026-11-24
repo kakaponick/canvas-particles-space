@@ -1,6 +1,7 @@
 import { memo, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import { Check, ChevronRight, Copy, Eye, EyeOff, RotateCcw } from 'lucide-react'
 import { createWithEqualityFn } from 'zustand/traditional'
+import { shallow } from 'zustand/shallow'
 import { cn } from '@/lib/utils'
 import { useIntroDebugStore, getTitleChanges, type TitleText } from '../../store/intro_debug_store'
 import { DEFAULT_INTRO_PARAMS, INTRO_PARAM_SPECS, colorToCss, cssToColor, formatParam, type IntroParamKey, type IntroParams } from '../../lib/intro_params'
@@ -13,8 +14,10 @@ import TitleTextEditor from './title_text_editor'
 // Lanes, the ruler and the playhead all map time with the same geometry
 const LANE_PAD = 12
 const RULER_STEP = 0.5
-// PageUp and PageDown on the seek bar jump this far
+// PageUp and PageDown on the seek bar jump this far; ArrowUp and ArrowDown step like the side arrows
 const PAGE_STEP = 1
+const ARROW_STEP = 0.1
+const FRAME_STEP = 1 / 60
 
 const reducedMotion = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
@@ -30,6 +33,10 @@ const setHoverTime = (time: number | null) => {
   if (useTimelineHover.getState().time !== time) useTimelineHover.setState({ time })
 }
 
+// A finger on a lane may be scrolling the track list, so it seeks only once it moves sideways this far,
+// or where it lifts after a tap. The seek bar does not scroll, and a finger scrubs it at once
+const TOUCH_SCRUB_SLOP = 6
+
 // Pointer down on a lane or the ruler seeks there; dragging scrubs. Playback holds while the pointer
 // is down, so the frame under it stays put, and goes on from there once it is released. A mouse over
 // the timeline shows where a press would land
@@ -37,6 +44,7 @@ function useScrub (duration: number) {
   const seek = useIntroDebugStore(state => state.seek)
   const setPlaying = useIntroDebugStore(state => state.setPlaying)
   const resumeOnRelease = useRef(false)
+  const pendingTouch = useRef<{ id: number, x: number, y: number } | null>(null)
   return useMemo(() => {
     const timeAt = (event: ReactPointerEvent<HTMLElement>) => {
       const rect = event.currentTarget.getBoundingClientRect()
@@ -44,21 +52,50 @@ function useScrub (duration: number) {
       const position = Math.min(Math.max((event.clientX - rect.left - LANE_PAD) / width, 0), 1)
       return Math.round(position * duration * 100) / 100
     }
+    const startScrub = (event: ReactPointerEvent<HTMLElement>) => {
+      event.currentTarget.setPointerCapture(event.pointerId)
+      // Only a timeline that was running when it was pressed starts again on release
+      resumeOnRelease.current = useIntroDebugStore.getState().playing
+      setPlaying(false)
+      seek(timeAt(event))
+    }
+    const isPendingTouch = (event: ReactPointerEvent<HTMLElement>) => pendingTouch.current?.id === event.pointerId
     return {
       onPointerDown: (event: ReactPointerEvent<HTMLElement>) => {
         if (event.button !== 0) return
-        event.currentTarget.setPointerCapture(event.pointerId)
-        // Only a timeline that was running when it was pressed starts again on release
-        resumeOnRelease.current = useIntroDebugStore.getState().playing
-        setPlaying(false)
-        seek(timeAt(event))
+        if (event.pointerType === 'touch' && !event.currentTarget.hasAttribute('data-intro-ruler')) {
+          pendingTouch.current = { id: event.pointerId, x: event.clientX, y: event.clientY }
+          return
+        }
+        startScrub(event)
       },
       onPointerMove: (event: ReactPointerEvent<HTMLElement>) => {
+        const pending = pendingTouch.current
+        if (pending && isPendingTouch(event)) {
+          const dx = Math.abs(event.clientX - pending.x)
+          const dy = Math.abs(event.clientY - pending.y)
+          if (dx > TOUCH_SCRUB_SLOP && dx > dy) {
+            pendingTouch.current = null
+            startScrub(event)
+          } else if (dy > TOUCH_SCRUB_SLOP) {
+            // A scroll: the browser takes the finger and the timeline stays where it is
+            pendingTouch.current = null
+          }
+          return
+        }
         const scrubbing = event.currentTarget.hasPointerCapture(event.pointerId)
         if (!scrubbing && event.pointerType === 'touch') return
         const time = timeAt(event)
         if (scrubbing) seek(time)
         setHoverTime(time)
+      },
+      onPointerUp: (event: ReactPointerEvent<HTMLElement>) => {
+        if (!isPendingTouch(event)) return
+        pendingTouch.current = null
+        seek(timeAt(event))
+      },
+      onPointerCancel: (event: ReactPointerEvent<HTMLElement>) => {
+        if (isPendingTouch(event)) pendingTouch.current = null
       },
       onPointerLeave: (event: ReactPointerEvent<HTMLElement>) => {
         if (!event.currentTarget.hasPointerCapture(event.pointerId)) setHoverTime(null)
@@ -85,7 +122,7 @@ function SeekProgress ({ duration }: { duration: number }) {
       <span aria-hidden="true" className="seek-fill absolute left-0 rounded-l-full bg-neon-cyan" style={{ width: left }} />
       <span
         aria-hidden="true"
-        className="seek-thumb absolute z-[2] h-3 w-3 -translate-x-1/2 rounded-full bg-neon-cyan ring-2 ring-[#0b0b11]"
+        className="seek-thumb absolute z-[2] h-3 w-3 -translate-x-1/2 rounded-full bg-neon-cyan ring-2 ring-bg-panel"
         style={{ left }}
       />
     </>
@@ -100,7 +137,7 @@ function SeekHoverLabel ({ duration, params }: { duration: number, params: Intro
   return (
     <span
       aria-hidden="true"
-      className="pointer-events-none absolute top-[3px] z-[3] -translate-x-1/2 whitespace-nowrap border border-neon-cyan/50 bg-[#0b0b11] px-1.5
+      className="pointer-events-none absolute top-[3px] z-[3] -translate-x-1/2 whitespace-nowrap border border-neon-cyan/50 bg-bg-panel px-1.5
         text-[10px] leading-[14px] text-text-light tabular-nums"
       style={{ left: `clamp(56px, ${percent(time, duration)}, calc(100% - 56px))` }}
     >
@@ -130,11 +167,19 @@ function Ruler ({ duration, params, scrub }: { duration: number, params: IntroPa
     [params, duration]
   )
 
-  const seekByPage = (event: ReactKeyboardEvent<HTMLDivElement>) => {
-    const direction = event.key === 'PageUp' ? 1 : event.key === 'PageDown' ? -1 : 0
-    if (direction === 0) return
+  // The side arrows, Home and End seek through the debugger's own shortcuts; these are the rest of a slider's keys
+  const seekWithKeys = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    const arrow = event.shiftKey ? FRAME_STEP : ARROW_STEP
+    let delta: number
+    switch (event.key) {
+    case 'PageUp': delta = PAGE_STEP; break
+    case 'PageDown': delta = -PAGE_STEP; break
+    case 'ArrowUp': delta = arrow; break
+    case 'ArrowDown': delta = -arrow; break
+    default: return
+    }
     event.preventDefault()
-    seek(Math.min(useIntroDebugStore.getState().readout.time, duration) + direction * PAGE_STEP)
+    seek(Math.min(useIntroDebugStore.getState().readout.time, duration) + delta)
   }
 
   return (
@@ -147,10 +192,10 @@ function Ruler ({ duration, params, scrub }: { duration: number, params: IntroPa
       aria-valuemax={Math.round(duration * 100) / 100}
       aria-valuenow={spoken}
       aria-valuetext={`${playing ? spoken : spoken.toFixed(2)} of ${duration.toFixed(2)} seconds, ${phase || 'start'}`}
-      aria-keyshortcuts="ArrowLeft ArrowRight Shift+ArrowLeft Shift+ArrowRight PageUp PageDown Home End"
+      aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown Shift+ArrowLeft Shift+ArrowRight PageUp PageDown Home End"
       className="seek-bar group/seek relative h-9 cursor-pointer touch-none select-none outline-none"
       style={{ paddingInline: LANE_PAD }}
-      onKeyDown={seekByPage}
+      onKeyDown={seekWithKeys}
       {...scrub}
     >
       <div className="relative h-full">
@@ -170,7 +215,7 @@ function Ruler ({ duration, params, scrub }: { duration: number, params: IntroPa
           <span
             key={moment.label}
             aria-hidden="true"
-            className="seek-cut absolute z-[1] w-[2px] -translate-x-1/2 bg-[#0b0b11]"
+            className="seek-cut absolute z-[1] w-[2px] -translate-x-1/2 bg-bg-panel"
             style={{ left: percent(moment.time, duration) }}
           />
         ))}
@@ -260,7 +305,7 @@ function MarkerButton ({ marker, duration }: { marker: IntroMarker, duration: nu
       />
       <span
         className={cn(
-          'pointer-events-none absolute top-1 whitespace-nowrap text-[10px] leading-none transition-colors duration-150',
+          'pointer-events-none absolute top-1 whitespace-nowrap text-[10px] leading-none transition-colors duration-150 max-sm:hidden',
           'group-hover/marker:text-neon-cyan group-focus-visible/marker:text-neon-cyan',
           flip ? 'right-2.5' : 'left-2.5',
           isPhase ? 'text-neon-cyan' : 'text-text-light/60'
@@ -272,10 +317,15 @@ function MarkerButton ({ marker, duration }: { marker: IntroMarker, duration: nu
   )
 }
 
+const NO_MARKERS: IntroMarker[] = []
+const sameSpans = (a: IntroSpan[], b: IntroSpan[]) =>
+  a.length === b.length && a.every((span, index) => span.start === b[index].start && span.end === b[index].end && span.holds === b[index].holds)
+const sameMarkers = (a: IntroMarker[], b: IntroMarker[]) =>
+  a.length === b.length && a.every((marker, index) => marker.time === b[index].time && marker.label === b[index].label)
+
 interface TrackRowProps {
   track: IntroTrack
   duration: number
-  params: IntroParams
   hidden: boolean
   expanded: boolean
   // Title fields (text, font, case) changed from the default, for the track that edits them
@@ -284,17 +334,18 @@ interface TrackRowProps {
   onToggleExpanded: (key: string) => void
 }
 
-const TrackRow = memo(function TrackRow ({ track, duration, params, hidden, expanded, textChanges, scrub, onToggleExpanded }: TrackRowProps) {
+const TrackRow = memo(function TrackRow ({ track, duration, hidden, expanded, textChanges, scrub, onToggleExpanded }: TrackRowProps) {
   const toggleLayer = useIntroDebugStore(state => state.toggleLayer)
   const soloLayer = useIntroDebugStore(state => state.soloLayer)
   const setParam = useIntroDebugStore(state => state.setParam)
   const resetParams = useIntroDebugStore(state => state.resetParams)
   const resetTitle = useIntroDebugStore(state => state.resetTitle)
-  // Changes only with the black hole size or the screen, never at loop rate
-  const ringTiming = useIntroDebugStore(state => state.ringTiming)
-  const spans = track.spans(params, reducedMotion, ringTiming)
-  const markers = track.markers?.(params, reducedMotion) ?? []
-  const changed = track.params.filter(key => params[key] !== DEFAULT_INTRO_PARAMS[key])
+  // A row re-renders only when its own spans, moments or numbers change, not on every step of a slider
+  // on another track. The ringdown timing follows the black hole size and the screen, never the loop
+  const spans = useIntroDebugStore(state => track.spans(state.params, reducedMotion, state.ringTiming), sameSpans)
+  const markers = useIntroDebugStore(state => track.markers?.(state.params, reducedMotion) ?? NO_MARKERS, sameMarkers)
+  const values = useIntroDebugStore(state => track.params.map(key => state.params[key]), shallow)
+  const changed = track.params.filter((key, index) => values[index] !== DEFAULT_INTRO_PARAMS[key])
   const changedCount = changed.length + textChanges
   const panelId = `intro-track-${track.key}`
 
@@ -310,7 +361,7 @@ const TrackRow = memo(function TrackRow ({ track, duration, params, hidden, expa
                 aria-label={`${hidden ? 'Show' : 'Hide'} ${track.label}`}
                 title={`${hidden ? `Show ${track.label}` : `Hide ${track.label} to see what it adds`} · Alt+click: only this layer`}
                 onClick={(event) => event.altKey ? soloLayer(track.layer!) : toggleLayer(track.layer!)}
-                className={`flex h-6 w-6 shrink-0 items-center justify-center transition-colors duration-150 hover:text-neon-cyan
+                className={`flex h-8 w-7 shrink-0 items-center justify-center transition-colors duration-150 hover:text-neon-cyan
                   focus-visible:outline focus-visible:outline-1 focus-visible:outline-neon-cyan ${hidden ? 'text-text-light/40' : 'text-neon-cyan/80'}`}
               >
                 {hidden ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
@@ -324,15 +375,15 @@ const TrackRow = memo(function TrackRow ({ track, duration, params, hidden, expa
                 aria-expanded={expanded}
                 aria-controls={panelId}
                 onClick={() => onToggleExpanded(track.key)}
-                className="flex min-w-0 flex-1 items-center gap-1 text-left text-text-light/85 transition-colors duration-150 hover:text-neon-cyan
+                className="flex h-8 min-w-0 flex-1 items-center gap-1 text-left text-text-light/85 transition-colors duration-150 hover:text-neon-cyan
                   focus-visible:outline focus-visible:outline-1 focus-visible:outline-neon-cyan"
               >
                 <ChevronRight className={`h-3 w-3 shrink-0 transition-transform duration-150 ${expanded ? 'rotate-90 text-neon-cyan' : 'text-text-light/50'}`} />
-                <span className={`truncate ${hidden ? 'text-text-light/45 line-through' : ''}`}>{track.label}</span>
+                <span className={`truncate ${hidden ? 'text-text-light/60 line-through' : ''}`}>{track.label}</span>
                 {changedCount > 0 && <ChangedBadge count={changedCount} />}
               </button>
             )
-            : <span className={`min-w-0 flex-1 truncate pl-4 text-text-light/85 ${hidden ? 'text-text-light/45 line-through' : ''}`}>{track.label}</span>}
+            : <span className={`min-w-0 flex-1 truncate pl-4 text-text-light/85 ${hidden ? 'text-text-light/60 line-through' : ''}`}>{track.label}</span>}
           {track.readout && <TrackValue readout={track.readout.key} digits={track.readout.digits} />}
         </div>
         <div className="h-8 cursor-ew-resize touch-pan-y select-none" style={{ paddingInline: LANE_PAD }} {...scrub}>
@@ -364,7 +415,7 @@ const TrackRow = memo(function TrackRow ({ track, duration, params, hidden, expa
           <div className="pt-1" style={{ paddingInline: LANE_PAD }}>
             {track.editsText && <TitleTextEditor />}
             <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-1">
-              {track.params.map(key => {
+              {track.params.map((key, index) => {
                 const spec = INTRO_PARAM_SPECS[key]
                 const hint = `${spec.description} Default: ${formatParam(DEFAULT_INTRO_PARAMS[key], spec)}.`
                 if (spec.color) {
@@ -372,7 +423,7 @@ const TrackRow = memo(function TrackRow ({ track, duration, params, hidden, expa
                     <div key={key} className="flex min-w-0" title={hint}>
                       <ColorPickerInput
                         label={spec.label}
-                        value={colorToCss(params[key])}
+                        value={colorToCss(values[index])}
                         onChange={(css) => setParam(key, cssToColor(css))}
                       />
                     </div>
@@ -389,12 +440,12 @@ const TrackRow = memo(function TrackRow ({ track, duration, params, hidden, expa
                       <span className="shrink-0 text-neon-cyan">{spec.label}</span>
                       <select
                         id={`intro-param-${key}`}
-                        value={Math.round(params[key])}
+                        value={Math.round(values[index])}
                         onChange={(event) => setParam(key, Number(event.target.value))}
                         className="min-w-0 flex-1 cursor-pointer truncate bg-transparent text-right font-bold text-text-light outline-none"
                       >
                         {spec.options.map((option, index) => (
-                          <option key={option} value={index} className="bg-[#0b0b11] text-left font-normal">{option}</option>
+                          <option key={option} value={index} className="bg-bg-panel text-left font-normal">{option}</option>
                         ))}
                       </select>
                     </label>
@@ -405,7 +456,7 @@ const TrackRow = memo(function TrackRow ({ track, duration, params, hidden, expa
                     key={key}
                     id={`intro-param-${key}`}
                     label={spec.label}
-                    value={params[key]}
+                    value={values[index]}
                     min={spec.min}
                     max={spec.max}
                     step={spec.step}
@@ -528,9 +579,9 @@ function IntroTrackList ({ duration }: { duration: number }) {
   }, [])
 
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain [--label-w:168px] sm:[--label-w:248px]">
+    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain [--label-w:136px] sm:[--label-w:248px]">
       <div className="relative">
-        <div className="sticky top-0 z-20 grid grid-cols-[var(--label-w)_1fr] border-b border-neon-cyan/20 bg-[#0b0b11]">
+        <div className="sticky top-0 z-20 grid grid-cols-[var(--label-w)_1fr] border-b border-neon-cyan/20 bg-bg-panel">
           <ChangedSummary params={params} titleChanges={titleChanges} hiddenCount={hiddenCount} />
           <Ruler duration={duration} params={params} scrub={scrub} />
         </div>
@@ -539,7 +590,6 @@ function IntroTrackList ({ duration }: { duration: number }) {
             key={track.key}
             track={track}
             duration={duration}
-            params={params}
             hidden={track.layer ? hidden[track.layer] : false}
             expanded={expanded.has(track.key)}
             textChanges={track.editsText ? textChanges : 0}

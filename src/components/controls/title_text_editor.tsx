@@ -1,3 +1,4 @@
+import { useId } from 'react'
 import { useIntroDebugStore, TITLE_TEXT_MAX_LENGTH } from '../../store/intro_debug_store'
 import { TITLE_FONTS, type TitleFontKey } from '../../lib/title_sprite'
 import ToggleButton from './toggle_button'
@@ -9,15 +10,23 @@ function TitleTextEditor () {
   const title = useIntroDebugStore(state => state.title)
   const setTitle = useIntroDebugStore(state => state.setTitle)
   const missingGlyphs = title.font !== 'unbounded' && CYRILLIC.test(title.text)
+  const fieldId = useId()
+  const countId = `${fieldId}-count`
+  const warningId = `${fieldId}-warning`
 
   return (
     <div className="flex flex-wrap items-start gap-x-4 gap-y-2 pb-2">
-      <label className="flex min-w-[240px] max-w-[420px] flex-1 flex-col gap-1">
+      {/* The field is named by its label alone; the count and the font warning describe it */}
+      <div className="flex min-w-[240px] max-w-[420px] flex-1 flex-col gap-1">
         <span className="flex justify-between text-text-light/60">
-          <span>Text · Enter starts a new line</span>
-          <span className="tabular-nums">{title.text.length}/{TITLE_TEXT_MAX_LENGTH}</span>
+          <label htmlFor={fieldId}>Text · Enter starts a new line</label>
+          <span id={countId} className="tabular-nums" aria-label={`${title.text.length} of ${TITLE_TEXT_MAX_LENGTH} characters`}>
+            {title.text.length}/{TITLE_TEXT_MAX_LENGTH}
+          </span>
         </span>
         <textarea
+          id={fieldId}
+          aria-describedby={missingGlyphs ? `${countId} ${warningId}` : countId}
           rows={2}
           value={title.text}
           maxLength={TITLE_TEXT_MAX_LENGTH}
@@ -26,12 +35,11 @@ function TitleTextEditor () {
           className="resize-none border border-neon-cyan/30 bg-black/40 px-2 py-1.5 font-mono text-xs leading-relaxed text-text-light
             caret-neon-cyan outline-none transition-colors duration-150 selection:bg-neon-cyan/30 focus:border-neon-cyan"
         />
-        {missingGlyphs && (
-          <span className="text-neon-yellow/80">
-            {TITLE_FONTS[title.font].label} has no Cyrillic letters; they fall back to the system font. Unbounded has them.
-          </span>
-        )}
-      </label>
+        {/* Always present, so a screen reader announces the warning when it appears */}
+        <span id={warningId} role="status" className="text-neon-yellow/80 empty:hidden">
+          {missingGlyphs && `${TITLE_FONTS[title.font].label} has no Cyrillic letters; they fall back to the system font. Unbounded has them.`}
+        </span>
+      </div>
 
       <div className="flex flex-col gap-1">
         <span className="text-text-light/60">Font</span>
