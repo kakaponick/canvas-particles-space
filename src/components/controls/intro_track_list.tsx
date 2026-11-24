@@ -290,7 +290,9 @@ const TrackRow = memo(function TrackRow ({ track, duration, params, hidden, expa
   const setParam = useIntroDebugStore(state => state.setParam)
   const resetParams = useIntroDebugStore(state => state.resetParams)
   const resetTitle = useIntroDebugStore(state => state.resetTitle)
-  const spans = track.spans(params, reducedMotion)
+  // Changes only with the black hole size or the screen, never at loop rate
+  const ringTiming = useIntroDebugStore(state => state.ringTiming)
+  const spans = track.spans(params, reducedMotion, ringTiming)
   const markers = track.markers?.(params, reducedMotion) ?? []
   const changed = track.params.filter(key => params[key] !== DEFAULT_INTRO_PARAMS[key])
   const changedCount = changed.length + textChanges

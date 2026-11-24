@@ -2,9 +2,34 @@
 // the on-screen speed of light, lighting dust as it passes, while the ejected matter (the particle
 // field) follows more slowly. The core's light reddens away as it collapses, a black hole forms,
 // rings down and sends out a gravitational wave, crumbles the title, then drifts to the cursor.
+// The ringdown is the black hole's own: its pitch and length follow the hole's size, and the
+// gravitational wave is that same wobble carried outward at the speed of light.
 // Every number comes from IntroParams so the intro debugger can tune it live.
 
-import type { IntroParams } from './intro_params'
+import { RINGDOWN_PHYSICAL_DECAY, RINGDOWN_PHYSICAL_FREQUENCY, type IntroParams } from './intro_params'
+
+// How the new horizon rings, in absolute units for the current black hole and screen
+export interface RingdownTiming {
+  // Wobbles per second
+  frequency: number
+  // Seconds for the wobble to fade by e
+  decay: number
+}
+
+// The ringdown of a black hole whose shadow has this radius, seen on a screen where light moves this fast;
+// both lengths in the same pixels. The multipliers scale what a real black hole of that size does
+export function getRingdownTiming (p: IntroParams, shadowRadius: number, lightSpeed: number, out: RingdownTiming) {
+  const radius = Math.max(shadowRadius, 4)
+  out.frequency = p.ringdownPitch * RINGDOWN_PHYSICAL_FREQUENCY * lightSpeed / radius
+  out.decay = p.ringdownLength * RINGDOWN_PHYSICAL_DECAY * radius / Math.max(lightSpeed, 1)
+  return out
+}
+
+// The horizon's oval wobble s seconds into the ringdown, as a share of its radius. The gravitational
+// wave reads the same function at the time each point of space was reached
+export function ringdownWobble (s: number, amplitude: number, ring: RingdownTiming) {
+  return s > 0 ? amplitude * Math.exp(-s / ring.decay) * Math.sin(2 * Math.PI * ring.frequency * s) : 0
+}
 
 // Every front is a share of the distance from the explosion to the farthest screen corner
 export interface IntroFrame {
@@ -31,13 +56,13 @@ export interface IntroFrame {
   remnantRedshift: number
   // Black hole size before the ringdown wobble
   holeScale: number
-  // Damped oscillation of the new horizon, applied as holeScale * (1 + ringdown)
+  // Oval wobble of the new horizon, as a share of its radius: positive stretches it sideways
   ringdown: number
+  // Seconds since the ringdown started; negative before. The gravitational wave left the hole then
+  ringdownTime: number
   // Photon ring fade-in, before the ringdown flicker
   ringFade: number
   lensScale: number
-  gravityWaveFront: number
-  gravityWaveAmplitude: number
   opacityScale: number
   speedBoost: number
   titleAlpha: number
@@ -96,10 +121,9 @@ export function createIntroFrame (): IntroFrame {
     remnantRedshift: 0,
     holeScale: 0,
     ringdown: 0,
+    ringdownTime: -1,
     ringFade: 0,
     lensScale: 0,
-    gravityWaveFront: 0,
-    gravityWaveAmplitude: 0,
     opacityScale: 1,
     speedBoost: 1,
     titleAlpha: 0,
@@ -132,7 +156,7 @@ const CAMERA_KICK_DECAY = 0.16
 
 const easeOutQuart = (x: number) => 1 - Math.pow(1 - x, 4)
 
-function sampleFullIntro (t: number, p: IntroParams, frame: IntroFrame) {
+function sampleFullIntro (t: number, p: IntroParams, ring: RingdownTiming, frame: IntroFrame) {
   const sinceCollapse = Math.max(t - p.collapseAt, 0)
   const exploded = t >= p.collapseAt
 
@@ -167,20 +191,14 @@ function sampleFullIntro (t: number, p: IntroParams, frame: IntroFrame) {
   frame.remnantGlow = progress(t, p.collapseAt, p.remnantAt - p.collapseAt) * Math.exp(-Math.max(t - p.remnantAt, 0) / p.remnantDecay)
   frame.remnantRedshift = progress(t, p.remnantAt, p.redshiftDuration)
 
-  // The horizon grows without overshoot, then rings down like a struck bell
+  // The horizon grows without overshoot, then rings down like a struck bell. A round collapse sends out
+  // no gravitational wave; the oval wobble does
   const ringdownAt = p.horizonAt + p.horizonGrowth
   frame.holeScale = easeOutCubic(progress(t, p.horizonAt, p.horizonGrowth))
-  const sinceRing = t - ringdownAt
-  frame.ringdown = sinceRing > 0
-    ? p.ringdownAmplitude * Math.exp(-sinceRing / p.ringdownDecay) * Math.sin(2 * Math.PI * p.ringdownFrequency * sinceRing)
-    : 0
+  frame.ringdownTime = t - ringdownAt
+  frame.ringdown = ringdownWobble(frame.ringdownTime, p.ringdownAmplitude, ring)
   frame.ringFade = smoothstep(progress(t, p.horizonAt + p.ringDelay, p.ringFadeIn))
   frame.lensScale = smoothstep(progress(t, p.remnantAt, p.lensDuration))
-
-  // The ringdown radiates a gravitational wave, which also travels at c
-  const sinceWave = t - ringdownAt - p.gravityWaveDelay
-  frame.gravityWaveFront = Math.max(sinceWave, 0) / p.lightCrossTime
-  frame.gravityWaveAmplitude = sinceWave > 0 && frame.gravityWaveFront < 1.3 ? Math.exp(-sinceWave / p.gravityWaveDecay) : 0
 
   // The title. By default it exists from the start as dark dust that the light front lights; the
   // other entrances bring it in on their own clock. Gathering from dust and coming out of the hole
@@ -272,10 +290,9 @@ function sampleReducedIntro (t: number, frame: IntroFrame) {
   frame.remnantRedshift = 0
   frame.holeScale = easeOutCubic(progress(t, 0.2, 1.2))
   frame.ringdown = 0
+  frame.ringdownTime = -1
   frame.ringFade = frame.holeScale
   frame.lensScale = frame.holeScale
-  frame.gravityWaveFront = 0
-  frame.gravityWaveAmplitude = 0
   frame.opacityScale = easeOutCubic(progress(t, 0, 1.2))
   frame.speedBoost = 1
   frame.titleAlpha = progress(t, 0.6, 0.4) * (1 - progress(t, 2, 0.5))
@@ -299,8 +316,8 @@ export function getIntroDuration (reducedMotion: boolean, p: IntroParams) {
   return reducedMotion ? REDUCED_INTRO_END : p.introEnd
 }
 
-export function sampleIntro (t: number, reducedMotion: boolean, p: IntroParams, frame: IntroFrame) {
+export function sampleIntro (t: number, reducedMotion: boolean, p: IntroParams, ring: RingdownTiming, frame: IntroFrame) {
   if (reducedMotion) sampleReducedIntro(t, frame)
-  else sampleFullIntro(t, p, frame)
+  else sampleFullIntro(t, p, ring, frame)
   return frame
 }

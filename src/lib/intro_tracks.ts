@@ -2,7 +2,7 @@
 // switch, its tunable numbers, its moments on the timeline and when it is active. The phase markers
 // and the phase names come from here too, so every element is described in exactly one place.
 import type { IntroParamKey, IntroParams } from './intro_params'
-import { REDUCED_INTRO_END, matterOut } from './intro_timeline'
+import { REDUCED_INTRO_END, matterOut, type RingdownTiming } from './intro_timeline'
 
 // Pieces of the opening that can be switched off one by one to see what each contributes
 export const INTRO_LAYERS = [
@@ -35,7 +35,8 @@ export interface IntroTrack {
   editsText?: boolean
   params: IntroParamKey[]
   readout?: { key: IntroTrackReadout, digits: number }
-  spans: (p: IntroParams, reduced: boolean) => IntroSpan[]
+  // The ringdown's timing follows the black hole's size, so the animation loop measures it
+  spans: (p: IntroParams, reduced: boolean, ring: RingdownTiming) => IntroSpan[]
   markers?: (p: IntroParams, reduced: boolean) => IntroMarker[]
 }
 
@@ -149,21 +150,19 @@ export const INTRO_TRACKS: IntroTrack[] = [
     key: 'ringdown',
     label: 'Ringdown',
     layer: 'ringdown',
-    params: ['ringdownAmplitude', 'ringdownFrequency', 'ringdownDecay', 'ringFlicker'],
+    params: ['ringdownAmplitude', 'ringdownPitch', 'ringdownLength', 'ringFlicker'],
     readout: { key: 'ringdown', digits: 3 },
-    spans: (p, reduced) => full(reduced, [{ start: ringdownAt(p), end: ringdownAt(p) + p.ringdownDecay * FADED }]),
+    spans: (p, reduced, ring) => full(reduced, [{ start: ringdownAt(p), end: ringdownAt(p) + ring.decay * FADED }]),
     markers: (p, reduced) => reduced ? [] : [{ time: ringdownAt(p), label: 'ringdown' }]
   },
   {
     key: 'gravityWave',
     label: 'Gravitational wave',
     layer: 'gravityWave',
-    params: ['gravityWaveDelay', 'gravityWaveAmplitude', 'gravityWaveWidth', 'gravityWaveDecay', 'gravityWaveCycles'],
-    spans: (p, reduced) => {
-      // The wave leaves the screen at 1.3 crossings even if it has not faded yet
-      const start = ringdownAt(p) + p.gravityWaveDelay
-      return full(reduced, [{ start, end: start + Math.min(p.gravityWaveDecay * FADED, p.lightCrossTime * 1.3) }])
-    }
+    params: ['gravityWaveGain'],
+    // The wobble leaves the hole as the ringdown starts; its last ripples pass the farthest corner,
+    // one light crossing away, after the wobble has faded
+    spans: (p, reduced, ring) => full(reduced, [{ start: ringdownAt(p), end: ringdownAt(p) + p.lightCrossTime / 1.15 + ring.decay * FADED }])
   },
   {
     key: 'title',

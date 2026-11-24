@@ -78,10 +78,16 @@ export interface CompositeSettings {
   remnantGlow: number
   remnantRedshift: number
   remnantRadius: number
-  gravityWaveRadius: number
+  // Oval wobble of the ringing horizon, a share of its radius; 0 leaves it round
+  holeOval: number
+  // The gravitational wave carries that wobble outward: pixels of stretch at the shadow's edge (0 turns
+  // it off), seconds since it left the hole, the wobble's frequency in Hz and decay in seconds, and the
+  // shadow radius beyond which it weakens with distance
   gravityWaveAmplitude: number
-  gravityWaveWidth: number
-  gravityWaveCycles: number
+  gravityWaveTime: number
+  gravityWaveFrequency: number
+  gravityWaveDecay: number
+  gravityWaveRadius: number
   backgroundStars: number
   starCell: number
   starDensity: number
@@ -307,7 +313,7 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     'center', 'starGlow', 'starRadius', 'sourcePower', 'glareRadius', 'exposure',
     'lightRadius', 'lightWidth', 'lightPower', 'lightSpeed', 'echoPower', 'echoDecay',
     'waveRadius', 'waveStrength', 'waveWidth', 'remnantGlow', 'remnantRedshift', 'remnantRadius',
-    'gravityWaveRadius', 'gravityWaveAmplitude', 'gravityWaveWidth', 'gravityWaveCycles', 'backgroundStars',
+    'holeOval', 'gravityWaveAmplitude', 'gravityWaveTime', 'gravityWaveOmega', 'gravityWaveInvDecay', 'gravityWaveRadius', 'backgroundStars',
     'starCell', 'starDensity', 'starFlare', 'dustScale', 'dustThreshold', 'lightDustContrast',
     'titleCenter', 'titleHalfSize', 'titleAlpha', 'titleReveal', 'titleDissolve', 'titleDrift', 'titleGlow',
     'titleFlash', 'titleCooling', 'titleDust', 'titlePull', 'titleSwirl', 'titleReach', 'titleCapture', 'titleScale',
@@ -486,6 +492,7 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     setUniform1f(gl, u.time, settings.time)
     setUniform2f(gl, u.hole, settings.holeX * ratio, settings.holeY * ratio)
     setUniform1f(gl, u.horizon, settings.horizon * ratio)
+    setUniform1f(gl, u.holeOval, settings.holeOval)
     setUniform1f(gl, u.einstein, settings.einstein * ratio)
     setUniform1f(gl, u.falloff, settings.falloff)
     setUniform1f(gl, u.falloffPivot, Math.max(settings.falloffPivot * ratio, 1))
@@ -520,10 +527,13 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     setUniform1f(gl, u.remnantGlow, settings.remnantGlow)
     setUniform1f(gl, u.remnantRedshift, settings.remnantRedshift)
     setUniform1f(gl, u.remnantRadius, Math.max(settings.remnantRadius * ratio, 0.5))
-    setUniform1f(gl, u.gravityWaveRadius, settings.gravityWaveRadius * ratio)
     setUniform1f(gl, u.gravityWaveAmplitude, settings.gravityWaveAmplitude * ratio)
-    setUniform1f(gl, u.gravityWaveWidth, Math.max(settings.gravityWaveWidth * ratio, 1))
-    setUniform1f(gl, u.gravityWaveCycles, settings.gravityWaveCycles)
+    if (settings.gravityWaveAmplitude > 0) {
+      setUniform1f(gl, u.gravityWaveTime, settings.gravityWaveTime)
+      setUniform1f(gl, u.gravityWaveOmega, 2 * Math.PI * settings.gravityWaveFrequency)
+      setUniform1f(gl, u.gravityWaveInvDecay, 1 / Math.max(settings.gravityWaveDecay, 0.001))
+      setUniform1f(gl, u.gravityWaveRadius, Math.max(settings.gravityWaveRadius * ratio, 1))
+    }
     setUniform1f(gl, u.backgroundStars, settings.backgroundStars)
     setUniform1f(gl, u.starCell, Math.max(settings.starCell, 1))
     setUniform1f(gl, u.starDensity, settings.starDensity)

@@ -155,6 +155,7 @@ export const compositeFragmentShaderSource = `
   // Black hole
   uniform vec2 u_hole;
   uniform float u_horizon;       // shadow radius; 0 before the black hole forms
+  uniform float u_holeOval;      // ringdown wobble, a share of the radius; positive stretches it sideways, 0 keeps it round
   uniform float u_einstein;      // Einstein ring radius; 0 turns the lens off
   uniform float u_falloff;       // 2 is a point mass; higher widens the lens, lower shrinks it
   uniform float u_swirl;         // frame-dragging twist near the ring
@@ -192,10 +193,11 @@ export const compositeFragmentShaderSource = `
   uniform float u_remnantGlow;   // the collapsing core
   uniform float u_remnantRedshift;
   uniform float u_remnantRadius;
-  uniform float u_gravityWaveRadius;
-  uniform float u_gravityWaveAmplitude; // pixels
-  uniform float u_gravityWaveWidth;
-  uniform float u_gravityWaveCycles;
+  uniform float u_gravityWaveAmplitude; // pixels of stretch at the shadow's edge; 0 turns the wave off
+  uniform float u_gravityWaveTime;      // seconds since the wave left the hole, with the ringdown
+  uniform float u_gravityWaveOmega;     // the wobble's angular frequency
+  uniform float u_gravityWaveInvDecay;  // 1 / the wobble's decay time
+  uniform float u_gravityWaveRadius;    // shadow radius; the wave weakens with distance beyond it
   uniform float u_backgroundStars;
   uniform float u_starCell;        // CSS pixels per background-star cell
   uniform float u_starDensity;     // share of cells holding a star
@@ -368,15 +370,27 @@ export const compositeFragmentShaderSource = `
     vec2 frag = u_center + (screen - u_center) / u_cameraZoom + u_shake;
     vec2 offset = frag - u_hole;
     float dist = length(offset);
+    // A ringing horizon is an oval, stretched sideways and squeezed vertically while the wobble is
+    // positive and the other way round while it is negative. The shadow, the lens and the photon ring all
+    // measure their distance in that oval, so they wobble together. (x*x - y*y) / (r*r) is the cosine of twice the angle
+    if (u_holeOval != 0.0) dist /= 1.0 + u_holeOval * (offset.x * offset.x - offset.y * offset.y) / max(dist * dist, 0.0001);
     vec2 samplePx = frag;
 
-    // Gravitational wave from the ringdown: a quadrupole ripple that stretches space as it passes
+    // Gravitational wave: the horizon's wobble carried outward at the speed of light. Each point shows the
+    // wobble the horizon had when the wave left it, u_gravityWaveTime - r / c ago, as a stretch along the
+    // oval's own axis and a squeeze across it, weakening as it spreads
     vec2 fromCenter = frag - u_center;
     float centerDist = length(fromCenter);
     if (u_gravityWaveAmplitude > 0.0) {
-      float x = (centerDist - u_gravityWaveRadius) / u_gravityWaveWidth;
-      float angle = atan(fromCenter.y, fromCenter.x);
-      samplePx += fromCenter / max(centerDist, 0.0001) * u_gravityWaveAmplitude * exp(-x * x) * sin(x * u_gravityWaveCycles) * cos(2.0 * angle);
+      float emitted = u_gravityWaveTime - centerDist / u_lightSpeed;
+      if (emitted > 0.0) {
+        float wobble = exp(-emitted * u_gravityWaveInvDecay) * sin(u_gravityWaveOmega * emitted);
+        float spread = sqrt(u_gravityWaveRadius / max(centerDist, u_gravityWaveRadius));
+        float invDist = 1.0 / max(centerDist, 0.0001);
+        float axis = (fromCenter.x * fromCenter.x - fromCenter.y * fromCenter.y) * invDist * invDist;
+        // Reading the scene from closer in shows it pushed outward: a positive wobble stretches sideways
+        samplePx -= fromCenter * invDist * u_gravityWaveAmplitude * wobble * spread * axis;
+      }
     }
 
     // The lens maps the background behind the hole into a ring of radius E, where the pull (E / r)^2

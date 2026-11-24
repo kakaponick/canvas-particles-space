@@ -54,17 +54,14 @@ export const DEFAULT_INTRO_PARAMS = {
   lensDuration: 0.95,
   ringDelay: 0.1,
   ringFadeIn: 0.5,
-  // Ringdown
+  // Ringdown: the new horizon wobbles as an oval; pitch and length are multiples of what a real black
+  // hole of the same size rings at, so a bigger hole rings lower and longer
   ringdownAmplitude: 0.035,
-  ringdownFrequency: 1.6,
-  ringdownDecay: 0.6,
+  ringdownPitch: 0.28,
+  ringdownLength: 5.1,
   ringFlicker: 2,
-  // Gravitational wave
-  gravityWaveDelay: 0,
-  gravityWaveAmplitude: 9,
-  gravityWaveWidth: 0.05,
-  gravityWaveDecay: 1.5,
-  gravityWaveCycles: 5,
+  // Gravitational wave: the ringdown's wobble carried outward at the speed of light
+  gravityWaveGain: 5.5,
   // Title, written in dust that the light front lights up
   titleOffset: -0.3,
   titleSize: 0.6,
@@ -201,15 +198,11 @@ export const INTRO_PARAM_SPECS = Object.fromEntries([
   p('lensDuration', 'Lens Build-up', 0.05, 4, 0.05, 's', 'Time for the lens to reach full strength, starting when the core starts fading.'),
   p('ringDelay', 'Ring Delay', 0, 2, 0.05, 's', 'Delay after the horizon forms before the photon ring appears.'),
   p('ringFadeIn', 'Ring Fade In', 0.02, 3, 0.02, 's', 'Time for the photon ring to reach full brightness.'),
-  p('ringdownAmplitude', 'Wobble Size', 0, 0.3, 0.005, '×', 'How much the horizon swells and shrinks, as a share of its radius.'),
-  p('ringdownFrequency', 'Wobble Frequency', 0.1, 10, 0.1, 'Hz', 'Oscillations per second.'),
-  p('ringdownDecay', 'Wobble Decay', 0.05, 4, 0.05, 's', 'Time for the wobble to die down to about a third.'),
+  p('ringdownAmplitude', 'Wobble Size', 0, 0.3, 0.005, '×', 'How far the new horizon squashes into an oval, one way and then the other, as a share of its radius. The gravitational wave carries this wobble outward, so it also sets how strong the wave is.'),
+  p('ringdownPitch', 'Wobble Pitch', 0.05, 2, 0.01, '×', 'How fast the horizon wobbles, as a multiple of what a real black hole of its size does. A bigger black hole wobbles slower. Sets the spacing of the ripples in the gravitational wave too: one ripple per wobble.'),
+  p('ringdownLength', 'Wobble Length', 0.5, 30, 0.1, '×', 'How long the wobble rings, as a multiple of what a real black hole of its size does (under one wobble). A bigger black hole rings longer. Sets how long the train of ripples in the gravitational wave is too.'),
   p('ringFlicker', 'Ring Flicker', 0, 10, 0.1, '×', 'How much the photon ring brightness follows the wobble.'),
-  p('gravityWaveDelay', 'Wave Delay', 0, 3, 0.05, 's', 'Delay after the ringdown starts before the wave leaves.'),
-  p('gravityWaveAmplitude', 'Wave Strength', 0, 60, 0.5, 'px', 'How far the wave displaces the background.'),
-  p('gravityWaveWidth', 'Wave Width', 0.005, 0.3, 0.005, 'share', 'Width of the wave packet.'),
-  p('gravityWaveDecay', 'Wave Fade', 0.1, 6, 0.05, 's', 'Time for the wave to fade to about a third.'),
-  p('gravityWaveCycles', 'Wave Ripples', 1, 20, 0.5, '', 'Number of ripples inside the packet.'),
+  p('gravityWaveGain', 'Wave Strength', 0, 30, 0.1, '×', 'How far the gravitational wave stretches the sky, as a multiple of the wobble of the horizon itself. The wave leaves when the ringdown starts, moves at the speed of light, stretches one way and squeezes the other in the same pattern as the oval horizon, and weakens with distance.'),
   p('titleOffset', 'Position', -0.5, 0.5, 0.01, 'share', 'Height of the title above (negative) or below the centre of the screen. The words are always kept clear of the screen edges and of the letterbox bars, so near an edge the title stops short of this.'),
   p('titleSize', 'Size', 0.2, 0.95, 0.01, '', 'Width of the longest line as a share of the screen width.'),
   p('titleWeight', 'Weight', 100, 900, 10, '', 'Stroke weight. Unbounded and Geist Mono follow it; Orbitron has one weight.'),
@@ -260,6 +253,41 @@ export const INTRO_PARAM_SPECS = Object.fromEntries([
   p('filmGrain', 'Film Grain', 0, 0.5, 0.005, '', 'Strength of the flickering grain over the whole frame.'),
   p('letterbox', 'Letterbox', 0, 0.3, 0.005, 'share', 'Height of the black bar at the top and at the bottom, as a share of the screen height. The bars open when the intro ends.')
 ].map(spec => [spec.key, spec])) as Record<IntroParamKey, IntroParamSpec>
+
+// A real black hole's strongest ringdown tone (the l = 2 mode of a non-spinning hole): with its shadow
+// radius R and the speed of light c, it wobbles at 0.309 c / R and its wobble fades by e in 2.163 R / c
+export const RINGDOWN_PHYSICAL_FREQUENCY = 0.30902
+export const RINGDOWN_PHYSICAL_DECAY = 2.1634
+
+// The screen the old absolute ringdown values were tuned on: 1920 × 1080, the explosion in the middle,
+// the default black hole size of 8% of the short side
+const REFERENCE_REACH = Math.hypot(960, 540) * 1.15
+const REFERENCE_SHADOW = 86.4
+// Distance from the hole at which the old Wave Strength in pixels is matched
+const REFERENCE_WAVE_DISTANCE = 300
+
+// Saves from before the ringdown followed the black hole's size held it in Hz and seconds, and the wave in
+// pixels; they become the multiples that look the same on the reference screen
+export function migrateIntroParams (stored: Record<string, unknown>): Record<string, unknown> {
+  const number = (key: string, fallback: number) => {
+    const value = stored[key]
+    return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+  }
+  const migrated = { ...stored }
+  const lightSpeed = REFERENCE_REACH / Math.max(number('lightCrossTime', DEFAULT_INTRO_PARAMS.lightCrossTime), 0.01)
+  if (typeof stored.ringdownFrequency === 'number' && migrated.ringdownPitch === undefined) {
+    migrated.ringdownPitch = stored.ringdownFrequency / (RINGDOWN_PHYSICAL_FREQUENCY * lightSpeed / REFERENCE_SHADOW)
+  }
+  if (typeof stored.ringdownDecay === 'number' && migrated.ringdownLength === undefined) {
+    migrated.ringdownLength = stored.ringdownDecay * lightSpeed / (RINGDOWN_PHYSICAL_DECAY * REFERENCE_SHADOW)
+  }
+  if (typeof stored.gravityWaveAmplitude === 'number' && migrated.gravityWaveGain === undefined) {
+    const wobble = Math.max(number('ringdownAmplitude', DEFAULT_INTRO_PARAMS.ringdownAmplitude), 0.001)
+    migrated.gravityWaveGain = stored.gravityWaveAmplitude /
+      (wobble * REFERENCE_SHADOW * Math.sqrt(REFERENCE_SHADOW / REFERENCE_WAVE_DISTANCE))
+  }
+  return migrated
+}
 
 export function formatParam (value: number, spec: IntroParamSpec) {
   if (spec.color) return colorToCss(value)

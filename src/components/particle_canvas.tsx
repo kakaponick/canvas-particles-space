@@ -18,7 +18,7 @@ import {
   type FrameInput,
   type ParticleRenderer
 } from '../lib/particle_renderer'
-import { createIntroFrame, getIntroDuration, sampleIntro } from '../lib/intro_timeline'
+import { createIntroFrame, getIntroDuration, getRingdownTiming, sampleIntro, type RingdownTiming } from '../lib/intro_timeline'
 import { getIntroPhase } from '../lib/intro_tracks'
 import { useIntroDebugStore } from '../store/intro_debug_store'
 import { stepSpring, type Spring2D } from '../lib/black_hole_motion'
@@ -67,6 +67,10 @@ const MOUSE_DRAG_THRESHOLD = 4
 // With looping on, the debugger holds the finished intro this long before replaying it
 const LOOP_HOLD_SECONDS = 1
 const READOUT_INTERVAL_MS = 66
+// A ringdown wobble smaller than this share of the radius no longer shows, so the oval is switched off
+const MIN_HOLE_OVAL = 1e-4
+// The gravitational wave is switched off this many wobble decay times after its front left the screen
+const GRAVITY_WAVE_FADES = 6
 
 function getRenderScale (width: number, height: number) {
   const budgetScale = Math.sqrt(PIXEL_BUDGET / Math.max(width * height, 1))
@@ -144,6 +148,7 @@ function ParticleCanvas () {
     let handledStep = initialDebug.stepRequest
 
     const intro = createIntroFrame()
+    const ringTiming: RingdownTiming = { frequency: 1, decay: 1 }
 
     const initialState = useParticleStore.getState()
     const particleBudget = createParticleBudget(initialState.numParticles)
@@ -252,10 +257,12 @@ function ParticleCanvas () {
         remnantGlow: 0,
         remnantRedshift: 0,
         remnantRadius: 1,
-        gravityWaveRadius: 0,
+        holeOval: 0,
         gravityWaveAmplitude: 0,
-        gravityWaveWidth: 1,
-        gravityWaveCycles: 5,
+        gravityWaveTime: -1,
+        gravityWaveFrequency: 1,
+        gravityWaveDecay: 1,
+        gravityWaveRadius: 1,
         backgroundStars: 0,
         starCell: 26,
         starDensity: 0,
@@ -465,7 +472,20 @@ function ParticleCanvas () {
       introTime += dt
       if (debugging && debug.loop && introTime >= introDuration + LOOP_HOLD_SECONDS) restartIntro()
 
-      sampleIntro(introTime, reducedMotion, params, intro)
+      // The explosion and the black hole's resting place, and how fast light crosses from one to the far corner
+      const shortSide = Math.min(viewportWidth, viewportHeight)
+      locateHole()
+      // Every front is measured to the corner farthest from the explosion
+      const explosionReach = Math.hypot(Math.max(originX, viewportWidth - originX), Math.max(originY, viewportHeight - originY)) * 1.15
+      const lightSpeed = explosionReach / params.lightCrossTime
+      // The horizon rings as a real black hole of its size would, scaled by the intro's multipliers
+      const shadowRadius = state.blackHoleSize / 100 * shortSide
+      getRingdownTiming(params, shadowRadius, lightSpeed, ringTiming)
+      const shownRing = debug.ringTiming
+      if (Math.abs(shownRing.frequency - ringTiming.frequency) > ringTiming.frequency * 1e-3 ||
+        Math.abs(shownRing.decay - ringTiming.decay) > ringTiming.decay * 1e-3) debug.setRingTiming(ringTiming)
+
+      sampleIntro(introTime, reducedMotion, params, ringTiming, intro)
       if (hidden.star) intro.starGlow = 0
       if (hidden.glare) {
         intro.sourcePower = 0
@@ -478,7 +498,6 @@ function ParticleCanvas () {
       if (hidden.reveal) intro.reveal = 1
       if (hidden.burst) intro.speedBoost = 1
       if (hidden.remnant) intro.remnantGlow = 0
-      if (hidden.gravityWave) intro.gravityWaveAmplitude = 0
       if (hidden.title) intro.titleAlpha = 0
       // The photon ring flickers with the ringdown wobble; the RINGDOWN layer removes both
       const ringdown = hidden.ringdown ? 0 : intro.ringdown
@@ -501,17 +520,14 @@ function ParticleCanvas () {
       // An anchored hole rests at its saved position, which a slider or a preset may have just moved
       const centerX = viewportWidth / 2
       const centerY = viewportHeight / 2
-      const shortSide = Math.min(viewportWidth, viewportHeight)
-      locateHole()
       if (!state.blackHoleFollowing && !holding) {
         targetX = anchorX
         targetY = anchorY
       }
-      // Every front is measured to the corner farthest from the explosion
-      const explosionReach = Math.hypot(Math.max(originX, viewportWidth - originX), Math.max(originY, viewportHeight - originY)) * 1.15
-      // The visible size and the radius of no return are set apart; both grow as the horizon forms
+      // The visible size and the radius of no return are set apart; both grow as the horizon forms.
+      // The ringdown does not resize the horizon: it squashes it into an oval (composite.holeOval)
       const holeGrowth = hidden.hole ? 0 : intro.holeScale
-      const horizon = state.blackHoleSize / 100 * shortSide * holeGrowth * (1 + ringdown)
+      const horizon = shadowRadius * holeGrowth
       const captureRadius = state.eventHorizon / 100 * shortSide * holeGrowth
       if (intro.holdAtCenter) {
         stepSpring(hole, originX, originY, dt, params.centerHoldFrequency)
@@ -664,7 +680,7 @@ function ParticleCanvas () {
       composite.lightRadius = intro.lightFront * explosionReach
       composite.lightWidth = params.lightWidth * shortSide
       composite.lightPower = intro.lightPower
-      composite.lightSpeed = explosionReach / params.lightCrossTime
+      composite.lightSpeed = lightSpeed
       composite.lightDustContrast = params.lightDustContrast
       composite.echoPower = intro.echoPower
       composite.echoDecay = params.echoDecay
@@ -681,10 +697,19 @@ function ParticleCanvas () {
       composite.remnantGlow = intro.remnantGlow
       composite.remnantRedshift = intro.remnantRedshift
       composite.remnantRadius = params.remnantRadius * shortSide
-      composite.gravityWaveRadius = intro.gravityWaveFront * explosionReach
-      composite.gravityWaveAmplitude = intro.gravityWaveAmplitude * params.gravityWaveAmplitude
-      composite.gravityWaveWidth = params.gravityWaveWidth * shortSide
-      composite.gravityWaveCycles = params.gravityWaveCycles
+      // The ringing horizon is an oval, stretched sideways while the wobble is positive
+      composite.holeOval = horizon > 0 && Math.abs(ringdown) > MIN_HOLE_OVAL ? ringdown : 0
+      // The gravitational wave is that wobble carried outward at the speed of light: every point shows the
+      // wobble the horizon had when the wave left it. It is off once its last ripples are past the far corner
+      const waveTime = intro.ringdownTime
+      const waveOut = waveTime > params.lightCrossTime / 1.15 + ringTiming.decay * GRAVITY_WAVE_FADES
+      composite.gravityWaveAmplitude = hidden.gravityWave || waveTime <= 0 || waveOut
+        ? 0
+        : params.gravityWaveGain * params.ringdownAmplitude * shadowRadius
+      composite.gravityWaveTime = waveTime
+      composite.gravityWaveFrequency = ringTiming.frequency
+      composite.gravityWaveDecay = ringTiming.decay
+      composite.gravityWaveRadius = shadowRadius
       composite.backgroundStars = intro.backgroundStars * state.starsBrightness
       composite.starCell = state.starCell
       composite.starDensity = state.starDensity

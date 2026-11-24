@@ -1,6 +1,7 @@
 import { createWithEqualityFn } from 'zustand/traditional'
-import { DEFAULT_INTRO_PARAMS, type IntroParamKey, type IntroParams } from '../lib/intro_params'
+import { DEFAULT_INTRO_PARAMS, migrateIntroParams, type IntroParamKey, type IntroParams } from '../lib/intro_params'
 import { INTRO_LAYERS, type IntroLayer } from '../lib/intro_tracks'
+import type { RingdownTiming } from '../lib/intro_timeline'
 import { TITLE_FONTS, type TitleFontKey } from '../lib/title_sprite'
 
 export type { IntroLayer }
@@ -60,6 +61,9 @@ interface IntroDebugState {
   restartRequest: number
   stepRequest: number
   readout: IntroReadout
+  // How the horizon rings for the current black hole size and screen; the loop measures it and writes
+  // it only when it changes, so the timeline can draw the ringdown and the wave
+  ringTiming: RingdownTiming
 
   setOpen: (open: boolean) => void
   togglePlaying: () => void
@@ -81,6 +85,7 @@ interface IntroDebugState {
   restart: () => void
   step: () => void
   setReadout: (readout: IntroReadout) => void
+  setRingTiming: (timing: RingdownTiming) => void
 }
 
 const openFromUrl = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('debug')
@@ -122,7 +127,8 @@ function saveTitle (title: TitleText) {
 }
 
 // Only keys that still exist and hold numbers survive a stored value, so old saves never break the intro
-export function readIntroParams (stored: Record<string, unknown>): IntroParams {
+export function readIntroParams (saved: Record<string, unknown>): IntroParams {
+  const stored = migrateIntroParams(saved)
   const params = { ...DEFAULT_INTRO_PARAMS }
   for (const key of Object.keys(params) as IntroParamKey[]) {
     const value = stored[key]
@@ -213,6 +219,7 @@ export const useIntroDebugStore = createWithEqualityFn<IntroDebugState>((set, ge
     speed: 0,
     particlesDrawn: 0
   },
+  ringTiming: { frequency: 1.6, decay: 0.6 },
 
   setOpen: (open) => {
     set({ open })
@@ -283,5 +290,6 @@ export const useIntroDebugStore = createWithEqualityFn<IntroDebugState>((set, ge
   clearSeek: () => set({ seekRequest: null }),
   restart: () => set((state) => ({ restartRequest: state.restartRequest + 1 })),
   step: () => set((state) => ({ stepRequest: state.stepRequest + 1, playing: false })),
-  setReadout: (readout) => set({ readout })
+  setReadout: (readout) => set({ readout }),
+  setRingTiming: (timing) => set({ ringTiming: { ...timing } })
 }))

@@ -69,9 +69,8 @@ export const INTRO_LOOKS: readonly IntroLook[] = [
     horizonGrowth: 1.2,
     lensDuration: 2.2,
     ringFadeIn: 1.4,
-    ringdownFrequency: 0.9,
-    ringdownDecay: 1.4,
-    gravityWaveDecay: 3,
+    ringdownPitch: 0.44,
+    ringdownLength: 4.3,
     // Clear of the top bar even while the camera is still zoomed in
     titleOffset: -0.2,
     titlePush: 0.14,
@@ -91,6 +90,7 @@ export const INTRO_LOOKS: readonly IntroLook[] = [
   }),
 
   look('flashbang', 'Flashbang', 'No warning: a pure white blast that jolts the camera and splits the frame into colours, a title thrown past the lens, over in three seconds.', {
+    ringdownLength: 11.6,
     starChargeStart: 0,
     collapseAt: 0.35,
     glareRise: 0.01,
@@ -114,9 +114,9 @@ export const INTRO_LOOKS: readonly IntroLook[] = [
     horizonGrowth: 0.15,
     lensDuration: 0.4,
     ringdownAmplitude: 0.12,
-    ringdownFrequency: 3.5,
+    ringdownPitch: 0.27,
     ringFlicker: 6,
-    gravityWaveAmplitude: 30,
+    gravityWaveGain: 5.4,
     titleWeight: 800,
     titleSize: 0.8,
     titleOffset: -0.22,
@@ -170,7 +170,7 @@ export const INTRO_LOOKS: readonly IntroLook[] = [
     letterbox: 0.14
   }),
 
-  look('event-horizon', 'Event Horizon', 'The black hole is the lead: no blinding glare, a heavy swelling horizon, a wave that bends the sky, and a title that comes out of the hole whole and is taken back.', {
+  look('event-horizon', 'Event Horizon', 'The black hole is the lead: no blinding glare, a heavy horizon that wobbles into an oval, a wave that bends the sky, and a title that comes out of the hole whole and is taken back.', {
     remnantDecay: 0.7,
     redshiftDuration: 1.3,
     remnantRadius: 0.03,
@@ -179,13 +179,10 @@ export const INTRO_LOOKS: readonly IntroLook[] = [
     ringDelay: 0.4,
     ringFadeIn: 1.2,
     ringdownAmplitude: 0.14,
-    ringdownFrequency: 1.1,
-    ringdownDecay: 1.6,
+    ringdownPitch: 0.19,
+    ringdownLength: 13.5,
     ringFlicker: 5,
-    gravityWaveAmplitude: 34,
-    gravityWaveWidth: 0.11,
-    gravityWaveDecay: 2.6,
-    gravityWaveCycles: 3,
+    gravityWaveGain: 5.2,
     titleDust: 0,
     titleFringe: 0,
     titleEntrance: OUT_OF_THE_HOLE,
@@ -214,6 +211,8 @@ export const INTRO_LOOKS: readonly IntroLook[] = [
   }, { hidden: ['glare'] }),
 
   look('nebula', 'Nebula', 'Pink and teal: a soft front lights separate clouds that the blast pushes apart and the matter clears, and the title gathers out of fine spray and leaves the same way.', {
+    ringdownPitch: 0.49,
+    ringdownLength: 2.9,
     glarePeak: 4,
     lightCrossTime: 1.4,
     lightPower: 1.6,
@@ -329,9 +328,8 @@ export const INTRO_LOOKS: readonly IntroLook[] = [
   }),
 
   look('whirlpool', 'Whirlpool', 'Cold water going down a drain: teal light, and a title whose dust is torn loose early and spirals a long way around the hole, turning deep blue as it falls.', {
-    ringdownFrequency: 2.4,
-    gravityWaveAmplitude: 16,
-    gravityWaveCycles: 9,
+    ringdownPitch: 0.42,
+    gravityWaveGain: 9.9,
     titleDust: 0.7,
     titlePush: 0.08,
     titleHalo: 0.3,
@@ -373,6 +371,7 @@ export const INTRO_LOOKS: readonly IntroLook[] = [
   }),
 
   look('requiem', 'Requiem', 'An ending rather than an opening, in crimson: a quiet blast with no burst, light that lingers for seconds, a horizon that closes slowly, heavy dark corners.', {
+    ringdownPitch: 0.57,
     glarePeak: 3.5,
     glareDecay: 0.6,
     lightCrossTime: 1.6,
@@ -393,9 +392,8 @@ export const INTRO_LOOKS: readonly IntroLook[] = [
     ringDelay: 0.8,
     ringFadeIn: 2,
     ringdownAmplitude: 0.02,
-    ringdownDecay: 1.8,
-    gravityWaveAmplitude: 6,
-    gravityWaveDecay: 3.5,
+    ringdownLength: 7.6,
+    gravityWaveGain: 6.5,
     titleOffset: 0.3,
     titleSize: 0.5,
     titleWeight: 300,
