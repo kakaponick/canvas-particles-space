@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
   Sheet,
-  SheetClose,
   SheetContent,
   SheetDescription,
   SheetHeader,
@@ -10,9 +9,11 @@ import {
   SheetTrigger
 } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
-import { Settings, Maximize, Minimize, X } from 'lucide-react'
+import { ChartGantt, Settings, Maximize, Minimize } from 'lucide-react'
 import SettingsBody from './settings_body'
-import { isTextEntry } from '@/lib/utils'
+import { cn, isTextEntry } from '@/lib/utils'
+import { useIntroDebugStore } from '../store/intro_debug_store'
+import { INTRO_DOCK_ID, closeIntroDebugger, isInDock, toggleIntroDebugger } from '../lib/intro_dock'
 import HintMenu from './controls/hint_menu'
 
 // The panel closes only on request, so the scene can be used while settings are being tuned
@@ -20,8 +21,35 @@ function keepOpen (event: Event) {
   event.preventDefault()
 }
 
-// The two round buttons over the scene
-const SCENE_BUTTON = 'bg-[rgba(10,10,15,0.95)] border-neon-cyan text-neon-cyan shadow-[0_0_20px_rgba(0,255,255,0.3)] hover:bg-[rgba(0,255,255,0.1)] hover:text-neon-cyan'
+// The scene toolbar's buttons. A panel's button opens and closes it from the same spot and shows it open in
+// solid cyan, so the way back is always where the way in was
+const SCENE_BUTTON = cn(
+  'h-9 w-9 border-neon-cyan bg-[rgba(10,10,15,0.95)] text-neon-cyan shadow-[0_0_16px_rgba(0,255,255,0.25)]',
+  'hover:bg-[rgba(0,255,255,0.12)] hover:text-neon-cyan',
+  'aria-expanded:bg-neon-cyan aria-expanded:text-bg-dark aria-expanded:hover:bg-neon-cyan/85 aria-expanded:hover:text-bg-dark',
+  'focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-bg-dark'
+)
+
+// A leaf, so opening and closing the dock re-renders this button and nothing else
+function IntroDebuggerToggle () {
+  const open = useIntroDebugStore(state => state.open)
+  return (
+    <Button
+      variant="outline"
+      size="icon"
+      data-intro-toggle=""
+      aria-label="Intro debugger"
+      aria-expanded={open}
+      aria-controls={open ? INTRO_DOCK_ID : undefined}
+      aria-keyshortcuts="Alt+Shift+D"
+      title={open ? 'Close intro debugger (Alt+Shift+D)' : 'Intro debugger (Alt+Shift+D)'}
+      onClick={toggleIntroDebugger}
+      className={SCENE_BUTTON}
+    >
+      <ChartGantt aria-hidden="true" className="h-4 w-4" />
+    </Button>
+  )
+}
 
 // Escape that belongs to something smaller than the panel: a text field or a pending confirmation
 function keepsEscape (target: EventTarget | null) {
@@ -86,24 +114,22 @@ function ControlPanel () {
 
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen} modal={false}>
-      {/* scene-buttons: on a phone with the intro debugger open they move to the top, off the title (index.css) */}
-      <div className="scene-buttons fixed bottom-5 left-5 z-40 flex gap-2" style={{
-        marginBottom: 'var(--intro-dock-height, 0px)',
-        opacity: isOpen ? 0 : 1,
-        pointerEvents: isOpen ? 'none' : 'auto',
-        visibility: isOpen ? 'hidden' : 'visible',
-        transition: 'opacity 300ms, visibility 300ms'
-      }}>
+      {/* The scene toolbar: one place to open and close each panel. Top right, where neither panel reaches on
+          a wide screen; on a narrow one it sits over the Settings header's empty end. It never hides, and its
+          order is the tab order */}
+      <div role="group" aria-label="Scene controls" className="fixed right-3 top-3 z-[60] flex gap-2">
+        <IntroDebuggerToggle />
+        {/* The trigger toggles: it opens Settings and, pressed again, closes it */}
         <SheetTrigger asChild>
           <Button
             variant="outline"
             size="icon"
             aria-label="Settings"
             aria-keyshortcuts="Escape"
-            title="Settings (Esc)"
+            title={isOpen ? 'Close Settings (Esc)' : 'Settings (Esc)'}
             className={SCENE_BUTTON}
           >
-            <Settings className="w-4 h-4" />
+            <Settings aria-hidden="true" className="h-4 w-4" />
           </Button>
         </SheetTrigger>
         
@@ -112,9 +138,10 @@ function ControlPanel () {
           size="icon"
           onClick={toggleFullscreen}
           aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+          title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
           className={SCENE_BUTTON}
         >
-          {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+          {isFullscreen ? <Minimize aria-hidden="true" className="h-4 w-4" /> : <Maximize aria-hidden="true" className="h-4 w-4" />}
         </Button>
       </div>
 
@@ -122,39 +149,40 @@ function ControlPanel () {
         side="left"
         hideClose
         onInteractOutside={keepOpen}
-        // Escape in a text field or on a pending confirmation is theirs, not the panel's
-        onEscapeKeyDown={(event) => { if (keepsEscape(event.target)) event.preventDefault() }}
+        // Escape closes the panel the focus is in: in a text field or on a pending confirmation it is theirs, and
+        // in the intro debugger it closes the debugger, not Settings
+        onEscapeKeyDown={(event) => {
+          if (keepsEscape(event.target)) {
+            event.preventDefault()
+          } else if (isInDock(event.target)) {
+            event.preventDefault()
+            closeIntroDebugger()
+          }
+        }}
         // Open on the panel itself rather than on its first control, so no focus ring greets a mouse user
         onOpenAutoFocus={(event) => {
           event.preventDefault()
           ;(event.currentTarget as HTMLElement).focus()
         }}
         // Back to the Settings button only when the focus was in the panel, which is gone by now; focus that
-        // is elsewhere, such as in the intro debugger, stays where it is
+        // is elsewhere, such as on the toolbar or in the intro debugger, stays where it is
         onCloseAutoFocus={(event) => {
           if (document.activeElement && document.activeElement !== document.body) event.preventDefault()
         }}
         // The scroll padding keeps a row reached by Shift+Tab clear of the sticky header
         className="w-[min(340px,100vw)] max-h-screen scroll-pt-14 gap-2 overflow-y-auto bg-[rgba(10,10,15,0.98)] p-3 pointer-events-auto outline-none sm:max-w-none
           motion-reduce:!animate-none">
-        {/* Stays at the top while the panel scrolls, so the title and close are always in reach; -top-3 because a
-            sticky element stops at the scroll padding, and the panel has p-3 */}
-        <SheetHeader className="sticky -top-3 z-10 -mx-3 -mt-3 flex-row items-center gap-2 space-y-0 border-b border-neon-cyan/20 bg-[rgb(10,10,15)] px-3 pb-2 pt-3 text-left sm:text-left">
+        {/* Stays at the top while the panel scrolls; -top-3 because a sticky element stops at the scroll
+            padding, and the panel has p-3. Its height matches the toolbar's reach (12 px + 36 px), so on a narrow
+            screen the toolbar over its end never covers a row */}
+        <SheetHeader className="sticky -top-3 z-10 -mx-3 -mt-3 min-h-[49px] flex-row items-center gap-2 space-y-0 border-b border-neon-cyan/20 bg-[rgb(10,10,15)] px-3 pb-2 pt-3 text-left sm:text-left">
           <SheetTitle className="font-orbitron text-neon-cyan text-sm tracking-[1px]" style={{ textShadow: '0 0 10px #00ffff' }}>
             SETTINGS
           </SheetTitle>
           <SheetDescription className="sr-only">
-            Adjust particle simulation parameters. Escape opens and closes this panel. Shift+F10 on a setting
-            opens its menu with a reset to the default.
+            Adjust particle simulation parameters. Escape or the Settings button at the top right closes this panel.
+            Shift+F10 on a setting opens its menu with a reset to the default.
           </SheetDescription>
-          <SheetClose
-            aria-label="Close Settings"
-            title="Close (Esc)"
-            className="ml-auto flex h-7 w-7 shrink-0 items-center justify-center text-neon-cyan opacity-80 transition-opacity hover:opacity-100
-              focus-visible:opacity-100 focus-visible:outline focus-visible:outline-1 focus-visible:outline-neon-cyan"
-          >
-            <X aria-hidden="true" className="h-4 w-4" />
-          </SheetClose>
         </SheetHeader>
         <PreparedSettings host={settingsHost} />
       </SheetContent>

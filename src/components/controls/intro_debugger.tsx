@@ -1,10 +1,11 @@
-import { Fragment, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
-import { Keyboard, Pause, Play, Repeat, RotateCcw, StepForward, X } from 'lucide-react'
-import { Button, buttonVariants } from '@/components/ui/button'
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
+import { Keyboard, Pause, Play, Repeat, RotateCcw, StepForward } from 'lucide-react'
+import { buttonVariants } from '@/components/ui/button'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { cn, isTextEntry, prefersReducedMotion } from '@/lib/utils'
 import { useIntroDebugStore } from '../../store/intro_debug_store'
 import { getCachedIntroMarkers } from '../../lib/intro_tracks'
+import { INTRO_DOCK_ID, focusIntroToggle, isInDock, toggleIntroDebugger } from '../../lib/intro_dock'
 import type { IntroParams } from '../../lib/intro_params'
 import SliderControl from './slider_control'
 import ToggleButton from './toggle_button'
@@ -42,6 +43,7 @@ const SHORTCUTS: ReadonlyArray<readonly [string, string]> = [
   ['L', 'Loop on or off'],
   ['Delete', 'Reset the focused slider'],
   ['Alt+Enter', 'Show only this layer (on its eye)'],
+  ['Esc', 'Close the debugger'],
   ['Alt+Shift+D', 'Open or close, from anywhere']
 ]
 
@@ -86,10 +88,6 @@ function isActivatable (target: EventTarget | null) {
     target.closest('button, input, a[href], summary, [role="button"], [role="checkbox"], [role="switch"], [role="tab"], [role="menuitem"], [role="option"]') !== null
 }
 
-function isInDock (target: EventTarget | null) {
-  return target instanceof Element && target.closest('[data-intro-dock]') !== null
-}
-
 // The seeking keys work while the focus is in the debugger or on the page itself, never behind a control
 // elsewhere, such as the Settings panel
 function isInDebuggerScope (target: EventTarget | null) {
@@ -104,30 +102,6 @@ const SINGLE_KEYS = new Set(['Space', 'KeyR', 'KeyL', 'Period', 'BracketLeft', '
 // key, since Option+Shift+D types a character on a Mac and leaves `key` useless
 function isToggleShortcut (event: KeyboardEvent) {
   return event.code === 'KeyD' && event.altKey && event.shiftKey && !event.ctrlKey && !event.metaKey
-}
-
-// A control that can take the focus: on the page and not hidden. The Settings button stays in the layout but
-// is hidden while Settings is open, and focus() on it then does nothing
-function isFocusable (element: HTMLElement | null): element is HTMLElement {
-  return element !== null && element.getClientRects().length > 0 && getComputedStyle(element).visibility !== 'hidden'
-}
-
-// Where the focus goes when the dock closes and takes it along: the control that held it before the dock
-// opened, or else the Settings button, or with Settings open its Intro debugger switch or the panel itself
-function restoreFocus (previous: Element | null) {
-  const active = document.activeElement
-  if (active && active !== document.body) return
-  const candidates = [
-    previous instanceof HTMLElement && previous.isConnected && previous !== document.body ? previous : null,
-    document.querySelector<HTMLElement>('button[aria-label="Settings"]'),
-    document.querySelector<HTMLElement>('[role="switch"][aria-label="Intro debugger"]'),
-    document.querySelector<HTMLElement>('[role="dialog"]')
-  ]
-  for (const candidate of candidates) {
-    if (!isFocusable(candidate)) continue
-    candidate.focus()
-    if (document.activeElement === candidate) return
-  }
 }
 
 function publishHeight (dock: HTMLElement) {
@@ -199,20 +173,17 @@ function IntroDebugger () {
   const lastTapAt = useRef(-Infinity)
   useEffect(() => () => window.cancelAnimationFrame(drag.current.frame), [])
 
-  // The control that held the focus when the dock opened takes it back when the dock closes with the focus in
-  // it, by its close button or by Alt+Shift+D, instead of leaving it on the page
-  const refocusOnClose = useRef(false)
-  useEffect(() => {
+  // However the dock closes (its toggle, Alt+Shift+D, Escape, the agent API), focus inside it goes back to its
+  // toggle instead of falling to the page. A layout effect, so the dock is still in the page and still holds
+  // the focus when this runs
+  useLayoutEffect(() => {
     if (!open) return
-    const previous = document.activeElement
     return () => {
-      if (refocusOnClose.current) restoreFocus(previous)
-      refocusOnClose.current = false
+      if (isInDock(document.activeElement)) focusIntroToggle()
     }
   }, [open])
 
-  // Tells the page the dock is open, so the first-visit hints step aside and a phone moves the scene buttons
-  // off the replayed title (index.css)
+  // Tells the page the dock is open, so the first-visit hints step aside (index.css)
   useEffect(() => {
     if (!open) return
     const root = document.documentElement
@@ -227,8 +198,16 @@ function IntroDebugger () {
         event.preventDefault()
         // Held down, the key repeats; the dock opens or closes once per press
         if (event.repeat) return
-        refocusOnClose.current = debug.open && isInDock(document.activeElement)
-        debug.setOpen(!debug.open)
+        toggleIntroDebugger()
+        return
+      }
+      // Escape closes the panel the focus is in. A confirmation, a text field, the hint menu or an open popover
+      // in the dock takes it first; with Settings open, Settings closes the dock for it (control_panel.tsx)
+      if (event.key === 'Escape') {
+        if (debug.open && isInDock(event.target) && !event.defaultPrevented && !isTextEntry(event.target)) {
+          event.preventDefault()
+          debug.setOpen(false)
+        }
         return
       }
       if (isTextEntry(event.target) || event.ctrlKey || event.metaKey || event.altKey) return
@@ -381,12 +360,15 @@ function IntroDebugger () {
 
   return (
     <TooltipProvider delayDuration={500}>
+      {/* Takes the focus when its toggle opens it, without a ring: the controls inside show theirs */}
       <section
         ref={dockRef}
+        id={INTRO_DOCK_ID}
         data-intro-dock=""
         aria-label="Intro debugger"
+        tabIndex={-1}
         className="fixed inset-x-0 bottom-0 z-[45] flex flex-col border-t border-neon-cyan/40 bg-bg-dark/[0.94]
-          font-mono text-xs text-text-light shadow-[0_-12px_32px_rgba(0,0,0,0.45)]"
+          font-mono text-xs text-text-light shadow-[0_-12px_32px_rgba(0,0,0,0.45)] outline-none"
         style={{ height }}
       >
         <div
@@ -418,7 +400,7 @@ function IntroDebugger () {
         </div>
 
         {/* The header measures its own width, not the window's: with Settings open the dock is narrower. On a
-            wide dock everything sits on one row; on a narrower one the title row keeps KEYS and close at its
+            wide dock everything sits on one row; on a narrower one the title row keeps KEYS at its
             right end and the transport, time and speed wrap onto the row below it. On a phone the speed joins
             the title row, so the header keeps to two rows: the group around the transport gives way to its
             children there, and the transport and time take the second row */}
@@ -492,18 +474,6 @@ function IntroDebugger () {
                 <Keyboard className="h-3.5 w-3.5" />
                 KEYS
               </HelpTooltip>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Close intro debugger"
-                onClick={() => {
-                  refocusOnClose.current = true
-                  actions.setOpen(false)
-                }}
-                className="h-7 w-7 text-neon-cyan hover:bg-neon-cyan/10 hover:text-neon-cyan"
-              >
-                <X className="h-4 w-4" />
-              </Button>
             </div>
 
           </div>

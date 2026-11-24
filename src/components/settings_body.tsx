@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react'
 import { useParticleStore } from '../store/particle_store'
-import { useIntroDebugStore } from '../store/intro_debug_store'
 import { hexToRgb, rgbToHex } from '../lib/utils'
 import ColorPalette from './controls/color_palette'
 import SettingSlider from './controls/setting_slider'
@@ -39,20 +38,6 @@ function MotionRow () {
   return (
     <SettingsRow label="Scene Motion" help="OFF freezes the scene in place">
       {(describedBy) => <SettingsSwitch on={!isPaused} onToggle={togglePause} label="Scene motion" describedBy={describedBy} />}
-    </SettingsRow>
-  )
-}
-
-function IntroDebuggerRow () {
-  const open = useIntroDebugStore(state => state.open)
-  const setOpen = useIntroDebugStore(state => state.setOpen)
-
-  return (
-    <SettingsRow
-      label="Intro Debugger"
-      help="Intro timeline at the bottom · Alt+Shift+D"
-    >
-      {(describedBy) => <SettingsSwitch on={open} onToggle={() => setOpen(!open)} label="Intro debugger" describedBy={describedBy} />}
     </SettingsRow>
   )
 }
@@ -119,7 +104,6 @@ function SettingsBody () {
       <SettingsSection id="playback" title="Playback" action={<MeasuredFps />}>
         <MotionRow />
         <FrameRateControl />
-        <IntroDebuggerRow />
       </SettingsSection>
 
       <SettingsSection id="particles" title="Particles">

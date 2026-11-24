@@ -122,15 +122,6 @@ html::-webkit-scrollbar {
   display: none;
 }
 
-/* On a phone the open intro debugger lifts the scene buttons onto the replayed title; they go to the top */
-@media (max-width: 639px) {
-  :root[data-intro-open] .scene-buttons {
-    top: 1.25rem;
-    bottom: auto;
-    margin-bottom: 0 !important;
-  }
-}
-
 /* With Settings open on a wide screen, the intro debugger moves over so neither covers the other */
 @media (min-width: 768px) {
   :root[data-settings-open] [data-intro-dock] {
