@@ -139,7 +139,8 @@ function SettingsSection ({ id, title, help, action, collapsedAction, defaultOpe
         hidden={!open}
         aria-labelledby={headerId}
         aria-describedby={dimmed ? offId : undefined}
-        className="flex flex-col gap-1 pb-2"
+        // The display comes from the open state: a bare `flex` would override the hidden attribute
+        className={cn(open ? 'flex' : 'hidden', 'flex-col gap-1 pb-2')}
       >
         {/* A switched-off feature says so in words; its settings stay editable for when it comes back */}
         {dimmed && <p id={offId} className="pl-3 font-mono text-[11px] leading-5 text-text-light/80">OFF · changes apply once it's back on</p>}
