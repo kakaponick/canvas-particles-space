@@ -1013,7 +1013,9 @@ function IntroTrackList ({ duration }: { duration: number }) {
   return (
     <div
       ref={listRef}
-      className="min-h-0 flex-1 scroll-pt-10 overflow-y-auto overscroll-contain"
+      data-intro-tracks=""
+      // As tall as its tracks, and shrinking to scroll when the dock's height runs out (intro_debugger.tsx)
+      className="min-h-0 flex-initial scroll-pt-10 overflow-y-auto overscroll-contain"
       style={{ '--label-w': `${labelWidth}px` } as CSSProperties}
     >
       <div className="relative">

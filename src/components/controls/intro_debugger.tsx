@@ -108,8 +108,15 @@ function publishHeight (dock: HTMLElement) {
   document.documentElement.style.setProperty('--intro-dock-height', `${dock.offsetHeight}px`)
 }
 
-function clampHeight (height: number) {
-  return Math.round(Math.min(Math.max(height, MIN_HEIGHT), window.innerHeight * MAX_HEIGHT_SHARE))
+// The height the dock would take to show every track with no scrolling: no drag, key or double-click takes
+// it past that, so it never ends in empty space
+function contentHeight (dock: HTMLElement | null) {
+  const list = dock?.querySelector<HTMLElement>('[data-intro-tracks]')
+  return dock && list ? dock.offsetHeight - list.clientHeight + list.scrollHeight : Infinity
+}
+
+function clampHeight (height: number, content = Infinity) {
+  return Math.round(Math.max(MIN_HEIGHT, Math.min(height, window.innerHeight * MAX_HEIGHT_SHARE, content)))
 }
 
 function defaultHeight () {
@@ -166,8 +173,9 @@ function IntroDebugger () {
   // React when the drag ends, so the header does not re-render with every pointer move. While it lasts, the
   // height is not published to the controls that sit above the dock either; they follow once it ends
   // A press that has not yet moved past the slop is a click or a tap, and leaves the height alone
-  const drag = useRef<{ active: boolean, moved: boolean, startX: number, startY: number, height: number | null, frame: number }>(
-    { active: false, moved: false, startX: 0, startY: 0, height: null, frame: 0 }
+  // `content` is the content's height, measured when the press starts
+  const drag = useRef<{ active: boolean, moved: boolean, startX: number, startY: number, height: number | null, content: number, frame: number }>(
+    { active: false, moved: false, startX: 0, startY: 0, height: null, content: Infinity, frame: 0 }
   )
   // When the last click or tap on the grip ended; a second one soon after is a double-click or double-tap
   const lastTapAt = useRef(-Infinity)
@@ -297,11 +305,11 @@ function IntroDebugger () {
       if (Math.abs(event.clientY - pending.startY) < GRIP_SLOP) return
       pending.moved = true
     }
-    pending.height = clampHeight(window.innerHeight - event.clientY)
+    pending.height = clampHeight(window.innerHeight - event.clientY, pending.content)
     if (pending.frame) return
     pending.frame = window.requestAnimationFrame(() => {
       pending.frame = 0
-      if (dockRef.current && pending.height !== null) dockRef.current.style.height = `${pending.height}px`
+      if (dockRef.current && pending.height !== null) dockRef.current.style.maxHeight = `${pending.height}px`
     })
   }
   // The capture also ends when a drag is cancelled, and the height reached so far is kept then too
@@ -314,7 +322,7 @@ function IntroDebugger () {
     const next = pending.height
     pending.height = null
     if (dockRef.current) {
-      dockRef.current.style.height = `${next}px`
+      dockRef.current.style.maxHeight = `${next}px`
       publishHeight(dockRef.current)
     }
     setHeight(next)
@@ -327,9 +335,11 @@ function IntroDebugger () {
     window.cancelAnimationFrame(pending.frame)
     pending.frame = 0
     pending.height = null
-    const tallest = clampHeight(Infinity)
-    const next = height >= tallest - 1 ? defaultHeight() : tallest
-    if (dockRef.current) dockRef.current.style.height = `${next}px`
+    const dock = dockRef.current
+    const tallest = clampHeight(Infinity, contentHeight(dock))
+    const shown = dock?.offsetHeight ?? height
+    const next = shown >= tallest - 1 ? Math.min(defaultHeight(), tallest) : tallest
+    if (dock) dock.style.maxHeight = `${next}px`
     setHeight(next)
     saveHeight(next)
   }
@@ -343,13 +353,17 @@ function IntroDebugger () {
       lastTapAt.current = still ? event.timeStamp : -Infinity
     }
   }
+  // From the height the dock shows, which a short track list keeps under the one set
   const resizeWithKeys = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    const dock = dockRef.current
+    const content = contentHeight(dock)
+    const shown = dock?.offsetHeight ?? height
     let next: number
     switch (event.key) {
-    case 'ArrowUp': next = clampHeight(height + HEIGHT_STEP); break
-    case 'ArrowDown': next = clampHeight(height - HEIGHT_STEP); break
-    case 'Home': next = clampHeight(MIN_HEIGHT); break
-    case 'End': next = clampHeight(Infinity); break
+    case 'ArrowUp': next = clampHeight(shown + HEIGHT_STEP, content); break
+    case 'ArrowDown': next = clampHeight(shown - HEIGHT_STEP, content); break
+    case 'Home': next = clampHeight(MIN_HEIGHT, content); break
+    case 'End': next = clampHeight(Infinity, content); break
     default: return
     }
     event.preventDefault()
@@ -369,7 +383,8 @@ function IntroDebugger () {
         tabIndex={-1}
         className="fixed inset-x-0 bottom-0 z-[45] flex flex-col border-t border-neon-cyan/40 bg-bg-dark/[0.94]
           font-mono text-xs text-text-light shadow-[0_-12px_32px_rgba(0,0,0,0.45)] outline-none"
-        style={{ height }}
+        // The height set by the grip is a ceiling: with fewer tracks than fit, the dock ends at the last one
+        style={{ maxHeight: height }}
       >
         <div
           role="separator"
@@ -383,7 +398,7 @@ function IntroDebugger () {
           title="Drag to resize · double-click: tallest or default"
           onPointerDown={(event) => {
             if (event.button !== 0) return
-            Object.assign(drag.current, { active: true, moved: false, startX: event.clientX, startY: event.clientY })
+            Object.assign(drag.current, { active: true, moved: false, startX: event.clientX, startY: event.clientY, content: contentHeight(dockRef.current) })
             event.currentTarget.setPointerCapture(event.pointerId)
           }}
           onPointerMove={resizeFrom}
