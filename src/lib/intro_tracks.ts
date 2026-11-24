@@ -18,6 +18,10 @@ export type IntroTrackReadout = 'sourcePower' | 'lightFront' | 'matterFront' | '
 export interface IntroMarker {
   time: number
   label: string
+  // The parameter that places this moment, so the debugger can move it: the parameter holds `time - base`,
+  // where `base` is the moment it is counted from (0 for a moment set in seconds from the start)
+  param?: IntroParamKey
+  base?: number
 }
 
 // When a track is doing something; `holds` means it stays on after `end` instead of being over
@@ -68,7 +72,9 @@ export const INTRO_TRACKS: IntroTrack[] = [
     layer: 'star',
     params: ['starChargeStart', 'collapseAt', 'starPeakGlow', 'starRadiusStart', 'starRadiusGrowth', 'colorFlash'],
     spans: (p, reduced) => full(reduced, [{ start: p.starChargeStart, end: p.collapseAt }]),
-    markers: (p, reduced) => reduced ? [] : [{ time: p.starChargeStart, label: 'star' }, { time: p.collapseAt, label: 'explosion' }]
+    markers: (p, reduced) => reduced
+      ? []
+      : [{ time: p.starChargeStart, label: 'star', param: 'starChargeStart' }, { time: p.collapseAt, label: 'explosion', param: 'collapseAt' }]
   },
   {
     key: 'glare',
@@ -85,7 +91,7 @@ export const INTRO_TRACKS: IntroTrack[] = [
     params: ['lightCrossTime', 'lightPower', 'lightPowerDecay', 'lightWidth', 'lightDustContrast', 'colorLight'],
     readout: { key: 'lightFront', digits: 0, short: 'reach', scale: 100, unit: '%', name: 'Light front reach, % of farthest corner' },
     spans: (p, reduced) => full(reduced, [{ start: p.collapseAt, end: p.collapseAt + p.lightCrossTime }]),
-    markers: (p, reduced) => reduced ? [] : [{ time: p.collapseAt + p.lightCrossTime, label: 'light off-screen' }]
+    markers: (p, reduced) => reduced ? [] : [{ time: p.collapseAt + p.lightCrossTime, label: 'light off-screen', param: 'lightCrossTime', base: p.collapseAt }]
   },
   {
     key: 'echo',
@@ -124,7 +130,7 @@ export const INTRO_TRACKS: IntroTrack[] = [
     params: ['remnantAt', 'remnantDecay', 'redshiftDuration', 'remnantRadius', 'colorEmber'],
     readout: { key: 'remnantRedshift', digits: 2, short: 'red', name: 'Core redshift: 0 = white-hot · 1 = deep red' },
     spans: (p, reduced) => full(reduced, [{ start: p.collapseAt, end: p.remnantAt + p.remnantDecay * FADED }]),
-    markers: (p, reduced) => reduced ? [] : [{ time: p.remnantAt, label: 'core fades' }]
+    markers: (p, reduced) => reduced ? [] : [{ time: p.remnantAt, label: 'core fades', param: 'remnantAt' }]
   },
   {
     key: 'lens',
@@ -140,7 +146,7 @@ export const INTRO_TRACKS: IntroTrack[] = [
     params: ['horizonAt', 'horizonGrowth'],
     readout: { key: 'holeScale', digits: 2, short: 'size', unit: '×', name: 'Shadow size, 1× = full size' },
     spans: (p, reduced) => [reduced ? REDUCED_FADE : { start: p.horizonAt, end: ringdownAt(p), holds: true }],
-    markers: (p, reduced) => reduced ? [] : [{ time: p.horizonAt, label: 'shadow' }]
+    markers: (p, reduced) => reduced ? [] : [{ time: p.horizonAt, label: 'shadow', param: 'horizonAt' }]
   },
   {
     key: 'ring',
@@ -156,7 +162,7 @@ export const INTRO_TRACKS: IntroTrack[] = [
     params: ['ringdownAmplitude', 'ringdownPitch', 'ringdownLength', 'ringFlicker'],
     readout: { key: 'ringdown', digits: 1, short: 'wobble', scale: 100, unit: '%', name: 'Shadow wobble, % of its radius' },
     spans: (p, reduced, ring) => full(reduced, [{ start: ringdownAt(p), end: ringdownAt(p) + ring.decay * FADED }]),
-    markers: (p, reduced) => reduced ? [] : [{ time: ringdownAt(p), label: 'ringdown' }]
+    markers: (p, reduced) => reduced ? [] : [{ time: ringdownAt(p), label: 'ringdown', param: 'horizonGrowth', base: p.horizonAt }]
   },
   {
     key: 'gravityWave',
@@ -184,8 +190,8 @@ export const INTRO_TRACKS: IntroTrack[] = [
     markers: (p, reduced) => reduced
       ? [{ time: 0.6, label: 'title' }, { time: 2, label: 'title out' }]
       : Math.round(p.titleEntrance) === 0
-        ? [{ time: p.dissolveAt, label: 'title out' }]
-        : [{ time: p.titleInAt, label: 'title in' }, { time: p.dissolveAt, label: 'title out' }]
+        ? [{ time: p.dissolveAt, label: 'title out', param: 'dissolveAt' }]
+        : [{ time: p.titleInAt, label: 'title in', param: 'titleInAt' }, { time: p.dissolveAt, label: 'title out', param: 'dissolveAt' }]
   },
   {
     key: 'camera',
@@ -201,7 +207,7 @@ export const INTRO_TRACKS: IntroTrack[] = [
     spans: (p, reduced) => [{ start: 0, end: reduced ? REDUCED_INTRO_END : p.releaseAt }],
     markers: (p, reduced) => reduced
       ? [{ time: REDUCED_INTRO_END, label: 'end' }]
-      : [{ time: p.releaseAt, label: 'release' }, { time: p.introEnd, label: 'end' }]
+      : [{ time: p.releaseAt, label: 'release', param: 'releaseAt' }, { time: p.introEnd, label: 'end', param: 'introEnd' }]
   },
   {
     key: 'flight',

@@ -41,7 +41,9 @@ const SHORTCUTS: ReadonlyArray<readonly [string, string]> = [
   ['.', 'Next frame'],
   ['R', 'Restart'],
   ['L', 'Loop on or off'],
-  ['Delete', 'Reset the focused slider'],
+  ['← → on a moment', 'Move it (Shift: fine)'],
+  ['Enter on a moment', 'Seek to it'],
+  ['Delete', 'Reset the focused slider or moment'],
   ['Alt+Enter', 'Show only this layer (on its eye)'],
   ['Esc', 'Close the debugger'],
   ['Alt+Shift+D', 'Open or close, from anywhere']

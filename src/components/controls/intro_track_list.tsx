@@ -460,10 +460,10 @@ function labelsThatFit (groups: IntroMarker[][], duration: number, secondsPerPx:
   return shown
 }
 
-// One diamond on a lane; on a narrow lane it may stand for moments too close together to tell apart, and then
-// it seeks to the first of them and is named for all of them. It is out of the tab order: the seek bar and
-// [ ] reach every moment from the keyboard. Its label hides when it would run into a neighbour; the name and
-// the tooltip keep every moment
+// One diamond on a lane for a moment that cannot be moved, or for moments too close together to tell apart on
+// a narrow lane, and then it seeks to the first of them and is named for all of them. It is out of the tab
+// order: the seek bar and [ ] reach every moment from the keyboard. Its label hides when it would run into a
+// neighbour; the name and the tooltip keep every moment
 function MarkerButton ({ group, duration, showLabel }: { group: IntroMarker[], duration: number, showLabel: boolean }) {
   const seek = useIntroDebugStore(state => state.seek)
   const isPhase = useIntroDebugStore(state => group.some(marker => marker.label === state.readout.phase))
@@ -505,12 +505,194 @@ function MarkerButton ({ group, duration, showLabel }: { group: IntroMarker[], d
   )
 }
 
-// Moments of one track closer than `gap` seconds share one diamond; a gap of 0 keeps every moment apart
+
+// A moment set by one parameter can be moved on its lane. The arrows step it, Shift by the parameter's own
+// step; Page keys move half a second, Home and End to the ends of its range
+const MOMENT_STEP = 0.05
+const MOMENT_PAGE_STEP = 0.5
+// A press that moves less than this is a click, which seeks to the moment
+const MOMENT_DRAG_SLOP = 3
+
+const stepDecimals = (step: number) => Math.max(0, Math.min(6, Math.ceil(-Math.log10(step) - 1e-9)))
+
+// A moment the user can move: drag the diamond along its lane, or focus it and use the arrows, and its
+// parameter follows on its slider's step and range. A click or Enter still seeks to it, Delete puts it back.
+// It is a slider for screen readers, valued in seconds, and its hint menu names the parameter it moves
+function MovableMarker ({ marker, duration, showLabel }: { marker: IntroMarker, duration: number, showLabel: boolean }) {
+  const seek = useIntroDebugStore(state => state.seek)
+  const setParam = useIntroDebugStore(state => state.setParam)
+  const isPhase = useIntroDebugStore(state => marker.label === state.readout.phase)
+  const param = marker.param!
+  const spec = INTRO_PARAM_SPECS[param]
+  const base = marker.base ?? 0
+  const fallback = DEFAULT_INTRO_PARAMS[param]
+  const [dragging, setDragging] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const drag = useRef<{ id: number, startX: number, startTime: number, base: number, width: number, duration: number, moved: boolean, next: number | null, frame: number } | null>(null)
+
+  // The moment at `time`, counted from `from`, onto the parameter's step and range
+  const moveTo = (time: number, from = base) => {
+    const raw = Math.round((time - from) / spec.step) * spec.step
+    const value = Number(Math.min(spec.max, Math.max(spec.min, raw)).toFixed(stepDecimals(spec.step)))
+    if (value !== useIntroDebugStore.getState().params[param]) setParam(param, value)
+  }
+
+  // Reset from the hint menu
+  useEffect(() => {
+    const element = ref.current
+    if (!element) return
+    const reset = () => setParam(param, fallback)
+    element.addEventListener('hint-reset', reset)
+    return () => element.removeEventListener('hint-reset', reset)
+  }, [param, fallback, setParam])
+
+  useEffect(() => () => {
+    if (drag.current) window.cancelAnimationFrame(drag.current.frame)
+  }, [])
+
+  const endDrag = (event: ReactPointerEvent<HTMLDivElement>, commit: boolean) => {
+    const pending = drag.current
+    if (!pending || pending.id !== event.pointerId) return
+    drag.current = null
+    window.cancelAnimationFrame(pending.frame)
+    if (pending.moved) {
+      if (commit && pending.next !== null) moveTo(pending.next, pending.base)
+      setDragging(false)
+    } else if (commit) {
+      seek(marker.time)
+    }
+  }
+
+  const time = marker.time
+  const coarse = Math.max(spec.step, MOMENT_STEP)
+  const flip = share(time, duration) > FLIP_LABEL_AT
+  const name = spec.spokenName ?? spec.label
+
+  return (
+    <div
+      ref={ref}
+      role="slider"
+      tabIndex={0}
+      aria-label={`Moment: ${marker.label}`}
+      aria-valuemin={Math.round((base + spec.min) * 100) / 100}
+      aria-valuemax={Math.round((base + spec.max) * 100) / 100}
+      aria-valuenow={Math.round(time * 100) / 100}
+      aria-valuetext={`${time.toFixed(2)} s`}
+      aria-keyshortcuts="ArrowLeft ArrowRight Shift+ArrowLeft Shift+ArrowRight PageUp PageDown Home End Enter Delete"
+      title={`${marker.label} · ${time.toFixed(2)} s · drag or ← → to move · click or Enter to seek · Delete: back to ${(base + fallback).toFixed(2)} s`}
+      data-hint={spec.hint}
+      data-hint-label={name}
+      data-hint-reset={`${(base + fallback).toFixed(2)} s`}
+      onPointerDown={(event) => {
+        // The lane under it would seek and scrub
+        event.stopPropagation()
+        if (event.button !== 0) return
+        const lane = event.currentTarget.parentElement
+        drag.current = {
+          id: event.pointerId,
+          startX: event.clientX,
+          startTime: time,
+          base,
+          width: Math.max(lane?.getBoundingClientRect().width ?? 1, 1),
+          // The scale of the lane when the drag starts: moving the last moment changes the timeline's length
+          duration,
+          moved: false,
+          next: null,
+          frame: 0
+        }
+        event.currentTarget.setPointerCapture(event.pointerId)
+      }}
+      onPointerMove={(event) => {
+        const pending = drag.current
+        if (!pending || pending.id !== event.pointerId) return
+        const dx = event.clientX - pending.startX
+        if (!pending.moved) {
+          if (Math.abs(dx) < MOMENT_DRAG_SLOP) return
+          pending.moved = true
+          setDragging(true)
+        }
+        pending.next = pending.startTime + dx / pending.width * pending.duration
+        // One change of the parameter per frame, however fast the pointer reports
+        if (pending.frame) return
+        pending.frame = window.requestAnimationFrame(() => {
+          pending.frame = 0
+          if (pending.next !== null) moveTo(pending.next, pending.base)
+        })
+      }}
+      onPointerUp={(event) => endDrag(event, true)}
+      onPointerCancel={(event) => endDrag(event, false)}
+      onKeyDown={(event) => {
+        switch (event.key) {
+        case 'ArrowLeft':
+        case 'ArrowDown':
+          moveTo(time - (event.shiftKey ? spec.step : coarse))
+          break
+        case 'ArrowRight':
+        case 'ArrowUp':
+          moveTo(time + (event.shiftKey ? spec.step : coarse))
+          break
+        case 'PageDown':
+          moveTo(time - MOMENT_PAGE_STEP)
+          break
+        case 'PageUp':
+          moveTo(time + MOMENT_PAGE_STEP)
+          break
+        case 'Home':
+          moveTo(base + spec.min)
+          break
+        case 'End':
+          moveTo(base + spec.max)
+          break
+        case 'Enter':
+          seek(time)
+          break
+        case 'Delete':
+        case 'Backspace':
+          if (useIntroDebugStore.getState().params[param] !== fallback) setParam(param, fallback)
+          break
+        default:
+          return
+        }
+        event.preventDefault()
+        event.stopPropagation()
+      }}
+      // 24 px wide, a full target, with the diamond in its middle. A finger drags it sideways at once
+      className="group/marker absolute inset-y-0 z-[2] w-6 -translate-x-1/2 cursor-ew-resize touch-none focus-visible:outline-none"
+      style={{ left: percent(time, duration) }}
+    >
+      <span
+        className={cn(
+          'absolute left-1/2 top-[16.5px] h-2.5 w-2.5 -translate-x-1/2 rotate-45 border border-neon-cyan transition-[background-color,transform] duration-150',
+          'group-hover/marker:scale-125 group-hover/marker:bg-neon-cyan group-focus-visible/marker:bg-neon-cyan',
+          'group-focus-visible/marker:outline group-focus-visible/marker:outline-1 group-focus-visible/marker:outline-offset-2 group-focus-visible/marker:outline-neon-cyan',
+          'motion-reduce:transition-none',
+          isPhase || dragging ? 'scale-125 bg-neon-cyan' : 'bg-bg-dark'
+        )}
+      />
+      {/* While it moves, the label carries the time it lands on, and shows even where it would crowd a neighbour */}
+      <span
+        className={cn(
+          'pointer-events-none absolute top-1 whitespace-nowrap text-[11px] leading-none tabular-nums transition-colors duration-150',
+          !showLabel && !dragging && 'hidden',
+          'group-hover/marker:text-neon-cyan group-focus-visible/marker:text-neon-cyan',
+          flip ? 'right-3.5' : 'left-3.5',
+          isPhase || dragging ? 'text-neon-cyan' : 'text-text-light/70',
+          dragging && 'z-[3] bg-bg-panel px-1'
+        )}
+      >
+        {dragging ? `${marker.label} ${time.toFixed(2)} s` : marker.label}
+      </span>
+    </div>
+  )
+}
+
+// Moments of one track closer than `gap` seconds share one diamond; a gap of 0 keeps every moment apart. A
+// moment that can be moved keeps its own diamond, so dragging it past a neighbour never merges it away
 function groupMarkers (markers: IntroMarker[], gap: number): IntroMarker[][] {
   const groups: IntroMarker[][] = []
   for (const marker of markers) {
     const last = groups[groups.length - 1]
-    if (last && gap > 0 && marker.time - last[0].time < gap) last.push(marker)
+    if (last && gap > 0 && !marker.param && !last[0].param && marker.time - last[0].time < gap) last.push(marker)
     else groups.push([marker])
   }
   return groups
@@ -592,7 +774,8 @@ interface TrackDerived {
 const sameSpans = (a: IntroSpan[], b: IntroSpan[]) =>
   a.length === b.length && a.every((span, index) => span.start === b[index].start && span.end === b[index].end && span.holds === b[index].holds)
 const sameMarkers = (a: IntroMarker[], b: IntroMarker[]) =>
-  a.length === b.length && a.every((marker, index) => marker.time === b[index].time && marker.label === b[index].label)
+  a.length === b.length && a.every((marker, index) =>
+    marker.time === b[index].time && marker.label === b[index].label && marker.base === b[index].base)
 
 // When a track is active, in words, for screen readers on its name: "runs 1.20–1.85 s", several spans joined
 const spanWords = (span: IntroSpan) => {
@@ -715,7 +898,9 @@ const TrackRow = memo(function TrackRow ({ track, duration, hidden, expanded, te
             <span className={cn('absolute inset-0 transition-opacity duration-150', hidden && 'opacity-35')}>
               {spans.map((span, index) => <SpanBar key={index} span={span} duration={duration} />)}
             </span>
-            {markerGroups.map((group, index) => <MarkerButton key={group[0].label} group={group} duration={duration} showLabel={labelShown[index]} />)}
+            {markerGroups.map((group, index) => group.length === 1 && group[0].param
+              ? <MovableMarker key={group[0].label} marker={group[0]} duration={duration} showLabel={labelShown[index]} />
+              : <MarkerButton key={group[0].label} group={group} duration={duration} showLabel={labelShown[index]} />)}
           </div>
         </div>
       </div>
