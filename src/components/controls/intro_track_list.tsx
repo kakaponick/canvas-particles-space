@@ -1,9 +1,10 @@
-import { memo, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { memo, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import { Check, ChevronRight, Copy, Eye, EyeOff, RotateCcw } from 'lucide-react'
+import { createWithEqualityFn } from 'zustand/traditional'
 import { cn } from '@/lib/utils'
 import { useIntroDebugStore, getTitleChanges, type TitleText } from '../../store/intro_debug_store'
 import { DEFAULT_INTRO_PARAMS, INTRO_PARAM_SPECS, colorToCss, cssToColor, formatParam, type IntroParamKey, type IntroParams } from '../../lib/intro_params'
-import { INTRO_TRACKS, type IntroMarker, type IntroSpan, type IntroTrack, type IntroTrackReadout } from '../../lib/intro_tracks'
+import { INTRO_TRACKS, getIntroMarkers, getIntroPhase, type IntroMarker, type IntroSpan, type IntroTrack, type IntroTrackReadout } from '../../lib/intro_tracks'
 import ColorPickerInput from './color_picker_input'
 import SliderControl from './slider_control'
 import TitleTextEditor from './title_text_editor'
@@ -12,24 +13,36 @@ import TitleTextEditor from './title_text_editor'
 // Lanes, the ruler and the playhead all map time with the same geometry
 const LANE_PAD = 12
 const RULER_STEP = 0.5
+// PageUp and PageDown on the seek bar jump this far
+const PAGE_STEP = 1
 
 const reducedMotion = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
 const share = (time: number, duration: number) => Math.min(Math.max(time / duration, 0), 1)
 const percent = (time: number, duration: number) => `${share(time, duration) * 100}%`
+// Left edge of a time inside the lane column, for lines drawn across every lane
+const laneLeft = (time: number, duration: number) =>
+  `calc(var(--label-w) + ${LANE_PAD}px + (100% - var(--label-w) - ${LANE_PAD * 2}px) * ${share(time, duration)})`
+
+// The time under a mouse over the timeline, or null; only the hover line and its label read it
+const useTimelineHover = createWithEqualityFn<{ time: number | null }>(() => ({ time: null }))
+const setHoverTime = (time: number | null) => {
+  if (useTimelineHover.getState().time !== time) useTimelineHover.setState({ time })
+}
 
 // Pointer down on a lane or the ruler seeks there; dragging scrubs. Playback holds while the pointer
-// is down, so the frame under it stays put, and goes on from there once it is released
+// is down, so the frame under it stays put, and goes on from there once it is released. A mouse over
+// the timeline shows where a press would land
 function useScrub (duration: number) {
   const seek = useIntroDebugStore(state => state.seek)
   const setPlaying = useIntroDebugStore(state => state.setPlaying)
   const resumeOnRelease = useRef(false)
   return useMemo(() => {
-    const seekFrom = (event: ReactPointerEvent<HTMLElement>) => {
+    const timeAt = (event: ReactPointerEvent<HTMLElement>) => {
       const rect = event.currentTarget.getBoundingClientRect()
       const width = Math.max(rect.width - LANE_PAD * 2, 1)
       const position = Math.min(Math.max((event.clientX - rect.left - LANE_PAD) / width, 0), 1)
-      seek(Math.round(position * duration * 100) / 100)
+      return Math.round(position * duration * 100) / 100
     }
     return {
       onPointerDown: (event: ReactPointerEvent<HTMLElement>) => {
@@ -38,13 +51,21 @@ function useScrub (duration: number) {
         // Only a timeline that was running when it was pressed starts again on release
         resumeOnRelease.current = useIntroDebugStore.getState().playing
         setPlaying(false)
-        seekFrom(event)
+        seek(timeAt(event))
       },
       onPointerMove: (event: ReactPointerEvent<HTMLElement>) => {
-        if (event.currentTarget.hasPointerCapture(event.pointerId)) seekFrom(event)
+        const scrubbing = event.currentTarget.hasPointerCapture(event.pointerId)
+        if (!scrubbing && event.pointerType === 'touch') return
+        const time = timeAt(event)
+        if (scrubbing) seek(time)
+        setHoverTime(time)
+      },
+      onPointerLeave: (event: ReactPointerEvent<HTMLElement>) => {
+        if (!event.currentTarget.hasPointerCapture(event.pointerId)) setHoverTime(null)
       },
       // The capture ends on release, on a cancelled touch and when the window loses the pointer
-      onLostPointerCapture: () => {
+      onLostPointerCapture: (event: ReactPointerEvent<HTMLElement>) => {
+        if (event.pointerType === 'touch') setHoverTime(null)
         if (!resumeOnRelease.current) return
         resumeOnRelease.current = false
         setPlaying(true)
@@ -55,14 +76,66 @@ function useScrub (duration: number) {
 
 type Scrub = ReturnType<typeof useScrub>
 
-function Ruler ({ duration, scrub }: { duration: number, scrub: Scrub }) {
-  const time = useIntroDebugStore(state => state.readout.time)
+// The played part of the seek bar and its handle, which follow the clock
+function SeekProgress ({ duration }: { duration: number }) {
+  const time = useIntroDebugStore(state => Math.min(state.readout.time, duration))
+  const left = percent(time, duration)
+  return (
+    <>
+      <span aria-hidden="true" className="seek-fill absolute left-0 rounded-l-full bg-neon-cyan" style={{ width: left }} />
+      <span
+        aria-hidden="true"
+        className="seek-thumb absolute z-[2] h-3 w-3 -translate-x-1/2 rounded-full bg-neon-cyan ring-2 ring-[#0b0b11]"
+        style={{ left }}
+      />
+    </>
+  )
+}
+
+// Where a press would seek to, with the moment of the intro it falls in
+function SeekHoverLabel ({ duration, params }: { duration: number, params: IntroParams }) {
+  const time = useTimelineHover(state => state.time)
+  if (time === null) return null
+  const phase = getIntroPhase(time, reducedMotion, params)
+  return (
+    <span
+      aria-hidden="true"
+      className="pointer-events-none absolute top-[3px] z-[3] -translate-x-1/2 whitespace-nowrap border border-neon-cyan/50 bg-[#0b0b11] px-1.5
+        text-[10px] leading-[14px] text-text-light tabular-nums"
+      style={{ left: `clamp(56px, ${percent(time, duration)}, calc(100% - 56px))` }}
+    >
+      {time.toFixed(2)} s{phase && <span className="text-neon-cyan"> · {phase}</span>}
+    </span>
+  )
+}
+
+// The timeline's main seek bar: time labels, the played part, the moments of the intro as gaps, and
+// the playhead's handle. It is the keyboard's way to seek too
+function Ruler ({ duration, params, scrub }: { duration: number, params: IntroParams, scrub: Scrub }) {
+  const seek = useIntroDebugStore(state => state.seek)
+  // While playing, the value a screen reader hears moves once a second instead of with every readout
+  const playing = useIntroDebugStore(state => state.playing)
+  const spoken = useIntroDebugStore(state => {
+    const time = Math.min(state.readout.time, duration)
+    return state.playing ? Math.floor(time) : Math.round(time * 100) / 100
+  })
   const phase = useIntroDebugStore(state => state.readout.phase)
   const ticks = useMemo(() => {
     const list: number[] = []
     for (let t = 0; t <= duration + 1e-6; t += RULER_STEP) list.push(Math.round(t * 10) / 10)
     return list
   }, [duration])
+  const moments = useMemo(
+    () => getIntroMarkers(reducedMotion, params).filter(moment => moment.time > 0.01 && moment.time < duration - 0.01),
+    [params, duration]
+  )
+
+  const seekByPage = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    const direction = event.key === 'PageUp' ? 1 : event.key === 'PageDown' ? -1 : 0
+    if (direction === 0) return
+    event.preventDefault()
+    seek(Math.min(useIntroDebugStore.getState().readout.time, duration) + direction * PAGE_STEP)
+  }
 
   return (
     <div
@@ -71,28 +144,37 @@ function Ruler ({ duration, scrub }: { duration: number, scrub: Scrub }) {
       data-intro-ruler=""
       aria-label="Intro time"
       aria-valuemin={0}
-      aria-valuemax={duration}
-      aria-valuenow={Math.round(time * 100) / 100}
-      aria-valuetext={`${time.toFixed(2)} seconds, ${phase || 'start'}`}
-      className="relative h-6 cursor-ew-resize touch-none select-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-neon-cyan"
+      aria-valuemax={Math.round(duration * 100) / 100}
+      aria-valuenow={spoken}
+      aria-valuetext={`${playing ? spoken : spoken.toFixed(2)} of ${duration.toFixed(2)} seconds, ${phase || 'start'}`}
+      aria-keyshortcuts="ArrowLeft ArrowRight Shift+ArrowLeft Shift+ArrowRight PageUp PageDown Home End"
+      className="seek-bar group/seek relative h-9 cursor-pointer touch-none select-none outline-none"
       style={{ paddingInline: LANE_PAD }}
+      onKeyDown={seekByPage}
       {...scrub}
     >
       <div className="relative h-full">
         {ticks.map(tick => {
           const whole = Number.isInteger(tick)
           return (
-            <span key={tick} aria-hidden="true" className="absolute bottom-0 -translate-x-1/2" style={{ left: percent(tick, duration) }}>
-              {whole && <span className="absolute bottom-2 left-1/2 -translate-x-1/2 text-[10px] leading-none text-text-light/60 tabular-nums">{tick}s</span>}
+            <span key={tick} aria-hidden="true" className="absolute top-[18px] -translate-x-1/2" style={{ left: percent(tick, duration) }}>
+              {whole && <span className="absolute bottom-full left-1/2 mb-[3px] -translate-x-1/2 text-[10px] leading-none text-text-light/60 tabular-nums">{tick}s</span>}
               <span className={`block w-px ${whole ? 'h-1.5 bg-text-light/50' : 'h-1 bg-text-light/25'}`} />
             </span>
           )
         })}
-        <span
-          aria-hidden="true"
-          className="absolute bottom-0 h-0 w-0 -translate-x-1/2 border-x-[5px] border-t-[6px] border-x-transparent border-t-neon-cyan"
-          style={{ left: percent(time, duration) }}
-        />
+        <span aria-hidden="true" className="seek-track absolute inset-x-0 rounded-full bg-neon-cyan/20" />
+        <SeekProgress duration={duration} />
+        {/* The intro's moments cut the bar into chapters, the way [ and ] step between them */}
+        {moments.map(moment => (
+          <span
+            key={moment.label}
+            aria-hidden="true"
+            className="seek-cut absolute z-[1] w-[2px] -translate-x-1/2 bg-[#0b0b11]"
+            style={{ left: percent(moment.time, duration) }}
+          />
+        ))}
+        <SeekHoverLabel duration={duration} params={params} />
       </div>
     </div>
   )
@@ -105,7 +187,20 @@ function Playhead ({ duration }: { duration: number }) {
     <span
       aria-hidden="true"
       className="pointer-events-none absolute inset-y-0 z-10 w-px bg-neon-cyan/80"
-      style={{ left: `calc(var(--label-w) + ${LANE_PAD}px + (100% - var(--label-w) - ${LANE_PAD * 2}px) * ${share(time, duration)})` }}
+      style={{ left: laneLeft(time, duration) }}
+    />
+  )
+}
+
+// A fainter line where a press would seek to
+function HoverLine ({ duration }: { duration: number }) {
+  const time = useTimelineHover(state => state.time)
+  if (time === null) return null
+  return (
+    <span
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-y-0 z-10 w-px bg-text-light/35"
+      style={{ left: laneLeft(time, duration) }}
     />
   )
 }
@@ -238,7 +333,7 @@ const TrackRow = memo(function TrackRow ({ track, duration, params, hidden, expa
             : <span className={`min-w-0 flex-1 truncate pl-4 text-text-light/85 ${hidden ? 'text-text-light/45 line-through' : ''}`}>{track.label}</span>}
           {track.readout && <TrackValue readout={track.readout.key} digits={track.readout.digits} />}
         </div>
-        <div className="h-8 cursor-ew-resize touch-none select-none" style={{ paddingInline: LANE_PAD }} {...scrub}>
+        <div className="h-8 cursor-ew-resize touch-pan-y select-none" style={{ paddingInline: LANE_PAD }} {...scrub}>
           <div className={`relative h-full transition-opacity duration-150 ${hidden ? 'opacity-35' : ''}`}>
             {spans.map((span, index) => <SpanBar key={index} span={span} duration={duration} />)}
             {markers.map(marker => <MarkerButton key={marker.label} marker={marker} duration={duration} />)}
@@ -435,7 +530,7 @@ function IntroTrackList ({ duration }: { duration: number }) {
       <div className="relative">
         <div className="sticky top-0 z-20 grid grid-cols-[var(--label-w)_1fr] border-b border-neon-cyan/20 bg-[#0b0b11]">
           <ChangedSummary params={params} titleChanges={titleChanges} hiddenCount={hiddenCount} />
-          <Ruler duration={duration} scrub={scrub} />
+          <Ruler duration={duration} params={params} scrub={scrub} />
         </div>
         {INTRO_TRACKS.map(track => (
           <TrackRow
@@ -450,6 +545,7 @@ function IntroTrackList ({ duration }: { duration: number }) {
             onToggleExpanded={toggleExpanded}
           />
         ))}
+        <HoverLine duration={duration} />
         <Playhead duration={duration} />
       </div>
     </div>

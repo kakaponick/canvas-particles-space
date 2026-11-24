@@ -24,7 +24,7 @@ const HEIGHT_STEP = 40
 
 const reducedMotion = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
-const SHORTCUTS = 'Space: play or pause · ← →: 0.1 s back or forward, with Shift one frame · [ ]: previous or next moment · Home, End: start or end · . one frame forward · R: restart · L: loop · Shift+D: open or close'
+const SHORTCUTS = 'Space: play or pause (a focused button takes Space itself) · ← →: 0.1 s back or forward, with Shift one frame · Page Up, Page Down on the timeline: 1 s · [ ]: previous or next moment · Home, End: start or end · . one frame forward · R: restart · L: loop · Shift+D: open or close'
 
 function formatSpeed (speed: number) {
   return `${speed.toFixed(2)}×`
@@ -33,6 +33,12 @@ function formatSpeed (speed: number) {
 // A slider that has the focus uses the arrow keys itself; the timeline ruler is the one that seeks
 function isAdjustingSlider (target: EventTarget | null) {
   return target instanceof HTMLElement && target.getAttribute('role') === 'slider' && !target.hasAttribute('data-intro-ruler')
+}
+
+// A focused control that Space or Enter activates keeps those keys; they never play or pause behind it
+function isActivatable (target: EventTarget | null) {
+  return target instanceof HTMLElement &&
+    target.closest('button, a[href], summary, [role="button"], [role="checkbox"], [role="switch"], [role="tab"], [role="menuitem"], [role="option"]') !== null
 }
 
 function isTyping (target: EventTarget | null) {
@@ -103,6 +109,7 @@ function IntroDebugger () {
         return
       }
       if (!debug.open) return
+      if (event.code === 'Space' && isActivatable(event.target)) return
 
       const arrow = event.code === 'ArrowLeft' || event.code === 'ArrowRight' || event.code === 'Home' || event.code === 'End'
       if (arrow && isAdjustingSlider(event.target)) return
@@ -210,6 +217,8 @@ function IntroDebugger () {
           aria-orientation="horizontal"
           aria-label="Resize intro debugger"
           aria-valuenow={height}
+          aria-valuemin={MIN_HEIGHT}
+          aria-valuemax={Math.round(window.innerHeight * MAX_HEIGHT_SHARE)}
           tabIndex={0}
           onPointerDown={(event) => {
             if (event.button !== 0) return
@@ -228,18 +237,19 @@ function IntroDebugger () {
           <h2 className="font-orbitron text-sm tracking-[1px] text-neon-cyan">INTRO DEBUG</h2>
 
           <div className="flex gap-1">
-            <ToggleButton active={false} onClick={actions.restart} aria-label="Restart intro (R)" title="Restart (R)" className="h-8 px-2">
+            <ToggleButton active={false} aria-pressed={undefined} onClick={actions.restart} aria-label="Restart intro" aria-keyshortcuts="R" title="Restart (R)" className="h-8 px-2">
               <RotateCcw className="h-4 w-4" />
             </ToggleButton>
-            <ToggleButton active={playing} onClick={actions.togglePlaying} title="Play / pause (Space)" className="h-8 w-[5.5rem] gap-2">
+            {/* The label already says what a press does, so the button is not also announced as pressed */}
+            <ToggleButton active={playing} aria-pressed={undefined} aria-keyshortcuts="Space" onClick={actions.togglePlaying} title="Play / pause (Space)" className="h-8 w-[5.5rem] gap-2">
               {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
               {playing ? 'PAUSE' : 'PLAY'}
             </ToggleButton>
-            <ToggleButton active={false} onClick={actions.step} title="One frame forward (.)" className="h-8 gap-2 px-2">
+            <ToggleButton active={false} aria-pressed={undefined} aria-keyshortcuts="." onClick={actions.step} title="One frame forward (.)" className="h-8 gap-2 px-2">
               <StepForward className="h-4 w-4" />
               FRAME
             </ToggleButton>
-            <ToggleButton active={loop} onClick={actions.toggleLoop} title="Restart at the end (L)" className="h-8 gap-2 px-2">
+            <ToggleButton active={loop} aria-keyshortcuts="L" onClick={actions.toggleLoop} title="Restart at the end (L)" className="h-8 gap-2 px-2">
               <Repeat className="h-4 w-4" />
               LOOP
             </ToggleButton>
@@ -267,6 +277,7 @@ function IntroDebugger () {
               <ToggleButton
                 key={speed}
                 active={timeScale === speed}
+                aria-label={`Speed ${speed}×`}
                 onClick={() => actions.setTimeScale(speed)}
                 className="h-8 px-2 text-xs"
               >
