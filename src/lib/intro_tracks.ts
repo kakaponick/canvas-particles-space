@@ -2,7 +2,7 @@
 // switch, its tunable numbers, its moments on the timeline and when it is active. The phase markers
 // and the phase names come from here too, so every element is described in exactly one place.
 import type { IntroParamKey, IntroParams } from './intro_params'
-import { REDUCED_INTRO_END } from './intro_timeline'
+import { REDUCED_INTRO_END, matterOut } from './intro_timeline'
 
 // Pieces of the opening that can be switched off one by one to see what each contributes
 export const INTRO_LAYERS = [
@@ -42,7 +42,6 @@ export interface IntroTrack {
 // An exponential fade counts as over after three time constants, when it is down to 5%
 const FADED = 3
 
-const matterOut = (p: IntroParams) => p.collapseAt + p.lightCrossTime / p.matterSpeed
 const ringdownAt = (p: IntroParams) => p.horizonAt + p.horizonGrowth
 // The light front lights the title from the explosion on; any other entrance has its own start
 const titleStart = (p: IntroParams) => Math.round(p.titleEntrance) === 0 ? p.collapseAt : p.titleInAt

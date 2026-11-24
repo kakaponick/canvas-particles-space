@@ -61,6 +61,9 @@ export interface IntroFrame {
   shake: number
   // 1 while the film effects (fringe, vignette, grain, letterbox) are on; fades to 0 as the intro ends
   film: number
+  // Where the particle field flies out of: 1 = the place of the explosion, 0 = the screen centre.
+  // The field is born flying out of the explosion and turns to the screen centre once it fills the screen
+  vanishAtOrigin: number
   // While true the black hole stays at the screen center
   holdAtCenter: boolean
   done: boolean
@@ -110,10 +113,14 @@ export function createIntroFrame (): IntroFrame {
     cameraZoom: 1,
     shake: 0,
     film: 0,
+    vanishAtOrigin: 0,
     holdAtCenter: true,
     done: false
   }
 }
+
+// When the matter front, and with it the newborn particle field, reaches the farthest screen corner
+export const matterOut = (p: IntroParams) => p.collapseAt + p.lightCrossTime / p.matterSpeed
 
 // How much a title flying past the camera has grown when it is gone
 const FLY_PAST_GROWTH = 9
@@ -238,6 +245,11 @@ function sampleFullIntro (t: number, p: IntroParams, frame: IntroFrame) {
   frame.shake = exploded ? p.shakeAmount * Math.exp(-sinceCollapse / p.shakeDecay) : 0
   frame.film = 1 - smoothstep(progress(t, p.releaseAt, p.introEnd - p.releaseAt))
 
+  // The field flies out of the explosion while it is born, then turns smoothly to the screen centre,
+  // where it is once the intro ends
+  const turnAt = Math.min(matterOut(p), p.introEnd)
+  frame.vanishAtOrigin = 1 - smoothstep(progress(t, turnAt, p.introEnd - turnAt))
+
   frame.holdAtCenter = t < p.releaseAt
   frame.done = t >= p.introEnd
 }
@@ -277,6 +289,8 @@ function sampleReducedIntro (t: number, frame: IntroFrame) {
   frame.cameraZoom = 1
   frame.shake = 0
   frame.film = 0
+  // Nothing explodes, so the field flies out of the screen centre from the start
+  frame.vanishAtOrigin = 0
   frame.holdAtCenter = t < REDUCED_INTRO_END
   frame.done = t >= REDUCED_INTRO_END
 }

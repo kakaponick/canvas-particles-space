@@ -166,6 +166,8 @@ function ParticleCanvas () {
       width: 0,
       height: 0,
       focal: 1,
+      vanishX: 0,
+      vanishY: 0,
       holeX: NaN,
       holeY: NaN,
       holeRadius: 0,
@@ -201,6 +203,8 @@ function ParticleCanvas () {
       doppler: 0,
       speedGlow: 1,
       frameScale: 1,
+      vanishX: 0,
+      vanishY: 0,
       ringTexels: ringEnergy.texels,
       ringFed: true,
       title: {
@@ -523,6 +527,11 @@ function ParticleCanvas () {
       settings.width = viewportWidth
       settings.height = viewportHeight
       settings.focal = Math.max(centerX, centerY)
+      // The newborn field flies out of the explosion, not out of the screen centre
+      settings.vanishX = centerX + (originX - centerX) * intro.vanishAtOrigin
+      settings.vanishY = centerY + (originY - centerY) * intro.vanishAtOrigin
+      frame.vanishX = settings.vanishX
+      frame.vanishY = settings.vanishY
       settings.holeX = hole.x
       settings.holeY = hole.y
       settings.holeRadius = horizon

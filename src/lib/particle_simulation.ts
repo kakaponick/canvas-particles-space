@@ -61,6 +61,10 @@ export interface StepSettings {
   height: number
   // Shared focal length in pixels, so both axes project with the same scale
   focal: number
+  // Vanishing point on screen, the place the field flies out of: the screen centre, except while the
+  // intro's field is born at the place of the explosion
+  vanishX: number
+  vanishY: number
   // Black hole on screen; NaN coordinates or a zero radius mean there is none. The radius sets
   // the strength of gravity; particles closer than the capture radius are recycled
   holeX: number
@@ -266,13 +270,11 @@ export function stepParticles (
   const { x, y, z, alpha, pulsePhase, pulseSpeed, speedMultiplier, color } = field
   const { floats, colors } = out
   const {
-    frameScale, time, width, height, focal, holeX, holeY, holeRadius, holeDepth,
+    frameScale, time, width, height, focal, vanishX, vanishY, holeX, holeY, holeRadius, holeDepth,
     gravityStrength, orbitalStrength, farZ, depthFade, pulseIntensity, baseBrightness,
     minOpacity, maxOpacity, revealRadius, revealFeather, opacityScale
   } = settings
 
-  const halfW = width * 0.5
-  const halfH = height * 0.5
   const step = settings.speed * frameScale
   const pulseRate = settings.pulseSpeedMultiplier
   const invFarZ = 1 / farZ
@@ -319,8 +321,8 @@ export function stepParticles (
     let py = y[i]
     const startZ = z[i]
     const startScale = focal / startZ
-    const startX = px * startScale + halfW
-    const startY = py * startScale + halfH
+    const startX = px * startScale + vanishX
+    const startY = py * startScale + vanishY
 
     const pz = startZ - step * speedMultiplier[i]
     if (pz <= 0) {
@@ -329,8 +331,8 @@ export function stepParticles (
     }
 
     const endScale = focal / pz
-    let endX = px * endScale + halfW
-    let endY = py * endScale + halfH
+    let endX = px * endScale + vanishX
+    let endY = py * endScale + vanishY
 
     if (hasHole) {
       const dx = holeX - endX
@@ -340,7 +342,7 @@ export function stepParticles (
       if (distSq < reachSq) {
         if (distSq < captureRadiusSq) {
           if (ringEnergy) depositRingEnergy(ringEnergy, -dx, -dy, RING_CAPTURE_ENERGY)
-          respawnBeyondHorizon(field, i, spawn, holeX - halfW, holeY - halfH, captureRadius, spawnScale)
+          respawnBeyondHorizon(field, i, spawn, holeX - vanishX, holeY - vanishY, captureRadius, spawnScale)
           continue
         }
 
@@ -364,8 +366,8 @@ export function stepParticles (
           x[i] = px
           y[i] = py
 
-          endX = px * endScale + halfW
-          endY = py * endScale + halfH
+          endX = px * endScale + vanishX
+          endY = py * endScale + vanishY
         }
       }
     }

@@ -101,7 +101,8 @@ export const particleVertexShaderSource = `
     float glow = pow(max(referenceSpeed / (referenceSpeed + SPEED_KNEE), 0.000001), u_speedGlow);
 
     // Relativistic aberration, stylised: light ahead shifts blue, light at the edges shifts red
-    float radial = length(a_segment.zw - u_center) / max(length(u_center), 1.0);
+    // Measured from the vanishing point, in half screen diagonals
+    float radial = length(a_segment.zw - u_center) * 2.0 * u_pixelRatio / max(length(u_resolution), 1.0);
     float shift = u_doppler * (1.0 - 1.7 * radial);
     vec3 tint = shift > 0.0 ? BLUESHIFT : REDSHIFT;
 

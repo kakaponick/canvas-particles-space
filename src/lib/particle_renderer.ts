@@ -165,6 +165,9 @@ export interface FrameInput {
   // How strongly brightness follows speed, and the frame length in 60 Hz reference frames it is judged by
   speedGlow: number
   frameScale: number
+  // Vanishing point of the particle field in CSS pixels, the centre of its doppler tint
+  vanishX: number
+  vanishY: number
   // Photon ring energy around the circle, RING_BINS values
   ringTexels: Uint8Array
   // False while nothing feeds the ring: its energy is not read then, so it is not uploaded
@@ -386,7 +389,6 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     gl.useProgram(particleProgram)
     setUniform2f(gl, particleUniforms.resolution, width, height)
     setUniform1f(gl, particleUniforms.pixelRatio, ratio)
-    setUniform2f(gl, particleUniforms.center, cssWidth / 2, cssHeight / 2)
     gl.useProgram(compositeProgram)
     setUniform2f(gl, compositeUniforms.resolution, width, height)
     setUniform1f(gl, compositeUniforms.pixelRatio, ratio)
@@ -407,7 +409,8 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     gl.activeTexture(gl.TEXTURE0 + SCENE_TEXTURE_UNIT)
   }
 
-  function drawParticles (instances: Float32Array, count: number, doppler: number, speedGlow: number, frameScale: number) {
+  function drawParticles (frame: FrameInput) {
+    const { instances, instanceCount: count } = frame
     if (count === 0) return
 
     gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuffer)
@@ -420,9 +423,10 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     else gl.bufferSubData(gl.ARRAY_BUFFER, 0, instances.subarray(0, count * INSTANCE_FLOATS))
 
     gl.useProgram(particleProgram)
-    setUniform1f(gl, particleUniforms.doppler, doppler)
-    setUniform1f(gl, particleUniforms.speedGlow, speedGlow)
-    setUniform1f(gl, particleUniforms.frameScale, frameScale)
+    setUniform1f(gl, particleUniforms.doppler, frame.doppler)
+    setUniform1f(gl, particleUniforms.speedGlow, frame.speedGlow)
+    setUniform1f(gl, particleUniforms.frameScale, frame.frameScale)
+    setUniform2f(gl, particleUniforms.center, frame.vanishX, frame.vanishY)
     for (const location of INSTANCED_ATTRIBUTES) gl.enableVertexAttribArray(location)
     // The scene keeps the brighter of a particle and what is already there, so stamps do not add up.
     // Without that blend the premultiplied stamps are laid over the scene instead
@@ -545,7 +549,7 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
         setUniform4f(gl, fadeUniforms.color, r / 255, g / 255, b / 255, frame.fadeAlpha)
         gl.drawArrays(gl.TRIANGLES, 0, QUAD_VERTEX_COUNT)
       }
-      drawParticles(frame.instances, frame.instanceCount, frame.doppler, frame.speedGlow, frame.frameScale)
+      drawParticles(frame)
       gl.bindFramebuffer(gl.FRAMEBUFFER, null)
 
       if (frame.ringFed) {
