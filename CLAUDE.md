@@ -58,3 +58,24 @@ Baseline at e9c18fc, measured with the method above:
 
 - `pnpm build` (`tsc && vite build`) is the type check. `tsc -b` writes stray `vite.config.js`, `vite.config.d.ts` and `*.tsbuildinfo` files into the repo root. Delete them if they appear.
 - `pnpm lint` already fails on files outside your change: the shadcn files in `src/components/ui/` and a few files under `src/components/controls/`. Lint the files you touched and judge only those.
+
+## Driving the scene as an agent
+
+`window.space` (`src/lib/scene_api.ts`) reads and changes every simulation setting and intro parameter, drives the intro timeline and captures frames. It is loaded in development, and on a deployed build only with `?agent` in the address, as a separate chunk.
+
+With `pnpm dev` running and the page open in any browser, drive that tab from the shell:
+
+```
+node scripts/space.mjs help                 # every command
+node scripts/space.mjs describe lens        # settings matching "lens": value, default, range, description
+node scripts/space.mjs set '{"baseSpeed":3}'
+node scripts/space.mjs intro.seek 2.1
+node scripts/space.mjs capture              # writes .space/shots/<time>.png and prints its path
+```
+
+The dev server forwards each command over the HMR WebSocket (`tools/scene_bridge_plugin.ts` ↔ `src/dev/scene_bridge.ts`) to the tab the user looked at last; `node scripts/space.mjs tabs` lists them. The bridge exists only in `vite serve` and answers localhost only; `vite build`, and so the Vercel deploy, never contains it.
+
+- A setting or parameter is described once: simulation sliders in `src/lib/simulation_specs.ts` (the Settings panel builds from it), intro parameters in `INTRO_PARAM_SPECS`. A new setting goes there, and both the panel and the agent API pick it up.
+- `set` and `intro.set` check every value, clamp it to its range and apply the whole patch in one store update.
+- `capture` and `frames` need a visible tab with the scene running; a paused scene or a hidden tab draws no frames and the call fails with that reason.
+- The intro readout in `readout()` is live only while the intro debugger is open (`debug(true)`).

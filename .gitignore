@@ -25,3 +25,6 @@ dist-ssr
 
 # Backup files
 *.backup
+
+# Agent bridge: dev server address and captured frames
+.space/
