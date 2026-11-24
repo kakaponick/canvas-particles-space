@@ -31,7 +31,8 @@ async function runCommand (command: string, args: unknown[]) {
   let owner: unknown = null
   for (const part of command.split('.')) {
     owner = target
-    target = typeof target === 'object' && target !== null ? (target as Record<string, unknown>)[part] : undefined
+    const own = typeof target === 'object' && target !== null && Object.prototype.hasOwnProperty.call(target, part)
+    target = own ? (target as Record<string, unknown>)[part] : undefined
   }
   if (typeof target !== 'function') {
     throw new Error(`Unknown command "${command}". Commands: ${listCommands(sceneApi).join(', ')}`)

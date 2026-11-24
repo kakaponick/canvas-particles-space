@@ -87,7 +87,10 @@ export function readSimulationSettings (stored: Record<string, unknown>, default
   for (const key of SIMULATION_SETTING_KEYS) {
     const value = stored[key]
     if (key === 'colorPalette') settings[key] = readPalette(value) ?? settings[key]
-    else if (typeof value === typeof defaults[key] && (typeof value !== 'number' || Number.isFinite(value))) settings[key] = value
+    else if (typeof value === typeof defaults[key] && (typeof value !== 'number' || Number.isFinite(value))) {
+      // An old or hand-edited save may hold a fractional count
+      settings[key] = key === 'numParticles' ? Math.round(value as number) : value
+    }
   }
   return settings as unknown as SimulationSettings
 }

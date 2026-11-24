@@ -89,6 +89,13 @@ function asBoolean (key: string, value: unknown) {
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max)
 
+// The nearest value a slider can show: inside its range and on its step, without float noise
+function onSliderGrid (value: number, min: number, max: number, step: number) {
+  const snapped = min + Math.round((clamp(value, min, max) - min) / step) * step
+  const decimals = Math.max(0, Math.ceil(-Math.log10(step)))
+  return clamp(Number(snapped.toFixed(decimals)), min, max)
+}
+
 function asChannel (key: string, value: unknown) {
   return Math.round(clamp(asNumber(key, value), 0, 255))
 }
@@ -151,7 +158,7 @@ function setSettings (patch: Patch) {
     const slider = SLIDERS[key]
     if (slider) {
       const number = asNumber(key, value)
-      next[key] = clamp(number, slider.min, slider.max)
+      next[key] = onSliderGrid(number, slider.min, slider.max, slider.step)
       if (next[key] !== number) clamped[key] = next[key]
     } else if (key in TOGGLES) {
       next[key] = asBoolean(key, value)
@@ -269,8 +276,13 @@ function setTitle (patch?: Partial<TitleText>) {
   if (patch) {
     if (patch.font !== undefined && !(patch.font in TITLE_FONTS)) fail(`font takes one of: ${Object.keys(TITLE_FONTS).join(', ')}`)
     if (patch.text !== undefined && typeof patch.text !== 'string') fail('text takes a string; \\n starts a new line')
-    if (patch.uppercase !== undefined) patch.uppercase = asBoolean('uppercase', patch.uppercase)
-    debug.setTitle(patch)
+    const known: Partial<TitleText> = {}
+    if (patch.text !== undefined) known.text = patch.text
+    if (patch.font !== undefined) known.font = patch.font
+    if (patch.uppercase !== undefined) known.uppercase = asBoolean('uppercase', patch.uppercase)
+    const unknown = Object.keys(patch).filter(key => !(key in DEFAULT_TITLE_TEXT))
+    if (unknown.length > 0) unknownKey(unknown[0], Object.keys(DEFAULT_TITLE_TEXT))
+    debug.setTitle(known)
   }
   return { title: useIntroDebugStore.getState().title, default: DEFAULT_TITLE_TEXT, fonts: Object.keys(TITLE_FONTS) as TitleFontKey[] }
 }

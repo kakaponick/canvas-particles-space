@@ -50,7 +50,13 @@ try {
   process.exit(2)
 }
 
-const body = await response.json()
+let body
+try {
+  body = await response.json()
+} catch {
+  console.error(`${url} answered ${response.status} without JSON: is another server on that port? Set SPACE_URL.`)
+  process.exit(2)
+}
 if (!body.ok) {
   console.error(body.error)
   process.exit(1)

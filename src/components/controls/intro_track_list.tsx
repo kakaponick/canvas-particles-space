@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import { useIntroDebugStore, getTitleChanges, type TitleText } from '../../store/intro_debug_store'
 import { DEFAULT_INTRO_PARAMS, INTRO_PARAM_SPECS, colorToCss, cssToColor, formatParam, type IntroParamKey, type IntroParams } from '../../lib/intro_params'
 import { INTRO_TRACKS, getIntroMarkers, getIntroPhase, type IntroMarker, type IntroSpan, type IntroTrack, type IntroTrackReadout } from '../../lib/intro_tracks'
+import type { RingdownTiming } from '../../lib/intro_timeline'
 import ColorPickerInput from './color_picker_input'
 import SliderControl from './slider_control'
 import TitleTextEditor from './title_text_editor'
@@ -102,6 +103,7 @@ function useScrub (duration: number) {
       },
       // The capture ends on release, on a cancelled touch and when the window loses the pointer
       onLostPointerCapture: (event: ReactPointerEvent<HTMLElement>) => {
+        if (event.target !== event.currentTarget) return
         if (event.pointerType === 'touch') setHoverTime(null)
         if (!resumeOnRelease.current) return
         resumeOnRelease.current = false
@@ -318,6 +320,14 @@ function MarkerButton ({ marker, duration }: { marker: IntroMarker, duration: nu
 }
 
 const NO_MARKERS: IntroMarker[] = []
+
+interface TrackDerived {
+  params: IntroParams
+  ringTiming: RingdownTiming
+  spans: IntroSpan[]
+  markers: IntroMarker[]
+  values: number[]
+}
 const sameSpans = (a: IntroSpan[], b: IntroSpan[]) =>
   a.length === b.length && a.every((span, index) => span.start === b[index].start && span.end === b[index].end && span.holds === b[index].holds)
 const sameMarkers = (a: IntroMarker[], b: IntroMarker[]) =>
@@ -341,10 +351,25 @@ const TrackRow = memo(function TrackRow ({ track, duration, hidden, expanded, te
   const resetParams = useIntroDebugStore(state => state.resetParams)
   const resetTitle = useIntroDebugStore(state => state.resetTitle)
   // A row re-renders only when its own spans, moments or numbers change, not on every step of a slider
-  // on another track. The ringdown timing follows the black hole size and the screen, never the loop
-  const spans = useIntroDebugStore(state => track.spans(state.params, reducedMotion, state.ringTiming), sameSpans)
-  const markers = useIntroDebugStore(state => track.markers?.(state.params, reducedMotion) ?? NO_MARKERS, sameMarkers)
-  const values = useIntroDebugStore(state => track.params.map(key => state.params[key]), shallow)
+  // on another track. They are worked out once per change of the parameters or the ringdown timing, so
+  // the readout's frequent store updates reuse them
+  const derived = useRef<TrackDerived | null>(null)
+  const derive = (state: { params: IntroParams, ringTiming: RingdownTiming }) => {
+    const last = derived.current
+    if (last && last.params === state.params && last.ringTiming === state.ringTiming) return last
+    const next: TrackDerived = {
+      params: state.params,
+      ringTiming: state.ringTiming,
+      spans: track.spans(state.params, reducedMotion, state.ringTiming),
+      markers: track.markers?.(state.params, reducedMotion) ?? NO_MARKERS,
+      values: track.params.map(key => state.params[key])
+    }
+    derived.current = next
+    return next
+  }
+  const spans = useIntroDebugStore(state => derive(state).spans, sameSpans)
+  const markers = useIntroDebugStore(state => derive(state).markers, sameMarkers)
+  const values = useIntroDebugStore(state => derive(state).values, shallow)
   const changed = track.params.filter((key, index) => values[index] !== DEFAULT_INTRO_PARAMS[key])
   const changedCount = changed.length + textChanges
   const panelId = `intro-track-${track.key}`

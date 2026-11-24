@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { HelpCircle } from 'lucide-react'
 import {
   Tooltip,
@@ -19,7 +19,7 @@ interface HelpTooltipProps {
   label?: string
 }
 
-function HelpTooltip({
+function HelpTooltip ({
   content,
   side = 'right',
   className,
@@ -28,6 +28,8 @@ function HelpTooltip({
   label
 }: HelpTooltipProps) {
   const [open, setOpen] = useState(false)
+  // Whether the tooltip was open when the current press began; null while no press is in progress
+  const openAtPress = useRef<boolean | null>(null)
   const reachable = label !== undefined
 
   return (
@@ -40,11 +42,18 @@ function HelpTooltip({
           aria-hidden={reachable ? undefined : true}
           // Radix closes a tooltip on pointer down and on click unless told otherwise; here a click opens
           // or closes it on purpose
-          onPointerDown={reachable ? (event) => event.preventDefault() : undefined}
+          onPointerDown={reachable
+            ? (event) => {
+              openAtPress.current = open
+              event.preventDefault()
+            }
+            : undefined}
           onClick={reachable
             ? (event) => {
               event.preventDefault()
-              setOpen(current => !current)
+              const wasOpen = openAtPress.current ?? open
+              openAtPress.current = null
+              setOpen(!wasOpen)
             }
             : undefined}
           className={cn(
@@ -58,7 +67,7 @@ function HelpTooltip({
       </TooltipTrigger>
       <TooltipContent
         side={side}
-        className={cn("max-w-xs bg-bg-dark/[0.98] border-neon-cyan/30 text-text-light text-xs z-[60]", className)}
+        className={cn('max-w-xs bg-bg-dark/[0.98] border-neon-cyan/30 text-text-light text-xs z-[60]', className)}
       >
         <p>{content}</p>
       </TooltipContent>

@@ -3,8 +3,13 @@
 // the answer from window.space and returns it as JSON. A captured frame is saved under .space/shots and
 // answered with its path. `vite build`, and so every deploy, never runs this.
 //
-//   GET  /__space                       open tabs and the command list
-//   POST /__space { command, args?, tab? }
+//   GET  /__space                       open tabs, the one that gets the commands first
+//   POST /__space { command, args?, tab? }   Content-Type: application/json
+//
+// Only this machine's own tools reach it: a request must come from the loopback address, name localhost
+// in Host (no DNS rebinding) and carry no foreign Origin, and a POST must be JSON, which a web page can
+// only send after a CORS preflight that this route never grants. The dev server's own middleware runs
+// after this one, so these checks cannot rely on it.
 //
 // scripts/space.mjs wraps it for the command line; the server writes its address to .space/server.json.
 import fs from 'node:fs'
@@ -41,6 +46,26 @@ function isLoopback (request: IncomingMessage) {
   return address === '127.0.0.1' || address === '::1' || address === '::ffff:127.0.0.1'
 }
 
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]'])
+
+function hostName (value: string) {
+  return value.startsWith('[') ? value.slice(0, value.indexOf(']') + 1) : value.split(':')[0]
+}
+
+// A browser sends Origin with every cross-site request; the command line sends none
+function isTrustedCaller (request: IncomingMessage) {
+  const host = request.headers.host
+  if (!host || !LOCAL_HOSTS.has(hostName(host).toLowerCase())) return false
+  const origin = request.headers.origin
+  if (origin === undefined) return true
+  // Host is already known to be local, so an Origin is trusted only when it is this dev server's page
+  try {
+    return new URL(origin).host === host
+  } catch {
+    return false
+  }
+}
+
 function reply (response: ServerResponse, status: number, body: unknown) {
   response.statusCode = status
   response.setHeader('Content-Type', 'application/json; charset=utf-8')
@@ -52,7 +77,10 @@ function readBody (request: IncomingMessage) {
     let body = ''
     request.on('data', (chunk: Buffer) => {
       body += chunk.toString('utf8')
-      if (body.length > MAX_BODY_BYTES) reject(new Error('Request body too large'))
+      if (body.length > MAX_BODY_BYTES) {
+        request.destroy()
+        reject(new Error('Request body too large'))
+      }
     })
     request.on('end', () => resolve(body))
     request.on('error', reject)
@@ -71,7 +99,10 @@ export function sceneBridge (): Plugin {
       let nextId = 1
 
       server.ws.on('space:tab', (state: TabState, client) => {
+        const known = tabs.get(state.tab)
         tabs.set(state.tab, { ...state, seen: Date.now(), client })
+        // A closed tab leaves the queue at once, so a command never waits on it
+        if (known?.client !== client) client.socket.once('close', () => tabs.delete(state.tab))
       })
       server.ws.on('space:result', (result: SceneResult) => {
         pending.get(result.id)?.(result)
@@ -104,7 +135,9 @@ export function sceneBridge (): Plugin {
 
       server.middlewares.use('/__space', (request, response) => {
         // The dev server may listen on the network (--host); the bridge answers this machine only
-        if (!isLoopback(request)) return reply(response, 403, { ok: false, error: 'The scene bridge answers localhost only' })
+        if (!isLoopback(request) || !isTrustedCaller(request)) {
+          return reply(response, 403, { ok: false, error: 'The scene bridge answers tools on this machine only' })
+        }
 
         if (request.method === 'GET') {
           return reply(response, 200, {
@@ -113,6 +146,9 @@ export function sceneBridge (): Plugin {
           })
         }
         if (request.method !== 'POST') return reply(response, 405, { ok: false, error: 'Use GET or POST' })
+        if (!(request.headers['content-type'] ?? '').toLowerCase().startsWith('application/json')) {
+          return reply(response, 415, { ok: false, error: 'Send the command as Content-Type: application/json' })
+        }
 
         void (async () => {
           let call: { command?: unknown, args?: unknown, tab?: unknown }

@@ -496,9 +496,10 @@ function ParticleCanvas () {
       // The horizon rings as a real black hole of its size would, scaled by the intro's multipliers
       const shadowRadius = state.blackHoleSize / 100 * shortSide
       getRingdownTiming(params, shadowRadius, lightSpeed, ringTiming)
+      // Only the debugger's timeline reads it, so it is published only while the debugger is open
       const shownRing = debug.ringTiming
-      if (Math.abs(shownRing.frequency - ringTiming.frequency) > ringTiming.frequency * 1e-3 ||
-        Math.abs(shownRing.decay - ringTiming.decay) > ringTiming.decay * 1e-3) debug.setRingTiming(ringTiming)
+      if (debug.open && (Math.abs(shownRing.frequency - ringTiming.frequency) > ringTiming.frequency * 1e-3 ||
+        Math.abs(shownRing.decay - ringTiming.decay) > ringTiming.decay * 1e-3)) debug.setRingTiming(ringTiming)
 
       sampleIntro(introTime, reducedMotion, params, ringTiming, intro)
       if (hidden.star) intro.starGlow = 0

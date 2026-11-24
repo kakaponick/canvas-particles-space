@@ -286,6 +286,13 @@ export function migrateIntroParams (stored: Record<string, unknown>): Record<str
     migrated.gravityWaveGain = stored.gravityWaveAmplitude /
       (wobble * REFERENCE_SHADOW * Math.sqrt(REFERENCE_SHADOW / REFERENCE_WAVE_DISTANCE))
   }
+  // A converted value lands inside the new range, as a slider would hold it
+  for (const key of ['ringdownPitch', 'ringdownLength', 'gravityWaveGain'] as const) {
+    const value = migrated[key]
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      migrated[key] = Math.min(Math.max(value, INTRO_PARAM_SPECS[key].min), INTRO_PARAM_SPECS[key].max)
+    }
+  }
   return migrated
 }
 

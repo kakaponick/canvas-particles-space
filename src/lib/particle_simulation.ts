@@ -207,7 +207,9 @@ export function createParticleField (): ParticleField {
 }
 
 // Changes the particle count, keeping existing particles; storage only ever grows
-export function setParticleCount (field: ParticleField, count: number, spawn: SpawnSettings) {
+export function setParticleCount (field: ParticleField, requested: number, spawn: SpawnSettings) {
+  // A count sizes typed arrays, so it is a whole number whatever a setting or a saved value holds
+  const count = Math.max(0, Math.floor(requested))
   if (count > field.capacity) {
     field.capacity = count
     field.x = growFloats(field.x, count)
@@ -232,7 +234,8 @@ export function createInstanceData (): InstanceData {
   return { capacity: 0, floats: new Float32Array(0), colors: new Uint32Array(0) }
 }
 
-export function ensureInstanceCapacity (data: InstanceData, capacity: number) {
+export function ensureInstanceCapacity (data: InstanceData, requested: number) {
+  const capacity = Math.ceil(requested)
   if (capacity <= data.capacity) return
   const buffer = new ArrayBuffer(capacity * INSTANCE_FLOATS * 4)
   data.capacity = capacity
