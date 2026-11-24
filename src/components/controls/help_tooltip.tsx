@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react'
-import { HelpCircle } from 'lucide-react'
+import { useRef, useState, type ReactNode } from 'react'
+import { Portal } from '@radix-ui/react-tooltip'
 import {
   Tooltip,
   TooltipContent,
@@ -8,69 +8,54 @@ import {
 import { cn } from '@/lib/utils'
 
 interface HelpTooltipProps {
-  content: string
-  side?: 'top' | 'right' | 'bottom' | 'left'
-  className?: string
-  iconClassName?: string
+  // The name the button is announced by; it contains the button's visible text
+  label: string
+  // What the button shows
+  children: ReactNode
+  content: ReactNode
   buttonClassName?: string
-  // With a label the help is a control of its own: it takes the focus, is announced by that name, and a
-  // click or a tap opens it, so the keyboard and touch reach it too. Without one it is a hover hint for
-  // text the control it sits on already exposes, and stays out of the tab order and the accessibility tree
-  label?: string
 }
 
-function HelpTooltip ({
-  content,
-  side = 'right',
-  className,
-  iconClassName,
-  buttonClassName,
-  label
-}: HelpTooltipProps) {
+// Help that is a control of its own: it takes the focus, is announced by its name, and a click or a tap
+// opens or closes it, so the keyboard and touch reach it as well as a pointer resting on it
+function HelpTooltip ({ label, children, content, buttonClassName }: HelpTooltipProps) {
   const [open, setOpen] = useState(false)
   // Whether the tooltip was open when the current press began; null while no press is in progress
   const openAtPress = useRef<boolean | null>(null)
-  const reachable = label !== undefined
 
   return (
-    <Tooltip delayDuration={500} open={reachable ? open : undefined} onOpenChange={reachable ? setOpen : undefined}>
+    <Tooltip delayDuration={500} open={open} onOpenChange={setOpen}>
       <TooltipTrigger asChild>
         <button
           type="button"
-          tabIndex={reachable ? 0 : -1}
           aria-label={label}
-          aria-hidden={reachable ? undefined : true}
           // Radix closes a tooltip on pointer down and on click unless told otherwise; here a click opens
           // or closes it on purpose
-          onPointerDown={reachable
-            ? (event) => {
-              openAtPress.current = open
-              event.preventDefault()
-            }
-            : undefined}
-          onClick={reachable
-            ? (event) => {
-              event.preventDefault()
-              const wasOpen = openAtPress.current ?? open
-              openAtPress.current = null
-              setOpen(!wasOpen)
-            }
-            : undefined}
+          onPointerDown={(event) => {
+            openAtPress.current = open
+            event.preventDefault()
+          }}
+          onClick={(event) => {
+            event.preventDefault()
+            const wasOpen = openAtPress.current ?? open
+            openAtPress.current = null
+            setOpen(!wasOpen)
+          }}
           className={cn(
-            'pointer-events-auto',
-            reachable && 'focus-visible:outline focus-visible:outline-1 focus-visible:outline-neon-cyan',
+            'pointer-events-auto cursor-help focus-visible:outline focus-visible:outline-1 focus-visible:outline-neon-cyan',
             buttonClassName
           )}
         >
-          <HelpCircle className={cn('h-4 w-4 text-neon-cyan/50 hover:text-neon-cyan cursor-help', iconClassName)} />
+          {children}
         </button>
       </TooltipTrigger>
-      <TooltipContent
-        side={side}
-        className={cn('max-w-xs bg-bg-dark/[0.98] border-neon-cyan/30 text-text-light text-xs z-[60]', className)}
-      >
-        <p>{content}</p>
-      </TooltipContent>
+      {/* Out of the page's flow: a header with container queries is a containing block for fixed elements,
+          which would throw the tooltip's position off */}
+      <Portal>
+        <TooltipContent side="top" className="z-[60] max-w-xs border-neon-cyan/30 bg-bg-dark/[0.98] font-mono text-xs text-text-light">
+          {content}
+        </TooltipContent>
+      </Portal>
     </Tooltip>
   )
 }

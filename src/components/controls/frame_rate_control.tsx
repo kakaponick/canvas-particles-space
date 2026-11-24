@@ -11,7 +11,17 @@ const AUTO_POSITION = MAX_FRAME_RATE + 1
 const toPosition = (cap: number) => cap <= 0 ? AUTO_POSITION : Math.min(Math.max(cap, MIN_FRAME_RATE), MAX_FRAME_RATE)
 const formatPosition = (position: number) => position >= AUTO_POSITION ? 'AUTO' : `${position} FPS`
 
-// Kept apart from the measured FPS readout, so the readout's updates do not re-render the slider
+// The frame rate the scene reaches, in the Playback header so it shows while the section is closed too.
+// Kept in a leaf of its own, so its updates every half second re-render nothing else
+export function MeasuredFps () {
+  const measuredFps = useParticleStore(state => state.measuredFps)
+  return (
+    <span className="pr-3 font-mono text-xs tabular-nums text-text-light/70" title="Frames per second the scene reaches now">
+      {measuredFps > 0 ? `${measuredFps} FPS` : '—'}
+    </span>
+  )
+}
+
 function FrameRateSlider () {
   const frameRateCap = useParticleStore(state => state.frameRateCap)
   const setFrameRateCap = useParticleStore(state => state.setFrameRateCap)
@@ -19,21 +29,20 @@ function FrameRateSlider () {
   return (
     <SliderControl
       id="frame-rate-cap"
-      label="Limit"
+      label="FPS Limit"
       value={toPosition(frameRateCap)}
       min={MIN_FRAME_RATE}
       max={AUTO_POSITION}
       step={1}
       formatValue={formatPosition}
       onChange={(position) => setFrameRateCap(position >= AUTO_POSITION ? 0 : position)}
-      variant="inline"
       resetValue={AUTO_POSITION}
+      description="AUTO = display rate; lower saves power"
     />
   )
 }
 
-function FrameRateControl () {
-  const measuredFps = useParticleStore(state => state.measuredFps)
+function ParticleBudgetRow () {
   const adaptiveParticles = useParticleStore(state => state.adaptiveParticles)
   const activeParticles = useParticleStore(state => state.activeParticles)
   const numParticles = useParticleStore(state => state.numParticles)
@@ -41,25 +50,33 @@ function FrameRateControl () {
   const trimmed = adaptiveParticles && activeParticles > 0 && activeParticles < numParticles
 
   return (
+    <SettingsRow
+      label="Particle Budget"
+      help="ON drops particles to hold the frame rate"
+    >
+      {(describedBy) => (
+        <>
+          {/* Only while the budget is trimming; otherwise the switch says all there is. Count already shows the total */}
+          {trimmed && (
+            <span
+              className="font-mono text-xs tabular-nums text-text-light/70"
+              title={`Particles drawn now, of ${numParticles.toLocaleString('en-US')} set in Count`}
+            >
+              {`${activeParticles.toLocaleString('en-US')} drawn`}
+            </span>
+          )}
+          <SettingsSwitch on={adaptiveParticles} onToggle={toggleAdaptiveParticles} label="Particle budget" describedBy={describedBy} />
+        </>
+      )}
+    </SettingsRow>
+  )
+}
+
+function FrameRateControl () {
+  return (
     <>
-      <SettingsRow
-        label="Frame Rate"
-        help={`Limits how many frames per second the scene renders, from ${MIN_FRAME_RATE} to ${MAX_FRAME_RATE}. The far right end of the slider is AUTO: no limit, the scene renders at your display's refresh rate. A lower limit saves power and GPU time; motion speed stays the same at any frame rate. A limit above the display's refresh rate has no effect. A double-click returns the slider to AUTO.`}
-      >
-        <span className="font-mono text-xs text-text-light/70 tabular-nums">
-          {measuredFps > 0 ? `${measuredFps} FPS` : '—'}
-        </span>
-      </SettingsRow>
       <FrameRateSlider />
-      <SettingsRow
-        label="Particle Budget"
-        help="AUTO lowers the particle count when the simulation takes more than 40% of each frame, so motion stays smooth on a slower processor or a high refresh rate display. It raises the count back to your setting once there is room again. OFF always simulates the full count."
-      >
-        <span className="font-mono text-xs text-text-light/70 tabular-nums">
-          {trimmed ? `${activeParticles.toLocaleString('en-US')} of ${numParticles.toLocaleString('en-US')}` : 'full'}
-        </span>
-        <SettingsSwitch on={adaptiveParticles} onToggle={toggleAdaptiveParticles} label="Adaptive particle budget" onText="AUTO" />
-      </SettingsRow>
+      <ParticleBudgetRow />
     </>
   )
 }

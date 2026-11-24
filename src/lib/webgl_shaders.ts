@@ -261,7 +261,7 @@ export const compositeFragmentShaderSource = `
   const vec3 RING_RECEDING = vec3(1.0, 0.42, 0.16);
   // A blur spreads the letters' light thin; this brings the glow back to a visible level
   const float TITLE_HALO_GAIN = 1.5;
-  // Dust Drift is the distance a letter standing that far from the hole would be drawn; this turns
+  // Dust Pull is the distance a letter standing that far from the hole would be drawn; this turns
   // it into the pull that draws the whole title in
   const float TITLE_FALL_GAIN = 2.5;
   // Seconds a background star stays flared after the light front passes it

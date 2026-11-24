@@ -57,20 +57,20 @@ ripples the background stars, swallows the title and then drifts to your cursor.
 - **Click Canvas**: Anchor the black hole where it is, or release it to follow again
 - **Scroll**: Change Base Speed over the scene; down is faster, up is slower
 - **Touch**: Drag the black hole with a finger; swipe up or down elsewhere to change Base Speed
-- **Intro debugger** (Shift+D, `?debug` in the address, or Settings → Intro Debugger): timeline with phase markers, playback speed from 0 (stopped) to 2×, frame step, loop, switches to turn each effect of the opening off, and every tunable number of the opening (about 60, grouped; kept across reloads in this browser, with reset and "copy changed" to share the values)
+- **Intro debugger** (Alt+Shift+D, `?debug` in the address, or Settings → Intro Debugger): timeline with phase markers, playback speed from 0.05× to 2×, frame step, loop, switches to turn each effect of the opening off, and every tunable number of the opening (about 60, grouped; kept across reloads in this browser, with reset and "copy changed" to share the values)
 - **⚙️ Control Panel**: Adjust physics parameters and colors; Esc opens and closes it, and the current settings are kept in this browser across reloads
 
 ### Parameters
 
-- **Particles**: Number of particles (1000-50000; 24000 by default, 12000 on phones)
-- **Frame Rate**: AUTO follows the display refresh rate; 30-144 caps it. Motion speed does not depend on the frame rate
+- **Particle Count**: Number of particles (1000-50000; 24000 by default, 12000 on phones)
+- **FPS Limit**: AUTO follows the display refresh rate; 30-144 caps it. Motion speed does not depend on the frame rate
 - **Pulse Intensity**: Star twinkling effect (0-1)
 - **Base Speed**: Speed of the flight through space, also set by scrolling
 - **Black Hole Size**: Shadow radius as a share of the screen's short side
 - **Gravity Reach**: How far gravity reaches, in black hole radii
 - **Gravity**: Gravitational pull strength
 - **Orbital Force**: Tangential force around black hole
-- **Lensing Radius**: Einstein ring radius, in black hole radii
+- **Einstein Radius**: Einstein ring radius, in black hole radii
 
 ## Project Structure
 

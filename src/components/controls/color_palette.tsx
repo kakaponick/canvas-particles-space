@@ -8,14 +8,15 @@ import SliderControl from './slider_control'
 // A new color starts white with this weight and opens the picker at once
 const NEW_COLOR = { r: 255, g: 255, b: 255, enabled: true, percent: 10 }
 
-const ICON_BUTTON = 'h-7 w-7 shrink-0 border-text-light/30 text-text-light/70 hover:border-neon-cyan hover:bg-neon-cyan/20 hover:text-neon-cyan'
+const ICON_BUTTON = 'h-7 w-7 shrink-0 border-text-light/40 text-text-light/70 hover:border-neon-cyan hover:bg-neon-cyan/20 hover:text-neon-cyan'
 
-// The particle colors: each one's swatch opens the picker, its slider sets how common it is, and the
-// bar on top shows the mix the particles are drawn from
+// The particle colors: each one's swatch opens the picker, its slider sets how common it is, and its value
+// is its share of the mix the particles are drawn from
 function ColorPalette () {
   const { colorPalette, addColor, removeColor, updateColor } = useColorPaletteStore()
   const pickers = useRef<(HTMLInputElement | null)[]>([])
   const [openPicker, setOpenPicker] = useState(-1)
+  const listRef = useRef<HTMLDivElement>(null)
 
   // Opens the picker of a color that was just added, once its row exists
   useEffect(() => {
@@ -29,27 +30,14 @@ function ColorPalette () {
   const onlyColor = colorPalette.length <= 1
 
   return (
-    <div className="space-y-1">
-      <div
-        className="flex h-1.5 overflow-hidden bg-text-light/10"
-        role="img"
-        aria-label="Mix of the particle colors"
-      >
-        {colorPalette.map((color, index) => color.enabled && (
-          <div
-            key={index}
-            className="h-full transition-[flex-grow] duration-150"
-            style={{ flexGrow: color.percent, backgroundColor: rgbToHex(color.r, color.g, color.b) }}
-          />
-        ))}
-      </div>
-
+    // Each row shows its color's share of the mix, so the list itself is the mix
+    <div ref={listRef} className="space-y-1">
       {colorPalette.map((color, index) => {
         const hex = rgbToHex(color.r, color.g, color.b)
         return (
           <div key={index} className="flex items-center gap-1">
             <label
-              className="relative h-7 w-7 shrink-0 cursor-pointer border border-text-light/30 transition-colors duration-150
+              className="relative h-7 w-7 shrink-0 cursor-pointer border border-text-light/40 transition-colors duration-150
                 hover:border-neon-cyan focus-within:border-neon-cyan focus-within:outline focus-within:outline-1 focus-within:outline-neon-cyan"
               style={{ backgroundColor: hex }}
               title="Change color"
@@ -58,7 +46,7 @@ function ColorPalette () {
                 ref={(element) => { pickers.current[index] = element }}
                 type="color"
                 value={hex}
-                aria-label={`Color ${index + 1}, ${hex}`}
+                aria-label={`Color ${index + 1}`}
                 onChange={(event) => {
                   const rgb = hexToRgb(event.target.value)
                   if (rgb) updateColor(index, rgb)
@@ -67,17 +55,17 @@ function ColorPalette () {
               />
             </label>
 
-            <div className={cn('flex min-w-0 flex-1 transition-opacity duration-150', !color.enabled && 'opacity-40')}>
+            <div className="flex min-w-0 flex-1">
               <SliderControl
                 id={`color-weight-${index}`}
                 label={hex.toUpperCase()}
+                ariaLabel={`Color ${index + 1} ${hex.toUpperCase()} share`}
                 value={color.percent}
                 min={1}
                 max={100}
                 step={1}
                 formatValue={() => color.enabled ? `${share(color.percent)}%` : 'OFF'}
                 onChange={(percent) => updateColor(index, { percent })}
-                variant="inline"
                 fillColor={hex}
               />
             </div>
@@ -86,7 +74,7 @@ function ColorPalette () {
               variant="outline"
               size="icon"
               aria-pressed={color.enabled}
-              aria-label={color.enabled ? `Hide color ${index + 1}` : `Show color ${index + 1}`}
+              aria-label={`Use color ${index + 1}`}
               title={color.enabled ? 'Leave this color out' : 'Use this color'}
               onClick={() => updateColor(index, { enabled: !color.enabled })}
               className={cn(ICON_BUTTON, color.enabled && 'text-neon-cyan')}
@@ -99,7 +87,19 @@ function ColorPalette () {
               aria-label={`Remove color ${index + 1}`}
               title={onlyColor ? 'The last color cannot be removed' : 'Remove color'}
               disabled={onlyColor}
-              onClick={() => removeColor(index)}
+              onClick={() => {
+                // The rows are keyed by position, so after the removal the Remove button at this index belongs
+                // to the color that moved up and the focus stays on it, ready for the next removal; it goes to
+                // ADD COLOR when the last row went or the one color left cannot be removed
+                const toAdd = index >= colorPalette.length - 1 || colorPalette.length <= 2
+                removeColor(index)
+                requestAnimationFrame(() => {
+                  const target = toAdd
+                    ? listRef.current?.querySelector<HTMLElement>('[data-add-color]')
+                    : listRef.current?.querySelector<HTMLElement>(`[aria-label="Remove color ${index + 1}"]`)
+                  target?.focus()
+                })
+              }}
               className={ICON_BUTTON}
             >
               <X className="h-3.5 w-3.5" />
@@ -109,6 +109,7 @@ function ColorPalette () {
       })}
 
       <Button
+        data-add-color=""
         variant="outline"
         onClick={() => {
           addColor({ ...NEW_COLOR })
@@ -116,8 +117,8 @@ function ColorPalette () {
         }}
         className="h-7 w-full gap-1.5 border-neon-cyan/50 font-mono text-xs text-neon-cyan hover:bg-neon-cyan/20 hover:text-neon-cyan"
       >
-        <Plus className="h-3.5 w-3.5" />
-        Add color
+        <Plus aria-hidden="true" className="h-3.5 w-3.5" />
+        ADD COLOR
       </Button>
     </div>
   )

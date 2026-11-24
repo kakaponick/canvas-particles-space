@@ -49,12 +49,15 @@ const sheetVariants = cva(
 
 interface SheetContentProps
   extends React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content>,
-    VariantProps<typeof sheetVariants> {}
+    VariantProps<typeof sheetVariants> {
+  // Leave the corner close button out, for a panel that places its own
+  hideClose?: boolean
+}
 
 const SheetContent = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Content>,
   SheetContentProps
->(({ side = "right", className, children, ...props }, ref) => (
+>(({ side = "right", className, children, hideClose = false, ...props }, ref) => (
   <SheetPortal>
     <SheetOverlay />
     <SheetPrimitive.Content
@@ -63,10 +66,10 @@ const SheetContent = React.forwardRef<
       {...props}
     >
       {children}
-      <SheetPrimitive.Close className="absolute right-4 top-4 rounded-sm text-neon-cyan opacity-70 transition-all hover:opacity-100 hover:text-neon-cyan focus:outline-none focus:ring-0 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-1 focus-visible:outline-neon-cyan disabled:pointer-events-none">
+      {!hideClose && <SheetPrimitive.Close className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-none text-neon-cyan opacity-80 transition-all hover:opacity-100 hover:text-neon-cyan focus:outline-none focus:ring-0 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-1 focus-visible:outline-neon-cyan disabled:pointer-events-none">
         <X className="h-4 w-4" />
         <span className="sr-only">Close</span>
-      </SheetPrimitive.Close>
+      </SheetPrimitive.Close>}
     </SheetPrimitive.Content>
   </SheetPortal>
 ))

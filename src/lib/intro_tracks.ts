@@ -34,7 +34,10 @@ export interface IntroTrack {
   // The track also edits the title's text, font and case
   editsText?: boolean
   params: IntroParamKey[]
-  readout?: { key: IntroTrackReadout, digits: number }
+  // `name` says what the number is, for its tooltip and for screen readers; `short` is the one word shown
+  // before it. The value is multiplied by `scale` (100 shows a 0..1 share as a percentage)
+  // and `unit` follows the number
+  readout?: { key: IntroTrackReadout, digits: number, short: string, name: string, unit?: string, scale?: number }
   // The ringdown's timing follows the black hole's size, so the animation loop measures it
   spans: (p: IntroParams, reduced: boolean, ring: RingdownTiming) => IntroSpan[]
   markers?: (p: IntroParams, reduced: boolean) => IntroMarker[]
@@ -54,55 +57,55 @@ const REDUCED_FADE: IntroSpan = { start: 0.2, end: 1.4, holds: true }
 export const INTRO_TRACKS: IntroTrack[] = [
   {
     key: 'stars',
-    label: 'Far stars',
+    label: 'Background Stars',
     layer: 'stars',
     params: ['starsInitial', 'starsFadeIn', 'starFlare'],
     spans: (p, reduced) => [{ start: 0, end: reduced ? 1.2 : p.starsFadeIn, holds: true }]
   },
   {
     key: 'star',
-    label: 'Progenitor star',
+    label: 'Progenitor Star',
     layer: 'star',
     params: ['starChargeStart', 'collapseAt', 'starPeakGlow', 'starRadiusStart', 'starRadiusGrowth', 'colorFlash'],
     spans: (p, reduced) => full(reduced, [{ start: p.starChargeStart, end: p.collapseAt }]),
-    markers: (p, reduced) => reduced ? [] : [{ time: p.starChargeStart, label: 'star' }, { time: p.collapseAt, label: 'collapse' }]
+    markers: (p, reduced) => reduced ? [] : [{ time: p.starChargeStart, label: 'star' }, { time: p.collapseAt, label: 'explosion' }]
   },
   {
     key: 'glare',
     label: 'Glare',
     layer: 'glare',
     params: ['glareRise', 'glarePeak', 'glareDecay', 'glareRadius', 'exposureDip'],
-    readout: { key: 'sourcePower', digits: 2 },
+    readout: { key: 'sourcePower', digits: 2, short: 'bright', name: 'Explosion brightness', unit: '×' },
     spans: (p, reduced) => full(reduced, [{ start: p.collapseAt, end: p.collapseAt + p.glareRise + p.glareDecay * FADED }])
   },
   {
     key: 'light',
-    label: 'Light front',
+    label: 'Light Front',
     layer: 'light',
     params: ['lightCrossTime', 'lightPower', 'lightPowerDecay', 'lightWidth', 'lightDustContrast', 'colorLight'],
-    readout: { key: 'lightFront', digits: 2 },
+    readout: { key: 'lightFront', digits: 0, short: 'reach', scale: 100, unit: '%', name: 'Light front reach, % of farthest corner' },
     spans: (p, reduced) => full(reduced, [{ start: p.collapseAt, end: p.collapseAt + p.lightCrossTime }]),
-    markers: (p, reduced) => reduced ? [] : [{ time: p.collapseAt + p.lightCrossTime, label: 'light out' }]
+    markers: (p, reduced) => reduced ? [] : [{ time: p.collapseAt + p.lightCrossTime, label: 'light off-screen' }]
   },
   {
     key: 'echo',
-    label: 'Dust echo',
+    label: 'Dust Echo',
     layer: 'echo',
     params: ['echoPower', 'echoPowerDecay', 'echoDecay', 'echoFloor', 'dustShock', 'dustScale', 'dustThreshold', 'dustBlow', 'dustDrift', 'dustSweep', 'colorDust'],
     spans: (p, reduced) => full(reduced, [{ start: p.collapseAt, end: p.collapseAt + p.echoPowerDecay * FADED }])
   },
   {
     key: 'shockwave',
-    label: 'Matter wave',
+    label: 'Matter Wave',
     layer: 'shockwave',
     params: ['matterSpeed', 'waveRefraction', 'waveWidth'],
-    readout: { key: 'matterFront', digits: 2 },
+    readout: { key: 'matterFront', digits: 0, short: 'reach', scale: 100, unit: '%', name: 'Matter front reach, % of farthest corner' },
     spans: (p, reduced) => full(reduced, [{ start: p.collapseAt, end: matterOut(p) }]),
-    markers: (p, reduced) => reduced ? [] : [{ time: matterOut(p), label: 'matter out' }]
+    markers: (p, reduced) => reduced ? [] : [{ time: matterOut(p), label: 'matter off-screen' }]
   },
   {
     key: 'reveal',
-    label: 'Particle birth',
+    label: 'Particle Birth',
     layer: 'reveal',
     params: ['revealFeather'],
     spans: (p, reduced) => reduced ? [{ start: 0, end: 1.2, holds: true }] : [{ start: p.collapseAt, end: matterOut(p), holds: true }]
@@ -116,12 +119,12 @@ export const INTRO_TRACKS: IntroTrack[] = [
   },
   {
     key: 'remnant',
-    label: 'Collapsing core',
+    label: 'Collapsing Core',
     layer: 'remnant',
     params: ['remnantAt', 'remnantDecay', 'redshiftDuration', 'remnantRadius', 'colorEmber'],
-    readout: { key: 'remnantRedshift', digits: 2 },
+    readout: { key: 'remnantRedshift', digits: 2, short: 'red', name: 'Core redshift: 0 = white-hot · 1 = deep red' },
     spans: (p, reduced) => full(reduced, [{ start: p.collapseAt, end: p.remnantAt + p.remnantDecay * FADED }]),
-    markers: (p, reduced) => reduced ? [] : [{ time: p.remnantAt, label: 'redshift' }]
+    markers: (p, reduced) => reduced ? [] : [{ time: p.remnantAt, label: 'core fades' }]
   },
   {
     key: 'lens',
@@ -132,16 +135,16 @@ export const INTRO_TRACKS: IntroTrack[] = [
   },
   {
     key: 'hole',
-    label: 'Horizon',
+    label: 'Shadow',
     layer: 'hole',
     params: ['horizonAt', 'horizonGrowth'],
-    readout: { key: 'holeScale', digits: 2 },
+    readout: { key: 'holeScale', digits: 2, short: 'size', unit: '×', name: 'Shadow size, 1× = full size' },
     spans: (p, reduced) => [reduced ? REDUCED_FADE : { start: p.horizonAt, end: ringdownAt(p), holds: true }],
-    markers: (p, reduced) => reduced ? [] : [{ time: p.horizonAt, label: 'horizon' }]
+    markers: (p, reduced) => reduced ? [] : [{ time: p.horizonAt, label: 'shadow' }]
   },
   {
     key: 'ring',
-    label: 'Photon ring',
+    label: 'Photon Ring',
     layer: 'ring',
     params: ['ringDelay', 'ringFadeIn'],
     spans: (p, reduced) => [reduced ? REDUCED_FADE : { start: p.horizonAt + p.ringDelay, end: p.horizonAt + p.ringDelay + p.ringFadeIn, holds: true }]
@@ -151,13 +154,13 @@ export const INTRO_TRACKS: IntroTrack[] = [
     label: 'Ringdown',
     layer: 'ringdown',
     params: ['ringdownAmplitude', 'ringdownPitch', 'ringdownLength', 'ringFlicker'],
-    readout: { key: 'ringdown', digits: 3 },
+    readout: { key: 'ringdown', digits: 1, short: 'wobble', scale: 100, unit: '%', name: 'Shadow wobble, % of its radius' },
     spans: (p, reduced, ring) => full(reduced, [{ start: ringdownAt(p), end: ringdownAt(p) + ring.decay * FADED }]),
     markers: (p, reduced) => reduced ? [] : [{ time: ringdownAt(p), label: 'ringdown' }]
   },
   {
     key: 'gravityWave',
-    label: 'Gravitational wave',
+    label: 'Gravitational Wave',
     layer: 'gravityWave',
     params: ['gravityWaveGain'],
     // The wobble leaves the hole as the ringdown starts; its last ripples pass the farthest corner,
@@ -176,24 +179,24 @@ export const INTRO_TRACKS: IntroTrack[] = [
       'titleExit', 'dissolveAt', 'dissolveDuration', 'titleGrain', 'titleFallEase', 'titleDrift', 'titleTidal', 'titleSwirl', 'titleSpiral',
       'titleSpread', 'titleStream', 'titleOrder', 'titleTrail', 'titleHeat', 'titleRedshift'
     ],
-    readout: { key: 'titleAlpha', digits: 2 },
+    readout: { key: 'titleAlpha', digits: 0, short: 'opacity', scale: 100, unit: '%', name: 'Title opacity' },
     spans: (p, reduced) => [reduced ? { start: 0.6, end: 2.5 } : { start: titleStart(p), end: p.dissolveAt + p.dissolveDuration }],
     markers: (p, reduced) => reduced
       ? [{ time: 0.6, label: 'title' }, { time: 2, label: 'title out' }]
       : Math.round(p.titleEntrance) === 0
-        ? [{ time: p.dissolveAt, label: 'dissolve' }]
-        : [{ time: p.titleInAt, label: 'title in' }, { time: p.dissolveAt, label: 'dissolve' }]
+        ? [{ time: p.dissolveAt, label: 'title out' }]
+        : [{ time: p.titleInAt, label: 'title in' }, { time: p.dissolveAt, label: 'title out' }]
   },
   {
     key: 'camera',
-    label: 'Camera and film',
+    label: 'Camera and Film',
     layer: 'camera',
     params: ['cameraZoom', 'cameraSettle', 'cameraKick', 'shakeAmount', 'shakeDecay', 'lensFringe', 'vignette', 'filmGrain', 'letterbox'],
     spans: (p, reduced) => full(reduced, [{ start: 0, end: p.introEnd }])
   },
   {
     key: 'motion',
-    label: 'Black hole motion',
+    label: 'Black Hole Motion',
     params: ['releaseAt', 'introEnd', 'centerHoldFrequency', 'originAtHole'],
     spans: (p, reduced) => [{ start: 0, end: reduced ? REDUCED_INTRO_END : p.releaseAt }],
     markers: (p, reduced) => reduced
@@ -204,19 +207,19 @@ export const INTRO_TRACKS: IntroTrack[] = [
     key: 'flight',
     label: 'Flight',
     params: [],
-    readout: { key: 'speed', digits: 2 },
+    readout: { key: 'speed', digits: 2, short: 'speed', name: 'Flight speed' },
     spans: () => [{ start: 0, end: 0, holds: true }]
   },
   {
     key: 'doppler',
-    label: 'Doppler shift',
+    label: 'Doppler Shift',
     layer: 'doppler',
     params: [],
     spans: () => [{ start: 0, end: 0, holds: true }]
   },
   {
     key: 'gravity',
-    label: 'Particle gravity',
+    label: 'Particle Gravity',
     layer: 'gravity',
     params: [],
     spans: () => [{ start: 0, end: 0, holds: true }]
@@ -234,10 +237,25 @@ export function getIntroMarkers (reducedMotion: boolean, p: IntroParams): IntroM
     .sort((a, b) => a.time - b.time)
 }
 
+// The last list worked out, reused while the parameters stay the same object: a pointer over the timeline
+// and the readout ask for the phase far more often than the parameters change. Shared, so never mutated
+let cachedParams: IntroParams | null = null
+let cachedReduced = false
+let cachedMarkers: readonly IntroMarker[] = []
+export function getCachedIntroMarkers (reducedMotion: boolean, p: IntroParams): readonly IntroMarker[] {
+  if (p !== cachedParams || reducedMotion !== cachedReduced) {
+    cachedMarkers = getIntroMarkers(reducedMotion, p)
+    cachedParams = p
+    cachedReduced = reducedMotion
+  }
+  return cachedMarkers
+}
+
 export function getIntroPhase (t: number, reducedMotion: boolean, p: IntroParams) {
   let phase = ''
-  for (const marker of getIntroMarkers(reducedMotion, p)) {
+  for (const marker of getCachedIntroMarkers(reducedMotion, p)) {
     if (t >= marker.time) phase = marker.label
+    else break
   }
   return phase
 }

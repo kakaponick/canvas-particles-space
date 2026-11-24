@@ -101,30 +101,90 @@ html::-webkit-scrollbar {
   display: none;
 }
 
-@keyframes pulse {
-  0%, 100% { box-shadow: 0 0 20px var(--neon-cyan); }
-  50% { box-shadow: 0 0 40px var(--neon-cyan), 0 0 60px var(--neon-cyan); }
+/* What a setting does, under it. Always in the page for screen readers; shown while HELP is on */
+.setting-description {
+  display: none;
+  padding: 2px 12px 6px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: rgb(224 224 224 / 0.8);
+}
+
+:root[data-descriptions='on'] .setting-description {
+  display: block;
+}
+
+/* A small hint in a header (a key to press), shown with HELP and only where there is a keyboard */
+.help-only {
+  display: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  :root[data-descriptions='on'] .help-only {
+    display: inline-block;
+  }
+}
+
+/* An expanded intro track's parameters; with HELP on the cells widen so each one-line hint fits its cell */
+.intro-param-grid {
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+
+:root[data-descriptions='on'] .intro-param-grid {
+  grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
+}
+
+/* The first-visit hints step aside while the intro debugger is open: its user is tuning the intro, and on
+   a phone the lifted hint line would sit on the replayed title. They step aside for open Settings too,
+   which would cut the centred line in two */
+:root[data-intro-open] .interaction-hints,
+:root[data-settings-open] .interaction-hints {
+  display: none;
+}
+
+/* On a phone the open intro debugger lifts the scene buttons onto the replayed title; they go to the top */
+@media (max-width: 639px) {
+  :root[data-intro-open] .scene-buttons {
+    top: 1.25rem;
+    bottom: auto;
+    margin-bottom: 0 !important;
+  }
+}
+
+/* With Settings open on a wide screen, the intro debugger moves over so neither covers the other */
+@media (min-width: 768px) {
+  :root[data-settings-open] [data-intro-dock] {
+    left: min(340px, 100vw);
+  }
+
+  /* One HELP is enough while both panels show: the one in Settings serves both */
+  :root[data-settings-open] [data-intro-dock] .descriptions-toggle {
+    display: none;
+  }
 }
 
 /* The intro debugger's seek bar: track, played part, chapter cuts and the playhead's handle share one
    centre line, and thicken together while the bar is hovered, focused or dragged */
 .seek-bar {
   --seek-line: 9px;
-  --seek-height: 4px;
 }
 
-.seek-bar:hover,
-.seek-bar:focus-visible,
-.seek-bar:active {
-  --seek-height: 6px;
-}
-
+/* Drawn at the full 6px and squashed to 4px around the centre line at rest, so the thickening is a scale
+   the compositor runs, not a change of height that runs layout */
 .seek-track,
 .seek-fill,
 .seek-cut {
-  bottom: calc(var(--seek-line) - var(--seek-height) / 2);
-  height: var(--seek-height);
-  transition: height 150ms cubic-bezier(0.16, 1, 0.3, 1), bottom 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  bottom: calc(var(--seek-line) - 3px);
+  height: 6px;
+  scale: 1 0.667;
+  transform-origin: center;
+  transition: scale 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.seek-bar:hover :is(.seek-track, .seek-fill, .seek-cut),
+.seek-bar:focus-visible :is(.seek-track, .seek-fill, .seek-cut),
+.seek-bar:active :is(.seek-track, .seek-fill, .seek-cut) {
+  scale: 1 1;
 }
 
 .seek-thumb {
@@ -163,7 +223,21 @@ html::-webkit-scrollbar {
   background: rgba(255, 255, 255, 0.05);
 }
 
+/* A quiet thumb, so the section titles and values lead; it lights up under the pointer */
 .overflow-y-auto::-webkit-scrollbar-thumb {
-  background: theme('colors.neon-cyan');
+  background: theme('colors.neon-cyan / 40%');
   border-radius: 3px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb:hover {
+  background: theme('colors.neon-cyan / 80%');
+}
+
+/* The intro preset row scrolls sideways and fades out at its end, so it reads as one that
+   scrolls; the end padding lets the last preset scroll clear of the fade */
+.preset-scroller {
+  padding-inline-end: 1.5rem;
+  /* A preset reached by Tab scrolls clear of the fade, so its focus outline shows */
+  scroll-padding-inline-end: 1.5rem;
+  mask-image: linear-gradient(to right, #000 calc(100% - 1.5rem), transparent);
 }

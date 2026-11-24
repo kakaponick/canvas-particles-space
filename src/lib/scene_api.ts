@@ -11,14 +11,16 @@ import { DEFAULT_PRESET, usePresetStore } from '../store/preset_store'
 import { useIntroDebugStore, DEFAULT_TITLE_TEXT, type TitleText } from '../store/intro_debug_store'
 import { BUILT_IN_INTRO_PRESETS, useIntroPresetStore } from '../store/intro_preset_store'
 import { SIMULATION_SETTING_KEYS } from './simulation_presets'
-import { SIMULATION_SETTING_SPECS } from './simulation_specs'
-import { DEFAULT_INTRO_PARAMS, INTRO_PARAM_SPECS, colorToCss, cssToColor, type IntroParamKey } from './intro_params'
+import { SIMULATION_SETTING_SPECS, type SimulationSettingSpec } from './simulation_specs'
+import { DEFAULT_INTRO_PARAMS, INTRO_PARAM_SPECS, colorToCss, cssToColor, introParamName, type IntroParamKey } from './intro_params'
 import { INTRO_LAYERS, type IntroLayer } from './intro_tracks'
 import { TITLE_FONTS, type TitleFontKey } from './title_sprite'
 
 type Patch = Record<string, unknown>
 
-const SLIDERS = SIMULATION_SETTING_SPECS as Record<string, { label: string, min: number, max: number, step: number, description: string }>
+const SLIDERS = SIMULATION_SETTING_SPECS as Record<string, SimulationSettingSpec>
+// The full name: the panel's short label ("Size", "Brightness") leans on its section, which this API does not show
+const sliderName = (spec: SimulationSettingSpec) => spec.spokenName ?? spec.label
 const TOGGLES: Record<string, string> = {
   blackHoleFollowing: 'The black hole follows the cursor; false anchors it at blackHoleX, blackHoleY.',
   ringEnabled: 'Photon ring around the shadow.',
@@ -132,8 +134,8 @@ function describeSettings (filter?: string) {
   const state = useParticleStore.getState() as unknown as Record<string, unknown>
   const defaults = DEFAULT_PRESET.settings as unknown as Record<string, unknown>
   const sliders = Object.entries(SLIDERS)
-    .filter(([key, spec]) => matches(filter, key, spec.label, spec.description))
-    .map(([key, spec]) => ({ key, label: spec.label, value: state[key], default: defaults[key], min: spec.min, max: spec.max, step: spec.step, description: spec.description }))
+    .filter(([key, spec]) => matches(filter, key, sliderName(spec), spec.description))
+    .map(([key, spec]) => ({ key, label: sliderName(spec), value: state[key], default: defaults[key], min: spec.min, max: spec.max, step: spec.step, description: spec.description }))
   const toggles = Object.entries(TOGGLES)
     .filter(([key, description]) => matches(filter, key, description))
     .map(([key, description]) => ({ key, value: state[key], default: defaults[key] ?? true, description }))
@@ -208,12 +210,13 @@ function introValue (key: IntroParamKey, value: number) {
 function describeIntro (filter?: string) {
   const { params } = useIntroDebugStore.getState()
   return INTRO_KEYS
-    .filter(key => matches(filter, key, INTRO_PARAM_SPECS[key].label, INTRO_PARAM_SPECS[key].description))
+    .filter(key => matches(filter, key, introParamName(INTRO_PARAM_SPECS[key]), INTRO_PARAM_SPECS[key].description))
     .map(key => {
       const spec = INTRO_PARAM_SPECS[key]
       return {
         key,
-        label: spec.label,
+        // The full name: the panel's short label leans on its track, which this list does not show
+        label: introParamName(spec),
         value: introValue(key, params[key]),
         default: introValue(key, DEFAULT_INTRO_PARAMS[key]),
         ...(spec.color ? { type: 'colour' } : spec.options ? { options: spec.options } : { min: spec.min, max: spec.max, step: spec.step, unit: spec.unit }),

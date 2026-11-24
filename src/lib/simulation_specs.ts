@@ -1,6 +1,6 @@
-// Name, range, step and meaning of every numeric simulation setting. The Settings panel builds its
-// sliders from here, and the agent API (scene_api.ts) describes and validates settings with it, so a
-// setting is described in exactly one place.
+// Name, range, step, display format and meaning of every numeric simulation setting. The Settings panel
+// builds its sliders from here, and the agent API (scene_api.ts) describes and validates settings with it,
+// so a setting is described in exactly one place.
 import { BASE_SPEED_MAX, BASE_SPEED_MIN, BASE_SPEED_STEP } from './base_speed'
 
 export interface SimulationSettingSpec {
@@ -8,103 +8,119 @@ export interface SimulationSettingSpec {
   min: number
   max: number
   step: number
+  // The value as the panel shows it and a screen reader says it, with its unit
+  format: (value: number) => string
+  // One line under the slider in the panel (at most 42 characters): what it changes
+  hint: string
+  // The full explanation, for the agent API
   description: string
+  // The name screen readers use where the short visible label leans on its section ("Brightness")
+  spokenName?: string
 }
 
-const spec = (label: string, min: number, max: number, step: number, description: string): SimulationSettingSpec =>
-  ({ label, min, max, step, description })
+const spec = (label: string, min: number, max: number, step: number, format: (value: number) => string, hint: string, description: string): SimulationSettingSpec =>
+  ({ label, min, max, step, format, hint, description })
+
+// Gives a spec the name screen readers use; it contains the visible label, so voice control finds it too
+const spoken = (setting: SimulationSettingSpec, spokenName: string): SimulationSettingSpec => ({ ...setting, spokenName })
+
+const fixed = (digits: number, unit = '') => (value: number) => `${value.toFixed(digits)}${unit}`
+const count = (value: number) => Math.round(value).toLocaleString('en-US')
+const percentOfOne = (value: number) => `${Math.round(value * 100)}%`
+const percentOfOneFine = (value: number) => `${(value * 100).toFixed(1)}%`
+const degrees = (value: number) => `${Math.round(value * 180 / Math.PI)}°`
 
 export const SIMULATION_SETTING_SPECS = {
-  numParticles: spec('Particles', 500, 200000, 500,
-    'Total number of particles rendered in the scene. Higher values create denser visuals but may impact performance; with Particle Budget on AUTO the count is trimmed to what your processor keeps up with.'),
-  farZ: spec('Particle Render Depth', 500, 50000, 500,
-    'Maximum depth distance for particle field. Controls how far particles travel before recycling. Larger values create a deeper sense of space.'),
-  baseSpeed: spec('Base Speed', BASE_SPEED_MIN, BASE_SPEED_MAX, BASE_SPEED_STEP,
+  numParticles: spoken(spec('Count', 500, 200000, 500, count, 'How many particles fly at once',
+    'Total number of particles rendered in the scene. Higher values create denser visuals but may impact performance; with Particle Budget ON the count is trimmed to what your processor keeps up with.'), 'Particle Count'),
+  farZ: spec('Field Depth', 500, 50000, 500, count, 'How deep the field reaches, in scene units',
+    'How deep the particle field reaches, in scene units: how far particles fly before they are recycled. Larger values feel deeper.'),
+  baseSpeed: spec('Base Speed', BASE_SPEED_MIN, BASE_SPEED_MAX, BASE_SPEED_STEP, fixed(1), 'How fast the field flies',
     'Speed of the flight through space. Scrolling over the scene changes it too: down is faster, up is slower.'),
-  scrollSpeedStep: spec('Scroll Speed Step', 0, 10, 0.1,
+  scrollSpeedStep: spec('Scroll Speed Step', 0, 10, 0.1, fixed(1), 'Speed change per wheel notch; 0 = off',
     'How much one notch of the mouse wheel over the scene changes Base Speed; a swipe on a touch screen follows it too. 0 turns scrolling the speed off.'),
-  speedVariance: spec('Speed Variance', 0, 3, 0.05,
+  speedVariance: spec('Speed Variance', 0, 3, 0.05, fixed(2), 'Spread of speeds between particles',
     'Randomizes individual particle speeds. 0 = uniform speed, higher values create more speed variation for organic, natural movement. Above 1 a few particles turn into very fast streaks.'),
-  trailIntensity: spec('Trail Length', 0, 1, 0.01,
-    'Controls motion blur trail effect. Lower values create longer, more pronounced trails. Higher values produce shorter, crisper trails.'),
-  particleSize: spec('Particle Size', 0.3, 20, 0.1,
-    'Stroke width of the nearest particles. Particles get thinner with distance, down to 0.3 px at the far end of the field.'),
-  spawnRadius: spec('Spawn Radius', 50, 5000, 50,
-    'Radius of the disc particles are born in. A smaller disc keeps more particles on screen and close to the camera, a larger one spreads them out and sends more of them past the edges. Particles already flying keep their place until they are recycled.'),
-  baseBrightness: spec('Base Brightness', 0, 10, 0.1,
+  trailIntensity: spec('Trail Fade', 0, 1, 0.01, fixed(2), 'Higher: shorter trails',
+    'How fast trails fade behind the particles. Lower values leave longer trails, higher values shorter, crisper ones.'),
+  particleSize: spoken(spec('Size', 0.3, 20, 0.1, fixed(1, ' px'), 'Width of the nearest particles',
+    'Stroke width of the nearest particles. Particles get thinner with distance, down to 0.3 px at the far end of the field.'), 'Particle Size'),
+  spawnRadius: spec('Spawn Radius', 50, 5000, 50, count, 'Birth disc radius, in scene units',
+    'Radius of the disc particles are born in, in scene units. Smaller keeps more particles on screen and close; larger spreads them past the edges.'),
+  baseBrightness: spec('Base Brightness', 0, 10, 0.1, fixed(1, '×'), 'Multiplies every particle\'s brightness',
     'Global brightness multiplier for all particles. Values above 1.0 increase luminosity, below 1.0 create dimmer effects.'),
-  speedGlow: spec('Speed Glow', 0, 5, 0.05,
+  speedGlow: spec('Speed Glow', 0, 5, 0.05, fixed(2), 'Higher: only fast particles glow',
     'How strongly brightness follows a particle\'s speed. 0 = every moving particle is fully lit, 1 = slow particles are dimmer and fast ones brighter, higher values leave only the fast ones glowing. A particle that stands still is always dark.'),
-  depthFade: spec('Depth Fade', -1, 3, 0.05,
+  depthFade: spec('Depth Fade', -1, 3, 0.05, fixed(2), 'Higher: far particles fade more',
     'Controls how much particle opacity decreases with distance. 0 = uniform brightness, 1 = far particles fade out, above 1 they vanish sooner, below 0 far particles are the brighter ones.'),
-  minOpacity: spec('Min Opacity', 0, 1, 0.01,
+  minOpacity: spec('Min Opacity', 0, 1, 0.01, percentOfOne, 'Floor for far, faint particles',
     'Minimum allowed opacity for particles. Prevents particles from becoming completely invisible at maximum depth.'),
-  maxOpacity: spec('Max Opacity', 0, 1, 0.01,
+  maxOpacity: spec('Max Opacity', 0, 1, 0.01, percentOfOne, 'Ceiling for near, bright particles',
     'Maximum allowed opacity for particles. Useful for creating subtle, semi-transparent effects at close range.'),
-  pulseIntensity: spec('Pulse Intensity', 0, 3, 0.05,
+  pulseIntensity: spec('Pulse Intensity', 0, 3, 0.05, fixed(2), 'Strength of the brightness pulse',
     'Amplitude of the pulsating brightness effect. Higher values create more dramatic oscillations in particle luminosity.'),
-  pulseSpeedMultiplier: spec('Pulse Speed', 0, 20, 0.1,
+  pulseSpeedMultiplier: spec('Pulse Speed', 0, 20, 0.1, fixed(1, '×'), 'Pulse rate; 0 = no pulse',
     'Speed multiplier for the pulsating effect. Higher values create faster breathing animations. Set to 0 to disable pulsation.'),
-  starsBrightness: spec('Stars Brightness', 0, 10, 0.05,
-    'Overall brightness of the distant background stars.'),
-  starDensity: spec('Stars Density', 0, 1, 0.01,
-    'Share of the star grid cells that hold a star.'),
-  starCell: spec('Stars Spacing', 4, 200, 1,
-    'Size of one star grid cell; smaller cells mean more, closer stars.'),
-  blackHoleSize: spec('Black Hole Size', 0, 60, 0.5,
-    'Radius of the black hole\'s shadow as a share of the screen\'s short side. The photon ring, the lens and the strength and reach of gravity grow with it. 0 removes the black hole.'),
-  eventHorizon: spec('Event Horizon', 0, 60, 0.5,
+  starsBrightness: spoken(spec('Brightness', 0, 10, 0.05, fixed(2, '×'), 'Brightness of the background stars',
+    'Overall brightness of the distant background stars.'), 'Star Brightness'),
+  starDensity: spoken(spec('Density', 0, 1, 0.01, percentOfOne, 'Share of grid cells that hold a star',
+    'Share of the star grid cells that hold a star.'), 'Star Density'),
+  starCell: spoken(spec('Spacing', 4, 200, 1, fixed(0, ' px'), 'Grid cell size; smaller packs stars closer',
+    'Size of one star grid cell; smaller cells mean more, closer stars.'), 'Star Spacing'),
+  blackHoleSize: spoken(spec('Size', 0, 60, 0.5, fixed(1, '%'), 'Shadow radius, % of short side; 0 = none',
+    'Radius of the black hole\'s shadow as a share of the screen\'s short side. The photon ring, the lens and the strength and reach of gravity grow with it. 0 removes the black hole.'), 'Black Hole Size'),
+  eventHorizon: spec('Event Horizon', 0, 60, 0.5, fixed(1, '%'), 'Capture radius, % of short side; 0 = none',
     'Radius of no return as a share of the screen\'s short side. Particles that cross it are destroyed and recycled. Below the black hole size they vanish inside the shadow; above it they vanish before reaching it; 0 lets them fly through.'),
-  gravityReach: spec('Gravity Reach', 0, 40, 0.5,
+  gravityReach: spec('Gravity Reach', 0, 40, 0.5, fixed(1, '×'), 'How far gravity reaches, in hole radii',
     'How far the black hole\'s gravity reaches, in multiples of its size. Particles within this distance are affected by gravity and orbital forces.'),
-  blackHoleDepth: spec('Black Hole Depth', 0, 100, 1,
-    'How deep in the particle field the black hole sits, as a share of Particle Render Depth. Its gravity is strongest for particles at this depth.'),
-  gravityDepth: spec('Gravity Depth', 1, 100, 1,
-    'How thick the layer of particles that gravity acts on is, as a share of Particle Render Depth. Gravity fades with distance from the black hole\'s depth and ends at twice this value; 50% and above reaches the whole field.'),
-  gravityStrength: spec('Gravity', -20, 50, 0.5,
+  blackHoleDepth: spoken(spec('Depth', 0, 100, 1, fixed(0, '%'), 'Where the hole sits, % of Field Depth',
+    'How deep in the field the black hole sits, as a share of Field Depth. Its gravity is strongest for particles at this depth.'), 'Black Hole Depth'),
+  gravityDepth: spec('Gravity Layer', 1, 100, 1, fixed(0, '%'), 'Pulled layer thickness, % of Field Depth',
+    'Thickness of the layer gravity acts on, as a share of Field Depth. Gravity fades away from the black hole\'s depth and ends at twice this; 50% and above reaches the whole field.'),
+  gravityStrength: spec('Gravity', -20, 50, 0.5, fixed(1), 'Pull toward the hole; negative pushes',
     'Strength of gravitational attraction toward the black hole center. Higher values create stronger inward pull on particles. Negative values push them away.'),
-  orbitalStrength: spec('Orbital Force', -500, 500, 5,
+  orbitalStrength: spec('Orbital Force', -500, 500, 5, fixed(0), 'Swirl around the hole; sign sets direction',
     'Tangential force that causes particles to orbit around the black hole. Creates swirling, accretion disk-like motion patterns. Negative values swirl the other way.'),
-  followFrequency: spec('Follow Stiffness', 0.1, 60, 0.1,
+  followFrequency: spec('Follow Stiffness', 0.1, 60, 0.1, fixed(1, ' rad/s'), 'Lower: the hole trails the cursor more',
     'How quickly the black hole catches up with the cursor; lower values feel heavier.'),
-  blackHoleX: spec('Position X', 0, 1, 0.01,
-    'Where the black hole rests, from the left edge of the screen to the right. Moving the slider anchors the black hole there. The position is saved in presets, and the intro can start from it (Start At Black Hole in the intro debugger). A double-click returns it to the middle.'),
-  blackHoleY: spec('Position Y', 0, 1, 0.01,
-    'Where the black hole rests, from the top edge of the screen to the bottom. Moving the slider anchors the black hole there. A double-click returns it to the middle.'),
-  ringBrightness: spec('Ring Brightness', 0, 10, 0.05,
-    'Brightness of the photon ring at the edge of the shadow.'),
-  ringWidth: spec('Ring Thickness', 0.001, 0.25, 0.001,
-    'Thickness of the photon ring in black hole radii. It never gets thinner than about a pixel and a half.'),
-  ringDoppler: spec('Doppler Contrast', 0, 1, 0.01,
+  blackHoleX: spec('Position X', 0, 1, 0.01, percentOfOne, 'Anchor, left to right; turns Follow off',
+    'Where the black hole rests, from the left edge to the right. Moving it anchors the black hole there. Saved in presets. Double-click: back to the middle.'),
+  blackHoleY: spec('Position Y', 0, 1, 0.01, percentOfOne, 'Anchor, top to bottom; turns Follow off',
+    'Where the black hole rests, from the top edge to the bottom. Moving it anchors the black hole there. Double-click: back to the middle.'),
+  ringBrightness: spoken(spec('Brightness', 0, 10, 0.05, fixed(2, '×'), 'Brightness of the photon ring',
+    'Brightness of the photon ring at the edge of the shadow.'), 'Ring Brightness'),
+  ringWidth: spoken(spec('Thickness', 0.001, 0.25, 0.001, percentOfOneFine, 'Ring thickness, % of hole radius',
+    'Thickness of the photon ring in black hole radii. It never gets thinner than about a pixel and a half.'), 'Ring Thickness'),
+  ringDoppler: spec('Doppler Contrast', 0, 1, 0.01, fixed(2), 'Contrast of the bright and dim sides',
     'How much brighter and bluer the approaching side of the ring is than the dim, red receding side.'),
-  ringSide: spec('Bright Side', 0, 6.28, 0.05,
+  ringSide: spec('Bright Side', 0, 6.28, 0.05, degrees, 'Bright side\'s direction; 0° = right',
     'Direction of the bright, approaching side around the ring.'),
-  ringBase: spec('Ring Base Light', 0, 3, 0.01,
+  ringBase: spec('Base Light', 0, 3, 0.01, fixed(2), 'Ring glow with nothing falling in',
     'How brightly the photon ring shines when nothing is falling into the black hole.'),
-  ringFeed: spec('Infall Response', 0, 10, 0.01,
+  ringFeed: spec('Infall Strength', 0, 10, 0.01, fixed(2), 'How brightly infall lights the ring',
     'How much the ring lights up where particles fall into or skim past the black hole.'),
-  ringAfterglow: spec('Ring Afterglow', 0.05, 30, 0.05,
+  ringAfterglow: spec('Afterglow', 0.05, 30, 0.05, fixed(2, ' s'), 'How long infall light lingers',
     'How long the light left by infalling particles lingers on the ring.'),
-  ringFlowSpeed: spec('Ring Flow Speed', -10, 10, 0.05,
+  ringFlowSpeed: spec('Flow Speed', -10, 10, 0.05, fixed(2, ' rad/s'), 'Bright patches\' speed; sign sets direction',
     'How fast the bright patches travel around the ring. Negative values turn them the other way.'),
-  lensingRadius: spec('Lensing Radius', 0, 8, 0.05,
-    'Radius of the Einstein ring, in multiples of the black hole radius. Light from behind the black hole is bent into a ring this size; larger values distort more of the sky. 0 turns the lens off.'),
-  lensingReach: spec('Lens Reach', 0, 1, 0.05,
-    'How far the lens is felt outside its ring. 0 = a compact bubble, as in the original version: the distortion dies off quickly and the rest of the sky stays in place. 1 = a point mass (realistic): the whole sky is pulled, weaker with distance.'),
-  lensingRotation: spec('Angular Deflection', -10, 10, 0.05,
-    'Controls the rotational/swirling distortion around the black hole. 0 = no rotation, higher values create spiral vortex effects like light orbiting the event horizon, negative values twist the other way.'),
-  lensingTwistLimit: spec('Twist Limit', 0, 64, 0.5,
-    'How far Angular Deflection winds up toward the black hole. The twist equals Angular Deflection at the Einstein ring and grows inward up to this many times. Low values keep a larger Lensing Radius a bigger bubble with the same gentle twist; high values wind the inside of a wide lens into a tight spiral. 0 removes the twist.'),
-  lensingFalloff: spec('Lensing Falloff', 0.5, 4, 0.1,
-    'How the pull of the lens changes with distance. Below 1 the lens almost disappears, 2 is a point mass (realistic), 3 and above widen the lens and its dark zone far around the black hole.'),
-  lensingPivot: spec('Falloff Pivot', 1, 300, 1,
-    'Distance from the black hole, as a share of the screen\'s short side, where Lensing Falloff changes nothing. Closer than this a higher falloff pulls harder, farther away it pulls less. At 100% a higher falloff strengthens the lens over the whole screen; set it to the Einstein ring\'s radius (Black Hole Size times Lensing Radius) and falloff reshapes the lens without resizing it.'),
-  lensingMaxBend: spec('Inner Rings', 1, 256, 1,
-    'Cap on how hard the lens can pull. Inside the Einstein ring a stronger pull folds the sky into more nested, mirrored rings; 1 leaves none, higher values allow more of them toward the centre.'),
-  lensingCore: spec('Lens Core', 0, 2, 0.05,
+  lensingRadius: spec('Einstein Radius', 0, 8, 0.05, fixed(2, '×'), 'Lens ring size, in hole radii; 0 = no lens',
+    'Radius of the Einstein ring, in black hole radii: light from behind the hole is bent into a ring this size. 0 turns the lens off.'),
+  lensingReach: spoken(spec('Reach', 0, 1, 0.05, fixed(2), '0 = compact bubble · 1 = whole sky bends',
+    'How far the lens is felt outside its ring. 0 = a compact bubble, the rest of the sky stays put; 1 = a point mass (realistic), the whole sky is pulled, weaker with distance.'), 'Lens Reach'),
+  lensingRotation: spec('Twist', -10, 10, 0.05, fixed(2), 'Swirl of the sky; sign sets direction',
+    'Swirl of the sky around the black hole, like light orbiting it. 0 = none; negative values twist the other way.'),
+  lensingTwistLimit: spec('Twist Limit', 0, 64, 0.5, fixed(1, '×'), 'How tightly the swirl winds inward',
+    'How far Twist winds up toward the black hole: it equals Twist at the Einstein ring and grows inward up to this many times. Low keeps a gentle twist, high a tight spiral. 0 removes it.'),
+  lensingFalloff: spec('Falloff', 0.5, 4, 0.1, fixed(1), '2 = realistic · higher widens the lens',
+    'How the pull of the lens changes with distance. Below 1 the lens almost disappears, 2 is a point mass (realistic), 3 and above widen the lens and its dark zone.'),
+  lensingPivot: spec('Falloff Pivot', 1, 300, 1, fixed(0, '%'), 'No-effect distance, % of short side',
+    'Distance from the black hole, as a share of the screen\'s short side, where Falloff changes nothing: nearer, a higher falloff pulls harder; farther, it pulls less.'),
+  lensingMaxBend: spec('Fold Limit', 1, 256, 1, fixed(0), 'Higher: more nested rings in the lens',
+    'Cap on how hard the lens can pull. Inside the Einstein ring a stronger pull folds the sky into more nested, mirrored rings; 1 leaves none.'),
+  lensingCore: spec('Core', 0, 2, 0.05, fixed(2, '×'), 'Higher: more detail inside the ring',
     'How far from the point right behind the black hole the bent rays stay, in Einstein ring radii. 0 smears that single point into a flat band along the ring; higher values fill the ring with detail from farther around it.'),
-  lensingAbsorption: spec('Light Absorption', 0, 5, 0.05,
-    'How much light the pull of the lens removes around the black hole. 0 = none; higher values open a wider dark zone around the shadow. The zone also grows with Lensing Radius and Lensing Falloff.')
+  lensingAbsorption: spec('Light Absorption', 0, 5, 0.05, fixed(2), 'Dark zone around the shadow; 0 = none',
+    'How much light the pull of the lens removes around the black hole. 0 = none; higher values open a wider dark zone, which also grows with Einstein Radius and Falloff.')
 } satisfies Record<string, SimulationSettingSpec>
 
 export type SimulationSliderKey = keyof typeof SIMULATION_SETTING_SPECS

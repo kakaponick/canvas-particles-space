@@ -1,33 +1,78 @@
-import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
-import { Pause, Play, Repeat, RotateCcw, StepForward, X } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Fragment, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
+import { Keyboard, Pause, Play, Repeat, RotateCcw, StepForward, X } from 'lucide-react'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { cn, isTextEntry, prefersReducedMotion } from '@/lib/utils'
 import { useIntroDebugStore } from '../../store/intro_debug_store'
-import { getIntroMarkers } from '../../lib/intro_tracks'
+import { getCachedIntroMarkers } from '../../lib/intro_tracks'
+import type { IntroParams } from '../../lib/intro_params'
 import SliderControl from './slider_control'
 import ToggleButton from './toggle_button'
 import HelpTooltip from './help_tooltip'
 import IntroTrackList from './intro_track_list'
 import IntroPresetBar from './intro_preset_bar'
+import DescriptionsToggle from './descriptions_toggle'
 
 // Pausing is the PLAY button's job, so the speed never reaches zero
 const MIN_SPEED = 0.05
-const SPEED_PRESETS = [0.1, 0.25, 0.5, 1, 2]
+// Read by screen readers only: in the header the hint would push the slider off the transport's line
+const SPEED_HINT = 'Intro pace, kept after the debugger closes'
 const SEEK_STEP = 0.1
 const FRAME = 1 / 60
 
-// Dock height: dragged by its top edge, kept across reloads
+// Dock height: dragged by its top edge, kept across reloads. A phone gives the timeline more of the screen
 const HEIGHT_STORAGE_KEY = 'intro-debug-dock-height'
 const MIN_HEIGHT = 160
 const MAX_HEIGHT_SHARE = 0.85
 const HEIGHT_STEP = 40
+const PHONE_WIDTH = 640
+// A press on the grip resizes once it moves this far; two presses that stay put this close together switch
+// the height
+const GRIP_SLOP = 4
+const DOUBLE_TAP_MS = 400
 
-const reducedMotion = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+// Key, then what it does. The single keys work while the focus is in the debugger; the side arrows, Home and
+// End also from the page itself. PageUp and PageDown on the time bar stay in its aria-keyshortcuts only
+const SHORTCUTS: ReadonlyArray<readonly [string, string]> = [
+  ['Space', 'Play or pause'],
+  ['← → ↑ ↓', 'Step 0.1 s on the time bar (Shift: 1 frame)'],
+  ['[ ]', 'Previous or next moment'],
+  ['Home End', 'Jump to start or end'],
+  ['.', 'Next frame'],
+  ['R', 'Restart'],
+  ['L', 'Loop on or off'],
+  ['Delete', 'Reset the focused slider'],
+  ['Alt+Enter', 'Show only this layer (on its eye)'],
+  ['Alt+Shift+D', 'Open or close, from anywhere']
+]
 
-const SHORTCUTS = 'While the focus is in the debugger or on the page: Space: play or pause (a focused button takes Space itself) · ← →: 0.1 s back or forward, with Shift one frame · Page Up, Page Down on the timeline: 1 s · [ ]: previous or next moment · Home, End: start or end · . one frame forward · R: restart · L: loop · Shift+D anywhere: open or close'
+const shortcutList = (
+  <div className="py-0.5">
+    <p className="mb-1.5 text-text-light/70">While the focus is in the debugger</p>
+    <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
+      {SHORTCUTS.map(([keys, action]) => (
+        <Fragment key={keys}>
+          <dt className="whitespace-nowrap text-neon-cyan">{keys}</dt>
+          <dd>{action}</dd>
+        </Fragment>
+      ))}
+    </dl>
+  </div>
+)
+
+// The header's buttons share one height: a finger's 32 px on a phone, 28 px from sm up
+const transportButton = 'h-8 sm:h-7'
 
 function formatSpeed (speed: number) {
-  return `${speed.toFixed(2)}×`
+  return `${Number(speed.toFixed(2))}×`
+}
+
+// The timeline's length until the loop publishes it: the last moment of the intro. The moments are worked
+// out once per change of the parameters, so the readout's frequent store updates only read the last one
+function selectDuration (state: { params: IntroParams, readout: { duration: number } }) {
+  if (state.readout.duration) return state.readout.duration
+  const markers = getCachedIntroMarkers(prefersReducedMotion, state.params)
+  return markers[markers.length - 1].time
 }
 
 // A slider that has the focus uses the arrow keys itself; the timeline ruler is the one that seeks
@@ -35,24 +80,67 @@ function isAdjustingSlider (target: EventTarget | null) {
   return target instanceof HTMLElement && target.getAttribute('role') === 'slider' && !target.hasAttribute('data-intro-ruler')
 }
 
-// A focused control that Space or Enter activates keeps those keys; they never play or pause behind it
+// A focused control that Space or Enter activates keeps those keys; they never play or pause behind it. A text
+// field never gets here, so `input` covers the rest, such as a colour swatch, whose picker Space opens
 function isActivatable (target: EventTarget | null) {
   return target instanceof HTMLElement &&
-    target.closest('button, a[href], summary, [role="button"], [role="checkbox"], [role="switch"], [role="tab"], [role="menuitem"], [role="option"]') !== null
+    target.closest('button, input, a[href], summary, [role="button"], [role="checkbox"], [role="switch"], [role="tab"], [role="menuitem"], [role="option"]') !== null
 }
 
-// The playback keys belong to the debugger: they work while the focus is in it or on the page itself, never
-// behind a control elsewhere, such as the Settings panel
+function isInDock (target: EventTarget | null) {
+  return target instanceof Element && target.closest('[data-intro-dock]') !== null
+}
+
+// The seeking keys work while the focus is in the debugger or on the page itself, never behind a control
+// elsewhere, such as the Settings panel
 function isInDebuggerScope (target: EventTarget | null) {
-  return !(target instanceof HTMLElement) || target === document.body || target.closest('[data-intro-dock]') !== null
+  return !(target instanceof HTMLElement) || target === document.body || isInDock(target)
 }
 
-function isTyping (target: EventTarget | null) {
-  return target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
+// Single keys with no modifier act only while the focus is in the debugger, so a stray key press elsewhere on
+// the page never restarts or pauses the intro
+const SINGLE_KEYS = new Set(['Space', 'KeyR', 'KeyL', 'Period', 'BracketLeft', 'BracketRight'])
+
+// The page-wide open and close: it has modifiers, so it works from a text field too. Matched by the physical
+// key, since Option+Shift+D types a character on a Mac and leaves `key` useless
+function isToggleShortcut (event: KeyboardEvent) {
+  return event.code === 'KeyD' && event.altKey && event.shiftKey && !event.ctrlKey && !event.metaKey
+}
+
+// A control that can take the focus: on the page and not hidden. The Settings button stays in the layout but
+// is hidden while Settings is open, and focus() on it then does nothing
+function isFocusable (element: HTMLElement | null): element is HTMLElement {
+  return element !== null && element.getClientRects().length > 0 && getComputedStyle(element).visibility !== 'hidden'
+}
+
+// Where the focus goes when the dock closes and takes it along: the control that held it before the dock
+// opened, or else the Settings button, or with Settings open its Intro debugger switch or the panel itself
+function restoreFocus (previous: Element | null) {
+  const active = document.activeElement
+  if (active && active !== document.body) return
+  const candidates = [
+    previous instanceof HTMLElement && previous.isConnected && previous !== document.body ? previous : null,
+    document.querySelector<HTMLElement>('button[aria-label="Settings"]'),
+    document.querySelector<HTMLElement>('[role="switch"][aria-label="Intro debugger"]'),
+    document.querySelector<HTMLElement>('[role="dialog"]')
+  ]
+  for (const candidate of candidates) {
+    if (!isFocusable(candidate)) continue
+    candidate.focus()
+    if (document.activeElement === candidate) return
+  }
+}
+
+function publishHeight (dock: HTMLElement) {
+  document.documentElement.style.setProperty('--intro-dock-height', `${dock.offsetHeight}px`)
 }
 
 function clampHeight (height: number) {
   return Math.round(Math.min(Math.max(height, MIN_HEIGHT), window.innerHeight * MAX_HEIGHT_SHARE))
+}
+
+function defaultHeight () {
+  return clampHeight(window.innerHeight * (window.innerWidth < PHONE_WIDTH ? 0.55 : 0.4))
 }
 
 function loadHeight () {
@@ -62,7 +150,7 @@ function loadHeight () {
   } catch {
     // Storage blocked: start at the default height
   }
-  return clampHeight(Number.isFinite(stored) && stored > 0 ? stored : window.innerHeight * 0.45)
+  return Number.isFinite(stored) && stored > 0 ? clampHeight(stored) : defaultHeight()
 }
 
 function saveHeight (height: number) {
@@ -73,22 +161,20 @@ function saveHeight (height: number) {
   }
 }
 
+// The phase name is a status, not a control, so it is not drawn in the accent. From sm up it keeps the width
+// of the longest moment's name, so the controls after it stay put while the intro plays; on a phone it ends
+// its row and takes what is left
 function TimeReadout ({ duration }: { duration: number }) {
   // The scene keeps running after the intro ends; the timeline stops at its end
   const time = useIntroDebugStore(state => Math.min(state.readout.time, duration))
   const phase = useIntroDebugStore(state => state.readout.phase)
   return (
-    <div className="flex items-baseline gap-2 tabular-nums">
-      <span className="text-sm text-text-light">{time.toFixed(2)} s</span>
-      <span className="text-text-light/60">/ {duration.toFixed(2)} s</span>
-      <span className="min-w-[5.5rem] text-neon-cyan">{phase || '—'}</span>
+    <div className="flex min-w-0 flex-1 items-baseline gap-1.5 tabular-nums [contain:layout_paint] sm:flex-none sm:gap-2">
+      <span className="shrink-0 text-sm text-text-light">{time.toFixed(2)} s</span>
+      <span className="shrink-0 text-text-light/60">/ {duration.toFixed(2)} s</span>
+      <span className="min-w-0 flex-1 truncate text-text-light/80 sm:w-[18ch] sm:flex-none">{phase || '—'}</span>
     </div>
   )
-}
-
-function SegmentCount () {
-  const drawn = useIntroDebugStore(state => state.readout.particlesDrawn)
-  return <span className="tabular-nums text-text-light/60" title="Particles drawn in the last frame">{drawn.toLocaleString('en-US')} particles drawn</span>
 }
 
 // Replays the opening on a multi-track timeline docked at the bottom: transport and playback speed
@@ -98,23 +184,57 @@ function IntroDebugger () {
   const playing = useIntroDebugStore(state => state.playing)
   const timeScale = useIntroDebugStore(state => state.timeScale)
   const loop = useIntroDebugStore(state => state.loop)
-  const params = useIntroDebugStore(state => state.params)
-  const readoutDuration = useIntroDebugStore(state => state.readout.duration)
+  // A number, so dragging an intro slider does not re-render the header and the preset bar
+  const duration = useIntroDebugStore(selectDuration)
   const actions = useIntroDebugStore.getState()
   const dockRef = useRef<HTMLElement>(null)
   const [height, setHeight] = useState(() => typeof window === 'undefined' ? 360 : loadHeight())
+  // A drag moves the dock's edge straight through the DOM, once per frame, and the height is committed to
+  // React when the drag ends, so the header does not re-render with every pointer move. While it lasts, the
+  // height is not published to the controls that sit above the dock either; they follow once it ends
+  // A press that has not yet moved past the slop is a click or a tap, and leaves the height alone
+  const drag = useRef<{ active: boolean, moved: boolean, startX: number, startY: number, height: number | null, frame: number }>(
+    { active: false, moved: false, startX: 0, startY: 0, height: null, frame: 0 }
+  )
+  // When the last click or tap on the grip ended; a second one soon after is a double-click or double-tap
+  const lastTapAt = useRef(-Infinity)
+  useEffect(() => () => window.cancelAnimationFrame(drag.current.frame), [])
+
+  // The control that held the focus when the dock opened takes it back when the dock closes with the focus in
+  // it, by its close button or by Alt+Shift+D, instead of leaving it on the page
+  const refocusOnClose = useRef(false)
+  useEffect(() => {
+    if (!open) return
+    const previous = document.activeElement
+    return () => {
+      if (refocusOnClose.current) restoreFocus(previous)
+      refocusOnClose.current = false
+    }
+  }, [open])
+
+  // Tells the page the dock is open, so the first-visit hints step aside and a phone moves the scene buttons
+  // off the replayed title (index.css)
+  useEffect(() => {
+    if (!open) return
+    const root = document.documentElement
+    root.dataset.introOpen = ''
+    return () => { delete root.dataset.introOpen }
+  }, [open])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (isTyping(event.target) || event.ctrlKey || event.metaKey || event.altKey) return
       const debug = useIntroDebugStore.getState()
-
-      if (event.shiftKey && event.code === 'KeyD') {
-        debug.setOpen(!debug.open)
+      if (isToggleShortcut(event)) {
         event.preventDefault()
+        // Held down, the key repeats; the dock opens or closes once per press
+        if (event.repeat) return
+        refocusOnClose.current = debug.open && isInDock(document.activeElement)
+        debug.setOpen(!debug.open)
         return
       }
+      if (isTextEntry(event.target) || event.ctrlKey || event.metaKey || event.altKey) return
       if (!debug.open || !isInDebuggerScope(event.target)) return
+      if (SINGLE_KEYS.has(event.code) && !isInDock(event.target)) return
       if (event.code === 'Space' && isActivatable(event.target)) return
 
       const arrow = event.code === 'ArrowLeft' || event.code === 'ArrowRight' || event.code === 'Home' || event.code === 'End'
@@ -123,7 +243,7 @@ function IntroDebugger () {
       const end = debug.readout.duration
       const time = Math.min(debug.readout.time, end || Infinity)
       const step = event.shiftKey ? FRAME : SEEK_STEP
-      const moments = getIntroMarkers(reducedMotion, debug.params)
+      const moments = getCachedIntroMarkers(prefersReducedMotion, debug.params)
       switch (event.code) {
       case 'Space':
         debug.togglePlaying()
@@ -173,12 +293,13 @@ function IntroDebugger () {
   useEffect(() => {
     const dock = dockRef.current
     if (!dock) return
-    const root = document.documentElement
-    const observer = new ResizeObserver(() => root.style.setProperty('--intro-dock-height', `${dock.offsetHeight}px`))
+    const observer = new ResizeObserver(() => {
+      if (!drag.current.active) publishHeight(dock)
+    })
     observer.observe(dock)
     return () => {
       observer.disconnect()
-      root.style.removeProperty('--intro-dock-height')
+      document.documentElement.style.removeProperty('--intro-dock-height')
     }
   }, [open])
 
@@ -191,12 +312,58 @@ function IntroDebugger () {
 
   if (!open) return null
 
-  const markers = getIntroMarkers(reducedMotion, params)
-  const duration = readoutDuration || markers[markers.length - 1].time
-
   const resizeFrom = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (!event.currentTarget.hasPointerCapture(event.pointerId)) return
-    setHeight(clampHeight(window.innerHeight - event.clientY))
+    const pending = drag.current
+    if (!pending.moved) {
+      if (Math.abs(event.clientY - pending.startY) < GRIP_SLOP) return
+      pending.moved = true
+    }
+    pending.height = clampHeight(window.innerHeight - event.clientY)
+    if (pending.frame) return
+    pending.frame = window.requestAnimationFrame(() => {
+      pending.frame = 0
+      if (dockRef.current && pending.height !== null) dockRef.current.style.height = `${pending.height}px`
+    })
+  }
+  // The capture also ends when a drag is cancelled, and the height reached so far is kept then too
+  const commitDrag = () => {
+    const pending = drag.current
+    window.cancelAnimationFrame(pending.frame)
+    pending.active = false
+    pending.frame = 0
+    if (pending.height === null) return
+    const next = pending.height
+    pending.height = null
+    if (dockRef.current) {
+      dockRef.current.style.height = `${next}px`
+      publishHeight(dockRef.current)
+    }
+    setHeight(next)
+    saveHeight(next)
+  }
+  // A double-click or a double-tap on the grip switches between the default height and the tallest one, so a
+  // single pointer needs no drag (WCAG 2.5.7)
+  const toggleHeight = () => {
+    const pending = drag.current
+    window.cancelAnimationFrame(pending.frame)
+    pending.frame = 0
+    pending.height = null
+    const tallest = clampHeight(Infinity)
+    const next = height >= tallest - 1 ? defaultHeight() : tallest
+    if (dockRef.current) dockRef.current.style.height = `${next}px`
+    setHeight(next)
+    saveHeight(next)
+  }
+  const endPress = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const pending = drag.current
+    const still = !pending.moved && Math.abs(event.clientX - pending.startX) < GRIP_SLOP
+    if (still && event.timeStamp - lastTapAt.current < DOUBLE_TAP_MS) {
+      lastTapAt.current = -Infinity
+      toggleHeight()
+    } else {
+      lastTapAt.current = still ? event.timeStamp : -Infinity
+    }
   }
   const resizeWithKeys = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     let next: number
@@ -230,93 +397,118 @@ function IntroDebugger () {
           aria-valuenow={height}
           aria-valuemin={MIN_HEIGHT}
           aria-valuemax={Math.round(window.innerHeight * MAX_HEIGHT_SHARE)}
+          aria-valuetext={`${Math.round(height / window.innerHeight * 100)}% of the screen`}
           tabIndex={0}
+          title="Drag to resize · double-click: tallest or default"
           onPointerDown={(event) => {
             if (event.button !== 0) return
+            Object.assign(drag.current, { active: true, moved: false, startX: event.clientX, startY: event.clientY })
             event.currentTarget.setPointerCapture(event.pointerId)
           }}
           onPointerMove={resizeFrom}
-          // The capture also ends when a drag is cancelled, and the height reached so far is kept then too
-          onLostPointerCapture={() => saveHeight(height)}
+          onPointerUp={endPress}
+          onLostPointerCapture={commitDrag}
           onKeyDown={resizeWithKeys}
           aria-keyshortcuts="ArrowUp ArrowDown Home End"
           className="group absolute inset-x-0 -top-4 z-30 flex h-6 cursor-ns-resize touch-none items-center justify-center pt-2
             focus-visible:outline-none"
         >
-          <span className="h-[3px] w-10 rounded-full bg-neon-cyan/35 transition-colors duration-150 group-hover:bg-neon-cyan group-focus-visible:bg-neon-cyan" />
+          <span className="h-[3px] w-10 rounded-full bg-neon-cyan/60 transition-colors duration-150 group-hover:bg-neon-cyan group-focus-visible:bg-neon-cyan" />
+          {/* With the keyboard on it, the whole top edge lights up, over the dock's border */}
+          <span aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-4 h-px bg-neon-cyan opacity-0 group-focus-visible:opacity-100" />
         </div>
 
-        <header className="flex flex-wrap items-center gap-x-5 gap-y-2 border-b border-neon-cyan/20 px-3 py-2">
-          <h2 className="font-orbitron text-sm tracking-[1px] text-neon-cyan">INTRO DEBUG</h2>
+        {/* The header measures its own width, not the window's: with Settings open the dock is narrower. On a
+            wide dock everything sits on one row; on a narrower one the title row keeps HELP, KEYS and close at its
+            right end and the transport, time and speed wrap onto the row below it. On a phone the speed joins
+            the title row, so the header keeps to two rows: the group around the transport gives way to its
+            children there, and the transport and time take the second row */}
+        <header className="border-b border-neon-cyan/20 [container-type:inline-size]">
+          {/* On a phone the title is a size smaller and the gaps tighter, so the speed's name fits beside it at 390 px */}
+          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-2 px-3 py-2 sm:gap-x-4">
+            <h2 className="shrink-0 font-orbitron text-sm tracking-[1px] text-neon-cyan max-sm:text-xs max-sm:tracking-normal">INTRO DEBUGGER</h2>
 
-          <div className="flex gap-1">
-            <ToggleButton active={false} aria-pressed={undefined} onClick={actions.restart} aria-label="Restart intro" aria-keyshortcuts="R" title="Restart (R)" className="h-8 px-2">
-              <RotateCcw className="h-4 w-4" />
-            </ToggleButton>
-            {/* The label already says what a press does, so the button is not also announced as pressed */}
-            <ToggleButton active={playing} aria-pressed={undefined} aria-keyshortcuts="Space" onClick={actions.togglePlaying} title="Play / pause (Space)" className="h-8 w-[5.5rem] gap-2">
-              {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-              {playing ? 'PAUSE' : 'PLAY'}
-            </ToggleButton>
-            <ToggleButton active={false} aria-pressed={undefined} aria-keyshortcuts="." onClick={actions.step} title="One frame forward (.)" className="h-8 gap-2 px-2">
-              <StepForward className="h-4 w-4" />
-              FRAME
-            </ToggleButton>
-            <ToggleButton active={loop} aria-keyshortcuts="L" onClick={actions.toggleLoop} title="Restart at the end (L)" className="h-8 gap-2 px-2">
-              <Repeat className="h-4 w-4" />
-              LOOP
-            </ToggleButton>
-          </div>
+            <div className="order-last flex basis-full flex-wrap items-center gap-x-4 gap-y-2 max-sm:contents
+              [@container(min-width:69rem)]:order-none [@container(min-width:69rem)]:basis-auto">
+              <div className="flex min-w-0 items-center gap-x-3 max-sm:order-last max-sm:basis-full sm:gap-x-4">
+                {/* Icons alone on a phone; from sm up each name is visible and part of what is announced */}
+                <div className="flex shrink-0 gap-1">
+                  <ToggleButton onClick={actions.restart} aria-label="Restart intro" aria-keyshortcuts="R" title="Restart (R)" className={cn(transportButton, 'w-8 px-0')}>
+                    <RotateCcw className="h-4 w-4" />
+                  </ToggleButton>
+                  {/* The label already says what a press does, so the button is not also announced as pressed */}
+                  <ToggleButton
+                    active={playing}
+                    aria-pressed={undefined}
+                    aria-label={playing ? 'Pause' : 'Play'}
+                    aria-keyshortcuts="Space"
+                    onClick={actions.togglePlaying}
+                    title="Play / pause (Space)"
+                    className={cn(transportButton, 'w-8 gap-2 px-0 sm:w-[5.5rem]')}
+                  >
+                    {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                    <span className="max-sm:hidden">{playing ? 'PAUSE' : 'PLAY'}</span>
+                  </ToggleButton>
+                  <ToggleButton aria-label="One frame forward" aria-keyshortcuts="." onClick={actions.step} title="One frame forward (.)" className={cn(transportButton, 'w-8 gap-2 px-0 sm:w-auto sm:px-2')}>
+                    <StepForward className="h-4 w-4" />
+                    <span className="max-sm:hidden">FRAME</span>
+                  </ToggleButton>
+                  <ToggleButton active={loop} aria-label="Loop" aria-keyshortcuts="L" onClick={actions.toggleLoop} title="Restart at the end (L)" className={cn(transportButton, 'w-8 gap-2 px-0 sm:w-auto sm:px-2')}>
+                    <Repeat className="h-4 w-4" />
+                    <span className="max-sm:hidden">LOOP</span>
+                  </ToggleButton>
+                </div>
 
-          <TimeReadout duration={duration} />
+                <TimeReadout duration={duration} />
+              </div>
 
-          <div className="flex flex-wrap items-center gap-1">
-            <div className="w-full sm:w-48">
-              <SliderControl
-                id="intro-speed"
-                label="Speed"
-                value={timeScale}
-                min={MIN_SPEED}
-                max={2}
-                step={0.05}
-                formatValue={formatSpeed}
-                onChange={actions.setTimeScale}
-                variant="inline"
-                resetValue={1}
-                description="Speed of the intro, kept across reloads and used with the debugger closed too: the intro plays at it, then the scene eases back to 1× once the intro is over. While the debugger is open it holds the whole scene, and PAUSE stops everything; the lens, flash and title still follow the timeline when you scrub. A double-click returns to 1×."
-              />
+              {/* The slider sets any speed, and a double-click or Delete returns it to 1×. Its hint is read by
+                  screen readers only, so HELP does not push the slider off the transport's line */}
+              <div className="flex min-w-0 max-sm:flex-1 sm:w-44">
+                <SliderControl
+                  id="intro-speed"
+                  label="Play Speed"
+                  value={timeScale}
+                  min={MIN_SPEED}
+                  max={2}
+                  step={0.05}
+                  formatValue={formatSpeed}
+                  onChange={actions.setTimeScale}
+                  resetValue={1}
+                  description={SPEED_HINT}
+                  quietDescription
+                />
+              </div>
             </div>
-            {SPEED_PRESETS.map(speed => (
-              <ToggleButton
-                key={speed}
-                active={timeScale === speed}
-                aria-label={`Speed ${speed}×`}
-                onClick={() => actions.setTimeScale(speed)}
-                className="h-8 px-2 text-xs"
-              >
-                {`${speed}×`}
-              </ToggleButton>
-            ))}
-          </div>
 
-          <div className="ml-auto flex items-center gap-3">
-            {/* A diagnostic, not a control: it gives up its room on screens where the header would wrap */}
-            <span className="hidden min-[1440px]:inline">
-              <SegmentCount />
-            </span>
-            <span className="flex items-center gap-1.5 text-text-light/60">
-              <span aria-hidden="true">Keys</span>
-              <HelpTooltip content={SHORTCUTS} side="top" label="Keyboard shortcuts" iconClassName="h-3.5 w-3.5" />
-            </span>
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Close intro debugger"
-              onClick={() => actions.setOpen(false)}
-              className="h-7 w-7 text-neon-cyan hover:bg-neon-cyan/10 hover:text-neon-cyan"
-            >
-              <X className="h-4 w-4" />
-            </Button>
+            <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
+              <DescriptionsToggle />
+              {/* The shortcuts are for a keyboard, so a phone goes without them */}
+              <HelpTooltip
+                label="Keys: keyboard shortcuts"
+                content={shortcutList}
+                buttonClassName={cn(
+                  buttonVariants({ variant: 'outline', size: 'sm' }),
+                  'hidden h-7 gap-1 border-text-light/40 bg-transparent px-2 font-mono text-xs text-text-light/70 hover:bg-neon-cyan/30 sm:inline-flex'
+                )}
+              >
+                <Keyboard className="h-3.5 w-3.5" />
+                KEYS
+              </HelpTooltip>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Close intro debugger"
+                onClick={() => {
+                  refocusOnClose.current = true
+                  actions.setOpen(false)
+                }}
+                className="h-7 w-7 text-neon-cyan hover:bg-neon-cyan/10 hover:text-neon-cyan"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
           </div>
         </header>
 

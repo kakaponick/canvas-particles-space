@@ -77,7 +77,7 @@ export interface ParticleState {
   isPaused: boolean
   lensingRotation: number
   lensingFalloff: number
-  // Distance from the black hole at which Lensing Falloff leaves the pull unchanged, % of the viewport's short side
+  // Distance from the black hole at which Falloff leaves the pull unchanged, % of the viewport's short side
   lensingPivot: number
   // Closest a bent ray gets to the point right behind the hole, in Einstein radii
   lensingCore: number
@@ -85,7 +85,7 @@ export interface ParticleState {
   lensingMaxBend: number
   // Shape of the lens outside its ring: 0 is the compact bubble of the original canvas, 1 a point mass
   lensingReach: number
-  // Cap on the pull that Angular Deflection follows; the pull is 1 at the Einstein ring and grows inward
+  // Cap on the pull that Twist follows; the pull is 1 at the Einstein ring and grows inward
   lensingTwistLimit: number
   lensingAbsorption: number
   frameRateCap: number

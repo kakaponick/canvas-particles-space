@@ -40,7 +40,7 @@ const PIXEL_BUDGET = 4_500_000
 const MAX_PIXEL_RATIO = 2
 
 // The crumbling title follows the black hole's gravity: at these settings (the defaults) the dust
-// travels Dust Drift and turns by this many radians at Dust Swirl 1
+// travels Dust Pull and turns by this many radians at Dust Swirl 1
 const TITLE_REFERENCE_GRAVITY = 2.5
 const TITLE_REFERENCE_ORBIT = 40
 const TITLE_SWIRL_RADIANS = 0.35

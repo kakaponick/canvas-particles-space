@@ -1,6 +1,7 @@
-import type { ComponentProps } from 'react'
+import { memo } from 'react'
 import { useParticleStore, type ParticleState } from '../../store/particle_store'
-import { SIMULATION_SETTING_SPECS, type SimulationSliderKey } from '../../lib/simulation_specs'
+import { DEFAULT_PRESET } from '../../store/preset_store'
+import { SIMULATION_SETTING_SPECS, type SimulationSettingSpec, type SimulationSliderKey } from '../../lib/simulation_specs'
 import SliderControl from './slider_control'
 
 type NumberSetter = {
@@ -9,19 +10,36 @@ type NumberSetter = {
     : never
 }[keyof ParticleState]
 
-interface SettingSliderProps extends Omit<ComponentProps<typeof SliderControl>, 'value' | 'onChange' | 'label' | 'min' | 'max' | 'step' | 'description'> {
+interface SettingSliderProps {
   field: SimulationSliderKey
   setter: NumberSetter
 }
 
-// A slider bound to one setting: changing the setting re-renders this slider and no other. Its name, range
-// and description come from the settings registry, which the agent API reads too
-function SettingSlider ({ field, setter, ...slider }: SettingSliderProps) {
+const defaults = DEFAULT_PRESET.settings as Partial<Record<SimulationSliderKey, number>>
+
+// A slider bound to one setting: changing the setting re-renders this slider and no other. Its name, range,
+// format and one-line hint come from the settings registry, which the agent API reads too; the default it
+// marks and returns to on a double-click comes from the Default preset
+const SettingSlider = memo(function SettingSlider ({ field, setter }: SettingSliderProps) {
   const value = useParticleStore(state => state[field])
   const onChange = useParticleStore(state => state[setter])
-  const { label, min, max, step, description } = SIMULATION_SETTING_SPECS[field]
+  const { label, min, max, step, format, hint, spokenName } = SIMULATION_SETTING_SPECS[field] as SimulationSettingSpec
 
-  return <SliderControl {...slider} label={label} min={min} max={max} step={step} description={description} value={value} onChange={onChange} />
-}
+  return (
+    <SliderControl
+      id={`setting-${field}`}
+      label={label}
+      ariaLabel={spokenName}
+      min={min}
+      max={max}
+      step={step}
+      formatValue={format}
+      description={hint}
+      resetValue={defaults[field]}
+      value={value}
+      onChange={onChange}
+    />
+  )
+})
 
 export default SettingSlider
