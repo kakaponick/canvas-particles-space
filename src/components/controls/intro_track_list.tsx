@@ -36,6 +36,26 @@ const setHoverTime = (time: number | null) => {
   if (useTimelineHover.getState().time !== time) useTimelineHover.setState({ time })
 }
 
+// The moment picked on a lane by a click or Enter: its diamond shows it picked, its track opens, and the
+// control of the parameter that sets it is outlined and scrolled into view. A press on the lane itself, or
+// closing the track, lets it go
+const useSelectedMoment = createWithEqualityFn<{ key: string | null, param: IntroParamKey | null }>(() => ({ key: null, param: null }))
+const momentKey = (trackKey: string, marker: IntroMarker) => `${trackKey}:${marker.label}`
+const clearSelectedMoment = () => {
+  if (useSelectedMoment.getState().key !== null) useSelectedMoment.setState({ key: null, param: null })
+}
+function pickMoment (trackKey: string, marker: IntroMarker, openTrack: () => void) {
+  useSelectedMoment.setState({ key: momentKey(trackKey, marker), param: marker.param ?? null })
+  openTrack()
+  // Once the opened track has rendered its parameters
+  requestAnimationFrame(() => {
+    const target = marker.param
+      ? document.querySelector(`[data-param="${marker.param}"]`)
+      : document.getElementById(`intro-track-${trackKey}`)
+    target?.scrollIntoView({ block: 'nearest', behavior: prefersReducedMotion ? 'auto' : 'smooth' })
+  })
+}
+
 // A finger on a lane may be scrolling the track list, so it seeks only once it moves sideways this far,
 // or where it lifts after a tap. The seek bar does not scroll, and a finger scrubs it at once
 const TOUCH_SCRUB_SLOP = 6
@@ -64,6 +84,7 @@ function useScrub (duration: number) {
       return Math.round(position * duration * 100) / 100
     }
     const startScrub = (event: ReactPointerEvent<HTMLElement>) => {
+      clearSelectedMoment()
       measure(event.currentTarget)
       event.currentTarget.setPointerCapture(event.pointerId)
       // Only a timeline that was running when it was pressed starts again on release
@@ -464,10 +485,19 @@ function labelsThatFit (groups: IntroMarker[][], duration: number, secondsPerPx:
 // a narrow lane, and then it seeks to the first of them and is named for all of them. It is out of the tab
 // order: the seek bar and [ ] reach every moment from the keyboard. Its label hides when it would run into a
 // neighbour; the name and the tooltip keep every moment
-function MarkerButton ({ group, duration, showLabel }: { group: IntroMarker[], duration: number, showLabel: boolean }) {
+interface MarkerProps {
+  trackKey: string
+  duration: number
+  showLabel: boolean
+  // Opens the track's parameters
+  onOpenTrack: () => void
+}
+
+function MarkerButton ({ group, trackKey, duration, showLabel, onOpenTrack }: MarkerProps & { group: IntroMarker[] }) {
   const seek = useIntroDebugStore(state => state.seek)
   const isPhase = useIntroDebugStore(state => group.some(marker => marker.label === state.readout.phase))
   const first = group[0]
+  const selected = useSelectedMoment(state => state.key === momentKey(trackKey, first))
   const labels = group.map(marker => marker.label).join(', then ')
   const flip = share(first.time, duration) > FLIP_LABEL_AT
   return (
@@ -477,7 +507,10 @@ function MarkerButton ({ group, duration, showLabel }: { group: IntroMarker[], d
       aria-label={`Seek to ${labels}, ${first.time.toFixed(2)} s`}
       title={group.map(marker => `${marker.label} · ${marker.time.toFixed(2)} s`).join(', ')}
       onPointerDown={(event) => event.stopPropagation()}
-      onClick={() => seek(first.time)}
+      onClick={() => {
+        seek(first.time)
+        pickMoment(trackKey, first, onOpenTrack)
+      }}
       // 24 px wide, a full target, with the diamond in its middle
       className="group/marker absolute inset-y-0 z-[1] w-6 -translate-x-1/2 focus-visible:outline-none"
       style={{ left: percent(first.time, duration) }}
@@ -487,16 +520,18 @@ function MarkerButton ({ group, duration, showLabel }: { group: IntroMarker[], d
           'absolute left-1/2 top-[16.5px] h-2.5 w-2.5 -translate-x-1/2 rotate-45 border border-neon-cyan transition-colors duration-150',
           'group-hover/marker:bg-neon-cyan group-focus-visible/marker:bg-neon-cyan',
           'group-focus-visible/marker:outline group-focus-visible/marker:outline-1 group-focus-visible/marker:outline-offset-2 group-focus-visible/marker:outline-neon-cyan',
-          isPhase ? 'bg-neon-cyan' : 'bg-bg-dark'
+          isPhase || selected ? 'bg-neon-cyan' : 'bg-bg-dark',
+          selected && pickedDiamond
         )}
       />
       <span
         className={cn(
           'pointer-events-none absolute top-1 whitespace-nowrap text-[11px] leading-none transition-colors duration-150',
-          !showLabel && 'hidden',
+          !showLabel && !selected && 'hidden',
           'group-hover/marker:text-neon-cyan group-focus-visible/marker:text-neon-cyan',
           flip ? 'right-3.5' : 'left-3.5',
-          isPhase ? 'text-neon-cyan' : 'text-text-light/70'
+          isPhase || selected ? 'text-neon-cyan' : 'text-text-light/70',
+          selected && pickedLabel
         )}
       >
         {first.label}
@@ -513,15 +548,20 @@ const MOMENT_PAGE_STEP = 0.5
 // A press that moves less than this is a click, which seeks to the moment
 const MOMENT_DRAG_SLOP = 3
 
+// A picked moment: a ring around the filled diamond, and a label in bold that shows even where it would crowd
+const pickedDiamond = 'ring-1 ring-neon-cyan ring-offset-2 ring-offset-bg-panel'
+const pickedLabel = 'font-semibold'
+
 const stepDecimals = (step: number) => Math.max(0, Math.min(6, Math.ceil(-Math.log10(step) - 1e-9)))
 
 // A moment the user can move: drag the diamond along its lane, or focus it and use the arrows, and its
 // parameter follows on its slider's step and range. A click or Enter still seeks to it, Delete puts it back.
 // It is a slider for screen readers, valued in seconds, and its hint menu names the parameter it moves
-function MovableMarker ({ marker, duration, showLabel }: { marker: IntroMarker, duration: number, showLabel: boolean }) {
+function MovableMarker ({ marker, trackKey, duration, showLabel, onOpenTrack }: MarkerProps & { marker: IntroMarker }) {
   const seek = useIntroDebugStore(state => state.seek)
   const setParam = useIntroDebugStore(state => state.setParam)
   const isPhase = useIntroDebugStore(state => marker.label === state.readout.phase)
+  const selected = useSelectedMoment(state => state.key === momentKey(trackKey, marker))
   const param = marker.param!
   const spec = INTRO_PARAM_SPECS[param]
   const base = marker.base ?? 0
@@ -561,6 +601,8 @@ function MovableMarker ({ marker, duration, showLabel }: { marker: IntroMarker, 
     } else if (commit) {
       seek(marker.time)
     }
+    // A click or a finished drag picks the moment and opens its parameter
+    if (commit) pickMoment(trackKey, marker, onOpenTrack)
   }
 
   const time = marker.time
@@ -579,7 +621,9 @@ function MovableMarker ({ marker, duration, showLabel }: { marker: IntroMarker, 
       aria-valuenow={Math.round(time * 100) / 100}
       aria-valuetext={`${time.toFixed(2)} s`}
       aria-keyshortcuts="ArrowLeft ArrowRight Shift+ArrowLeft Shift+ArrowRight PageUp PageDown Home End Enter Delete"
-      title={`${marker.label} · ${time.toFixed(2)} s · drag or ← → to move · click or Enter to seek · Delete: back to ${(base + fallback).toFixed(2)} s`}
+      // Picked, it points at the control it shares its value with, which is open by then
+      aria-controls={selected ? `intro-param-${param}` : undefined}
+      title={`${marker.label} · ${time.toFixed(2)} s · drag or ← → to move · click or Enter: seek and open its setting · Delete: back to ${(base + fallback).toFixed(2)} s`}
       data-hint={spec.hint}
       data-hint-label={name}
       data-hint-reset={`${(base + fallback).toFixed(2)} s`}
@@ -645,6 +689,7 @@ function MovableMarker ({ marker, duration, showLabel }: { marker: IntroMarker, 
           break
         case 'Enter':
           seek(time)
+          pickMoment(trackKey, marker, onOpenTrack)
           break
         case 'Delete':
         case 'Backspace':
@@ -666,17 +711,19 @@ function MovableMarker ({ marker, duration, showLabel }: { marker: IntroMarker, 
           'group-hover/marker:scale-125 group-hover/marker:bg-neon-cyan group-focus-visible/marker:bg-neon-cyan',
           'group-focus-visible/marker:outline group-focus-visible/marker:outline-1 group-focus-visible/marker:outline-offset-2 group-focus-visible/marker:outline-neon-cyan',
           'motion-reduce:transition-none',
-          isPhase || dragging ? 'scale-125 bg-neon-cyan' : 'bg-bg-dark'
+          isPhase || dragging || selected ? 'scale-125 bg-neon-cyan' : 'bg-bg-dark',
+          selected && pickedDiamond
         )}
       />
       {/* While it moves, the label carries the time it lands on, and shows even where it would crowd a neighbour */}
       <span
         className={cn(
           'pointer-events-none absolute top-1 whitespace-nowrap text-[11px] leading-none tabular-nums transition-colors duration-150',
-          !showLabel && !dragging && 'hidden',
+          !showLabel && !dragging && !selected && 'hidden',
           'group-hover/marker:text-neon-cyan group-focus-visible/marker:text-neon-cyan',
           flip ? 'right-3.5' : 'left-3.5',
-          isPhase || dragging ? 'text-neon-cyan' : 'text-text-light/70',
+          isPhase || dragging || selected ? 'text-neon-cyan' : 'text-text-light/70',
+          selected && pickedLabel,
           dragging && 'z-[3] bg-bg-panel px-1'
         )}
       >
@@ -701,8 +748,18 @@ function groupMarkers (markers: IntroMarker[], gap: number): IntroMarker[][] {
 const NO_MARKERS: IntroMarker[] = []
 const NO_KEYS: IntroParamKey[] = []
 
-// One parameter of an expanded track. It reads its own value, so dragging it re-renders this control alone
+// One parameter of an expanded track, outlined while the moment it sets is picked on its lane
 const IntroParamControl = memo(function IntroParamControl ({ paramKey }: { paramKey: IntroParamKey }) {
+  const picked = useSelectedMoment(state => state.param === paramKey)
+  return (
+    <div data-param={paramKey} className={cn('min-w-0', picked && 'bg-neon-cyan/[0.06] outline outline-1 outline-offset-1 outline-neon-cyan')}>
+      <IntroParamField paramKey={paramKey} />
+    </div>
+  )
+})
+
+// The parameter's own control. It reads its own value, so dragging it re-renders this control alone
+function IntroParamField ({ paramKey }: { paramKey: IntroParamKey }) {
   const value = useIntroDebugStore(state => state.params[paramKey])
   const setParam = useIntroDebugStore(state => state.setParam)
   const spec = INTRO_PARAM_SPECS[paramKey]
@@ -761,7 +818,7 @@ const IntroParamControl = memo(function IntroParamControl ({ paramKey }: { param
       description={description}
     />
   )
-})
+}
 
 interface TrackDerived {
   params: IntroParams
@@ -797,9 +854,11 @@ interface TrackRowProps {
   secondsPerPx: number
   scrub: Scrub
   onToggleExpanded: (key: string) => void
+  // Opens the track's parameters and leaves an open one as it is
+  onOpenTrack: (key: string) => void
 }
 
-const TrackRow = memo(function TrackRow ({ track, duration, hidden, expanded, textChanges, markerGap, secondsPerPx, scrub, onToggleExpanded }: TrackRowProps) {
+const TrackRow = memo(function TrackRow ({ track, duration, hidden, expanded, textChanges, markerGap, secondsPerPx, scrub, onToggleExpanded, onOpenTrack }: TrackRowProps) {
   const toggleLayer = useIntroDebugStore(state => state.toggleLayer)
   const soloLayer = useIntroDebugStore(state => state.soloLayer)
   const resetParams = useIntroDebugStore(state => state.resetParams)
@@ -833,6 +892,8 @@ const TrackRow = memo(function TrackRow ({ track, duration, hidden, expanded, te
   const spanText = useMemo(() => `, ${describeSpans(spans)}`, [spans])
   // The reset button goes once it has done its job, so the focus moves back to the track's name first
   const expandRef = useRef<HTMLButtonElement>(null)
+  // A track with no parameters has nothing to open
+  const openTrack = () => { if (track.params.length > 0 || track.editsText) onOpenTrack(track.key) }
 
   return (
     <div className={`border-b border-text-light/[0.07] ${expanded ? 'bg-neon-cyan/[0.03]' : ''}`}>
@@ -871,7 +932,11 @@ const TrackRow = memo(function TrackRow ({ track, duration, hidden, expanded, te
                 type="button"
                 aria-expanded={expanded}
                 aria-controls={panelId}
-                onClick={() => onToggleExpanded(track.key)}
+                onClick={() => {
+                  // Closing the track lets its picked moment go
+                  if (expanded && useSelectedMoment.getState().key?.startsWith(`${track.key}:`)) clearSelectedMoment()
+                  onToggleExpanded(track.key)
+                }}
                 className="flex h-8 min-w-0 flex-1 items-center gap-1 text-left text-text-light/85 transition-colors duration-150 hover:text-neon-cyan
                   focus-visible:outline focus-visible:outline-1 focus-visible:outline-neon-cyan"
               >
@@ -899,8 +964,8 @@ const TrackRow = memo(function TrackRow ({ track, duration, hidden, expanded, te
               {spans.map((span, index) => <SpanBar key={index} span={span} duration={duration} />)}
             </span>
             {markerGroups.map((group, index) => group.length === 1 && group[0].param
-              ? <MovableMarker key={group[0].label} marker={group[0]} duration={duration} showLabel={labelShown[index]} />
-              : <MarkerButton key={group[0].label} group={group} duration={duration} showLabel={labelShown[index]} />)}
+              ? <MovableMarker key={group[0].label} marker={group[0]} trackKey={track.key} duration={duration} showLabel={labelShown[index]} onOpenTrack={openTrack} />
+              : <MarkerButton key={group[0].label} group={group} trackKey={track.key} duration={duration} showLabel={labelShown[index]} onOpenTrack={openTrack} />)}
           </div>
         </div>
       </div>
@@ -1193,6 +1258,9 @@ function IntroTrackList ({ duration }: { duration: number }) {
       return next
     })
   }, [])
+  const openTrack = useMemo(() => (key: string) => {
+    setExpanded(current => current.has(key) ? current : new Set(current).add(key))
+  }, [])
 
   // The scroll padding keeps a row that the focus reaches out from under the sticky seek bar
   return (
@@ -1220,6 +1288,7 @@ function IntroTrackList ({ duration }: { duration: number }) {
             secondsPerPx={secondsPerPx}
             scrub={scrub}
             onToggleExpanded={toggleExpanded}
+            onOpenTrack={openTrack}
           />
         ))}
         <HoverLine duration={duration} />
