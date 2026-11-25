@@ -13,6 +13,7 @@ import { pickSimulationSettings, type SimulationSettings } from './simulation_pr
 import { DEFAULT_INTRO_PARAMS, INTRO_PARAM_SPECS, type IntroParamKey, type IntroParams } from './intro_params'
 import { CUE_LAYERS, INTRO_LAYERS, type CueLayer, type IntroLayer } from './intro_tracks'
 import { TITLE_FONTS, type TitleFontKey } from './title_sprite'
+import { captionKeys, captionLetters, parseCaption, strangeLetters, type CaptionRun } from './caption_text'
 import {
   INTRO_KEYS, SETTING_KEYS, SLIDERS, TOGGLES, asBoolean, asNumber, clamp, fail, findPreset, parseIntroValue, parseSettings,
   unknownKey, type Patch
@@ -39,6 +40,9 @@ const MAX_PIXELS = 3840 * 2160
 const DEFAULT_WARMUP = 2
 const MAX_WARMUP = 10
 const CAPTION_FADE = 0.35
+// The colour a stressed term is drawn in unless the caption names its own
+const CAPTION_ACCENT = '#ffd27a'
+const BACKGROUND_KEYS = ['backgroundR', 'backgroundG', 'backgroundB']
 // The most scene seconds one film second may hold: time-lapse; 0 is a still frame
 export const MAX_SPEED = 4
 
@@ -47,10 +51,16 @@ type Ease = typeof EASES[number]
 
 export const CAPTION_PLACES = ['bottom', 'top', 'center', 'hole', 'einstein', 'companion'] as const
 export type CaptionPlace = typeof CAPTION_PLACES[number]
-export type CaptionFont = TitleFontKey | 'system'
+// A caption takes the title's display faces, a plain text face with Greek and mathematics, or the machine's own
+export type CaptionFont = TitleFontKey | 'noto' | 'system'
+export const CAPTION_FONTS: readonly CaptionFont[] = [...(Object.keys(TITLE_FONTS) as TitleFontKey[]), 'noto', 'system']
+export const CAPTION_REVEALS = ['letters', 'words', 'lines'] as const
+export const CAPTION_ALIGNS = ['left', 'center', 'right'] as const
 
 export interface FilmCaption {
   text: string
+  // The text as it is drawn: its lines, each cut into runs at its marks (caption_text.ts)
+  lines: CaptionRun[][]
   from: number
   to: number
   // A place on the frame, something in the scene the caption points at, or shares of the frame's
@@ -64,13 +74,29 @@ export interface FilmCaption {
   font: CaptionFont
   // Seconds it takes to appear and to leave
   fade: number
+  // Colour of the stressed terms, *{...}
+  accent: string
+  // How the lines stand in their block; null leaves it to the place (centred, or beside a pointer)
+  align: typeof CAPTION_ALIGNS[number] | null
+  // The widest a line may be, as a share of the frame's width
+  width: number
+  // A dark plate behind the words, 0 (none) to 1 (solid), for words over a bright picture
+  plate: number
+  // The words arrive a letter, a word or a line at a time over revealOver seconds; null shows them at once
+  reveal: typeof CAPTION_REVEALS[number] | null
+  revealOver: number
+  // Numbers of its own that #{name} reads, each along keyframes
+  values: Record<string, FilmTrack>
+  // Where a pointing caption's line starts, in radii of what it points at (black hole radii, as orbitSize
+  // is); null is its edge
+  radius: number | null
 }
 
 export interface FilmTrack {
   key: string
   // What the key belongs to: a half of the scene's input, the layer switches, the film's own pace, or the
   // dark laid over its picture
-  target: 'settings' | 'params' | 'layers' | 'speed' | 'fade'
+  target: 'settings' | 'params' | 'layers' | 'speed' | 'fade' | 'caption'
   // A colour moves channel by channel
   color: boolean
   // A switch: its values are 0 and 1, and it flips at a key's second instead of moving towards it
@@ -152,13 +178,15 @@ const CYRILLIC_LETTERS = /[\u0301\u0400-\u045f\u0490\u0491\u04b0\u04b1\u2116]/g
 // The face these words are drawn in. A face that lacks their letters would hand them to whatever the
 // machine has, and the same film would no longer be the same video: Cyrillic goes to the one face that
 // holds it, and letters no bundled face holds are named
-function faceFor<Face extends string> (text: string, face: Face, where: string, notes: string[]): Face | 'unbounded' {
+function faceFor<Face extends string> (text: string, face: Face, where: string, notes: string[], caption = false): Face | 'unbounded' {
   if (face === 'system') return face
   const withoutCyrillic = text.replace(CYRILLIC_LETTERS, '')
-  if (!LATIN_LETTERS.test(withoutCyrillic)) {
-    notes.push(`${where} has letters that none of the bundled faces hold; they are drawn in the machine's own face, which differs between machines`)
+  // A caption falls back on the text and mathematics faces for what its own face lacks; a title has its face alone
+  const strange = caption ? strangeLetters(text) : LATIN_LETTERS.test(withoutCyrillic) ? [] : ['']
+  if (strange.length > 0) {
+    notes.push(`${where} has letters that none of the bundled faces hold${strange[0] === '' ? '' : ` (${strange.slice(0, 8).join(' ')})`}; they are drawn in the machine's own face, which differs between machines`)
   }
-  if (withoutCyrillic.length === text.length || face === 'unbounded') return face
+  if (withoutCyrillic.length === text.length || face === 'unbounded' || face === 'noto') return face
   notes.push(`${where}: ${face} has no Cyrillic letters, so it is drawn in unbounded, the face that has them`)
   return 'unbounded'
 }
@@ -166,7 +194,7 @@ function faceFor<Face extends string> (text: string, face: Face, where: string, 
 const FILM_KEYS = ['duration', 'fps', 'size', 'width', 'height', 'scale', 'seed', 'preset', 'settings', 'intro', 'warmup', 'speed', 'fade', 'tracks', 'layers', 'cues', 'captions', 'shots']
 const CUE_KEYS = ['at', 'play', 'params', 'title', 'font', 'uppercase']
 const INTRO_FILM_KEYS = ['at', 'preset', 'params', 'title', 'font', 'uppercase', 'hide']
-const CAPTION_KEYS = ['text', 'from', 'to', 'at', 'angle', 'size', 'color', 'font', 'fade']
+const CAPTION_KEYS = ['text', 'from', 'to', 'at', 'angle', 'size', 'color', 'font', 'fade', 'accent', 'align', 'width', 'plate', 'reveal', 'revealOver', 'values', 'radius']
 // The switches a film can flip along its tracks; it has no cursor for the black hole to follow
 export const TRACK_SWITCHES = SETTING_KEYS.filter(key => key in TOGGLES && key !== 'blackHoleFollowing')
 
@@ -360,19 +388,53 @@ function readCaptions (source: unknown, duration: number, notes: string[], attem
     }
     const pointing = at === 'hole' || at === 'einstein' || at === 'companion'
     const font = entry.font === undefined ? 'unbounded' : String(entry.font)
-    if (font !== 'system' && !(font in TITLE_FONTS)) fail(`${where}.font takes one of: ${Object.keys(TITLE_FONTS).join(', ')}, system`)
-    const color = entry.color === undefined ? '#ffffff' : String(entry.color)
-    if (!/^#[0-9a-f]{6}$/i.test(color)) fail(`${where}.color takes '#rrggbb'`)
+    if (!(CAPTION_FONTS as readonly string[]).includes(font)) fail(`${where}.font takes one of: ${CAPTION_FONTS.join(', ')}`)
+    const colorOf = (key: string, value: unknown, fallback: string) => {
+      const color = value === undefined ? fallback : String(value)
+      if (!/^#[0-9a-f]{6}$/i.test(color)) fail(`${where}.${key} takes '#rrggbb'`)
+      return color
+    }
+    const oneOf = <Choice extends string>(key: string, value: unknown, choices: readonly Choice[]): Choice | null => {
+      if (value === undefined) return null
+      if (!(choices as readonly string[]).includes(String(value))) fail(`${where}.${key} takes one of: ${choices.join(', ')}`)
+      return value as Choice
+    }
+
+    const lines = parseCaption(entry.text, `${where}.text`)
+    const values: Record<string, FilmTrack> = {}
+    if (entry.values !== undefined) {
+      if (!isObject(entry.values)) fail(`${where}.values takes an object of keyframes: { years: [[2, 0], [8, 13.8]] }`)
+      for (const [key, keyframes] of Object.entries(entry.values)) {
+        values[key] = { key, target: 'caption', color: false, toggle: false, ...readKeyframes(`${where}.values.${key}`, keyframes, duration, value => asNumber(`${where}.values.${key}`, value)) }
+      }
+    }
+    // A number in the text is one of the caption's own, the film's second, or a number of the scene
+    for (const key of captionKeys(lines)) {
+      const known = key in values || key === 'seconds' || key in SLIDERS || BACKGROUND_KEYS.includes(key) ||
+        (key in DEFAULT_INTRO_PARAMS && !INTRO_PARAM_SPECS[key as IntroParamKey].options && !INTRO_PARAM_SPECS[key as IntroParamKey].color)
+      if (!known) unknownKey(`${where}.text #{${key}}`, [...Object.keys(values), 'seconds', ...Object.keys(SLIDERS), ...INTRO_KEYS])
+    }
+    const reveal = oneOf('reveal', entry.reveal, CAPTION_REVEALS)
     return [{
       text: entry.text,
+      lines,
       from,
       to,
       at,
       angle: entry.angle === undefined ? 35 : asNumber(`${where}.angle`, entry.angle),
       size: clamp(entry.size === undefined ? (pointing ? 0.03 : 0.04) : asNumber(`${where}.size`, entry.size), 0.01, 0.2),
-      color,
-      font: faceFor(entry.text, font as CaptionFont, where, notes),
-      fade: clamp(entry.fade === undefined ? CAPTION_FADE : asNumber(`${where}.fade`, entry.fade), 0, (to - from) / 2)
+      color: colorOf('color', entry.color, '#ffffff'),
+      font: faceFor(captionLetters(lines), font as CaptionFont, where, notes, true),
+      fade: clamp(entry.fade === undefined ? CAPTION_FADE : asNumber(`${where}.fade`, entry.fade), 0, (to - from) / 2),
+      accent: colorOf('accent', entry.accent, CAPTION_ACCENT),
+      align: oneOf('align', entry.align, CAPTION_ALIGNS),
+      width: clamp(entry.width === undefined ? 1 : asNumber(`${where}.width`, entry.width), 0.1, 1),
+      plate: clamp(entry.plate === undefined ? 0 : asNumber(`${where}.plate`, entry.plate), 0, 1),
+      reveal,
+      // Left out, the words take the first half of the caption's life to arrive, two seconds at most
+      revealOver: clamp(entry.revealOver === undefined ? Math.min(2, (to - from) / 2) : asNumber(`${where}.revealOver`, entry.revealOver), 0.05, to - from),
+      values,
+      radius: entry.radius === undefined ? null : clamp(asNumber(`${where}.radius`, entry.radius), 0, 40)
     }]
   }, []))
 }
@@ -595,7 +657,9 @@ function describeTimeline (plan: FilmPlan) {
     else if (plan.introEnds !== null) entries.push({ at: plan.introEnds, text: `${span(plan.introEnds, plan.introEnds)}  the opening is over` })
   }
   for (const shot of plan.shots) entries.push({ at: shot.from, text: `${span(shot.from, shot.to)}  shot "${shot.name}"` })
-  const few = (values: number[], unit: string) => values.slice(0, 6).map(value => seconds(value) + unit).join(' > ') + (values.length > 6 ? ' > ...' : '')
+  const few = (values: number[], unit: string) => values.length > LONG_TRACK
+    ? `${seconds(values[0])}${unit} > ... > ${seconds(values[values.length - 1])}${unit} (${values.length} keys between ${seconds(Math.min(...values))}${unit} and ${seconds(Math.max(...values))}${unit})`
+    : values.slice(0, 6).map(value => seconds(value) + unit).join(' > ') + (values.length > 6 ? ' > ...' : '')
   if (plan.speed) {
     const { times, values } = plan.speed
     entries.push({ at: times[0], text: `${span(times[0], times[times.length - 1])}  time runs at ${few(values, 'x')}` })
@@ -633,7 +697,7 @@ function mixColor (from: number, to: number, share: number) {
   return (channel(16) << 16) | (channel(8) << 8) | channel(0)
 }
 
-function trackValue (track: FilmTrack, time: number) {
+export function trackValue (track: FilmTrack, time: number) {
   const { times, values, eases } = track
   const last = times.length - 1
   if (time <= times[0]) return values[0]
@@ -660,6 +724,15 @@ export function applyTracks (plan: FilmPlan, time: number) {
     else if (track.target === 'settings') settings[track.key] = value
     else params[track.key] = value
   }
+}
+
+// The number a caption's #{key} shows at this second: its own, the film's second, or the scene's as the tracks left it
+export function captionValue (plan: FilmPlan, caption: FilmCaption, key: string, time: number): number {
+  const own = caption.values[key]
+  if (own) return trackValue(own, time)
+  if (key === 'seconds') return time
+  const setting = (plan.settings as unknown as Record<string, unknown>)[key]
+  return typeof setting === 'number' ? setting : (plan.params as unknown as Record<string, number>)[key]
 }
 
 // How visible a caption is at this second: 0 before and after it, 1 between its fades
@@ -719,9 +792,21 @@ comes to this same object: see "A film as a script" below. Names and ranges are 
   "captions": [{ "text": "Event horizon", "from": 2, "to": 6, "at": "hole" }]
                              at: bottom (default) | top | center | [x, y] shares of the frame | hole | einstein |
                              companion; the last three point a line at the shadow's edge, the Einstein ring
-                             or the second black hole, from "angle" degrees (0 right, 90 up).
-                             Optional: size, color '#rrggbb', font, fade. A line too long for the frame is
-                             broken at its spaces; Cyrillic is drawn in unbounded, the face that holds it
+                             or the second black hole, from "angle" degrees (0 right, 90 up); "radius" starts
+                             the line that many black hole radii out instead, the unit of orbitSize and
+                             lensingRadius (the shadow's edge is 1, which is 2.6 Schwarzschild radii).
+                             Marks in the text: r_{s} is lowered, c^{2} raised, *{a term} drawn in the
+                             "accent" colour, and #{cameraZoom:1} is the scene's own number as it stands at
+                             that second, with one digit after the point (#{key:1,} writes a comma,
+                             #{seconds:0} is the film's second) or a number of the caption's own from
+                             "values": { "years": [[2, 0], [8, 13.8, "linear"]] }. Greek, mathematics and
+                             the signs of the sky (λ Δ ∞ ≈ √ → ☉ ⊕ ♃) are the same on every machine.
+                             "reveal": ${CAPTION_REVEALS.join(' | ')} brings the words in one at a time over
+                             "revealOver" seconds. "align": ${CAPTION_ALIGNS.join(' | ')}; "width", the share of
+                             the frame a line may take; "plate", 0-1, a dark plate behind the words; size,
+                             color and accent '#rrggbb', fade; font: ${CAPTION_FONTS.join(' | ')}
+                             (noto is a plain text face, for sentences and formulas). A line too long is
+                             broken at its spaces; Cyrillic in a display face without it goes to unbounded
 }
 
 Everything but duration is optional. Start from describe to find setting keys; lengths around the black hole
@@ -748,6 +833,15 @@ Recipes
                              "params": { "titleEntrance": "Fades in", "titleExit": "Fades out", "titleInAt": 0, "dissolveAt": 3 } }]
   In from black and out:   "fade": [[0, 1], [1.5, 0], [10.5, 0], [12, 1]]
   Words on black:          "fade": [[0, 1], [3, 1], [4.5, 0]], "captions": [{ "text": "Sagittarius A*", "from": 0.5, "to": 3.5, "at": "center" }]
+  A formula beside the hole: "captions": [{ "text": "Schwarzschild radius\\nr_{s} = 2GM / c^{2}", "from": 2, "to": 8,
+                             "at": [0.75, 0.3], "font": "noto", "size": 0.05, "align": "left" }]
+  A counter:               "captions": [{ "text": "*{#{years:1}} billion years", "from": 2, "to": 10, "at": "top",
+                             "values": { "years": [[2, 0], [10, 13.8, "linear"]] } }]
+  A readout of the scene:  "captions": [{ "text": "Zoom #{cameraZoom:1}×", "from": 0, "to": 8, "at": "top" }]
+  A list that builds:      "captions": [{ "text": "1. Shadow\\n2. Photon ring\\n3. Einstein ring", "from": 1, "to": 9,
+                             "at": [0.2, 0.3], "align": "left", "reveal": "lines", "revealOver": 4 }]
+  A label on an orbit:     "settings": { "orbitCount": 8, "orbitSize": 4 },
+                           "captions": [{ "text": "Orbits at 4 radii of the shadow", "from": 2, "to": 8, "at": "hole", "radius": 4 }]
   Vertical short:          "size": "vertical", "settings": { "blackHoleY": 0.42 }
 
 Check with preview (a contact sheet of frames) before render; both take the same film.`

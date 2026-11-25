@@ -281,6 +281,10 @@ fired is its parameters in the table of section 13.
   `Silent Dark`, `Supernova`, `Whirlpool`, `Swallowed`, `Requiem`. A look sets intro parameters, sometimes
   the title's face and some scene settings; parameters given beside it are laid over it.
 - Title fonts: `unbounded`, `orbitron`, `geistMono`. Only the first and the last follow `titleWeight`.
+- Caption fonts: the three above, `noto` (a plain text face for sentences and formulas) and `system` (the
+  machine's own, so not the same everywhere). Behind every bundled one stand faces with Greek, mathematics
+  and the signs of the Sun and the planets.
+- Ways a caption arrives: `letters`, `words`, `lines`.
 - Film sizes: `1080p`, `720p`, `4k`, `vertical`, `square`.
 - Caption places: `bottom`, `top`, `center`, and three that point a line at something in the scene: `hole`
   (the shadow's edge), `einstein` (the Einstein ring), `companion` (the second black hole).

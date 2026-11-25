@@ -17,6 +17,7 @@ that a viewer sees what was meant, and what has already gone wrong once.
 10. Films to start from
 11. The timeline: time, layers and events
 12. Writing a film as a script
+13. Text that explains
 
 ## 1. Start from the picture, not from the keys
 
@@ -88,9 +89,12 @@ stay as long as it takes to read twice.
 - A caption the request did not ask for is named in the reply, with how to drop it.
 - A long caption is broken at its spaces to fit the frame; its letters shrink only when one word is
   wider than the frame. Write a line break yourself (`\n`) where the break carries meaning.
-- Russian and other Cyrillic text is drawn in `unbounded`, the one bundled face that holds those letters,
-  whatever face was asked for; the plan says so in a note. Letters no bundled face holds (Greek, Chinese,
-  emoji) are drawn in the machine's own face, which differs between machines: the note names that too.
+- Russian and other Cyrillic text in `orbitron` or `geistMono`, which lack those letters, is drawn in
+  `unbounded`; the plan says so in a note. Greek, mathematics and the signs of the sky are held by faces
+  that stand behind every bundled one, so they are the same letters everywhere. Letters no bundled face
+  holds (Chinese, emoji) are drawn in the machine's own face, which differs between machines: the note
+  names them.
+- What a caption's text can say beyond plain words is section 13.
 - The opening's title is the intro's own (`title`, `font`, `uppercase`); a new line is `\n`.
   `"title": false` drops it.
 - A title after the opening is a cue with words: `{ "at": 12, "title": "ACT TWO" }`. It is lensed and lit
@@ -186,8 +190,10 @@ seconds to cross the frame.
 In `films/`: `showreel.json` is a 50-second tour with labels (the opening, a zoom, the lens by keyframes,
 orbits, the sheet, a merger); `exposure.json`, `rosette.json`, `graph_paper.json`, `rapid.json` and
 `waltz.json` are each built on one ability. `language.js` is a film written as a script: shots, a path
-drawn by a function, a part used as a function, a loop of waves, slow motion, a title card, fades. Copy the
-nearest one and change it; they all pass the check.
+drawn by a function, a part used as a function, a loop of waves, slow motion, a title card, fades.
+`horizon.js` is a film that explains, carried by its text: words on black, a definition, a formula, a label,
+counters read from the film, a list that builds, and the scene's time slowed by the formula on screen. Copy
+the nearest one and change it; they all pass the check.
 
 ## 11. The timeline: time, layers and events
 
@@ -274,3 +280,37 @@ longer moves everything after it by itself; in the JSON every later second is re
   picture and goes dark with it.
 - The script is the film: keep the `.js` in `films/`. The JSON it comes to (`space.mjs check film.js
   out.json`) is for reading what a script did, key by key.
+
+## 13. Text that explains
+
+A film about space is carried by its words as much as by its picture. The guide lists what a caption
+takes; this is what each thing is for.
+
+- Two voices. `unbounded` is the display face: a label on the scene, a heading, three words. `noto` is the
+  text face: a sentence, a definition, a formula, anything read rather than glanced at. A caption of more
+  than about eight words is `noto`.
+- A formula is written in the text itself: `r_{s} = 2GM / c^{2}`, `M_{☉}`, `10^{-35} m`. Type the real
+  signs (λ, Δ, ∞, ≈, √, →, ·, ×, −): they are bundled, the same on every machine. Give a formula a line of
+  its own under the words that name it, and keep it on screen for as long as it takes to read twice.
+- One stressed term a caption: `*{event horizon}` puts it in the accent colour. A caption with three
+  stressed terms has none.
+- A number that changes is a number in the text, never a new caption a second: `#{cameraZoom:1}×` reads
+  the scene, `#{years:1}` reads the caption's own `values`. A counter says what the picture cannot: years
+  passing, a distance closing, how many times slower the scene's time runs. Keep the words around the
+  number the same length as it grows, or set `align` to `left` so they do not shake.
+- Words that arrive. `reveal: 'words'` over the seconds a sentence takes to say keeps the eye with a
+  narration; `'lines'` builds a list one point at a time, each line when the picture reaches it;
+  `'letters'` is a readout being typed. A caption that arrives is laid out whole first, so nothing moves
+  as it fills in.
+- A label on a place: `at: 'hole'` with `radius` starts its line that many black hole radii from the
+  centre, the unit `orbitSize` and `lensingRadius` are in. The shadow's edge is 1, and it is 2.6
+  Schwarzschild radii across from the centre, so a distance given in Schwarzschild radii is divided by
+  2.6. Two labels on one hole take different `angle`s.
+- A column of text beside the picture: `at: [0.74, 0.4]`, `width: 0.4`, `align: 'left'`, and the hole moved
+  to the other side (`blackHoleX` near 0.36). Text over the hole itself hides what it explains.
+- `plate` is for words over a bright picture (a sheet at full strength, a zoom into the ring). On the
+  dark scene a plate under 0.6 barely shows; from 0.6 it reads as a card.
+- Words on black are a caption while `fade` is 1: a quotation, a date, a question before the picture
+  answers it.
+- Underscores, asterisks and braces in plain text stay what they are: a mark is a sign with a brace right
+  after it (`^{`, `_{`, `*{`, `#{`), and nothing else is read as one.

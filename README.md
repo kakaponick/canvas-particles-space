@@ -129,6 +129,12 @@ to({ fade: 1 }, 1.5)
   text when asked for markdown (`Accept: text/markdown`). The text is `public/index.md`.
 - **By hand**: open the page with `?agent` and call `await space.film.render(film, { download: 'film.mp4' })`
   in the console; `space.film.guide()` prints the format.
+- **A film that explains**: captions take the text popular science is written in. `r_{s} = 2GM / c^{2}` is drawn
+  with its lowered and raised parts, `*{event horizon}` in an accent colour, `#{cameraZoom:1}` or a counter of the
+  caption's own is a number read from the film as it plays; Greek, mathematics and the signs of the Sun and the
+  planets are bundled (Noto Sans, Noto Sans Math, Noto Sans Symbols), so they are the same on every machine; a
+  caption can arrive a letter, a word or a line at a time, stand on a plate, in a column, on black, or point at a
+  distance from the hole. `films/horizon.js` is a 40 s film about the event horizon made of these.
 - **A film to start from**: `films/showreel.json` is a 50 s tour of what a film can do (the opening with its own
   title, a zoom with labels on the shadow, the lens changed by keyframes, orbiting stars, the sheet, two black
   holes merging). `node films/showreel_sound.mjs` writes its soundtrack, `films/showreel.wav`, to give
@@ -185,5 +191,6 @@ src/
 
 ## License
 
-MIT
+MIT. The fonts in `public/fonts` are under the SIL Open Font License; the Noto faces' copy of it is
+`public/fonts/noto-OFL.txt`.
 

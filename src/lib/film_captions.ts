@@ -1,9 +1,11 @@
 // Captions of a film, drawn over a finished frame on a 2D canvas: lines of text at a place on the frame,
 // or a label with a line pointing at the black hole's shadow or its Einstein ring, wherever the camera
-// has put them.
+// has put them. The text is what popular science is written in: raised and lowered parts, stressed terms,
+// numbers read from the film as it plays, Greek and mathematics, words that arrive one at a time.
 import { TITLE_FONTS } from './title_sprite'
 import type { CompositeSettings } from './particle_renderer'
-import { captionAlpha, type FilmCaption, type FilmPlan } from './film'
+import { captionAlpha, captionValue, type FilmCaption, type FilmPlan } from './film'
+import { captionLetters, writeNumber, type CaptionRun } from './caption_text'
 
 const LINE_HEIGHT = 1.3
 // Shares of the frame's short side: room kept from the frame's edges, and how far a label stands from
@@ -12,43 +14,160 @@ const SAFE_MARGIN = 0.06
 const LABEL_REACH = 0.09
 // Gap between a pointer line and the letters it leads to, in letter heights
 const LABEL_GAP = 0.5
+// A raised or lowered part: its letters as a share of the line's, and how far it leaves the line, in the
+// line's letter heights
+const SCRIPT_SIZE = 0.62
+const RAISED = -0.34
+const LOWERED = 0.2
+// The faces behind the one a caption asks for: text with Greek, mathematics, the signs of the sky. They are
+// bundled, so a letter the caption's own face lacks is the same letter on every machine
+const BEHIND = '"Noto Sans", "Noto Sans Math", "Noto Sans Symbols", system-ui, sans-serif'
 
 function captionFont (caption: FilmCaption, size: number) {
-  const family = caption.font === 'system' ? 'system-ui' : `"${TITLE_FONTS[caption.font].family}"`
-  return `500 ${size}px ${family}, system-ui, sans-serif`
+  if (caption.font === 'system') return `500 ${size}px system-ui, sans-serif`
+  return caption.font === 'noto' ? `500 ${size}px ${BEHIND}` : `500 ${size}px "${TITLE_FONTS[caption.font].family}", ${BEHIND}`
 }
 
-// A caption as it fits the frame, kept from one frame to the next: its lines and the height of its letters
-const fitted = new WeakMap<FilmCaption, { room: number, size: number, lines: string[] }>()
+// A stretch of a line drawn in one go: a word, or the part of a word that is raised, lowered or stressed
+interface Piece {
+  text: string
+  shift: CaptionRun['shift']
+  accent: boolean
+  // From the line's left edge
+  x: number
+  // Its place in the caption's order of words and letters, for words that arrive one at a time
+  word: number
+  letter: number
+  letters: number
+}
+
+interface Line {
+  pieces: Piece[]
+  width: number
+  // The whole line as one string when nothing in it is raised, lowered or stressed
+  plain: string | null
+}
+
+// A caption as it fits the frame, kept from one frame to the next while its words and its room stay the same
+interface Fit {
+  key: string
+  size: number
+  lines: Line[]
+  // The widest line
+  width: number
+  words: number
+  letters: number
+}
+
+type Fragment = Pick<Piece, 'text' | 'shift' | 'accent'>
+
+const fitted = new WeakMap<FilmCaption, Fit>()
+const isPlain = (word: Fragment[]) => word.every(part => part.shift === 0 && !part.accent)
+const wordText = (word: Fragment[]) => word.map(part => part.text).join('')
 
 // Breaks a line that is wider than the room at its spaces. Letters shrink only when a single word is
-// still too wide, so the words never leave the frame whatever was written
-function fitCaption (ctx: CanvasRenderingContext2D, caption: FilmCaption, size: number, room: number) {
-  const kept = fitted.get(caption)
-  if (kept && kept.room === room) return kept
+// still too wide, so the words never leave the frame whatever was written. `read` gives a run's words
+function layOut (ctx: CanvasRenderingContext2D, caption: FilmCaption, size: number, room: number, read: (run: CaptionRun) => string) {
+  // Each line as words, a word as the parts it is drawn from
+  const source = caption.lines.map(line => {
+    const words: Fragment[][] = [[]]
+    for (const run of line) {
+      read(run).split(' ').forEach((part, index) => {
+        if (index > 0) words.push([])
+        if (part !== '') words[words.length - 1].push({ text: part, shift: run.shift, accent: run.accent })
+      })
+    }
+    return words
+  })
+
   let fit = size
-  let lines: string[] = []
-  for (let tries = 0; tries < 6; tries++) {
-    ctx.font = captionFont(caption, fit)
-    lines = []
-    for (const line of caption.text.split('\n')) {
-      let current = ''
-      for (const word of line.split(' ')) {
-        const longer = current === '' ? word : `${current} ${word}`
-        if (current !== '' && ctx.measureText(longer).width > room) {
-          lines.push(current)
-          current = word
+  let lines: Line[] = []
+  let widest = 0
+  let words = 0
+  let letters = 0
+  for (let tries = 0; ; tries++) {
+    const whole = captionFont(caption, fit)
+    const small = captionFont(caption, fit * SCRIPT_SIZE)
+    const measure = (text: string, shift: number) => {
+      ctx.font = shift === 0 ? whole : small
+      return ctx.measureText(text).width
+    }
+    const space = measure(' ', 0)
+    const widthOf = (parts: Fragment[]) => parts.reduce((sum, part) => sum + measure(part.text, part.shift), 0)
+    // Plain words are measured as the one string they are drawn as; a line with marks is the sum of its parts
+    const lineWidth = (line: Fragment[][]) => line.every(isPlain)
+      ? measure(line.map(wordText).join(' '), 0)
+      : line.reduce((sum, parts) => sum + widthOf(parts), 0) + space * (line.length - 1)
+
+    const broken: Fragment[][][] = []
+    for (const line of source) {
+      let current: Fragment[][] = []
+      for (const parts of line) {
+        const longer = [...current, parts]
+        if (current.length > 0 && lineWidth(longer) > room) {
+          broken.push(current)
+          current = [parts]
         } else {
           current = longer
         }
       }
-      lines.push(current)
+      broken.push(current)
     }
-    const widest = Math.max(...lines.map(line => ctx.measureText(line).width))
-    if (widest <= room) break
+
+    words = 0
+    letters = 0
+    lines = broken.map(line => {
+      const pieces: Piece[] = []
+      let x = 0
+      for (const parts of line) {
+        for (const part of parts) {
+          const count = Array.from(part.text).length
+          pieces.push({ ...part, x, word: words, letter: letters, letters: count })
+          x += measure(part.text, part.shift)
+          letters += count
+        }
+        x += space
+        words++
+      }
+      const plain = line.every(isPlain) ? line.map(wordText).join(' ') : null
+      return { pieces, width: plain === null ? Math.max(x - space, 0) : measure(plain, 0), plain }
+    })
+    widest = Math.max(...lines.map(line => line.width))
+    if (widest <= room || tries === 5) break
     fit *= Math.max(room / widest, 0.5)
   }
-  const result = { room, size: fit, lines }
+  return { size: fit, lines, width: widest, words, letters }
+}
+
+// The widest a caption with live numbers comes to be, so its block keeps one place while the digits change
+const steady = new WeakMap<FilmCaption, { room: number, width: number }>()
+
+function fitCaption (ctx: CanvasRenderingContext2D, plan: FilmPlan, caption: FilmCaption, time: number, size: number, room: number): Fit {
+  // The words as they read at this second: a live number is written out
+  const live = caption.lines.some(line => line.some(run => run.value))
+  const write = (run: CaptionRun, value: number) => run.value ? writeNumber(value, run.value.digits, run.value.comma) : run.text
+  const read = (run: CaptionRun) => run.value ? write(run, captionValue(plan, caption, run.value.key, time)) : run.text
+  const key = live ? `${room}|${caption.lines.map(line => line.map(read).join('')).join('\n')}` : String(room)
+  const kept = fitted.get(caption)
+  if (kept && kept.key === key) return kept
+
+  const result: Fit = { key, ...layOut(ctx, caption, size, room, read) }
+  if (live) {
+    let widest = steady.get(caption)
+    if (!widest || widest.room !== room) {
+      // Each number written the longest way it will be: at the keys of its own track, or of the scene's
+      const longest = (run: CaptionRun) => {
+        if (!run.value) return run.text
+        const name = run.value.key
+        const track = caption.values[name] ?? plan.tracks.find(entry => entry.key === name && entry.target !== 'layers')
+        const seen = name === 'seconds' ? [plan.duration] : [captionValue(plan, caption, name, time), ...(track ? track.values : [])]
+        return seen.map(value => write(run, value)).reduce((long, written) => written.length > long.length ? written : long)
+      }
+      widest = { room, width: layOut(ctx, caption, size, room, longest).width }
+      steady.set(caption, widest)
+    }
+    result.width = Math.max(result.width, widest.width)
+  }
   fitted.set(caption, result)
   return result
 }
@@ -57,7 +176,11 @@ function fitCaption (ctx: CanvasRenderingContext2D, caption: FilmCaption, size: 
 export function loadCaptionFonts (plan: FilmPlan): Promise<unknown> {
   const loads = plan.captions
     .filter(caption => caption.font !== 'system')
-    .map(caption => document.fonts.load(captionFont(caption, 32), caption.text).catch(() => undefined))
+    .map(caption => {
+      // A live number may come to show any digit
+      const live = caption.lines.some(line => line.some(run => run.value))
+      return document.fonts.load(captionFont(caption, 32), captionLetters(caption.lines) + (live ? '0123456789.,-' : '')).catch(() => undefined)
+    })
   return Promise.all(loads)
 }
 
@@ -75,12 +198,13 @@ export function drawCaptions (ctx: CanvasRenderingContext2D, plan: FilmPlan, tim
     const alpha = captionAlpha(caption, time)
     if (alpha <= 0) continue
 
-    const { size, lines } = fitCaption(ctx, caption, caption.size * shortSide, width - 2 * margin)
+    const { size, lines, width: widest, words, letters } = fitCaption(ctx, plan, caption, time, caption.size * shortSide, (width - 2 * margin) * caption.width)
     const lineHeight = size * LINE_HEIGHT
     const blockHeight = lineHeight * lines.length
+    const whole = captionFont(caption, size)
     ctx.save()
     ctx.globalAlpha = alpha
-    ctx.font = captionFont(caption, size)
+    ctx.font = whole
     ctx.textBaseline = 'middle'
     ctx.fillStyle = caption.color
     ctx.strokeStyle = caption.color
@@ -100,9 +224,11 @@ export function drawCaptions (ctx: CanvasRenderingContext2D, plan: FilmPlan, tim
       const sceneY = second ? composite.companionY : composite.holeY
       const holeX = (composite.zoomX + (sceneX - composite.shakeX - composite.zoomX) * zoom) * pixel
       const holeY = (composite.zoomY + (sceneY - composite.shakeY - composite.zoomY) * zoom) * pixel
-      const radius = (second
+      const edge = (second
         ? composite.companionRadius
         : caption.at === 'einstein' && composite.einstein > 0 ? composite.einstein : composite.horizon) * zoom * pixel
+      // A label can start anywhere around the hole it points at, in that hole's radii: an orbit, a distance
+      const radius = caption.radius === null ? edge : (second ? composite.companionRadius : composite.horizon) * zoom * pixel * caption.radius
       const angle = caption.angle * Math.PI / 180
       const dirX = Math.cos(angle)
       const dirY = -Math.sin(angle)
@@ -136,13 +262,60 @@ export function drawCaptions (ctx: CanvasRenderingContext2D, plan: FilmPlan, tim
     }
 
     // The words stay inside the frame, whatever they point at and however far the camera has moved in
-    const widest = Math.max(...lines.map(line => ctx.measureText(line).width))
     const left = ctx.textAlign === 'center' ? x - widest / 2 : ctx.textAlign === 'right' ? x - widest : x
     x += Math.max(margin - left, 0) - Math.max(left + widest - (width - margin), 0)
     y = Math.min(Math.max(y, margin + blockHeight / 2), Math.max(height - margin - blockHeight / 2, margin + blockHeight / 2))
+    const blockLeft = ctx.textAlign === 'center' ? x - widest / 2 : ctx.textAlign === 'right' ? x - widest : x
+
+    if (caption.plate > 0) {
+      const pad = size * 0.6
+      ctx.save()
+      ctx.shadowColor = 'transparent'
+      ctx.globalAlpha = alpha * caption.plate
+      ctx.fillStyle = '#000000'
+      ctx.beginPath()
+      ctx.roundRect(blockLeft - pad, y - blockHeight / 2 - pad * 0.6, widest + pad * 2, blockHeight + pad * 1.2, size * 0.4)
+      ctx.fill()
+      ctx.restore()
+    }
+
+    // Words that arrive one at a time: how many of them are there by now
+    const arrived = caption.reveal ? Math.min(Math.max((time - caption.from) / caption.revealOver, 0), 1) : 1
+    const shown = arrived * (caption.reveal === 'letters' ? letters : caption.reveal === 'words' ? words : lines.length)
+    const align = caption.align ?? ctx.textAlign
+    const placed = ctx.textAlign
+    const small = captionFont(caption, size * SCRIPT_SIZE)
 
     lines.forEach((line, index) => {
-      ctx.fillText(line, x, y + (index - (lines.length - 1) / 2) * lineHeight)
+      const lineY = y + (index - (lines.length - 1) / 2) * lineHeight
+      if (line.plain !== null && arrived >= 1 && caption.align === null) {
+        // A plain line that is all there is one string, drawn as it always was
+        ctx.textAlign = placed
+        ctx.globalAlpha = alpha
+        ctx.font = whole
+        ctx.fillStyle = caption.color
+        ctx.fillText(line.plain, x, lineY)
+        return
+      }
+      const lineLeft = align === 'center' ? blockLeft + (widest - line.width) / 2 : align === 'right' ? blockLeft + widest - line.width : blockLeft
+      ctx.textAlign = 'left'
+      for (const piece of line.pieces) {
+        let text = piece.text
+        let there = 1
+        if (arrived < 1) {
+          if (caption.reveal === 'letters') {
+            const count = Math.floor(shown) - piece.letter
+            if (count < piece.letters) text = count > 0 ? Array.from(piece.text).slice(0, count).join('') : ''
+          } else {
+            there = Math.min(Math.max(shown - (caption.reveal === 'words' ? piece.word : index), 0), 1)
+          }
+        }
+        if (text === '' || there <= 0) continue
+        ctx.globalAlpha = alpha * there
+        ctx.font = piece.shift === 0 ? whole : small
+        ctx.fillStyle = piece.accent ? caption.accent : caption.color
+        ctx.fillText(text, lineLeft + piece.x, lineY + (piece.shift > 0 ? RAISED : piece.shift < 0 ? LOWERED : 0) * size)
+      }
     })
     ctx.restore()
   }

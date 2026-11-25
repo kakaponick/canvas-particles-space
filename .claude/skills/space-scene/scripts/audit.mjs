@@ -36,7 +36,7 @@ export { SLIDERS, TOGGLES, SETTING_KEYS, DEVICE_KEYS, ALL_SETTING_KEYS, INTRO_KE
 export { INTRO_PARAM_SPECS, DEFAULT_INTRO_PARAMS } from ${source('lib/intro_params.ts')}
 export { INTRO_LAYERS, CUE_LAYERS, INTRO_LAYER_NOTES, INTRO_TRACKS } from ${source('lib/intro_tracks.ts')}
 export { TITLE_FONTS } from ${source('lib/title_sprite.ts')}
-export { planFilm, FILM_SIZES, CAPTION_PLACES } from ${source('lib/film.ts')}
+export { planFilm, FILM_SIZES, CAPTION_PLACES, CAPTION_FONTS, CAPTION_REVEALS, CAPTION_ALIGNS, FILM_GUIDE } from ${source('lib/film.ts')}
 export { writeFilm, SCRIPT_WORDS, SCRIPT_GUIDE } from ${source('lib/film_script.ts')}
 export { useParticleStore } from ${source('store/particle_store.ts')}
 export { BUILT_IN_PRESETS, DEFAULT_PRESET } from ${source('store/preset_store.ts')}
@@ -73,6 +73,7 @@ const registries = await loadRegistries()
 const {
   SLIDERS, TOGGLES, SETTING_KEYS, DEVICE_KEYS, ALL_SETTING_KEYS, INTRO_KEYS, parseSettings, INTRO_PARAM_SPECS,
   DEFAULT_INTRO_PARAMS, INTRO_LAYERS, CUE_LAYERS, INTRO_LAYER_NOTES, INTRO_TRACKS, TITLE_FONTS, planFilm, FILM_SIZES, CAPTION_PLACES,
+  CAPTION_FONTS, CAPTION_REVEALS, CAPTION_ALIGNS, FILM_GUIDE,
   useParticleStore, BUILT_IN_PRESETS, DEFAULT_PRESET, BUILT_IN_INTRO_PRESETS, writeFilm, SCRIPT_WORDS, SCRIPT_GUIDE
 } = registries
 
@@ -287,7 +288,43 @@ lineOf('a script with an unknown word', 'wait(1)\n\nzoomIn(2)', 3)
 lineOf('a script that moves one value twice at once', 'meanwhile(() => {\n  to({ cameraZoom: 3 }, 5)\n})\nwait(1)\nto({ cameraZoom: 2 }, 1)', 5)
 lineOf('a script that fires an event inside the opening', 'opening()\nat(1, () => {\n  fire("glare")\n})', 3)
 
-// 8. The map names every knob, and names nothing that is gone. In references/knobs.md a name in
+// 8. A caption's text: every face, way of arriving and way of standing is taken; the marks are read and a
+// broken one is refused; a number in the text is the caption's own, the film's second or any number of the
+// scene; the letters of science are held by the bundled faces, so no film is told its face is the machine's
+const captionOf = (what, caption) => attempt(what, () => planFilm({ duration: 4, intro: false, captions: [{ text: 'x', from: 0, to: 4, ...caption }] }))
+for (const font of CAPTION_FONTS) captionOf(`a caption in the face ${font}`, { font })
+for (const reveal of CAPTION_REVEALS) captionOf(`a caption arriving by ${reveal}`, { reveal, revealOver: 1 })
+for (const align of CAPTION_ALIGNS) captionOf(`a caption standing ${align}`, { align })
+const marked = captionOf('a caption with every mark', {
+  text: 'r_{s} = 2GM / c^{2}, *{a term with c^{2} and #{own:2,}}, #{seconds:1}, #{cameraZoom:1}, #{gravityWaveGain}',
+  values: { own: [[0, 0], [4, 1, 'linear']] },
+  accent: '#88ccff',
+  plate: 0.5,
+  width: 0.5,
+  radius: 1.5,
+  at: 'hole'
+})
+if (marked && marked.notes.length > 0) problem(`a caption with every mark: ${marked.notes.join('; ')}`)
+const science = captionOf('a caption in the letters of science', { text: 'αβγδλμπστφψωΓΔΘΛΣΦΨΩ ∞≈≠≤≥±×÷·√∫∂∇∑∝→←↔⇒ ℏ ☉⊕☿♀♁♂♃♄♅♆ ★ °′″ Å Привет' })
+if (science && science.notes.length > 0) problem(`the letters of science are not all in the bundled faces: ${science.notes.join('; ')}`)
+const strange = captionOf('a caption in letters no face holds', { text: '事件' })
+if (strange && strange.notes.length === 0) problem('a caption in letters no bundled face holds is not told so')
+for (const text of ['r_{s', '#{nope:1}', '#{titleEntrance}', '#{cameraZoom:12}', 'a^{b_{c}}']) {
+  refused(`a caption with the broken mark ${text}`, { duration: 4, intro: false, captions: [{ text, from: 0, to: 4 }] })
+}
+for (const text of ['space_guide', 'Sagittarius A*', 'a ^ b', '{x}']) {
+  const plain = captionOf(`a caption with the plain text ${text}`, { text })
+  if (plain && (plain.captions[0].lines[0].length !== 1 || plain.captions[0].lines[0][0].text !== text)) problem(`plain text "${text}" was read as a mark`)
+}
+samePlan('a script with a caption\'s own numbers', `
+  caption('#{a:1} and #{b}', 2, { values: { a: [0, 5], b: [[0, 1], [2, 3]] } })
+  wait(2)
+`, { duration: 2, intro: false, captions: [{ text: '#{a:1} and #{b}', from: 0, to: 2, values: { a: [[0, 0], [2, 5, 'linear']], b: [[0, 1], [2, 3]] } }] })
+for (const name of [...CAPTION_REVEALS, ...CAPTION_ALIGNS, 'radius', 'plate', 'accent', 'values', 'revealOver', 'width']) {
+  if (!FILM_GUIDE.includes(name)) problem(`the film guide does not tell the caption option "${name}"`)
+}
+
+// 9. The map names every knob, and names nothing that is gone. In references/knobs.md a name in
 // backticks is a key, a layer, a preset, a font, a size or a caption place, and nothing else
 const mapPath = path.join(here, '..', 'references', 'knobs.md')
 const known = {
@@ -297,6 +334,8 @@ const known = {
   preset: presetNames,
   'intro preset': introPresetNames,
   'title font': Object.keys(TITLE_FONTS),
+  'caption font': [...CAPTION_FONTS],
+  'way a caption arrives': [...CAPTION_REVEALS],
   'film size': Object.keys(FILM_SIZES),
   'caption place': [...CAPTION_PLACES]
 }

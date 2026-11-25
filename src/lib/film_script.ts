@@ -16,6 +16,9 @@ export const SCRIPT_WORDS = [
 
 // Keys a moving value gets for each second when its path is a function: the rate the scene is stepped at
 const BAKE_RATE = 60
+// Keys a caption's own number gets for each second when it follows a function: a written number changes
+// no faster than it can be read
+const VALUE_RATE = 30
 // Calls a script may make before it is taken for one that never ends
 const MAX_CALLS = 50000
 const HEAD_KEYS = ['duration', 'fps', 'size', 'width', 'height', 'scale', 'seed', 'preset', 'settings', 'warmup']
@@ -515,6 +518,26 @@ export function writeFilm (source: unknown, input: unknown = {}): { film: Patch,
   const duration = typeof named === 'number' ? named : played
   if (duration < MIN_DURATION) fail('The script plays nothing: wait(), to(), drive() and opening() are what give a film its length')
   for (const caption of open[0]) caption.to = duration
+  // A caption's own numbers, given the short way: two ends to run between over its life, or a function of
+  // the seconds since it appeared
+  for (const caption of captions) {
+    if (!isObject(caption.values)) continue
+    const from = caption.from as number
+    const life = (caption.to as number) - from
+    caption.values = Object.fromEntries(Object.entries(caption.values).map(([key, value]) => {
+      if (typeof value === 'function') {
+        const path = value as Path
+        const count = Math.max(1, Math.ceil(life * VALUE_RATE))
+        const keys: unknown[][] = [[from, fine(path(0, 0))]]
+        for (let step = 1; step <= count; step++) keys.push([tidy(from + life * step / count), fine(path(life * step / count, step / count)), 'linear'])
+        return [key, keys]
+      }
+      if (Array.isArray(value) && value.length === 2 && typeof value[0] === 'number' && typeof value[1] === 'number') {
+        return [key, [[from, value[0]], [from + life, value[1], 'linear']]]
+      }
+      return [key, value]
+    }))
+  }
 
   // What every value is before the script touches it: the film's head and the opening, as the plan reads them
   const intro = opening as Patch | null
@@ -591,6 +614,9 @@ is the film above. It is plain JavaScript: functions, loops, Math. The same scri
                              as the second argument): circles, pulses, a list of numbers from input
   caption('Event horizon', 4, { at: 'hole', angle: 35 })   for 4 s from now; options as in "captions"
   caption('Slow motion', () => { ... })                    for as long as what the function plays
+  caption('*{#{years:1}} billion years', 8, { at: 'top', values: { years: [0, 13.8] } })
+                             a number of the caption's own, the short way: two ends to run between over its
+                             life, or a function of its seconds, s => 13.8 * (1 - Math.exp(-s))
   title('ACT TWO', 3)        a title card for 3 s, lensed like the opening's; without seconds it lives by
                              the intro's own title parameters. Options: { font, uppercase, params }
   fire('ringdown', 'gravityWave', { gravityWaveGain: 2 })   events of the opening again, with their params
