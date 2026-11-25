@@ -362,6 +362,13 @@ function SettingsBody () {
         <SettingSlider field="starDensity" />
         <SettingSlider field="starCell" />
       </SettingsSection>
+
+      <SettingsSection id="nebula" title="Nebula">
+        {/* The shape of its clouds is the opening's dust: Dust Scale, Sparseness and Drift in the intro debugger */}
+        <SettingSlider field="nebula" />
+        <SettingColor field="nebulaColor" />
+        <SettingColor field="nebulaColorDeep" />
+      </SettingsSection>
     </div>
   )
 }

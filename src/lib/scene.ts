@@ -365,6 +365,12 @@ export function createScene (
       starCell: 26,
       starDensity: 0,
       starFlare: 0,
+      nebula: 0,
+      nebulaColor: createSceneColor(),
+      nebulaColorDeep: createSceneColor(),
+      nebulaShiftX: 0,
+      nebulaShiftY: 0,
+      nebulaWrap: 0,
       dustScale: 220,
       dustThreshold: 0.5,
       lightDustContrast: 1,
@@ -906,6 +912,11 @@ export function createScene (
       composite.starShiftY = pitch * focal
       composite.gridShiftX = yaw / FULL_TURN * gridWrap
       composite.gridShiftY = pitch * focal
+      // The nebula repeats in nothing, so it slides by the share of a full turn the camera has made and
+      // the composite pass blends it into itself as the turn comes round
+      composite.nebulaWrap = FULL_TURN * focal
+      composite.nebulaShiftX = ((yaw % FULL_TURN) + FULL_TURN) % FULL_TURN * focal
+      composite.nebulaShiftY = pitch * focal
     } else {
       settings.threeD = 0
       frame.orbitFocal = 0
@@ -913,6 +924,9 @@ export function createScene (
       composite.starShiftY = 0
       composite.gridShiftX = 0
       composite.gridShiftY = 0
+      composite.nebulaWrap = 0
+      composite.nebulaShiftX = 0
+      composite.nebulaShiftY = 0
     }
 
     // A frozen frame keeps the scene texture; only the composite (lens, flash, title) is redrawn
@@ -1177,6 +1191,10 @@ export function createScene (
     composite.starCell = state.starCell
     composite.starDensity = state.starDensity
     composite.starFlare = params.starFlare
+    // The nebula is part of the sky: it shows as the opening lets the stars show
+    composite.nebula = intro.backgroundStars * state.nebula
+    readSceneColor(composite.nebulaColor, state.nebulaColor)
+    readSceneColor(composite.nebulaColorDeep, state.nebulaColorDeep)
     composite.colorFlash = params.colorFlash
     composite.colorLight = params.colorLight
     composite.colorDust = params.colorDust

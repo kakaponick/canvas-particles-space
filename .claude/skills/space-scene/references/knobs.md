@@ -321,6 +321,16 @@ come, as around a real black hole.
 `starsBrightness`, `starDensity`, `starCell`: fixed stars behind everything, bent by the lens and rippled
 by the waves. They keep their size at any zoom.
 
+`nebula`, `nebulaColor`, `nebulaColorDeep`: a nebula behind the stars, bent and rippled like them. It is the
+dust of the opening (section 13) glowing on its own, so its shape is the dust's: `dustScale` sizes the
+clouds, `dustThreshold` sets how much of the sky they fill (0.1 to 0.2 fills it with haze, the default
+leaves wisps), `dustDrift` moves them (0 holds the sky still). Those are intro parameters and work without
+the opening too; changing them changes the dust the flash lights as well. The nebula shows as the opening
+lets the stars show, and hiding the `stars` layer hides it. It adds light, so a dark background colour
+under it (`backgroundR`..`backgroundB`) deepens the gaps between the clouds. In 3D it turns with the camera
+and, having no cells to repeat by, blends into itself over a full turn, so its contrast is lowest when the
+camera looks back along the flight.
+
 ## 11. Where the black hole is, and the camera
 
 | What | Keys |
@@ -542,6 +552,7 @@ The cost of a knob, in the last column:
 | The lattice's 13 lines each way along each of the three axes, in 48 pieces each | space_lattice.ts | machine |
 | A background star: a point of light about 1.5 px across, tinted between warm and cool, twinkling by 15% | webgl_shaders.ts | frame |
 | One star at most in a cell, placed in its middle 0.6 | webgl_shaders.ts | pixel |
+| The nebula's patches of its second colour, 3 Dust Scales across, turning over the middle 0.4 of a noise | webgl_shaders.ts | frame |
 
 ### The opening
 

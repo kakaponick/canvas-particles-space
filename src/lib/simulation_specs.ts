@@ -80,6 +80,8 @@ export const SIMULATION_SETTING_SPECS = {
     'Share of the star grid cells that hold a star.'), 'Star Density'),
   starCell: spoken(spec('Spacing', 4, 200, 1, fixed(0, ' px'), 'Grid cell size; smaller packs stars closer',
     'Size of one star grid cell; smaller cells mean more, closer stars.'), 'Star Spacing'),
+  nebula: spoken(spec('Brightness', 0, 3, 0.01, fixed(2, '×'), 'Glowing dust behind the stars; 0 = off',
+    'Brightness of a nebula: the dust cloud the opening\'s flash lights, glowing steadily behind the stars in Nebula Color, with patches of Nebula Second Color, and bent by the lens and rippled by the waves like the stars. Its shape is the dust\'s, set by parameters of the opening: Dust Scale sizes its clouds, Dust Sparseness sets how much of the sky they fill (low values fill it with haze, high ones leave a few thin wisps), Dust Drift Speed moves them. It shows as the opening lets the background stars show, and hiding the stars layer hides it too. 0 turns it off.'), 'Nebula Brightness'),
   blackHoleSize: spoken(spec('Size', 0, 60, 0.5, fixed(1, '%'), 'Shadow radius, % of short side; 0 = none',
     'Radius of the black hole\'s shadow as a share of the screen\'s short side. Everything else is measured from it: the photon ring, the event horizon, the lens, the strength and reach of gravity, the orbits of the stars. The radius of a real black hole\'s shadow is 2.6 Schwarzschild radii. 0 removes the black hole.'), 'Black Hole Size'),
   horizonScale: spec('Event Horizon', 0, HORIZON_SCALE_MAX, 0.05, fixed(2, '×'), 'Capture radius, in hole radii; 0 = none',
@@ -284,7 +286,11 @@ export const SIMULATION_COLOR_SPECS = {
     'Ring Approaching Side Color', { hex: '#cce6ff', rgb: [0.8, 0.9, 1.0] }),
   ringColorReceding: color('Receding Side', 'Tint of the side moving away',
     'The color the dim, receding side of the ring turns toward as Doppler Contrast rises.',
-    'Ring Receding Side Color', { hex: '#ff6b29', rgb: [1.0, 0.42, 0.16] })
+    'Ring Receding Side Color', { hex: '#ff6b29', rgb: [1.0, 0.42, 0.16] }),
+  nebulaColor: color('Color', 'Main color of the nebula',
+    'The color most of the nebula glows in. Nebula Brightness scales it, and its patches turn toward Nebula Second Color.', 'Nebula Color'),
+  nebulaColorDeep: color('Second Color', 'Color of the nebula\'s other patches',
+    'The color the nebula turns toward in broad patches, several of its clouds across, so the sky is not one tint.', 'Nebula Second Color')
 } satisfies Record<string, SimulationColorSpec>
 
 export type SimulationColorKey = keyof typeof SIMULATION_COLOR_SPECS

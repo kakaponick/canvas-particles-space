@@ -172,6 +172,14 @@ export interface CompositeSettings {
   starCell: number
   starDensity: number
   starFlare: number
+  // The nebula's brightness (0 turns it off) and its two colours; CSS pixels the 3D camera's turn slides
+  // it by, and the CSS pixels of a full turn, over which it blends into itself (0 in the flat mode)
+  nebula: number
+  nebulaColor: SceneColor
+  nebulaColorDeep: SceneColor
+  nebulaShiftX: number
+  nebulaShiftY: number
+  nebulaWrap: number
   dustScale: number
   dustThreshold: number
   lightDustContrast: number
@@ -438,7 +446,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     'titleCenter', 'titleHalfSize', 'titleAlpha', 'titleReveal', 'titleDissolve', 'titleDrift', 'titleGlow',
     'titleFlash', 'titleCooling', 'titleDust', 'titlePull', 'titleSwirl', 'titleReach', 'titleCapture', 'titleScale',
     'titleFringe', 'titleHalo', 'titleRedshift', 'titleGrain', 'titleBurn', 'titleFall', 'titleTidal', 'titleSpiral', 'titleSpread', 'titleStream', 'titleOrder', 'titleTrail', 'titleHeat', 'dustSweep', 'echoFloor', 'dustShock', 'dustBlow', 'dustDrift',
-    'skyGrid', 'gridCell', 'skyShift', 'orbits',
+    'skyGrid', 'gridCell', 'skyShift', 'orbits', 'nebula', 'nebulaColor', 'nebulaColorDeep',
     'colorFlash', 'colorLight', 'colorDust', 'colorTitle', 'colorEmber',
     'cameraZoom', 'zoomCenter', 'layerZoom', 'shake', 'lensFringe', 'vignette', 'filmGrain', 'letterbox'
   ] as const)
@@ -921,6 +929,11 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     setUniform1f(gl, u.starCell, Math.max(settings.starCell, 1))
     setUniform1f(gl, u.starDensity, settings.starDensity)
     setUniform1f(gl, u.starFlare, settings.starFlare)
+    setUniform4f(gl, u.nebula, settings.nebula, settings.nebulaShiftX, settings.nebulaShiftY, settings.nebulaWrap)
+    if (settings.nebula > 0) {
+      setUniform3f(gl, u.nebulaColor, settings.nebulaColor.r, settings.nebulaColor.g, settings.nebulaColor.b)
+      setUniform3f(gl, u.nebulaColorDeep, settings.nebulaColorDeep.r, settings.nebulaColorDeep.g, settings.nebulaColorDeep.b)
+    }
     setUniform1f(gl, u.dustScale, Math.max(settings.dustScale, 1))
     setUniform1f(gl, u.dustThreshold, Math.min(settings.dustThreshold, 0.99))
     setUniform1f(gl, u.lightDustContrast, settings.lightDustContrast)

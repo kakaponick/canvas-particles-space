@@ -311,6 +311,9 @@ export const compositeFragmentShaderSource = `
   uniform float u_skyGrid;        // brightness of the flat grid on the sky behind the hole; 0 turns it off
   uniform float u_gridCell;        // CSS pixels per cell of that grid
   uniform vec4 u_skyShift;         // CSS pixels the 3D camera's turn slides the stars (xy) and that grid (zw) by; zeros when flat
+  uniform vec4 u_nebula;           // the nebula's brightness (0 turns it off), CSS pixels the 3D camera's turn slides it by (yz), CSS pixels of a full turn (0 when flat)
+  uniform vec3 u_nebulaColor;
+  uniform vec3 u_nebulaColorDeep;
 
   uniform vec2 u_titleCenter;
   uniform vec2 u_titleHalfSize;
@@ -371,6 +374,8 @@ export const compositeFragmentShaderSource = `
   const float DUST_HOLD_MAX = 1.8;
   // Seconds for the blast to push the dust most of its way
   const float DUST_BLOW_SECONDS = 1.2;
+  // Width of a patch of the nebula's second colour, in Dust Scales
+  const float NEBULA_PATCH = 3.0;
   const vec3 GRID_COLOR = ${GRID_COLOR_GLSL};
   // Half the width of a line of the flat grid, CSS pixels
   const float GRID_HALF_LINE = 0.75;
@@ -418,6 +423,13 @@ export const compositeFragmentShaderSource = `
     float edge = mix(0.2, 0.62, u_dustThreshold);
     float cloud = smoothstep(edge, edge + 0.22, n);
     return cloud * (0.45 + 0.55 * cloud) * (0.7 + 0.3 * valueNoise(p * 1.7));
+  }
+
+  // The nebula is the same dust, glowing on its own: its main colour, turning to the second one in
+  // patches NEBULA_PATCH clouds across
+  vec3 nebulaLight (vec2 cssPx) {
+    float other = smoothstep(0.3, 0.7, valueNoise(cssPx / (NEBULA_PATCH * u_dustScale) + 23.0));
+    return mix(u_nebulaColor, u_nebulaColorDeep, other) * dust(cssPx);
   }
 
   // Static distant stars, one at most per cell; they flare as the light front passes
@@ -807,6 +819,15 @@ export const compositeFragmentShaderSource = `
       // The flare belongs to the light front, not to the dust echo, so hiding the echo keeps it
       float flare = u_lightPower > 0.0 && lit >= 0.0 ? u_starFlare * exp(-lit / STAR_FLARE_DECAY) : 0.0;
       emitted += backgroundStar(cssPx + u_skyShift.xy, flare) * u_backgroundStars;
+    }
+    if (u_nebula.x > 0.0) {
+      // Behind the stars and read where the bent ray comes from, like them; it drifts as the dust does
+      vec2 nebulaAt = cssPx + u_nebula.yz + u_dustDrift * u_time * vec2(0.8, -0.6);
+      vec3 nebula = nebulaLight(nebulaAt);
+      // In 3D the turn slides it by up to a full turn's width, and the nebula a full turn on takes over as
+      // the turn comes round, so it never jumps
+      if (u_nebula.w > 0.0) nebula = mix(nebula, nebulaLight(nebulaAt - vec2(u_nebula.w, 0.0)), smoothstep(0.0, 1.0, u_nebula.y / u_nebula.w));
+      emitted += nebula * u_nebula.x;
     }
     if (u_skyGrid > 0.0) {
       // A square grid on the sky, with a line through the middle of the screen. It is read where the

@@ -1,0 +1,47 @@
+{
+  "duration": 12,
+  "fps": 30,
+  "size": "1080p",
+  "seed": 5,
+  "intro": false,
+  "settings": {
+    "gridSky": 0.65,
+    "gridCell": 5.5,
+    "blackHoleSize": 12,
+    "lensingTraced": false,
+    "lensingRadius": 2.3,
+    "lensingReach": 1,
+    "lensingFalloff": 1.3,
+    "lensingRotation": 0,
+    "lensingMaxBend": 6,
+    "lensingCore": 0,
+    "lensingAbsorption": 0,
+    "ringBrightness": 0.3,
+    "ringGlow": 0.6,
+    "ringFeed": 0.4,
+    "starsBrightness": 2.5,
+    "starDensity": 0.35,
+    "starCell": 14,
+    "nebula": 0.6,
+    "nebulaColor": "#2fa27c",
+    "nebulaColorDeep": "#2448a0",
+    "backgroundR": 4,
+    "backgroundG": 22,
+    "backgroundB": 30,
+    "numParticles": 16000,
+    "baseBrightness": 1.2,
+    "particleSize": 1.4,
+    "baseSpeed": 0.1,
+    "orbitalStrength": 90,
+    "gravityReach": 3.5,
+    "colorPalette": [
+      { "r": 220, "g": 255, "b": 245, "enabled": true, "percent": 50 },
+      { "r": 180, "g": 230, "b": 255, "enabled": true, "percent": 50 }
+    ]
+  },
+  "tracks": {
+    "dustScale": [[0, 300]],
+    "dustThreshold": [[0, 0.22]],
+    "dustDrift": [[0, 4]]
+  }
+}

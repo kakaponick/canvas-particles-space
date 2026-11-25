@@ -8,7 +8,7 @@ export const SIMULATION_SETTING_KEYS = [
   'particleSize', 'particleSizeMin', 'spawnRadius', 'blackHoleDepth', 'gravityDepth', 'scrollSpeedStep',
   'baseBrightness', 'depthFade', 'minOpacity', 'maxOpacity', 'pulseIntensity', 'pulseSpeedMultiplier',
   'flightTintAhead', 'flightTintEdge', 'flightTintGradient', 'flightTintLimit', 'flightTintFrom', 'flightTintFull',
-  'starsBrightness', 'starDensity', 'starCell',
+  'starsBrightness', 'starDensity', 'starCell', 'nebula', 'nebulaColor', 'nebulaColorDeep',
   'blackHoleSize', 'horizonScale', 'blackHoleSpin', 'spinTilt', 'spinAxis', 'frameDrag', 'frameDragSweep', 'gravityReach', 'gravityStrength', 'orbitalStrength', 'gravityInertia', 'followFrequency',
   'blackHoleFollowing', 'blackHoleX', 'blackHoleY', 'cameraZoom', 'cameraX', 'cameraY', 'cameraPair',
   'threeD', 'cameraYaw', 'cameraPitch', 'cameraSpin', 'threeDEndFade',

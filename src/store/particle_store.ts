@@ -78,6 +78,11 @@ export interface ParticleState {
   starsBrightness: number
   starDensity: number
   starCell: number
+  // The nebula: the opening's dust lit steadily behind the stars (0 turns it off), and its two colours,
+  // '#rrggbb'
+  nebula: number
+  nebulaColor: string
+  nebulaColorDeep: string
   pulseIntensity: number
   blackHoleFollowing: boolean
   // Where the black hole rests when it does not follow the cursor, as shares of the viewport's width
@@ -286,6 +291,9 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   starsBrightness: 1,
   starDensity: 0.12,
   starCell: 26,
+  nebula: 0,
+  nebulaColor: '#1c8c78',
+  nebulaColorDeep: '#2a4fb0',
   pulseIntensity: 1,
   blackHoleFollowing: true,
   blackHoleX: 0.5,
