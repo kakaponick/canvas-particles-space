@@ -10,10 +10,11 @@ export const SIMULATION_SETTING_KEYS = [
   'starsBrightness', 'starDensity', 'starCell',
   'blackHoleSize', 'horizonScale', 'blackHoleSpin', 'spinTilt', 'spinAxis', 'frameDrag', 'gravityReach', 'gravityStrength', 'orbitalStrength', 'gravityInertia', 'followFrequency',
   'blackHoleFollowing', 'blackHoleX', 'blackHoleY', 'cameraZoom', 'cameraX', 'cameraY', 'cameraPair',
+  'threeD', 'cameraYaw', 'cameraPitch', 'cameraSpin',
   'companionSize', 'companionDistance', 'companionSpeed', 'companionWaves',
   'ringEnabled', 'ringFeedEnabled', 'ringBrightness', 'ringGlow', 'ringWidth', 'ringDoppler', 'ringSide', 'ringBase', 'ringFeed', 'ringAfterglow', 'ringFlowSpeed',
   'lensingEnabled', 'lensingTraced', 'lensingRadius', 'lensingRotation', 'lensingFalloff', 'lensingPivot', 'lensingCore', 'lensingMaxBend', 'lensingReach', 'lensingTwistLimit', 'lensingAbsorption',
-  'gridCell', 'gridSheet', 'gridTilt', 'gridDepth', 'gridSky',
+  'gridCell', 'gridSheet', 'gridTilt', 'gridDepth', 'gridSky', 'gridLattice', 'gridLatticeCell', 'gridLatticeWarp',
   'orbitCount', 'orbitSize', 'orbitEccentricity', 'orbitSpeed', 'orbitTrail', 'orbitStarSize',
   'colorPalette', 'backgroundR', 'backgroundG', 'backgroundB'
 ] as const satisfies readonly (keyof ParticleState)[]

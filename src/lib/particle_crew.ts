@@ -10,6 +10,7 @@
 import {
   settleLater, stepParticles, type InstanceData, type ParticleField, type SpawnSettings, type StepSettings
 } from './particle_simulation'
+import { settleLater3d, stepParticles3d } from './particle_simulation_3d'
 import {
   BUSY, GENERATION, MAX_PIECES, OPEN, QUIT, createPieceMemory, pieceStart, pieceWritten, readPieceLater, workPieces, writeStep
 } from './particle_pieces'
@@ -81,7 +82,7 @@ export async function createParticleCrew (capacity: number): Promise<ParticleCre
     // A field that outgrew the shared memory is no longer the one the workers see
     if (count < MIN_CREW_PARTICLES || field.capacity !== capacity || workers.length === 0) {
       crew.runCount = 0
-      return stepParticles(field, settings, spawn, instances)
+      return (settings.threeD > 0 ? stepParticles3d : stepParticles)(field, settings, spawn, instances)
     }
 
     const pieces = writeStep(memory, settings, spawn, count)
@@ -106,10 +107,11 @@ export async function createParticleCrew (capacity: number): Promise<ParticleCre
 
     const { runs } = crew
     let written = 0
+    const settle = settings.threeD > 0 ? settleLater3d : settleLater
     for (let piece = 0; piece < pieces; piece++) {
       const from = pieceStart(memory, piece)
       readPieceLater(memory, piece)
-      settleLater(field, settings, spawn, memory.later, from)
+      settle(field, settings, spawn, memory.later, from)
       const segments = pieceWritten(memory, piece)
       runs[piece * 2] = from
       runs[piece * 2 + 1] = segments

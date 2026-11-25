@@ -17,7 +17,7 @@ place. The audit script reads the file by that rule and fails when a name is mis
 6. The photon ring
 7. Orbiting stars
 8. A second black hole and its waves
-9. Curved space made visible: the two grids
+9. Curved space made visible: the grids and the lattice
 10. Background stars and the sky
 11. Where the black hole is, and the camera
 12. The page only
@@ -226,12 +226,13 @@ come, as around a real black hole.
   `gravityStrength`, or `horizonScale`, when the picture needs the particles.
 - The companion has its own shadow, lens, ring, gravity and well in the sheet.
 
-## 9. Curved space made visible: the two grids
+## 9. Curved space made visible: the grids and the lattice
 
 | What | Keys |
 |---|---|
-| Cell size, shared by both grids | `gridCell` |
+| Cell size, shared by the sheet and the lensed grid | `gridCell` |
 | The sheet: brightness (0 is off), viewing angle, depth of the well in radii | `gridSheet`, `gridTilt`, `gridDepth` |
+| The lattice in three dimensions: brightness (0 is off), its cell in radii, how hard it is drawn in | `gridLattice`, `gridLatticeCell`, `gridLatticeWarp` |
 | A flat grid on the sky read through the lens (0 is off) | `gridSky` |
 
 - The sheet is a diagram: a surface dented where the hole sits, rippled by gravitational waves. It stays
@@ -241,6 +242,16 @@ come, as around a real black hole.
   flat; at the shadow's edge, where that light skims the photon sphere, it is `gridDepth` deep and ends.
 - The lensed grid is a measuring tool: it shows the Einstein ring, the mirrored image, the twist and the
   waves. Lower `baseBrightness` when it should be read clearly.
+- The lattice is the sheet's law in three dimensions: lines along the three axes of the scene, each node
+  drawn in towards the hole by the same slowing of time, in shadow radii times `gridLatticeWarp`, taken so
+  that no node reaches the centre and no line folds over. It is a ball of 6 cells around the hole that
+  fades out over its outer half, so at the default `gridLatticeCell` of 1 the whole ball fits the frame of
+  the default camera; a larger cell reaches farther and passes the camera. It stands still while the
+  hole moves through it and a second hole pulls it too.
+- The lattice is drawn into the layer of the orbits' traces and read through the lens: the lines behind
+  the hole are bent into its Einstein ring even at `gridLatticeWarp` 0, and the shadow covers it. It is
+  made for `threeD`, where the camera circles it; in the flat mode it is seen straight on, down the line
+  of flight. Among a bright field lower `baseBrightness` or raise `gridLattice`.
 
 ## 10. Background stars and the sky
 
@@ -256,6 +267,8 @@ by the waves. They keep their size at any zoom.
 | Magnification around the hole | `cameraZoom` |
 | Where a zoomed-in camera looks: radii right of the hole and above it | `cameraX`, `cameraY` |
 | Which of two holes it looks at: -1 the main one, 0 their centre, 1 the second | `cameraPair` |
+| The field as a volume, seen from around the hole | `threeD` |
+| Where the 3D camera stands: around the hole, above or below it, and how fast it circles on its own | `cameraYaw`, `cameraPitch`, `cameraSpin` |
 
 - Setting a position anchors the hole. A film has no cursor: the hole rests at its position and tracks
   move it, through the same spring, so a low `followFrequency` makes it heavy and late.
@@ -278,6 +291,27 @@ by the waves. They keep their size at any zoom.
   from -1 to 1 pans from one to the other. Labels and graphics that ride on the scene follow the camera.
 - A pan is a track like any other: ease it for a glide, give it the hold ease for a cut. A cut starts the trails
   afresh; a glide streaks them.
+- `threeD` is another law of gravity, not only another view. The flat mode pulls a particle where it lands
+  on the screen, in a layer of depth (`gravityDepth`), and the horizon takes whatever covers the hole at
+  any depth. In 3D the hole is a point in space: gravity follows the true distance and ends at the sphere
+  of `gravityReach`, the swirl turns around the line of flight, the horizon is a sphere, and
+  `gravityDepth` does nothing. Fewer particles fall in, so the ring's infall light is fainter.
+- The 3D camera circles the point at `blackHoleDepth` on the line of flight: `cameraYaw` 0 looks along
+  the flight and draws what the flat mode draws, 90 sees the column of particles flow past the hole from
+  the side, 180 looks back up the stream. `cameraPitch` is degrees above (positive) or below. The two
+  only matter while `threeD` is on, and the camera eases between the flat view and its place in about a
+  second, so a film can flip `threeD` on a track and get a turn instead of a cut. For a full circle in a
+  film keyframe `cameraYaw` from -180 to 180, or set `cameraSpin` in degrees a second.
+- What turns with the camera is the field, the orbits (they lie across the line of flight, so they are
+  seen as ellipses from above), the second black hole (it circles in that plane too) and the sky, which
+  slides with the camera's turn. A hole without spin looks the same from every side. A spinning hole's
+  axis stands in the scene (`spinTilt` and `spinAxis` are as seen straight on), so as the camera circles
+  it the flattened side of the shadow and the leaning rings turn with the view, and the particles are
+  dragged round the axis in space. `gravityInertia` keeps their speed along all three axes.
+- The sheet of section 9 is a plane of the scene in 3D: `cameraYaw` spins its lines around the point the
+  camera circles, and `cameraPitch` is taken from `gridTilt` (seen more from above as the camera rises).
+  Past 75° it fades, and it is gone by the time the camera is level with it, so it is never seen from
+  below. Its wells stay under the black holes wherever they are seen.
 
 ## 12. The page only
 
@@ -374,19 +408,23 @@ adds its line, and its report names it.
 | The spin's drag on the orbiting stars: always the physical share, whatever `frameDrag` says | scene.ts, orbiters.ts | multiply the spin handed to the stars |
 | How much the orbits differ from `orbitSize` and `orbitEccentricity`: each star gets 0.6 to 1.4 of the size and 0.6 to 1 of the eccentricity | orbiters.ts | be read when a star is born |
 | The 0.6 s a new star takes to light up; the flare a captured star leaves in the ring, six particles' worth | orbiters.ts | be read once a star |
-| How the light fed to the ring is shared: 0.9 from a captured particle, 0.0005 a frame from one skimming within 1.5 radii; `ringFeed` scales both | particle_simulation.ts | be a step number hoisted above the loop |
+| How the light fed to the ring is shared: 0.9 from a captured particle, 0.0005 a frame from one skimming within 1.5 radii; `ringFeed` scales both | particle_simulation.ts, particle_simulation_3d.ts | be a step number hoisted above the loop |
 | How hard spin lying in the screen sweeps near and far particles apart: as hard as spin toward the camera swirls them | particle_simulation.ts | be a step number hoisted above the loop |
-| The thinnest stroke, 0.3 px at the far end of the field | particle_simulation.ts | be a step number hoisted above the loop |
+| The thinnest stroke, 0.3 px at the far end of the field | particle_simulation.ts, particle_simulation_3d.ts | be a step number hoisted above the loop |
 | The closest orbit a pair turns at before it merges, 0.6 of touching | companion.ts | be read once a frame |
 | The spin a merger leaves, 0.69 for two equal holes | companion.ts | multiply it once a frame, 1 = real |
 | The sheet's camera, 2.5 long screen sides away, its span of 2.2, and the wave's lift on it, 4 times its stretch of the sky | space_grid.ts | be a uniform a frame |
+| The 3D camera's 1.2 s ease between the flat view and its place, and the turn of 0.35 radians in a frame past which the trails start afresh | scene.ts | be read once a frame |
+| How far the sheet leans in 3D: the camera's elevation, up to 75°, past which it fades out before it is seen edge-on | scene.ts | be read once a frame |
+| The fade of the 3D column over 0.12 of Field Depth at both its ends, seen from the side | particle_simulation_3d.ts | be a step number hoisted above the loop |
+| The lattice's lines, 1.5 px wide and 1.6 times the sheet's colour, fading out nearer the camera than half the way to the point it circles | space_lattice.ts, scene.ts | be a uniform a frame |
 
 **Costs the hot loop**: work per particle, so CLAUDE.md's Measuring decides.
 
 | Fixed | File in src/lib | A knob would |
 |---|---|---|
-| How the pull falls with distance, as (radius / distance)^2, and the bell of the depth band | particle_simulation.ts | put a power or a second polynomial on every pulled particle |
-| How the spin's drag falls: one power of the distance faster than the pull, so `frameDrag` makes the vortex stronger and never wider | particle_simulation.ts | put a branch or a power on every dragged particle |
+| How the pull falls with distance, as (radius / distance)^2, and the bell of the depth band (in 3D the true distance, out to the sphere of Gravity Reach) | particle_simulation.ts, particle_simulation_3d.ts | put a power or a second polynomial on every pulled particle |
+| How the spin's drag falls: one power of the distance faster than the pull, so `frameDrag` makes the vortex stronger and never wider | particle_simulation.ts, particle_simulation_3d.ts | put a branch or a power on every dragged particle |
 | What spin lying in the screen does along the line of sight: nothing, so both sides of a tilted hole fall alike | particle_simulation.ts | put a division on every dragged particle |
 
 **Nature, with its multiple already a knob**: nothing to bring out.
@@ -397,7 +435,7 @@ adds its line, and its report names it.
 | The speed of light for the orbiting stars, 1.2 short sides a second, and how their orbits precess | orbiters.ts | `orbitSpeed` is the rate of their time |
 | Kepler's law for the pair | companion.ts | `companionSpeed` is the rate of its time |
 | A real hole's ringdown tone | intro_params.ts | `ringdownPitch` and `ringdownLength` multiply it |
-| The spin's drag on the particles, spin / 2 at one radius | particle_simulation.ts | `frameDrag` multiplies it |
+| The spin's drag on the particles, spin / 2 at one radius | particle_simulation.ts, particle_simulation_3d.ts | `frameDrag` multiplies it |
 
 **The machine**: the same on every film, held by frame time or memory.
 
@@ -405,4 +443,5 @@ adds its line, and its report names it.
 |---|---|
 | At most 64 orbiting stars | orbiters.ts |
 | The sheet's 225 lines each way, in 192 pieces each | space_grid.ts |
+| The lattice's 13 lines each way along each of the three axes, in 48 pieces each | space_lattice.ts |
 | Motion capped at six reference frames a step; a stall treated as one frame | particle_simulation.ts, frame_pacing.ts |

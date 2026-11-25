@@ -31,6 +31,9 @@ const MIN_MOUSE_GRAB_RADIUS = 24
 const MOUSE_GRAB_SHADOWS = 1.5
 // A press on the black hole becomes a drag once the mouse moves this far; less is still a click
 const MOUSE_DRAG_THRESHOLD = 4
+// In 3D a drag across the scene circles the camera around the black hole by this many degrees a pixel
+const ORBIT_DEGREES_PER_PIXEL = 0.3
+const MAX_CAMERA_PITCH = 89
 // With looping on, the debugger holds the finished intro this long before replaying it
 const LOOP_HOLD_SECONDS = 1
 const READOUT_INTERVAL_MS = 66
@@ -95,6 +98,14 @@ function ParticleCanvas () {
     let canvasCursor = ''
     let swipingTouch = -1
     let swipeY = 0
+    // In 3D a press away from an anchored black hole turns the camera once the pointer moves: where it
+    // was pressed and the camera's angles then
+    let orbitPressed = false
+    let orbiting = false
+    let orbitFromX = 0
+    let orbitFromY = 0
+    let orbitFromYaw = 0
+    let orbitFromPitch = 0
     const speedDial = createSpeedDial()
     let lastPointerType = 'mouse'
 
@@ -289,13 +300,46 @@ function ParticleCanvas () {
     }
 
     const showHoverCursor = (x: number, y: number) => {
-      setCanvasCursor(mouseDragging ? 'grabbing' : isOverAnchoredHole(x, y) ? 'grab' : '')
+      setCanvasCursor(mouseDragging || orbiting ? 'grabbing' : isOverAnchoredHole(x, y) || useParticleStore.getState().threeD ? 'grab' : '')
+    }
+
+    const startOrbit = (x: number, y: number) => {
+      const state = useParticleStore.getState()
+      orbitPressed = true
+      orbitFromX = x
+      orbitFromY = y
+      orbitFromYaw = state.cameraYaw
+      orbitFromPitch = state.cameraPitch
+    }
+
+    // Turns the camera by how far the pointer has moved since the press: sideways around the black hole,
+    // up and down above and below it. The store is written only when an angle moves by a whole degree
+    const turnCamera = (x: number, y: number) => {
+      const state = useParticleStore.getState()
+      const yaw = Math.round(orbitFromYaw + (x - orbitFromX) * ORBIT_DEGREES_PER_PIXEL)
+      const wrapped = ((yaw + 180) % 360 + 360) % 360 - 180
+      const pitch = Math.round(Math.min(Math.max(orbitFromPitch + (y - orbitFromY) * ORBIT_DEGREES_PER_PIXEL, -MAX_CAMERA_PITCH), MAX_CAMERA_PITCH))
+      if (wrapped !== state.cameraYaw) useParticleStore.setState({ cameraYaw: wrapped })
+      if (pitch !== state.cameraPitch) useParticleStore.setState({ cameraPitch: pitch })
+    }
+
+    const endOrbit = () => {
+      orbitPressed = false
+      if (!orbiting) return false
+      orbiting = false
+      delete canvas.dataset.orbiting
+      return true
     }
 
     const handleMouseDown = (event: MouseEvent) => {
       swallowClick = false
       if (event.button !== 0 || lastPointerType !== 'mouse') return
-      if (!isOverAnchoredHole(event.clientX, event.clientY)) return
+      if (!isOverAnchoredHole(event.clientX, event.clientY)) {
+        if (!useParticleStore.getState().threeD) return
+        startOrbit(event.clientX, event.clientY)
+        event.preventDefault()
+        return
+      }
       mouseGrabbed = true
       pressX = event.clientX
       pressY = event.clientY
@@ -322,6 +366,16 @@ function ParticleCanvas () {
         carryHole(event)
         return
       }
+      if (orbitPressed && !orbiting && Math.hypot(event.clientX - orbitFromX, event.clientY - orbitFromY) > MOUSE_DRAG_THRESHOLD) {
+        orbiting = true
+        canvas.dataset.orbiting = 'true'
+        setCanvasCursor('grabbing')
+      }
+      // While the camera turns, a following black hole stays where it was
+      if (orbiting) {
+        turnCamera(event.clientX, event.clientY)
+        return
+      }
       if (event.target instanceof Element && event.target.closest('[data-intro-dock]')) return
       if (lastPointerType !== 'mouse') return
       if (useParticleStore.getState().blackHoleFollowing) {
@@ -346,6 +400,8 @@ function ParticleCanvas () {
 
     const handleMouseUp = (event: MouseEvent) => {
       if (event.button !== 0) return
+      // The click that ends a turn of the camera does not switch the black hole between following and anchored
+      if (endOrbit()) swallowClick = true
       const dropped = mouseDragging
       dropHole()
       // A dropped black hole is still catching up with the cursor that holds it
@@ -356,6 +412,7 @@ function ParticleCanvas () {
     // Leaving the window mid-drag drops the black hole where it is
     const handleWindowBlur = () => {
       dropHole()
+      endOrbit()
       setCanvasCursor('')
     }
 
@@ -401,7 +458,8 @@ function ParticleCanvas () {
       changeBaseSpeed(wheelPixels(event.deltaY, event.deltaMode, window.innerHeight))
     }
 
-    // On touch screens the black hole is dragged; a swipe anywhere else changes the speed
+    // On touch screens the black hole is dragged; a swipe anywhere else changes the speed, or in 3D turns
+    // the camera
     const handleTouchStart = (event: TouchEvent) => {
       const touch = event.changedTouches[0]
       if (!touch || draggingTouch !== -1) return
@@ -410,6 +468,7 @@ function ParticleCanvas () {
         if (swipingTouch === -1) {
           swipingTouch = touch.identifier
           swipeY = touch.clientY
+          startOrbit(touch.clientX, touch.clientY)
         }
         return
       }
@@ -423,7 +482,14 @@ function ParticleCanvas () {
     const handleTouchMove = (event: TouchEvent) => {
       for (const touch of Array.from(event.changedTouches)) {
         if (touch.identifier === swipingTouch) {
-          changeBaseSpeed((swipeY - touch.clientY) * SWIPE_GAIN)
+          if (useParticleStore.getState().threeD) {
+            orbiting = true
+            canvas.dataset.orbiting = 'true'
+            turnCamera(touch.clientX, touch.clientY)
+            event.preventDefault()
+          } else {
+            changeBaseSpeed((swipeY - touch.clientY) * SWIPE_GAIN)
+          }
           swipeY = touch.clientY
         }
         if (touch.identifier !== draggingTouch) continue
@@ -443,7 +509,10 @@ function ParticleCanvas () {
             useParticleStore.getState().setBlackHolePosition(pointer.x / scene.width, pointer.y / scene.height)
           }
         }
-        if (touch.identifier === swipingTouch) swipingTouch = -1
+        if (touch.identifier === swipingTouch) {
+          swipingTouch = -1
+          endOrbit()
+        }
       }
     }
 

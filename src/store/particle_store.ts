@@ -108,6 +108,11 @@ export interface ParticleState {
   gridTilt: number
   gridDepth: number
   gridSky: number
+  // The space lattice (space_lattice.ts): brightness (0 = off), its cell in black hole radii, and how
+  // strongly its nodes are pulled in, in shadow radii of the slowing of time
+  gridLattice: number
+  gridLatticeCell: number
+  gridLatticeWarp: number
   // Stars in orbit around the black hole (orbiters.ts): how many (0 = none), the mean size of their
   // orbits in black hole radii, how stretched the orbits are, the rate of their time (its sign is their
   // direction), seconds an orbit's trace stays lit, and their width in CSS pixels
@@ -131,6 +136,12 @@ export interface ParticleState {
   cameraX: number
   cameraY: number
   cameraPair: number
+  // The field as a volume in space (particle_simulation_3d.ts), with a camera that circles the black hole:
+  // degrees around it, degrees above it, and degrees a second it turns on its own
+  threeD: boolean
+  cameraYaw: number
+  cameraPitch: number
+  cameraSpin: number
   frameRateCap: number
   measuredFps: number
   // Lower the particle count automatically when the simulation overruns the frame
@@ -158,6 +169,7 @@ export interface ParticleState {
   toggleLensing: () => void
   toggleLensingTraced: () => void
   togglePause: () => void
+  toggleThreeD: () => void
   setFrameRateCap: (fps: number) => void
   setMeasuredFps: (fps: number) => void
   toggleAdaptiveParticles: () => void
@@ -238,10 +250,17 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   gridTilt: 65,
   gridDepth: 2.5,
   gridSky: 0,
+  gridLattice: 0,
+  gridLatticeCell: 1,
+  gridLatticeWarp: 3,
   cameraZoom: 1,
   cameraX: 0,
   cameraY: 0,
   cameraPair: 0,
+  threeD: false,
+  cameraYaw: 40,
+  cameraPitch: 20,
+  cameraSpin: 0,
   companionSize: 0,
   companionDistance: 8,
   companionSpeed: 1,
@@ -278,6 +297,7 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   toggleLensing: () => set((state) => ({ lensingEnabled: !state.lensingEnabled })),
   toggleLensingTraced: () => set((state) => ({ lensingTraced: !state.lensingTraced })),
   togglePause: () => set((state) => ({ isPaused: !state.isPaused })),
+  toggleThreeD: () => set((state) => ({ threeD: !state.threeD })),
   setFrameRateCap: (fps) => set({ frameRateCap: fps }),
   setMeasuredFps: (fps) => set({ measuredFps: fps }),
   toggleAdaptiveParticles: () => set((state) => ({ adaptiveParticles: !state.adaptiveParticles })),

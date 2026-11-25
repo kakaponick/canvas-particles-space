@@ -60,6 +60,11 @@ export interface GridSettings {
   pairPhase: number
   // The angle on the sheet of the line the two stood on as they became one
   ringPhase: number
+  // In 3D the camera's turn around the screen's vertical spins the lines in the sheet's plane, around the
+  // point the camera looks at: the cosine and sine of that turn, and 1 while it is on (0 lays them flat)
+  spinCos: number
+  spinSin: number
+  spun: number
 }
 
 export function createGridSettings (): GridSettings {
@@ -84,8 +89,19 @@ export function createGridSettings (): GridSettings {
     pairX: 0,
     pairZ: 0,
     pairPhase: 0,
-    ringPhase: 0
+    ringPhase: 0,
+    spinCos: 1,
+    spinSin: 0,
+    spun: 0
   }
+}
+
+// Spins the sheet's lines by this many radians in the sheet's own plane (the 3D camera's turn); 0 leaves
+// them as the flat mode lays them. The wells stay under the black holes, wherever the lines turn
+export function turnGrid (grid: GridSettings, radians: number) {
+  grid.spun = radians !== 0 ? 1 : 0
+  grid.spinCos = Math.cos(radians)
+  grid.spinSin = Math.sin(radians)
 }
 
 // One record per piece of a line: the line's number counted from the one nearest the black hole, where

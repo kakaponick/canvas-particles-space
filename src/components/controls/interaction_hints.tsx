@@ -6,12 +6,16 @@ const isTouchScreen = typeof window !== 'undefined' && window.matchMedia('(point
 // Bottom line of hints for the interactions the visitor has not tried yet
 function InteractionHints () {
   const introComplete = useParticleStore(state => state.introComplete)
+  const threeD = useParticleStore(state => state.threeD)
   const used = useInteractionHints()
 
+  const orbit = threeD && !used.orbit && (isTouchScreen ? 'SWIPE TO CIRCLE THE HOLE' : 'DRAG TO CIRCLE THE HOLE')
   const hints = isTouchScreen
-    ? [!used.drag && 'DRAG THE BLACK HOLE', !used.scroll && 'SWIPE TO CHANGE SPEED']
+    // In 3D a swipe turns the camera instead of changing the speed
+    ? [orbit, !used.drag && 'DRAG THE BLACK HOLE', !threeD && !used.scroll && 'SWIPE TO CHANGE SPEED']
     // Only an anchored black hole can be dragged, so that hint waits for the first click
     : [
+      orbit,
       !used.move && 'MOVE TO BEND LIGHT',
       !used.click && 'CLICK TO ANCHOR',
       used.click && !used.drag && 'DRAG IT TO MOVE · DOUBLE-CLICK TO CENTER',

@@ -5,6 +5,7 @@ import {
   createInstanceData, createParticleField, stepRange,
   type InstanceData, type ParticleField, type SpawnSettings, type StepLater, type StepSettings
 } from './particle_simulation'
+import { stepRange3d } from './particle_simulation_3d'
 
 type StepNumber = { [Key in keyof StepSettings]: StepSettings[Key] extends number ? Key : never }[keyof StepSettings]
 
@@ -19,7 +20,8 @@ const STEP_NUMBERS = everyNumber([
   'captureRadius', 'captureX', 'captureY', 'spinRight', 'spinUp', 'spinToward', 'companionX', 'companionY', 'companionRadius', 'companionCapture', 'gravityReach', 'holeDepth',
   'gravityDepth', 'lineWidth', 'gravityStrength', 'orbitalStrength', 'inertia', 'farZ', 'depthFade', 'pulseSpeedMultiplier',
   'pulseIntensity', 'baseBrightness', 'minOpacity', 'maxOpacity', 'revealRadius', 'revealX', 'revealY', 'revealFeather',
-  'opacityScale'
+  'opacityScale', 'threeD', 'holeWorldX', 'holeWorldY', 'holeWorldZ', 'companionWorldX', 'companionWorldY',
+  'companionWorldZ', 'cameraYaw', 'cameraPitch', 'cameraYawFrom', 'cameraPitchFrom'
 ] as const)
 // The spawn depth follows the step's numbers
 const SPAWN_FAR_Z = STEP_NUMBERS.length
@@ -113,7 +115,7 @@ export function workPieces (memory: PieceMemory, settings: StepSettings, spawn: 
     later.respawnCount = 0
     later.depositCount = 0
     const o = piece * TALLY_SLOTS
-    tally[o] = stepRange(field, settings, spawn, instances, from, Math.min(from + size, count), later)
+    tally[o] = (settings.threeD > 0 ? stepRange3d : stepRange)(field, settings, spawn, instances, from, Math.min(from + size, count), later)
     tally[o + 1] = later.respawnCount
     tally[o + 2] = later.depositCount
   }

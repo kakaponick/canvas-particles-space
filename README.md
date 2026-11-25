@@ -69,6 +69,8 @@ On the scene:
   dragged to a new place; a double-click puts it back in the middle
 - **Scroll**: change Base Speed; down is faster, up is slower
 - **Touch**: drag the black hole with a finger; swipe up or down elsewhere to change Base Speed
+- **In 3D**: with 3D View on, drag the scene (or swipe it on a touch screen) to circle the camera around the
+  black hole
 
 The toolbar at the top right holds the measured frame rate (while FPS Counter is on), the films, the Mandelbrot
 zoom, the intro debugger, Settings and fullscreen. Each panel opens and closes from its button there; Escape closes the panel the focus is
@@ -98,6 +100,12 @@ and meaning; `window.space.describe()` reads the same text. The groups:
 - **Playback**: Scene Motion (freeze the scene), **FPS Limit** (AUTO follows the display, or a cap of 30-240;
   motion speed does not depend on the frame rate), FPS Counter, and **Particle Budget**, which lowers the particle
   count while the processor cannot keep up and raises it again once it can
+- **3D View**: the ON/OFF switch at the head of the section. The field becomes a column of particles flowing
+  through space past the black hole, stepped with gravity along the true distance, and a camera circles the
+  hole: **Orbit Angle** around it, **Elevation** above or below it, **Auto Orbit** in degrees a second. Straight
+  on it looks like the flat mode, and the camera eases between the two in about a second. The shadow, ring and
+  lens look the same from every side, as a non-rotating hole's do; the orbiting stars, the second black hole, the
+  sky and the space sheet turn with the camera (the sheet fades out as the camera comes level with it)
 - **Particles**: the field (**Count**, 500-200 000; 24 000 by default, 12 000 on screens narrower than 768 px),
   its depth and spawn disc, Base Speed and its spread, the scroll step, particle size and how fast trails fade
 - **Particle Lighting**: brightness, how brightness follows speed and depth, the opacity range, the pulse
@@ -129,10 +137,13 @@ and meaning; `window.space.describe()` reads the same text. The groups:
   faster the closer they come, with a trace that stays lit for **Trail** seconds. The traces are lines kept
   around the black hole, so they move and grow with it. **Orbit Size**, **Eccentricity** and **Orbit Speed**
   (its sign is the direction) shape them; a star that crosses the Event Horizon lights the photon ring
-- **Space Grid**: two grids for explaining curved space, both off until their brightness is above 0. **Sheet**
-  is a grid seen at an angle (**Sheet Tilt**) and dented where the black hole sits (**Well Depth**) by how much
-  time is slowed there; gravitational waves ripple through it. **Lensed Grid** is a flat grid on the sky read
-  through the lens, so it shows what the lens does
+- **Space Grid**: grids for explaining curved space, each off until its brightness is above 0. **Sheet** is a
+  grid seen at an angle (**Sheet Tilt**) and dented where the black hole sits (**Well Depth**) by how much time
+  is slowed there; gravitational waves ripple through it. **Lattice** is the same law in three dimensions:
+  lines along all three axes around the black hole, drawn in towards it (**Lattice Pull**) by how much time is
+  slowed at each node, with a cell of **Lattice Spacing** black hole radii; it is seen through the lens and is
+  made for 3D View, where the camera circles it. **Lensed Grid** is a flat grid on the sky read through the
+  lens, so it shows what the lens does
 - **Background Stars**: brightness, density and spacing
 
 ## Driving the scene from the console
@@ -277,6 +288,7 @@ src/
 ├── lib/
 │   ├── scene.ts                 # The scene apart from the page: one frame from its inputs
 │   ├── particle_simulation.ts   # Particle state and the per-frame step
+│   ├── particle_simulation_3d.ts # The same field stepped in 3D, seen by a camera circling the hole
 │   ├── particle_budget.ts       # Trims and restores the particle count to fit the frame
 │   ├── particle_crew.ts         # Steps a film's particles on several cores (with particle_pieces.ts and the worker)
 │   ├── particle_renderer.ts     # WebGL passes: trails, particles, orbits, composite, space sheet
@@ -290,6 +302,7 @@ src/
 │   ├── orbiters.ts              # Stars in real orbits around the black hole
 │   ├── companion.ts             # A second black hole: the pair's orbit, merger and waves
 │   ├── space_grid.ts            # The space sheet: its lines and where its well goes
+│   ├── space_lattice.ts         # The space lattice: its lines in three dimensions
 │   ├── ring_energy.ts           # Light that infalling matter leaves on the photon ring
 │   ├── title_sprite.ts          # The opening's title rasterised for the lens
 │   ├── black_hole_motion.ts     # Spring follow of the black hole

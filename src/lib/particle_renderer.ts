@@ -11,7 +11,8 @@ import {
   compositeVertexShaderSource,
   compositeFragmentShaderSource,
   gridVertexShaderSource,
-  gridFragmentShaderSource
+  gridFragmentShaderSource,
+  latticeVertexShaderSource
 } from './webgl_shaders'
 import { INSTANCE_FLOATS } from './particle_simulation'
 import { MAX_ORBITERS, STRETCH_SECONDS } from './orbiters'
@@ -19,6 +20,7 @@ import type { TitleSprite } from './title_sprite'
 import { RING_BINS } from './ring_energy'
 import { SHADOW_SAMPLES, type ShadowShape } from './kerr_shadow'
 import { GRID_COLOR, GRID_INSTANCE_COUNT, GRID_INSTANCE_FLOATS, GRID_WAVE_GAIN, createGridInstances, type GridSettings } from './space_grid'
+import { LATTICE_GAIN, LATTICE_INSTANCE_COUNT, LATTICE_INSTANCE_FLOATS, createLatticeInstances, type LatticeSettings } from './space_lattice'
 
 const INSTANCE_STRIDE = INSTANCE_FLOATS * 4
 const INSTANCED_ATTRIBUTES = [ATTRIBUTE_LOCATIONS.segment, ATTRIBUTE_LOCATIONS.style, ATTRIBUTE_LOCATIONS.color]
@@ -164,6 +166,12 @@ export interface CompositeSettings {
   // Brightness of the flat grid on the sky behind the black hole (0 turns it off) and its cell size
   skyGrid: number
   gridCell: number
+  // CSS pixels the 3D camera's turn slides the sky by: the background stars, then the lensed grid; zeros
+  // in the flat mode
+  starShiftX: number
+  starShiftY: number
+  gridShiftX: number
+  gridShiftY: number
   // Colours of the intro, 0xRRGGBB
   colorFlash: number
   colorLight: number
@@ -253,6 +261,12 @@ export interface FrameInput {
   orbitY: number
   orbitUnit: number
   orbitWidth: number
+  // In 3D the orbits lie across the line of flight and the camera sees them at an angle: the columns of
+  // its turn for that plane (x then y, three numbers each), its focal length in CSS pixels (0 in the flat
+  // mode, which draws them flat) and the black hole's distance in the same pixels
+  orbitTurn: Float32Array
+  orbitFocal: number
+  orbitDepth: number
   doppler: number
   // How strongly brightness follows speed, and the frame length in 60 Hz reference frames it is judged by
   speedGlow: number
@@ -268,6 +282,8 @@ export interface FrameInput {
   composite: CompositeSettings
   // The space sheet, drawn over the finished frame
   grid: GridSettings
+  // The space lattice, drawn into the orbits' layer and read through the lens
+  lattice: LatticeSettings
 }
 
 export interface ParticleRenderer {
@@ -361,9 +377,13 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     ...position,
     a_gridLine: ATTRIBUTE_LOCATIONS.gridLine
   })
-  const programs = [fadeProgram, particleProgram, orbitProgram, compositeProgram, gridProgram]
+  const latticeProgram = createProgram(gl, latticeVertexShaderSource, particleFragmentShaderSource, {
+    a_position: ATTRIBUTE_LOCATIONS.position,
+    a_latticeLine: ATTRIBUTE_LOCATIONS.latticeLine
+  })
+  const programs = [fadeProgram, particleProgram, orbitProgram, compositeProgram, gridProgram, latticeProgram]
 
-  if (!fadeProgram || !particleProgram || !orbitProgram || !compositeProgram || !gridProgram) {
+  if (!fadeProgram || !particleProgram || !orbitProgram || !compositeProgram || !gridProgram || !latticeProgram) {
     for (const program of programs) {
       if (program) gl.deleteProgram(program)
     }
@@ -372,7 +392,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
 
   const fadeUniforms = getUniforms(gl, fadeProgram, ['color'] as const)
   const particleUniforms = getUniforms(gl, particleProgram, ['resolution', 'pixelRatio', 'center', 'doppler', 'speedGlow', 'frameScale', 'zoom', 'zoomFrom'] as const)
-  const orbitUniforms = getUniforms(gl, orbitProgram, ['resolution', 'zoom', 'orbit', 'dimmed'] as const)
+  const orbitUniforms = getUniforms(gl, orbitProgram, ['resolution', 'zoom', 'orbit', 'dimmed', 'turnX', 'turnY'] as const)
   const compositeUniforms = getUniforms(gl, compositeProgram, [
     'resolution', 'pixelRatio', 'time', 'hole', 'horizon', 'einstein', 'falloff', 'falloffPivot', 'lensCore', 'maxBend', 'lensReach', 'twistLimit', 'swirl', 'absorption', 'trace', 'spin', 'ring',
     'ringWidth', 'ringGlow', 'ringDoppler', 'ringSide', 'ringPhase', 'ringBase', 'ringFeed',
@@ -384,12 +404,16 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     'titleCenter', 'titleHalfSize', 'titleAlpha', 'titleReveal', 'titleDissolve', 'titleDrift', 'titleGlow',
     'titleFlash', 'titleCooling', 'titleDust', 'titlePull', 'titleSwirl', 'titleReach', 'titleCapture', 'titleScale',
     'titleFringe', 'titleHalo', 'titleRedshift', 'titleGrain', 'titleBurn', 'titleFall', 'titleTidal', 'titleSpiral', 'titleSpread', 'titleStream', 'titleOrder', 'titleTrail', 'titleHeat', 'dustSweep', 'echoFloor', 'dustShock', 'dustBlow', 'dustDrift',
-    'skyGrid', 'gridCell', 'orbits',
+    'skyGrid', 'gridCell', 'skyShift', 'orbits',
     'colorFlash', 'colorLight', 'colorDust', 'colorTitle', 'colorEmber',
     'cameraZoom', 'zoomCenter', 'layerZoom', 'shake', 'lensFringe', 'vignette', 'filmGrain', 'letterbox'
   ] as const)
   const gridUniforms = getUniforms(gl, gridProgram, [
-    'resolution', 'pixelRatio', 'view', 'camera', 'well', 'lines', 'wave', 'waveSpread', 'waveTurn', 'lens', 'jolt', 'color', 'shadow', 'frame', 'well2', 'pairWave', 'pairAt', 'pairFront', 'shadow2'
+    'resolution', 'pixelRatio', 'view', 'camera', 'well', 'lines', 'wave', 'waveSpread', 'waveTurn', 'lens', 'jolt', 'color', 'shadow', 'frame', 'well2', 'pairWave', 'pairAt', 'pairFront', 'shadow2', 'spin'
+  ] as const)
+
+  const latticeUniforms = getUniforms(gl, latticeProgram, [
+    'resolution', 'zoom', 'row0', 'row1', 'row2', 'vanish', 'hole', 'companion', 'lattice', 'anchor', 'color'
   ] as const)
 
   gl.useProgram(compositeProgram)
@@ -426,6 +450,10 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   gl.bufferData(gl.ARRAY_BUFFER, createGridInstances(), gl.STATIC_DRAW)
   gl.vertexAttribPointer(ATTRIBUTE_LOCATIONS.gridLine, GRID_INSTANCE_FLOATS, gl.FLOAT, false, 0, 0)
   gl.vertexAttribDivisor(ATTRIBUTE_LOCATIONS.gridLine, 1)
+
+  // The lattice's lines never change either; they get their buffer the first time the lattice is shown
+  const latticeBuffer = gl.createBuffer()
+  let latticeFilled = false
 
   function createLinearTexture (unit: number) {
     const texture = gl.createTexture()
@@ -529,6 +557,8 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     gl.useProgram(gridProgram)
     setUniform2f(gl, gridUniforms.resolution, width, height)
     setUniform1f(gl, gridUniforms.pixelRatio, ratio)
+    gl.useProgram(latticeProgram)
+    setUniform2f(gl, latticeUniforms.resolution, width, height)
   }
 
   function wipeScene (background: readonly [number, number, number]) {
@@ -658,8 +688,8 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   // The orbiting stars' layer is drawn anew every frame from the stretches kept: each is a line placed
   // around the black hole as it is now and at the camera's zoom, dimmed by its age in the vertex shader,
   // so the traces are sharp at any zoom, follow the hole and all reach black
-  function drawOrbits (frame: FrameInput) {
-    keepRow(frame)
+  // Makes the layer of lines ready for this frame's orbits and lattice: its full size, cleared, bound
+  function openLines () {
     if (!orbitSized) {
       orbitSized = true
       gl.activeTexture(gl.TEXTURE0 + ORBIT_TEXTURE_UNIT)
@@ -670,11 +700,17 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     gl.clearColor(0, 0, 0, 1)
     gl.clear(gl.COLOR_BUFFER_BIT)
     orbitLit = true
+  }
 
+  function drawOrbits (frame: FrameInput) {
+    keepRow(frame)
     gl.useProgram(orbitProgram)
     setUniform4f(gl, orbitUniforms.zoom, layerZoomX * ratio, layerZoomY * ratio, layerZoom, 0)
     setUniform4f(gl, orbitUniforms.orbit, frame.orbitX * ratio, frame.orbitY * ratio, frame.orbitUnit * ratio, frame.orbitWidth * ratio)
     setUniform1f(gl, orbitUniforms.dimmed, frame.orbitDimmed)
+    const turn = frame.orbitTurn
+    setUniform4f(gl, orbitUniforms.turnX, turn[0], turn[1], turn[2], frame.orbitFocal * ratio)
+    setUniform4f(gl, orbitUniforms.turnY, turn[3], turn[4], turn[5], frame.orbitDepth * ratio)
 
     // The kept rows lie in one run of the ring, or in two when they pass its end
     const newest = (oldestRow + rowCount - 1) % TRACE_ROWS
@@ -692,6 +728,38 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     }
     gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuffer)
     pointInstances(0)
+  }
+
+  // The lattice is drawn anew every frame into the layer of lines, bent towards the holes and seen by the
+  // camera at its zoom, the brighter of a line and what is there so crossings do not add up
+  function drawLattice (lattice: LatticeSettings) {
+    gl.bindBuffer(gl.ARRAY_BUFFER, latticeBuffer)
+    if (!latticeFilled) {
+      latticeFilled = true
+      gl.bufferData(gl.ARRAY_BUFFER, createLatticeInstances(), gl.STATIC_DRAW)
+      gl.vertexAttribPointer(ATTRIBUTE_LOCATIONS.latticeLine, LATTICE_INSTANCE_FLOATS, gl.FLOAT, false, 0, 0)
+      gl.vertexAttribDivisor(ATTRIBUTE_LOCATIONS.latticeLine, 1)
+    }
+    const u = latticeUniforms
+    const turn = lattice.turn
+    gl.useProgram(latticeProgram)
+    setUniform4f(gl, u.zoom, layerZoomX * ratio, layerZoomY * ratio, layerZoom, 0)
+    setUniform4f(gl, u.row0, turn[0], turn[1], turn[2], lattice.focal * ratio)
+    setUniform4f(gl, u.row1, turn[3], turn[4], turn[5], lattice.pivot)
+    setUniform4f(gl, u.row2, turn[6], turn[7], turn[8], lattice.near)
+    setUniform2f(gl, u.vanish, lattice.vanishX * ratio, lattice.vanishY * ratio)
+    setUniform4f(gl, u.hole, lattice.holeX, lattice.holeY, lattice.holeZ, lattice.edge)
+    setUniform4f(gl, u.companion, lattice.companionX, lattice.companionY, lattice.companionZ, lattice.companionEdge)
+    setUniform4f(gl, u.lattice, lattice.cell, lattice.reach, lattice.warp, lattice.lineWidth * ratio)
+    setUniform4f(gl, u.anchor, lattice.anchorX, lattice.anchorY, lattice.anchorZ, 0)
+    const light = lattice.brightness * LATTICE_GAIN
+    setUniform4f(gl, u.color, Math.min(GRID_COLOR[0] * light, 1), Math.min(GRID_COLOR[1] * light, 1), Math.min(GRID_COLOR[2] * light, 1), 1)
+    gl.enableVertexAttribArray(ATTRIBUTE_LOCATIONS.latticeLine)
+    gl.blendEquationSeparate(gl.MAX, gl.FUNC_ADD)
+    gl.drawArraysInstanced(gl.TRIANGLES, 0, QUAD_VERTEX_COUNT, LATTICE_INSTANCE_COUNT)
+    gl.blendEquation(gl.FUNC_ADD)
+    gl.disableVertexAttribArray(ATTRIBUTE_LOCATIONS.latticeLine)
+    gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuffer)
   }
 
   function composite (settings: CompositeSettings, title: TitleSettings) {
@@ -821,6 +889,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     setUniform1f(gl, u.orbits, orbitsShown ? 1 : 0)
     setUniform1f(gl, u.skyGrid, settings.skyGrid)
     if (settings.skyGrid > 0) setUniform1f(gl, u.gridCell, Math.max(settings.gridCell, 1))
+    setUniform4f(gl, u.skyShift, settings.starShiftX, settings.starShiftY, settings.gridShiftX, settings.gridShiftY)
     gl.drawArrays(gl.TRIANGLES, 0, QUAD_VERTEX_COUNT)
   }
 
@@ -833,6 +902,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     setUniform2f(gl, u.view, grid.viewX, grid.viewY)
     setUniform4f(gl, u.camera, grid.distance, grid.tiltSin, grid.tiltCos, grid.lineWidth)
     setUniform4f(gl, u.well, grid.wellX, grid.wellZ, grid.throat, grid.depth)
+    setUniform4f(gl, u.spin, grid.spinCos, grid.spinSin, grid.spun, 0)
     setUniform2f(gl, u.lines, Math.max(grid.cell, 1), Math.max(grid.span, 1))
     if (settings.gravityWaveAmplitude > 0) {
       setUniform4f(gl, u.wave, settings.gravityWaveAmplitude * GRID_WAVE_GAIN, settings.gravityWaveTime,
@@ -901,14 +971,18 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
       }
       uploadInstances(frame)
       drawParticles(frame)
+      // The orbits' traces and the lattice share one layer of lines
+      const latticeShown = frame.lattice.brightness > 0
+      if (frame.orbitCount > 0 || latticeShown) openLines()
       if (frame.orbitCount > 0) drawOrbits(frame)
+      if (latticeShown) drawLattice(frame.lattice)
       gl.bindFramebuffer(gl.FRAMEBUFFER, null)
       // The last star gone, its traces go with it
       if (frame.orbitCount === 0) {
-        clearOrbits()
+        if (!latticeShown) clearOrbits()
         dropTraces()
       }
-      orbitsShown = frame.orbitCount > 0
+      orbitsShown = frame.orbitCount > 0 || latticeShown
 
       if (frame.ringFed) {
         gl.activeTexture(gl.TEXTURE0 + RING_TEXTURE_UNIT)
@@ -924,6 +998,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   function dispose () {
     for (const location of INSTANCED_ATTRIBUTES) gl.vertexAttribDivisor(location, 0)
     gl.vertexAttribDivisor(ATTRIBUTE_LOCATIONS.gridLine, 0)
+    gl.vertexAttribDivisor(ATTRIBUTE_LOCATIONS.latticeLine, 0)
     gl.disableVertexAttribArray(ATTRIBUTE_LOCATIONS.position)
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
     gl.deleteFramebuffer(sceneFramebuffer)
@@ -937,6 +1012,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     gl.deleteBuffer(instanceBuffer)
     gl.deleteBuffer(traceBuffer)
     gl.deleteBuffer(gridBuffer)
+    gl.deleteBuffer(latticeBuffer)
     for (const program of programs) gl.deleteProgram(program)
   }
 

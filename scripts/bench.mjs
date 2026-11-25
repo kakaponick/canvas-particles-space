@@ -2,7 +2,7 @@
 // Frame time, measured the way CLAUDE.md's Measuring asks. Needs Node 22+ and Chrome, Chromium or Edge.
 //
 //   node scripts/bench.mjs page [<dist> ...] [--against <commit>] [--runs 2] [--debug]
-//   node scripts/bench.mjs step [--against <commit>] [--runs 2] [--spin 0.99] [--inertia 0.9]
+//   node scripts/bench.mjs step [--against <commit>] [--runs 2] [--spin 0.99] [--inertia 0.9] [--3d]
 //
 // --against <commit> measures that commit beside this checkout: it is checked out into a temporary
 // worktree (pnpm install --offline there, then pnpm build for page) and removed afterwards; for page this
@@ -18,7 +18,7 @@
 // steps at 1920x1080, for 24 000 particles with the black hole and 24 000 and 10 000 without it. It sets
 // the frame, the hole and the look over createStepSettings, so a new step setting comes in with the value
 // that changes nothing; --spin turns the hole, its axis at 45° to the camera, and --inertia lets the
-// particles keep the speed the hole gives them.
+// particles keep the speed the hole gives them; --3d times the 3D loop, its camera 40° round and 20° up.
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -40,11 +40,12 @@ const runs = Number(flag('--runs') ?? 2)
 const spin = Number(flag('--spin') ?? 0)
 const inertia = Number(flag('--inertia') ?? 0)
 const against = flag('--against')
+const threeD = args.includes('--3d') ? (args.splice(args.indexOf('--3d'), 1), true) : false
 const debug = args.includes('--debug') ? (args.splice(args.indexOf('--debug'), 1), true) : false
 const [command, ...rest] = args
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 const USAGE = 'node scripts/bench.mjs page [<dist> ...] [--against <commit>] [--runs 2] [--debug]\n' +
-  'node scripts/bench.mjs step [--against <commit>] [--runs 2] [--spin 0.99] [--inertia 0.9]'
+  'node scripts/bench.mjs step [--against <commit>] [--runs 2] [--spin 0.99] [--inertia 0.9] [--3d]'
 
 // The temporary folder by its long name: git records a worktree's path as given, and Windows hands out
 // the short form (KAKAPO~1) that git then cannot match
@@ -201,9 +202,11 @@ async function page (builds) {
 const stepEntry = tree => `
 import * as simulation from ${JSON.stringify(path.join(tree, 'src/lib/particle_simulation.ts').replaceAll(path.sep, '/'))}
 import { createRandom, seedRandom } from ${JSON.stringify(path.join(tree, 'src/lib/random.ts').replaceAll(path.sep, '/'))}
+${threeD ? `import { stepParticles3d } from ${JSON.stringify(path.join(tree, 'src/lib/particle_simulation_3d.ts').replaceAll(path.sep, '/'))}` : 'const stepParticles3d = null'}
 
 export function run (count, hole, spin, inertia) {
-  const { createParticleField, createInstanceData, createPaletteSampler, setParticleCount, stepParticles } = simulation
+  const { createParticleField, createInstanceData, createPaletteSampler, setParticleCount } = simulation
+  const stepParticles = stepParticles3d ?? simulation.stepParticles
   const random = createRandom()
   seedRandom(random, 7)
   const spawn = { random, palette: createPaletteSampler([{ r: 255, g: 255, b: 255, enabled: true, percent: 100 }]), farZ: 5000, speedVariance: 0.2, radius: 1.2 }
@@ -219,7 +222,8 @@ export function run (count, hole, spin, inertia) {
     ringEnergy: null, gravityReach: horizon * 5, holeDepth: 2500, gravityDepth: 900, lineWidth: 3, gravityStrength: 2.5,
     orbitalStrength: 0.5, farZ: 5000, depthFade: 0.5, pulseSpeedMultiplier: 1, pulseIntensity: 0.2, baseBrightness: 1,
     minOpacity: 0.1, maxOpacity: 1, revealRadius: Infinity, revealX: 960, revealY: 540, revealFeather: 80, opacityScale: 1
-  }, spin > 0 ? { spinRight: 0, spinUp: spin * Math.SQRT1_2, spinToward: spin * Math.SQRT1_2 } : {}, inertia > 0 ? { inertia } : {})
+  }, spin > 0 ? { spinRight: 0, spinUp: spin * Math.SQRT1_2, spinToward: spin * Math.SQRT1_2 } : {}, inertia > 0 ? { inertia } : {},
+    stepParticles3d ? { threeD: 1, holeWorldX: 0, holeWorldY: 0, holeWorldZ: 2500, cameraYaw: 0.7, cameraPitch: 0.35, cameraYawFrom: 0.7, cameraPitchFrom: 0.35 } : {})
   for (let i = 0; i < 300; i++) { settings.time += 1 / 60; stepParticles(field, settings, spawn, out) }
   const start = performance.now()
   for (let i = 0; i < 1500; i++) { settings.time += 1 / 60; stepParticles(field, settings, spawn, out) }

@@ -5,6 +5,7 @@
 import { GRID_COLOR } from './space_grid'
 import { SHADOW_SAMPLES } from './kerr_shadow'
 import { KERR_GLSL } from './kerr_glsl'
+import { LATTICE_SEGMENTS } from './space_lattice'
 
 // Attribute locations shared by every program; location 0 is always the full-screen quad
 export const ATTRIBUTE_LOCATIONS = {
@@ -12,7 +13,8 @@ export const ATTRIBUTE_LOCATIONS = {
   segment: 1,
   style: 2,
   color: 3,
-  gridLine: 4
+  gridLine: 4,
+  latticeLine: 5
 } as const
 
 const GRID_COLOR_GLSL = `vec3(${GRID_COLOR.map(channel => channel.toFixed(3)).join(', ')})`
@@ -134,6 +136,8 @@ export const orbitVertexShaderSource = `
   uniform vec4 u_zoom;        // the camera: the point its zoom leaves in place (device pixels), the zoom
   uniform vec4 u_orbit;       // the black hole (device pixels), device pixels in a Schwarzschild radius, line width in device pixels
   uniform float u_dimmed;     // brightness every trace has lost since the traces began
+  uniform vec4 u_turnX;       // 3D: where the camera turns the orbits' x axis, and its focal length in device pixels (0 = flat)
+  uniform vec4 u_turnY;       // where it turns their y axis, and the black hole's distance in device pixels
 
   varying vec2 v_ends;
   varying float v_across;
@@ -141,6 +145,12 @@ export const orbitVertexShaderSource = `
   varying vec4 v_color;
 
   const float PI = 3.14159265359;
+
+  // A point of an orbit, in device pixels from the black hole, as the 3D camera sees it
+  vec2 seenOrbit (vec2 point) {
+    vec3 turned = u_turnX.xyz * point.x + u_turnY.xyz * point.y;
+    return turned.xy * u_turnX.w / max(u_turnY.w + turned.z, 1.0);
+  }
 
   void main () {
     v_ends = vec2(0.0);
@@ -154,8 +164,16 @@ export const orbitVertexShaderSource = `
       return;
     }
 
-    vec2 start = u_zoom.xy + (u_orbit.xy + a_segment.xy * u_orbit.z - u_zoom.xy) * u_zoom.z;
-    vec2 delta = (a_segment.zw - a_segment.xy) * u_orbit.z * u_zoom.z;
+    vec2 start;
+    vec2 delta;
+    if (u_turnX.w > 0.0) {
+      vec2 first = seenOrbit(a_segment.xy * u_orbit.z);
+      start = u_zoom.xy + (u_orbit.xy + first - u_zoom.xy) * u_zoom.z;
+      delta = (seenOrbit(a_segment.zw * u_orbit.z) - first) * u_zoom.z;
+    } else {
+      start = u_zoom.xy + (u_orbit.xy + a_segment.xy * u_orbit.z - u_zoom.xy) * u_zoom.z;
+      delta = (a_segment.zw - a_segment.xy) * u_orbit.z * u_zoom.z;
+    }
     float len = length(delta);
     vec2 direction = len > 0.0001 ? delta / len : vec2(1.0, 0.0);
     vec2 normal = vec2(-direction.y, direction.x);
@@ -287,6 +305,7 @@ export const compositeFragmentShaderSource = `
   uniform float u_orbits;          // 1 while there are orbiting stars; 0 leaves their layer unread
   uniform float u_skyGrid;        // brightness of the flat grid on the sky behind the hole; 0 turns it off
   uniform float u_gridCell;        // CSS pixels per cell of that grid
+  uniform vec4 u_skyShift;         // CSS pixels the 3D camera's turn slides the stars (xy) and that grid (zw) by; zeros when flat
 
   uniform vec2 u_titleCenter;
   uniform vec2 u_titleHalfSize;
@@ -789,13 +808,13 @@ export const compositeFragmentShaderSource = `
     if (u_backgroundStars > 0.0) {
       // The flare belongs to the light front, not to the dust echo, so hiding the echo keeps it
       float flare = u_lightPower > 0.0 && lit >= 0.0 ? u_starFlare * exp(-lit / STAR_FLARE_DECAY) : 0.0;
-      emitted += backgroundStar(cssPx, flare) * u_backgroundStars;
+      emitted += backgroundStar(cssPx + u_skyShift.xy, flare) * u_backgroundStars;
     }
     if (u_skyGrid > 0.0) {
       // A square grid on the sky, with a line through the middle of the screen. It is read where the
       // bent ray comes from, so the lens, the gravitational wave and the matter front bend it like the
       // stars, and it widens where the lens magnifies
-      vec2 fromLine = abs(fract((cssPx - 0.5 * u_resolution / u_pixelRatio) / u_gridCell - 0.5) - 0.5) * u_gridCell;
+      vec2 fromLine = abs(fract((cssPx + u_skyShift.zw - 0.5 * u_resolution / u_pixelRatio) / u_gridCell - 0.5) - 0.5) * u_gridCell;
       emitted += GRID_COLOR * u_skyGrid * clamp((GRID_HALF_LINE - min(fromLine.x, fromLine.y) * u_cameraZoom) * u_pixelRatio + 0.5, 0.0, 1.0);
     }
     // Light is invisible in empty space: the front shows where it strikes dust, and the dust
@@ -929,6 +948,23 @@ export const compositeFragmentShaderSource = `
 
 // The space sheet (space_grid.ts), drawn over the finished frame. Every length uniform here is in CSS
 // pixels
+// How deep the sheet lies, and how far a node of the lattice is pulled in, at a distance from a black hole;
+// one text, so the sheet and the lattice follow the same law
+const DENT_GLSL = `  // How deep the sheet lies at a distance from a black hole whose shadow has the radius "edge", as a
+  // share of its depth at the shadow's edge. The sheet is drawn in the picture's own measure: a point of
+  // it stands where light passing the hole at that distance is seen, and lies as deep as time is slowed at
+  // the nearest that light comes to the hole, 1 - sqrt(1 - rs / nearest). Far away that is the Newtonian
+  // well, rs / 2r. At the shadow's edge the light skims the photon sphere, 1.5 rs, where a clock runs at
+  // 1 / sqrt(3) of its rate, and the sheet stands vertical: light any closer does not come back. The
+  // nearest approach of light seen at b is the largest root of r^3 = b^2 (r - rs), and the edge is at
+  // b = sqrt(27) / 2 rs, which leaves rs / nearest = x / (3 cos(acos(-x) / 3)) with x = edge / b
+  float dent (float away, float edge) {
+    float x = edge / max(away, edge);
+    float slowed = 1.0 - sqrt(max(1.0 - x / (3.0 * cos(acos(-x) / 3.0)), 0.0));
+    return slowed * 2.3660254;
+  }
+`
+
 export const gridVertexShaderSource = `
   attribute vec2 a_position;  // quad corner: x picks the end of the piece, y the side
   attribute vec4 a_gridLine;  // line number counted from the black hole, start and end along the line (-1..1), 1 = runs across the screen
@@ -948,6 +984,7 @@ export const gridVertexShaderSource = `
   uniform vec4 u_pairFront;   // once the two are one: seconds since then (negative = not yet), how far the wave travels a second, seconds the old wave takes to give way to the new
   uniform vec4 u_lens;        // the scene camera: centre of its zoom, the zoom, unused
   uniform vec2 u_jolt;        // the scene camera's shake
+  uniform vec4 u_spin;        // 3D: cosine and sine of the turn that spins the lines in the sheet's plane, 1 while it is on
 
   varying vec2 v_ends;        // distance along the piece from its start and from its end
   varying float v_across;     // signed distance from its axis
@@ -959,20 +996,7 @@ export const gridVertexShaderSource = `
   // Lines close to the camera are drawn at most this many times wider
   const float MAX_SCALE = 3.0;
 
-  // How deep the sheet lies at a distance from a black hole whose shadow has the radius "edge", as a
-  // share of its depth at the shadow's edge. The sheet is drawn in the picture's own measure: a point of
-  // it stands where light passing the hole at that distance is seen, and lies as deep as time is slowed at
-  // the nearest that light comes to the hole, 1 - sqrt(1 - rs / nearest). Far away that is the Newtonian
-  // well, rs / 2r. At the shadow's edge the light skims the photon sphere, 1.5 rs, where a clock runs at
-  // 1 / sqrt(3) of its rate, and the sheet stands vertical: light any closer does not come back. The
-  // nearest approach of light seen at b is the largest root of r^3 = b^2 (r - rs), and the edge is at
-  // b = sqrt(27) / 2 rs, which leaves rs / nearest = x / (3 cos(acos(-x) / 3)) with x = edge / b
-  float dent (float away, float edge) {
-    float x = edge / max(away, edge);
-    float slowed = 1.0 - sqrt(max(1.0 - x / (3.0 * cos(acos(-x) / 3.0)), 0.0));
-    return slowed * 2.3660254;
-  }
-
+${DENT_GLSL}
   // How strong a gravitational wave is at a distance from where it left: it falls as 1 / r. Closer than
   // the edge there is no wave yet, only the field of the source itself, which fades to nothing at the centre
   float waveReach (float dist, float edge) {
@@ -1031,12 +1055,26 @@ export const gridVertexShaderSource = `
 
   void main () {
     bool crosswise = a_gridLine.w > 0.5;
-    // The lines stay where they are on the sheet while the black hole moves across it
-    float across = (a_gridLine.x - fract((crosswise ? u_well.y : u_well.x) / u_lines.x)) * u_lines.x;
     // Pieces are short near the black hole, where the sheet curves, and long far from it
     vec2 along = sign(a_gridLine.yz) * a_gridLine.yz * a_gridLine.yz * u_lines.y;
-    vec4 first = onScreen(crosswise ? vec2(along.x, across) : vec2(across, along.x));
-    vec4 last = onScreen(crosswise ? vec2(along.y, across) : vec2(across, along.y));
+    float across;
+    vec4 first;
+    vec4 last;
+    if (u_spin.z > 0.0) {
+      // In 3D the lines are laid on the sheet turned by the camera's turn, around the point the camera
+      // looks at, and seen from where the camera stands; the wells are where the black holes are seen
+      vec2 wellOnSheet = vec2(u_spin.x * u_well.x + u_spin.y * u_well.y, u_spin.x * u_well.y - u_spin.y * u_well.x);
+      across = (a_gridLine.x - fract((crosswise ? wellOnSheet.y : wellOnSheet.x) / u_lines.x)) * u_lines.x;
+      vec2 pieceStart = crosswise ? vec2(along.x, across) : vec2(across, along.x);
+      vec2 pieceEnd = crosswise ? vec2(along.y, across) : vec2(across, along.y);
+      first = onScreen(vec2(u_spin.x * pieceStart.x - u_spin.y * pieceStart.y, u_spin.y * pieceStart.x + u_spin.x * pieceStart.y));
+      last = onScreen(vec2(u_spin.x * pieceEnd.x - u_spin.y * pieceEnd.y, u_spin.y * pieceEnd.x + u_spin.x * pieceEnd.y));
+    } else {
+      // The lines stay where they are on the sheet while the black hole moves across it
+      across = (a_gridLine.x - fract((crosswise ? u_well.y : u_well.x) / u_lines.x)) * u_lines.x;
+      first = onScreen(crosswise ? vec2(along.x, across) : vec2(across, along.x));
+      last = onScreen(crosswise ? vec2(along.y, across) : vec2(across, along.y));
+    }
 
     v_ends = vec2(0.0);
     v_across = 0.0;
@@ -1154,3 +1192,125 @@ export function createProgram (
   gl.deleteProgram(program)
   return null
 }
+
+// The lines of the space lattice (space_lattice.ts): each piece is bent towards the black holes and set in
+// front of the camera, at the camera's zoom, into the layer the orbits' traces are drawn in
+export const latticeVertexShaderSource = `
+  attribute vec2 a_position;     // quad corner: x picks the end of the piece, y the side
+  attribute vec4 a_latticeLine;  // two line numbers across the line, counted from the black hole, the piece's number along it, the axis it runs along (0 x, 1 y, 2 z)
+
+  uniform vec2 u_resolution;     // drawing buffer size in device pixels
+  uniform vec4 u_zoom;           // the camera: the point its zoom leaves in place (device pixels), the zoom
+  uniform vec4 u_row0;           // the camera's turn, row by row: the x row, and the focal length in device pixels
+  uniform vec4 u_row1;           // the y row, and the depth of the point the camera circles
+  uniform vec4 u_row2;           // the z row, and the distance under which lines fade out near the camera
+  uniform vec2 u_vanish;         // the vanishing point in device pixels
+  uniform vec4 u_hole;           // the black hole in the scene, the radius of its shadow (0 = no pull)
+  uniform vec4 u_companion;      // a second black hole, the same way
+  uniform vec4 u_lattice;        // cell size, how far the lines reach, the pull, line width in device pixels
+  uniform vec4 u_anchor;         // share of a cell the nearest lines lie past the black hole on each axis, unused
+  uniform vec4 u_color;          // rgb at the lattice's brightness, unused
+
+  varying vec2 v_ends;
+  varying float v_across;
+  varying float v_halfWidth;
+  varying vec4 v_color;
+
+  const float PI = 3.14159265359;
+  const float SEGMENTS = ${LATTICE_SEGMENTS}.0;
+  // Lines farther from the camera than the point it circles dim with distance, down to this share
+  const float FARTHEST = 0.3;
+
+${DENT_GLSL}
+  // The share of its distance a node at this distance from a black hole is pulled in by. The pull wished
+  // for is the slowing of time, in shadow radii times the Pull, and in proportion inside the shadow; it is
+  // taken as r -> r^2 / (r + pull), which is the pull itself while it is small and never brings a node to
+  // the centre, so a strong pull draws the lines in tight and no line folds over
+  float pull (float away, float edge) {
+    float wish = u_lattice.z * (away >= edge ? edge * dent(away, edge) : away);
+    return wish / (away + wish);
+  }
+
+  vec3 bent (vec3 node) {
+    vec3 fromHole = node - u_hole.xyz;
+    float away = length(fromHole);
+    vec3 placed = node;
+    if (u_hole.w > 0.0) placed -= fromHole * pull(away, u_hole.w);
+    if (u_companion.w > 0.0) {
+      vec3 fromCompanion = node - u_companion.xyz;
+      float awayCompanion = length(fromCompanion);
+      placed -= fromCompanion * pull(awayCompanion, u_companion.w);
+    }
+    return placed;
+  }
+
+  // A point of the scene in the camera's space: across, down, and its distance in front of the camera
+  vec3 seen (vec3 point) {
+    vec3 fromPivot = point - vec3(0.0, 0.0, u_row1.w);
+    return vec3(dot(u_row0.xyz, fromPivot), dot(u_row1.xyz, fromPivot), dot(u_row2.xyz, fromPivot) + u_row1.w);
+  }
+
+  // A node of the line, given by its place across and how far along the line it lies from the black hole
+  vec3 lineNode (vec2 across, float along) {
+    float axis = a_latticeLine.w;
+    vec3 offset = axis < 0.5 ? vec3(along, across) : axis < 1.5 ? vec3(across.x, along, across.y) : vec3(across, along);
+    return u_hole.xyz + offset;
+  }
+
+  // Where a point in the camera's space lands in the layer, at the camera's zoom
+  vec2 onLayer (vec3 point) {
+    vec2 screen = u_vanish + point.xy * u_row0.w / point.z;
+    return u_zoom.xy + (screen - u_zoom.xy) * u_zoom.z;
+  }
+
+  void main () {
+    v_ends = vec2(0.0);
+    v_across = 0.0;
+    v_halfWidth = 0.0;
+    v_color = vec4(0.0);
+
+    // The lines stay where they are in the scene while the black hole moves through them
+    float axis = a_latticeLine.w;
+    vec2 anchor = axis < 0.5 ? u_anchor.yz : axis < 1.5 ? u_anchor.xz : u_anchor.xy;
+    vec2 across = (a_latticeLine.xy - anchor) * u_lattice.x;
+    // Pieces are short near the black hole, where the lines bend, and long far from it
+    float start = a_latticeLine.z / SEGMENTS * 2.0 - 1.0;
+    float stop = (a_latticeLine.z + 1.0) / SEGMENTS * 2.0 - 1.0;
+    vec3 firstNode = lineNode(across, sign(start) * start * start * u_lattice.y);
+    vec3 lastNode = lineNode(across, sign(stop) * stop * stop * u_lattice.y);
+    // The lattice is a ball around the hole: it fades out over the outer half of its reach
+    float lit = 1.0 - smoothstep(0.5 * u_lattice.y, u_lattice.y, length(0.5 * (firstNode + lastNode) - u_hole.xyz));
+    vec3 first = seen(bent(firstNode));
+    vec3 last = seen(bent(lastNode));
+    float nearest = min(first.z, last.z);
+    if (lit <= 0.0 || nearest < 0.25 * u_row2.w) {
+      gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+      return;
+    }
+
+    vec2 startPx = onLayer(first);
+    vec2 delta = onLayer(last) - startPx;
+    float len = length(delta);
+    vec2 direction = len > 0.0001 ? delta / len : vec2(1.0, 0.0);
+    vec2 normal = vec2(-direction.y, direction.x);
+
+    // Lines thinner than a pixel are drawn one pixel wide and dimmed by the area they would cover
+    float width = u_lattice.w;
+    float drawWidth = max(width, 1.0);
+    float halfWidth = drawWidth * 0.5;
+    float extent = halfWidth + 1.0;
+    float along = mix(-extent, len + extent, a_position.x * 0.5 + 0.5);
+    float acrossPiece = a_position.y * extent;
+    vec2 pixel = startPx + direction * along + normal * acrossPiece;
+    float targetArea = len * width + PI * width * width * 0.25;
+    float drawnArea = len * drawWidth + PI * (halfWidth * halfWidth + 1.0 / 12.0);
+
+    // Near the camera the lines fade out; far behind the point it circles they dim
+    float shown = lit * smoothstep(0.25 * u_row2.w, u_row2.w, nearest) * clamp(u_row1.w / nearest, FARTHEST, 1.0);
+    v_ends = vec2(along, len - along);
+    v_across = acrossPiece;
+    v_halfWidth = halfWidth;
+    v_color = vec4(u_color.rgb, min(shown * targetArea / drawnArea, 1.0));
+    gl_Position = vec4(pixel / u_resolution * 2.0 - 1.0, 0.0, 1.0);
+  }
+`

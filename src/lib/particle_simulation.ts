@@ -40,6 +40,8 @@ export interface ParticleField {
   // Inertia is above 0
   vx: Float32Array
   vy: Float32Array
+  // The same along the depth, which only the 3D loop pulls
+  vz: Float32Array
 }
 
 export interface PaletteSampler {
@@ -121,6 +123,21 @@ export interface StepSettings {
   revealY: number
   revealFeather: number
   opacityScale: number
+  // 1 steps the field in three dimensions (particle_simulation_3d.ts), 0 with the flat loop below. The
+  // rest is read by the 3D loop alone: the two black holes in scene units, and the camera turned around
+  // the point at holeDepth on the line of flight, in radians, now and in the frame before (where a stroke
+  // starts)
+  threeD: number
+  holeWorldX: number
+  holeWorldY: number
+  holeWorldZ: number
+  companionWorldX: number
+  companionWorldY: number
+  companionWorldZ: number
+  cameraYaw: number
+  cameraPitch: number
+  cameraYawFrom: number
+  cameraPitchFrom: number
 }
 
 export interface InstanceData {
@@ -144,9 +161,25 @@ export interface StepLater {
 // How fast the space round a spinning hole carries a particle, against how fast the hole pulls it in, at
 // the hole's radius and a spin of 1. Space turns at 2 J / r^3 (Lense-Thirring), which with J = spin / 4
 // in the hole's radii is a speed of spin / 2 across the pull at one radius
-const DRAG_SHARE = 0.5
+export const DRAG_SHARE = 0.5
+
+// Inertia for one step: a push of the holes is a change of speed that lasts. Per 60 Hz frame the speed
+// keeps the share `inertia` and gains the push, so over a step of `frameScale` frames it keeps `keep`
+// and gains the push `gain` times, which at 0 is the push alone, the motion the scene had before
+// particles kept any speed. `velocityGain` turns the push of the step back into speed per 60 Hz frame.
+// One object, filled each step, so the step allocates nothing
+export const inertiaStep = { inertial: false, keep: 0, gain: 1, velocityGain: 0 }
+export function fillInertiaStep (inertia: number, frameScale: number) {
+  const inertial = inertia > 0 && frameScale > 0
+  const keep = inertial ? (inertia < 1 ? Math.pow(inertia, frameScale) : 1) : 0
+  inertiaStep.inertial = inertial
+  inertiaStep.keep = keep
+  inertiaStep.gain = inertial && inertia < 1 ? (1 - keep) / (1 - inertia) : inertial ? frameScale : 1
+  inertiaStep.velocityGain = inertial ? inertiaStep.gain / frameScale : 0
+  return inertiaStep
+}
 // A kept speed below a hundredth of a world unit a second (squared, per 60 Hz frame) is let go
-const SPEED_FLOOR_SQ = (0.01 / 60) ** 2
+export const SPEED_FLOOR_SQ = (0.01 / 60) ** 2
 
 const RESPAWN_FAR = 0
 const RESPAWN_HOLE = 1
@@ -194,7 +227,7 @@ export function samplePaletteColor (palette: PaletteSampler, random: Random): nu
   return palette.colors[last]
 }
 
-function spawnParticle (field: ParticleField, i: number, z: number, spawn: SpawnSettings) {
+export function spawnParticle (field: ParticleField, i: number, z: number, spawn: SpawnSettings) {
   const random = spawn.random
   const angle = nextRandom(random) * Math.PI * 2
   const radius = spawn.radius * Math.sqrt(nextRandom(random))
@@ -203,6 +236,7 @@ function spawnParticle (field: ParticleField, i: number, z: number, spawn: Spawn
   field.z[i] = z
   field.vx[i] = 0
   field.vy[i] = 0
+  field.vz[i] = 0
   field.color[i] = samplePaletteColor(spawn.palette, random)
   field.alpha[i] = 0.3 + nextRandom(random) * 0.7
   field.pulsePhase[i] = nextRandom(random) * Math.PI * 2
@@ -259,7 +293,8 @@ export function createParticleField (shared = 0): ParticleField {
     speedMultiplier: floats(),
     color: shared > 0 ? new Uint32Array(new SharedArrayBuffer(shared * 4)) : new Uint32Array(0),
     vx: floats(),
-    vy: floats()
+    vy: floats(),
+    vz: floats()
   }
 }
 
@@ -278,6 +313,7 @@ export function setParticleCount (field: ParticleField, requested: number, spawn
     field.speedMultiplier = growFloats(field.speedMultiplier, count)
     field.vx = growFloats(field.vx, count)
     field.vy = growFloats(field.vy, count)
+    field.vz = growFloats(field.vz, count)
     const color = new Uint32Array(count)
     color.set(field.color)
     field.color = color
@@ -334,7 +370,18 @@ export function createStepSettings (ringEnergy: RingEnergy | null = null): StepS
     revealX: 0,
     revealY: 0,
     revealFeather: 80,
-    opacityScale: 1
+    opacityScale: 1,
+    threeD: 0,
+    holeWorldX: 0,
+    holeWorldY: 0,
+    holeWorldZ: 0,
+    companionWorldX: 0,
+    companionWorldY: 0,
+    companionWorldZ: 0,
+    cameraYaw: 0,
+    cameraPitch: 0,
+    cameraYawFrom: 0,
+    cameraPitchFrom: 0
   }
 }
 
@@ -447,15 +494,8 @@ export function stepRange (
   const dragRight = settings.spinRight * dragScale
   const dragUp = settings.spinUp * dragScale
   const dragging = hasHole && (dragToward !== 0 || dragRight !== 0 || dragUp !== 0)
-  // Inertia: a push of the holes is a change of speed that lasts. Per 60 Hz frame the speed keeps the share
-  // `inertia` and gains the push, so over this step's frames it keeps `keep` and gains the push `gain`
-  // times, which at 0 is the push alone, the motion the scene had before particles kept any speed.
-  // `velocityGain` turns the push of this step back into speed per 60 Hz frame
-  const inertia = settings.inertia
-  const inertial = inertia > 0 && frameScale > 0
-  const keep = inertial ? (inertia < 1 ? Math.pow(inertia, frameScale) : 1) : 0
-  const gain = inertial && inertia < 1 ? (1 - keep) / (1 - inertia) : inertial ? frameScale : 1
-  const velocityGain = inertial ? gain / frameScale : 0
+  // Inertia (fillInertiaStep says how a push becomes kept speed)
+  const { inertial, keep, gain, velocityGain } = fillInertiaStep(settings.inertia, frameScale)
   // The second black hole pulls in proportion to its size and reaches as far in its own radii
   const companionRadius = settings.companionRadius
   const hasCompanion = hasHole && companionRadius > 0

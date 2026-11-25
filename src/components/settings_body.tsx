@@ -112,6 +112,23 @@ function StylizedLens ({ children }: { children: ReactNode }) {
   )
 }
 
+// The 3D switch heads its section: the camera's sliders below it only matter while it is on
+function ThreeDSection ({ children }: { children: ReactNode }) {
+  const on = useParticleStore(state => state.threeD)
+  const toggle = useParticleStore(state => state.toggleThreeD)
+  return (
+    <SettingsSection
+      id="three-d"
+      title="3D View"
+      help="Drag the scene to circle the black hole"
+      dimmed={!on}
+      action={<SettingsSwitch on={on} onToggle={toggle} label="3D view" />}
+    >
+      {children}
+    </SettingsSection>
+  )
+}
+
 // Every setting of the panel. It is built once with the page, so opening the panel builds nothing
 function SettingsBody () {
   return (
@@ -129,6 +146,12 @@ function SettingsBody () {
         <MotionRow />
         <FrameRateControl />
       </SettingsSection>
+
+      <ThreeDSection>
+        <SettingSlider field="cameraYaw" />
+        <SettingSlider field="cameraPitch" />
+        <SettingSlider field="cameraSpin" />
+      </ThreeDSection>
 
       <SettingsSection id="particles" title="Particles">
         {/* The field, then its motion, then the look of a particle */}
@@ -254,10 +277,15 @@ function SettingsBody () {
       </SettingsSection>
 
       <SettingsSection id="space-grid" title="Space Grid">
-        {/* The sheet and its shape, the grid behind the lens, then the cell both share */}
+        {/* The sheet and its shape, the lattice and its shape, the grid behind the lens, then the cell the sheet and that grid share */}
         <SettingSlider field="gridSheet" />
         <SettingSlider field="gridTilt" />
         <SettingSlider field="gridDepth" />
+        <div className="mt-3 flex flex-col gap-1">
+          <SettingSlider field="gridLattice" />
+          <SettingSlider field="gridLatticeCell" />
+          <SettingSlider field="gridLatticeWarp" />
+        </div>
         <div className="mt-3 flex flex-col gap-1">
           <SettingSlider field="gridSky" />
           <SettingSlider field="gridCell" />

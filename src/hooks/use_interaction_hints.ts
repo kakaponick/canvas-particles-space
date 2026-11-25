@@ -5,6 +5,8 @@ export interface InteractionsUsed {
   click: boolean
   drag: boolean
   scroll: boolean
+  // In 3D: turned the camera by dragging or swiping the scene
+  orbit: boolean
 }
 
 // Pointer travel that counts as "the visitor found out the black hole follows"
@@ -15,7 +17,7 @@ const MOVE_DISTANCE = 120
  * so their hints can retire one by one.
  */
 export function useInteractionHints (): InteractionsUsed {
-  const [used, setUsed] = useState<InteractionsUsed>({ move: false, click: false, drag: false, scroll: false })
+  const [used, setUsed] = useState<InteractionsUsed>({ move: false, click: false, drag: false, scroll: false, orbit: false })
 
   useEffect(() => {
     let travelled = 0
@@ -28,8 +30,10 @@ export function useInteractionHints (): InteractionsUsed {
       lastX = event.clientX
       lastY = event.clientY
       if (travelled > MOVE_DISTANCE) mark('move')
-      // The canvas shows the grabbing cursor while the mouse carries the black hole
-      if (event.buttons & 1 && event.target instanceof HTMLCanvasElement && event.target.style.cursor === 'grabbing') mark('drag')
+      // The canvas shows the grabbing cursor while the mouse carries the black hole, or turns the 3D camera
+      if (event.buttons & 1 && event.target instanceof HTMLCanvasElement && event.target.style.cursor === 'grabbing') {
+        mark(event.target.dataset.orbiting === 'true' ? 'orbit' : 'drag')
+      }
     }
     const handleClick = (event: MouseEvent) => {
       if (event.target instanceof HTMLCanvasElement) mark('click')
@@ -39,7 +43,8 @@ export function useInteractionHints (): InteractionsUsed {
     }
     // The canvas cancels the touches it uses to drag the black hole; the others swipe the speed
     const handleTouchMove = (event: TouchEvent) => {
-      if (event.defaultPrevented) mark('drag')
+      if (event.target instanceof HTMLCanvasElement && event.target.dataset.orbiting === 'true') mark('orbit')
+      else if (event.defaultPrevented) mark('drag')
       else if (event.target instanceof HTMLCanvasElement) mark('scroll')
     }
 
