@@ -215,7 +215,9 @@ export const compositeFragmentShaderSource = `
   uniform float u_dustShock;       // brightness of the dust where the matter front strikes it
   uniform float u_dustBlow;        // CSS pixels the blast pushes the dust outward
   uniform float u_dustDrift;       // CSS pixels per second the dust drifts on its own
-  uniform float u_skyGrid;         // brightness of the flat grid on the sky behind the hole; 0 turns it off
+  uniform sampler2D u_orbitTrails; // the orbiting stars and the traces they leave
+  uniform float u_orbits;          // 1 while there are orbiting stars; 0 leaves their layer unread
+  uniform float u_skyGrid;        // brightness of the flat grid on the sky behind the hole; 0 turns it off
   uniform float u_gridCell;        // CSS pixels per cell of that grid
 
   uniform vec2 u_titleCenter;
@@ -449,6 +451,8 @@ export const compositeFragmentShaderSource = `
     }
 
     vec3 color = scene(samplePx);
+    // The orbiting stars are read through the same bent ray, the brighter of them and the particles
+    if (u_orbits > 0.0) color = max(color, texture2D(u_orbitTrails, 1.0 - abs(1.0 - mod(samplePx / u_resolution, 2.0))).rgb);
     if (u_lensFringe > 0.0) {
       // A simple lens bends red less and blue more, and more so away from the middle of the frame
       vec2 split = (screen - 0.5 * u_resolution) / (0.5 * length(u_resolution)) * u_lensFringe;

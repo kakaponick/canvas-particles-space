@@ -194,6 +194,18 @@ function SettingsBody () {
         </div>
       </LensingSection>
 
+      <SettingsSection id="orbiting-stars" title="Orbiting Stars">
+        {/* How many and on what orbits, their pace, then their look */}
+        <SettingSlider field="orbitCount" setter="setOrbitCount" />
+        <SettingSlider field="orbitSize" setter="setOrbitSize" />
+        <SettingSlider field="orbitEccentricity" setter="setOrbitEccentricity" />
+        <SettingSlider field="orbitSpeed" setter="setOrbitSpeed" />
+        <div className="mt-3 flex flex-col gap-1">
+          <SettingSlider field="orbitTrail" setter="setOrbitTrail" />
+          <SettingSlider field="orbitStarSize" setter="setOrbitStarSize" />
+        </div>
+      </SettingsSection>
+
       <SettingsSection id="space-grid" title="Space Grid">
         {/* The sheet and its shape, the grid behind the lens, then the cell both share */}
         <SettingSlider field="gridSheet" setter="setGridSheet" />

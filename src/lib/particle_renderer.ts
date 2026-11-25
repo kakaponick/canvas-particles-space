@@ -23,6 +23,7 @@ const INSTANCED_ATTRIBUTES = [ATTRIBUTE_LOCATIONS.segment, ATTRIBUTE_LOCATIONS.s
 const SCENE_TEXTURE_UNIT = 0
 const TITLE_TEXTURE_UNIT = 1
 const RING_TEXTURE_UNIT = 2
+const ORBIT_TEXTURE_UNIT = 3
 
 // The output is opaque and fully redrawn every frame, so the context skips alpha, depth and MSAA
 const CONTEXT_ATTRIBUTES: WebGLContextAttributes = {
@@ -173,6 +174,10 @@ export interface FrameInput {
   fadeAlpha: number
   instances: Float32Array
   instanceCount: number
+  // Stars in orbit: their segments follow the particles' in `instances`. They are stamped into a layer
+  // of their own, which loses `orbitFade` of its 255 levels of brightness this frame
+  orbitCount: number
+  orbitFade: number
   doppler: number
   // How strongly brightness follows speed, and the frame length in 60 Hz reference frames it is judged by
   speedGlow: number
@@ -331,7 +336,7 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     'titleCenter', 'titleHalfSize', 'titleAlpha', 'titleReveal', 'titleDissolve', 'titleDrift', 'titleGlow',
     'titleFlash', 'titleCooling', 'titleDust', 'titlePull', 'titleSwirl', 'titleReach', 'titleCapture', 'titleScale',
     'titleFringe', 'titleHalo', 'titleRedshift', 'titleGrain', 'titleBurn', 'titleFall', 'titleTidal', 'titleSpiral', 'titleSpread', 'titleStream', 'titleOrder', 'titleTrail', 'titleHeat', 'dustSweep', 'echoFloor', 'dustShock', 'dustBlow', 'dustDrift',
-    'skyGrid', 'gridCell',
+    'skyGrid', 'gridCell', 'orbits',
     'colorFlash', 'colorLight', 'colorDust', 'colorTitle', 'colorEmber',
     'cameraZoom', 'shake', 'lensFringe', 'vignette', 'filmGrain', 'letterbox'
   ] as const)
@@ -343,6 +348,7 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
   gl.uniform1i(gl.getUniformLocation(compositeProgram, 'u_image'), SCENE_TEXTURE_UNIT)
   gl.uniform1i(gl.getUniformLocation(compositeProgram, 'u_title'), TITLE_TEXTURE_UNIT)
   gl.uniform1i(gl.getUniformLocation(compositeProgram, 'u_ringEnergy'), RING_TEXTURE_UNIT)
+  gl.uniform1i(gl.getUniformLocation(compositeProgram, 'u_orbitTrails'), ORBIT_TEXTURE_UNIT)
 
   // Shared quad at location 0, bound once for every program
   const quadBuffer = gl.createBuffer()
@@ -354,10 +360,15 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
   // Per-particle attributes read one record per instance from the interleaved buffer
   const instanceBuffer = gl.createBuffer()
   let instanceCapacity = 0
+  // Points the per-instance attributes at the record `offset` bytes into the instance buffer, which
+  // must be bound
+  function pointInstances (offset: number) {
+    gl.vertexAttribPointer(ATTRIBUTE_LOCATIONS.segment, 4, gl.FLOAT, false, INSTANCE_STRIDE, offset)
+    gl.vertexAttribPointer(ATTRIBUTE_LOCATIONS.style, 2, gl.FLOAT, false, INSTANCE_STRIDE, offset + 16)
+    gl.vertexAttribPointer(ATTRIBUTE_LOCATIONS.color, 4, gl.UNSIGNED_BYTE, true, INSTANCE_STRIDE, offset + 24)
+  }
   gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuffer)
-  gl.vertexAttribPointer(ATTRIBUTE_LOCATIONS.segment, 4, gl.FLOAT, false, INSTANCE_STRIDE, 0)
-  gl.vertexAttribPointer(ATTRIBUTE_LOCATIONS.style, 2, gl.FLOAT, false, INSTANCE_STRIDE, 16)
-  gl.vertexAttribPointer(ATTRIBUTE_LOCATIONS.color, 4, gl.UNSIGNED_BYTE, true, INSTANCE_STRIDE, 24)
+  pointInstances(0)
   for (const location of INSTANCED_ATTRIBUTES) instancing.setDivisor(location, 1)
 
   // The lines of the space sheet never change: the grid vertex shader places them
@@ -388,6 +399,17 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
   let titleWidth = 0
   let titleHeight = 0
 
+  // The traces of the orbiting stars, a layer of its own so they can outlast the particles' trails. It
+  // gets its full size only when the first star is drawn, and again after a resize
+  const orbitTexture = createLinearTexture(ORBIT_TEXTURE_UNIT)
+  const orbitFramebuffer = gl.createFramebuffer()
+  gl.bindFramebuffer(gl.FRAMEBUFFER, orbitFramebuffer)
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, orbitTexture, 0)
+  let orbitSized = false
+  // Whether the layer may hold light, and whether the composite pass reads it this frame
+  let orbitLit = false
+  let orbitsShown = false
+
   // Persistent scene texture: the trail lives here between frames
   const sceneTexture = createLinearTexture(SCENE_TEXTURE_UNIT)
   const sceneFramebuffer = gl.createFramebuffer()
@@ -414,6 +436,8 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
 
     gl.viewport(0, 0, width, height)
+    orbitSized = false
+    orbitLit = false
     clearScene(background)
 
     gl.useProgram(particleProgram)
@@ -432,6 +456,16 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     gl.clearColor(background[0] / 255, background[1] / 255, background[2] / 255, 1)
     gl.clear(gl.COLOR_BUFFER_BIT)
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+    clearOrbits()
+  }
+
+  function clearOrbits () {
+    if (!orbitLit) return
+    orbitLit = false
+    gl.bindFramebuffer(gl.FRAMEBUFFER, orbitFramebuffer)
+    gl.clearColor(0, 0, 0, 1)
+    gl.clear(gl.COLOR_BUFFER_BIT)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
   }
 
   function setTitle (sprite: TitleSprite) {
@@ -442,8 +476,9 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     gl.activeTexture(gl.TEXTURE0 + SCENE_TEXTURE_UNIT)
   }
 
-  function drawParticles (frame: FrameInput) {
-    const { instances, instanceCount: count } = frame
+  // One upload for the frame: the particles' segments, then the orbiting stars'
+  function uploadInstances (frame: FrameInput) {
+    const count = frame.instanceCount + frame.orbitCount
     if (count === 0) return
 
     gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuffer)
@@ -452,23 +487,66 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
       gl.bufferData(gl.ARRAY_BUFFER, instanceCapacity * INSTANCE_STRIDE, gl.DYNAMIC_DRAW)
     }
     // WebGL2 uploads a range of the array as it is; WebGL1 needs a view, a small object per frame
-    if (gl2) gl2.bufferSubData(gl2.ARRAY_BUFFER, 0, instances, 0, count * INSTANCE_FLOATS)
-    else gl.bufferSubData(gl.ARRAY_BUFFER, 0, instances.subarray(0, count * INSTANCE_FLOATS))
+    if (gl2) gl2.bufferSubData(gl2.ARRAY_BUFFER, 0, frame.instances, 0, count * INSTANCE_FLOATS)
+    else gl.bufferSubData(gl.ARRAY_BUFFER, 0, frame.instances.subarray(0, count * INSTANCE_FLOATS))
+  }
 
-    gl.useProgram(particleProgram)
-    setUniform1f(gl, particleUniforms.doppler, frame.doppler)
-    setUniform1f(gl, particleUniforms.speedGlow, frame.speedGlow)
-    setUniform1f(gl, particleUniforms.frameScale, frame.frameScale)
-    setUniform2f(gl, particleUniforms.center, frame.vanishX, frame.vanishY)
+  // Stamps `count` segments into the bound target, keeping the brighter of a segment and what is already
+  // there, so stamps do not add up. Without that blend the premultiplied stamps are laid over it instead
+  function stampSegments (count: number) {
     for (const location of INSTANCED_ATTRIBUTES) gl.enableVertexAttribArray(location)
-    // The scene keeps the brighter of a particle and what is already there, so stamps do not add up.
-    // Without that blend the premultiplied stamps are laid over the scene instead
     if (maxEquation !== null) gl.blendEquationSeparate(maxEquation, gl.FUNC_ADD)
     else gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
     instancing.draw(QUAD_VERTEX_COUNT, count)
     if (maxEquation !== null) gl.blendEquation(gl.FUNC_ADD)
     else gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
     for (const location of INSTANCED_ATTRIBUTES) gl.disableVertexAttribArray(location)
+  }
+
+  function drawParticles (frame: FrameInput) {
+    if (frame.instanceCount === 0) return
+    gl.useProgram(particleProgram)
+    setUniform1f(gl, particleUniforms.doppler, frame.doppler)
+    setUniform1f(gl, particleUniforms.speedGlow, frame.speedGlow)
+    setUniform1f(gl, particleUniforms.frameScale, frame.frameScale)
+    setUniform2f(gl, particleUniforms.center, frame.vanishX, frame.vanishY)
+    stampSegments(frame.instanceCount)
+  }
+
+  // The orbiting stars' layer: what is there dims by whole levels of brightness, a straight fade that
+  // reaches black (a share of what is left would stall in 8 bits and leave a haze), then every star
+  // stamps the stretch it moved this frame
+  function drawOrbits (frame: FrameInput) {
+    if (!orbitSized) {
+      orbitSized = true
+      gl.activeTexture(gl.TEXTURE0 + ORBIT_TEXTURE_UNIT)
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
+      gl.activeTexture(gl.TEXTURE0 + SCENE_TEXTURE_UNIT)
+      orbitLit = true
+      clearOrbits()
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, orbitFramebuffer)
+    if (frame.orbitFade > 0 && orbitLit) {
+      const level = Math.min(frame.orbitFade, 255) / 255
+      gl.useProgram(fadeProgram)
+      setUniform4f(gl, fadeUniforms.color, level, level, level, 0)
+      gl.blendEquation(gl.FUNC_REVERSE_SUBTRACT)
+      gl.blendFunc(gl.ONE, gl.ONE)
+      gl.drawArrays(gl.TRIANGLES, 0, QUAD_VERTEX_COUNT)
+      gl.blendEquation(gl.FUNC_ADD)
+      gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
+    }
+    orbitLit = true
+
+    // The stars' records follow the particles'. A star is lit in full whatever its speed, with no tint
+    gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuffer)
+    pointInstances(frame.instanceCount * INSTANCE_STRIDE)
+    gl.useProgram(particleProgram)
+    setUniform1f(gl, particleUniforms.doppler, 0)
+    setUniform1f(gl, particleUniforms.speedGlow, 0)
+    setUniform1f(gl, particleUniforms.frameScale, frame.frameScale)
+    stampSegments(frame.orbitCount)
+    pointInstances(0)
   }
 
   function composite (settings: CompositeSettings, title: TitleSettings) {
@@ -573,6 +651,7 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     setUniform1f(gl, u.dustShock, settings.dustShock)
     setUniform1f(gl, u.dustBlow, settings.dustBlow)
     setUniform1f(gl, u.dustDrift, settings.dustDrift)
+    setUniform1f(gl, u.orbits, orbitsShown ? 1 : 0)
     setUniform1f(gl, u.skyGrid, settings.skyGrid)
     if (settings.skyGrid > 0) setUniform1f(gl, u.gridCell, Math.max(settings.gridCell, 1))
     gl.drawArrays(gl.TRIANGLES, 0, QUAD_VERTEX_COUNT)
@@ -626,8 +705,13 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
         setUniform4f(gl, fadeUniforms.color, r / 255, g / 255, b / 255, frame.fadeAlpha)
         gl.drawArrays(gl.TRIANGLES, 0, QUAD_VERTEX_COUNT)
       }
+      uploadInstances(frame)
       drawParticles(frame)
+      if (frame.orbitCount > 0) drawOrbits(frame)
       gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+      // The last star gone, its traces go with it
+      if (frame.orbitCount === 0) clearOrbits()
+      orbitsShown = frame.orbitCount > 0
 
       if (frame.ringFed) {
         gl.activeTexture(gl.TEXTURE0 + RING_TEXTURE_UNIT)
@@ -646,6 +730,8 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
     gl.deleteFramebuffer(sceneFramebuffer)
     gl.deleteTexture(sceneTexture)
+    gl.deleteFramebuffer(orbitFramebuffer)
+    gl.deleteTexture(orbitTexture)
     gl.deleteTexture(titleTexture)
     gl.deleteTexture(ringTexture)
     gl.deleteBuffer(quadBuffer)

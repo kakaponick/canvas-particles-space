@@ -28,6 +28,7 @@ import { renderTitleSprite, waitForTitleFont, type TitleSprite, type TitleStyle 
 import { createParticleBudget, updateParticleBudget } from '../lib/particle_budget'
 import { clearRingEnergy, createRingEnergy, stepRingEnergy } from '../lib/ring_energy'
 import { createGridSettings, placeGrid } from '../lib/space_grid'
+import { MAX_ORBITERS, createOrbiters, stepOrbiters } from '../lib/orbiters'
 
 // The light front reaches the title about 0.85 s in; a face that is not ready by then is swapped in later
 const TITLE_FONT_TIMEOUT_MS = 700
@@ -145,6 +146,8 @@ function ParticleCanvas () {
     // Playback speed with the debugger closed: the debugger's speed during the intro, 1 after it
     let closedRate = useIntroDebugStore.getState().timeScale
     let fadeBacklog = 0
+    // Levels of brightness the orbiting stars' traces still owe; they are taken off in whole levels
+    let orbitFadeBacklog = 0
     const framePacer = createFramePacer()
     let fpsFrames = 0
     let fpsWindowStart = 0
@@ -161,6 +164,7 @@ function ParticleCanvas () {
     const ringEnergy = createRingEnergy()
     let ringWasFed = true
     const field = createParticleField()
+    const orbiters = createOrbiters()
     const instances = createInstanceData()
     const spawn: SpawnSettings = {
       palette: createPaletteSampler(initialState.colorPalette),
@@ -211,6 +215,8 @@ function ParticleCanvas () {
       fadeAlpha: 0,
       instances: instances.floats,
       instanceCount: 0,
+      orbitCount: 0,
+      orbitFade: 0,
       doppler: 0,
       speedGlow: 1,
       frameScale: 1,
@@ -335,7 +341,9 @@ function ParticleCanvas () {
       const state = useParticleStore.getState()
       introTime = 0
       fadeBacklog = 0
+      orbitFadeBacklog = 0
       field.count = 0
+      orbiters.count = 0
       clearRingEnergy(ringEnergy)
       setParticleCount(field, particleBudget.active, spawn)
       placeHoleAtOrigin()
@@ -399,6 +407,7 @@ function ParticleCanvas () {
       // Resizing clears the canvas; while the loop is idle, show the background right away
       if (!frameId) {
         frame.instanceCount = 0
+        frame.orbitCount = 0
         frame.fadeAlpha = 0
         renderer.render(frame)
       }
@@ -533,7 +542,8 @@ function ParticleCanvas () {
       if (particleBudget.active !== field.count) {
         setParticleCount(field, particleBudget.active, spawn)
       }
-      ensureInstanceCapacity(instances, field.capacity)
+      // Room for every particle and, after them, the orbiting stars
+      ensureInstanceCapacity(instances, field.capacity + MAX_ORBITERS)
 
       // The black hole: born where the intro happens, then pulled toward its target on a spring.
       // An anchored hole rests at its saved position, which a slider or a preset may have just moved
@@ -601,6 +611,18 @@ function ParticleCanvas () {
       if (frame.updateScene) {
         const simStart = performance.now()
         frame.instanceCount = stepParticles(field, settings, spawn, instances)
+        // The orbiting stars circle the hole at its full size and light up as it forms; their segments
+        // follow the particles'. Their traces fade by a level of brightness at a time
+        frame.orbitCount = state.orbitCount > 0
+          ? stepOrbiters(
+            orbiters, state.orbitCount, state.orbitSize, state.orbitEccentricity, state.orbitSpeed, dt,
+            hole.x, hole.y, shadowRadius, state.eventHorizon / 100 * shortSide, shortSide,
+            state.orbitStarSize, Math.min(holeGrowth, 1), spawn.palette, settings.ringEnergy, instances, frame.instanceCount
+          )
+          : 0
+        orbitFadeBacklog += dt * 255 / Math.max(state.orbitTrail, 1 / 255)
+        frame.orbitFade = Math.floor(orbitFadeBacklog)
+        orbitFadeBacklog -= frame.orbitFade
         if (ringFed) stepRingEnergy(ringEnergy, dt, state.ringAfterglow, reducedMotion ? 0 : state.ringFlowSpeed)
         frame.instances = instances.floats
         const active = updateParticleBudget(

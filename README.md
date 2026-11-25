@@ -72,6 +72,7 @@ ripples the background stars, swallows the title and then drifts to your cursor.
 - **Gravity**: Gravitational pull strength
 - **Orbital Force**: Tangential force around black hole
 - **Einstein Radius**: Einstein ring radius, in black hole radii
+- **Orbiting Stars**: stars with real orbits around the black hole (**Count**, 0 = none): ellipses that precess, faster the closer they come, with a trace that stays lit for **Trail** seconds. **Orbit Size**, **Eccentricity** and **Orbit Speed** (its sign is the direction) shape them; a star that crosses the Event Horizon lights the photon ring
 - **Space Grid**: two grids for explaining curved space, both off until their brightness is above 0. **Sheet** is a grid seen at an angle (**Sheet Tilt**) and dented where the black hole sits (**Well Depth**); the gravitational wave of the opening ripples through it. **Lensed Grid** is a flat grid on the sky read through the lens, so it shows what the lens does
 
 ## Project Structure
@@ -92,6 +93,7 @@ src/
 │   ├── black_hole_motion.ts   # Spring follow of the black hole
 │   ├── base_speed.ts          # Base Speed range and the scroll dial
 │   ├── title_sprite.ts        # Intro title rasterised for the lens
+│   ├── orbiters.ts            # Stars in real orbits around the black hole
 │   ├── space_grid.ts          # The space sheet: its lines and where its well goes
 │   └── webgl_shaders.ts       # GLSL sources and program helpers
 ├── store/

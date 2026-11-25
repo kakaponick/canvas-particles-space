@@ -134,7 +134,7 @@ export function createPaletteSampler (palette: ParticleColor[]): PaletteSampler 
   return { source: palette, colors, cumulativeWeights, totalWeight }
 }
 
-function samplePaletteColor (palette: PaletteSampler): number {
+export function samplePaletteColor (palette: PaletteSampler): number {
   const last = palette.colors.length - 1
   if (last < 0) return WHITE
 

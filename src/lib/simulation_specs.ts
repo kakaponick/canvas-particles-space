@@ -130,7 +130,19 @@ export const SIMULATION_SETTING_SPECS = {
   gridDepth: spec('Well Depth', 0, 12, 0.1, fixed(1, '×'), 'Depth of the dent, in hole radii; 0 = flat',
     'Depth of the sheet\'s well at the edge of the shadow, in black hole radii. 0 leaves the sheet flat.'),
   gridSky: spoken(spec('Lensed Grid', 0, 1, 0.01, percentOfOne, 'Flat grid seen through the lens; 0 = off',
-    'Brightness of a flat square grid on the sky behind the black hole. It is read through the same bent rays as the stars, so it shows exactly what the lens does: the Einstein ring, the mirrored images inside it, the twist, the gravitational wave. 0 turns it off.'), 'Lensed Grid Brightness')
+    'Brightness of a flat square grid on the sky behind the black hole. It is read through the same bent rays as the stars, so it shows exactly what the lens does: the Einstein ring, the mirrored images inside it, the twist, the gravitational wave. 0 turns it off.'), 'Lensed Grid Brightness'),
+  orbitCount: spoken(spec('Count', 0, 64, 1, count, 'Stars in orbit around the hole; 0 = none',
+    'Number of stars in orbit around the black hole. Unlike the particles they have velocity and keep real orbits in the plane of the screen: ellipses whose long axis turns a little on every pass (relativistic precession), faster the closer they come. A star that crosses the Event Horizon radius lights the photon ring and is replaced by a new one. 0 = none.'), 'Orbiting Star Count'),
+  orbitSize: spec('Orbit Size', 1.5, 20, 0.1, fixed(1, '×'), 'Mean orbit radius, in hole radii',
+    'Mean size (semi-major axis) of the orbits, in black hole radii; each star gets 60-140% of it. The shadow is 2.6 Schwarzschild radii and no orbit is stable inside 3 of them, so below about 2.5 most stars fall in. Changing it makes every orbit anew.'),
+  orbitEccentricity: spec('Eccentricity', 0, 0.95, 0.01, fixed(2), '0 = circles · higher: longer ellipses',
+    'How stretched the orbits are: 0 = circles, 0.9 = long ellipses that dive close to the black hole, where they swing round fastest and precess most. Changing it makes every orbit anew.'),
+  orbitSpeed: spec('Orbit Speed', -5, 5, 0.05, fixed(2, '×'), 'Rate of the orbits\' time; sign: direction',
+    'Rate at which time passes for the orbiting stars. At 1 light crosses 1.2 short screen sides a second, and a star 8 Schwarzschild radii out takes about 4.5 s for a turn at the default black hole size. Negative values run the orbits backwards; 0 stops them.'),
+  orbitTrail: spoken(spec('Trail', 0, 60, 0.5, fixed(1, ' s'), 'Seconds an orbit\'s trace stays lit',
+    'How long the trace a star leaves stays lit. Long traces draw the whole orbit and, over several turns, the rosette of its precession. 0 leaves only the star.'), 'Orbit Trail'),
+  orbitStarSize: spoken(spec('Star Size', 1, 20, 0.5, fixed(1, ' px'), 'Width of a star and its trace',
+    'Width of an orbiting star and of the trace it leaves.'), 'Orbiting Star Size')
 } satisfies Record<string, SimulationSettingSpec>
 
 export type SimulationSliderKey = keyof typeof SIMULATION_SETTING_SPECS

@@ -96,6 +96,15 @@ export interface ParticleState {
   gridTilt: number
   gridDepth: number
   gridSky: number
+  // Stars in orbit around the black hole (orbiters.ts): how many (0 = none), the mean size of their
+  // orbits in black hole radii, how stretched the orbits are, the rate of their time (its sign is their
+  // direction), seconds an orbit's trace stays lit, and their width in CSS pixels
+  orbitCount: number
+  orbitSize: number
+  orbitEccentricity: number
+  orbitSpeed: number
+  orbitTrail: number
+  orbitStarSize: number
   frameRateCap: number
   measuredFps: number
   // Lower the particle count automatically when the simulation overruns the frame
@@ -169,6 +178,12 @@ export interface ParticleState {
   setGridTilt: (value: number) => void
   setGridDepth: (value: number) => void
   setGridSky: (value: number) => void
+  setOrbitCount: (value: number) => void
+  setOrbitSize: (value: number) => void
+  setOrbitEccentricity: (value: number) => void
+  setOrbitSpeed: (value: number) => void
+  setOrbitTrail: (value: number) => void
+  setOrbitStarSize: (value: number) => void
   setFrameRateCap: (fps: number) => void
   setMeasuredFps: (fps: number) => void
   toggleAdaptiveParticles: () => void
@@ -242,6 +257,12 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   gridTilt: 65,
   gridDepth: 2.5,
   gridSky: 0,
+  orbitCount: 0,
+  orbitSize: 4,
+  orbitEccentricity: 0.5,
+  orbitSpeed: 1,
+  orbitTrail: 8,
+  orbitStarSize: 5,
   frameRateCap: 0,
   measuredFps: 0,
   adaptiveParticles: true,
@@ -314,6 +335,12 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   setGridTilt: (value) => set({ gridTilt: value }),
   setGridDepth: (value) => set({ gridDepth: value }),
   setGridSky: (value) => set({ gridSky: value }),
+  setOrbitCount: (value) => set({ orbitCount: value }),
+  setOrbitSize: (value) => set({ orbitSize: value }),
+  setOrbitEccentricity: (value) => set({ orbitEccentricity: value }),
+  setOrbitSpeed: (value) => set({ orbitSpeed: value }),
+  setOrbitTrail: (value) => set({ orbitTrail: value }),
+  setOrbitStarSize: (value) => set({ orbitStarSize: value }),
   setFrameRateCap: (fps) => set({ frameRateCap: fps }),
   setMeasuredFps: (fps) => set({ measuredFps: fps }),
   toggleAdaptiveParticles: () => set((state) => ({ adaptiveParticles: !state.adaptiveParticles })),
