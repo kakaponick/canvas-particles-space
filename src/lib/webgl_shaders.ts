@@ -163,7 +163,7 @@ export const compositeFragmentShaderSource = `
   uniform float u_twistLimit;    // cap on the pull the twist follows, so a wide lens does not wind up the scene
   uniform float u_absorption;    // light the lens's pull removes around the shadow
   uniform float u_ring;          // photon ring brightness
-  uniform float u_ringWidth;     // thickness of the line, in black hole radii
+  uniform float u_ringWidth;     // thickness of the line beyond its 1.5 px floor, in black hole radii
   uniform float u_ringGlow;      // strength of the soft light around the line; 0 leaves the bare line
   uniform float u_ringDoppler;   // contrast between the approaching and the receding side
   uniform float u_ringSide;      // direction of the approaching side, radians
@@ -638,7 +638,7 @@ export const compositeFragmentShaderSource = `
 
       // The second black hole's ring is a plain line: no matter is tracked falling into it
       if (u_companion.z > 0.0 && u_ring > 0.0 && companionDist < u_companion.z * 1.6) {
-        float ringLine = max(u_ringWidth * u_companion.z, 1.5);
+        float ringLine = 1.5 + u_ringWidth * u_companion.z;
         float fromLine = companionDist - u_companion.z - 0.7 * ringLine;
         float inner = fromLine / (0.45 * ringLine);
         float line = exp(-inner * inner);
@@ -651,7 +651,8 @@ export const compositeFragmentShaderSource = `
 
       // Photon ring: light that circled the hole before escaping, a hair-thin line hugging the shadow
       if (u_ring > 0.0 && dist < u_horizon * 1.6) {
-        float ringLine = max(u_ringWidth * u_horizon, 1.5);
+        // Added to a floor rather than clamped to it, so every step of Thickness shows
+        float ringLine = 1.5 + u_ringWidth * u_horizon;
         float fromLine = dist - u_horizon - 0.7 * ringLine;
         float inner = fromLine / (0.45 * ringLine);
         float line = exp(-inner * inner);

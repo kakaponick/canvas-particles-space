@@ -228,7 +228,7 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   ringFeedEnabled: true,
   ringBrightness: 1,
   ringGlow: 0.3,
-  ringWidth: 0.001,
+  ringWidth: 0,
   ringDoppler: 0.2,
   ringSide: 1.9,
   ringBase: 0.8,
