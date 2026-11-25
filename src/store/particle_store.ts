@@ -88,6 +88,14 @@ export interface ParticleState {
   // Cap on the pull that Twist follows; the pull is 1 at the Einstein ring and grows inward
   lensingTwistLimit: number
   lensingAbsorption: number
+  // Space grid: cell size as % of the viewport's short side, shared by both grids; brightness of the
+  // sheet dented by the black hole, its tilt in degrees and the depth of its well in black hole radii;
+  // brightness of the flat grid seen through the lens. A brightness of 0 turns that grid off
+  gridCell: number
+  gridSheet: number
+  gridTilt: number
+  gridDepth: number
+  gridSky: number
   frameRateCap: number
   measuredFps: number
   // Lower the particle count automatically when the simulation overruns the frame
@@ -154,6 +162,11 @@ export interface ParticleState {
   setLensingReach: (value: number) => void
   setLensingTwistLimit: (value: number) => void
   setLensingAbsorption: (absorption: number) => void
+  setGridCell: (value: number) => void
+  setGridSheet: (value: number) => void
+  setGridTilt: (value: number) => void
+  setGridDepth: (value: number) => void
+  setGridSky: (value: number) => void
   setFrameRateCap: (fps: number) => void
   setMeasuredFps: (fps: number) => void
   toggleAdaptiveParticles: () => void
@@ -221,6 +234,11 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   lensingReach: 0,
   lensingTwistLimit: 3,
   lensingAbsorption: 0.25,
+  gridCell: 4,
+  gridSheet: 0,
+  gridTilt: 65,
+  gridDepth: 2.5,
+  gridSky: 0,
   frameRateCap: 0,
   measuredFps: 0,
   adaptiveParticles: true,
@@ -287,6 +305,11 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   setLensingReach: (value) => set({ lensingReach: value }),
   setLensingTwistLimit: (value) => set({ lensingTwistLimit: value }),
   setLensingAbsorption: (absorption) => set({ lensingAbsorption: absorption }),
+  setGridCell: (value) => set({ gridCell: value }),
+  setGridSheet: (value) => set({ gridSheet: value }),
+  setGridTilt: (value) => set({ gridTilt: value }),
+  setGridDepth: (value) => set({ gridDepth: value }),
+  setGridSky: (value) => set({ gridSky: value }),
   setFrameRateCap: (fps) => set({ frameRateCap: fps }),
   setMeasuredFps: (fps) => set({ measuredFps: fps }),
   toggleAdaptiveParticles: () => set((state) => ({ adaptiveParticles: !state.adaptiveParticles })),

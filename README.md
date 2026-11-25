@@ -71,6 +71,7 @@ ripples the background stars, swallows the title and then drifts to your cursor.
 - **Gravity**: Gravitational pull strength
 - **Orbital Force**: Tangential force around black hole
 - **Einstein Radius**: Einstein ring radius, in black hole radii
+- **Space Grid**: two grids for explaining curved space, both off until their brightness is above 0. **Sheet** is a grid seen at an angle (**Sheet Tilt**) and dented where the black hole sits (**Well Depth**); the gravitational wave of the opening ripples through it. **Lensed Grid** is a flat grid on the sky read through the lens, so it shows what the lens does
 
 ## Project Structure
 
@@ -85,11 +86,12 @@ src/
 │   └── interaction_hints.tsx  # Hints for the interactions not tried yet
 ├── lib/
 │   ├── particle_simulation.ts # Particle state and per-frame physics
-│   ├── particle_renderer.ts   # WebGL passes: trail fade, particles, title, black hole composite
+│   ├── particle_renderer.ts   # WebGL passes: trail fade, particles, title, black hole composite, space sheet
 │   ├── intro_timeline.ts      # Choreography of the opening seconds
 │   ├── black_hole_motion.ts   # Spring follow of the black hole
 │   ├── base_speed.ts          # Base Speed range and the scroll dial
 │   ├── title_sprite.ts        # Intro title rasterised for the lens
+│   ├── space_grid.ts          # The space sheet: its lines and where its well goes
 │   └── webgl_shaders.ts       # GLSL sources and program helpers
 ├── store/
 │   ├── particle_store.ts      # Zustand state management

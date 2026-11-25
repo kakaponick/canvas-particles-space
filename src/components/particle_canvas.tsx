@@ -27,6 +27,7 @@ import { createFramePacer, pacedFrameMs } from '../lib/frame_pacing'
 import { renderTitleSprite, waitForTitleFont, type TitleSprite, type TitleStyle } from '../lib/title_sprite'
 import { createParticleBudget, updateParticleBudget } from '../lib/particle_budget'
 import { clearRingEnergy, createRingEnergy, stepRingEnergy } from '../lib/ring_energy'
+import { createGridSettings, placeGrid } from '../lib/space_grid'
 
 // The light front reaches the title about 0.85 s in; a face that is not ready by then is swapped in later
 const TITLE_FONT_TIMEOUT_MS = 700
@@ -280,6 +281,8 @@ function ParticleCanvas () {
         dustShock: 0,
         dustBlow: 0,
         dustDrift: 0,
+        skyGrid: 0,
+        gridCell: 64,
         colorFlash: 0xffffff,
         colorLight: 0xffffff,
         colorDust: 0xffffff,
@@ -292,7 +295,8 @@ function ParticleCanvas () {
         vignette: 0,
         filmGrain: 0,
         letterbox: 0
-      }
+      },
+      grid: createGridSettings()
     }
 
     function readBackground () {
@@ -745,6 +749,16 @@ function ParticleCanvas () {
       composite.vignette = params.vignette * film
       composite.filmGrain = params.filmGrain * film
       composite.letterbox = params.letterbox * viewportHeight * film
+
+      // The space grid: the flat one is read through the lens in the composite pass, the sheet is laid
+      // over the frame with its well under the black hole
+      const gridCell = state.gridCell / 100 * shortSide
+      composite.skyGrid = state.gridSky
+      composite.gridCell = gridCell
+      frame.grid.brightness = state.gridSheet
+      if (state.gridSheet > 0) {
+        placeGrid(frame.grid, state.gridTilt, state.gridDepth, gridCell, viewportWidth, viewportHeight, hole.x, hole.y, horizon)
+      }
 
       renderer.render(frame)
 

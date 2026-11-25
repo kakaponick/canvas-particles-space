@@ -12,6 +12,7 @@ export const SIMULATION_SETTING_KEYS = [
   'blackHoleFollowing', 'blackHoleX', 'blackHoleY',
   'ringEnabled', 'ringFeedEnabled', 'ringBrightness', 'ringWidth', 'ringDoppler', 'ringSide', 'ringBase', 'ringFeed', 'ringAfterglow', 'ringFlowSpeed',
   'lensingEnabled', 'lensingRadius', 'lensingRotation', 'lensingFalloff', 'lensingPivot', 'lensingCore', 'lensingMaxBend', 'lensingReach', 'lensingTwistLimit', 'lensingAbsorption',
+  'gridCell', 'gridSheet', 'gridTilt', 'gridDepth', 'gridSky',
   'colorPalette', 'backgroundR', 'backgroundG', 'backgroundB'
 ] as const satisfies readonly (keyof ParticleState)[]
 

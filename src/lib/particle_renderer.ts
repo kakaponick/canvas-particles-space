@@ -8,11 +8,14 @@ import {
   particleVertexShaderSource,
   particleFragmentShaderSource,
   compositeVertexShaderSource,
-  compositeFragmentShaderSource
+  compositeFragmentShaderSource,
+  gridVertexShaderSource,
+  gridFragmentShaderSource
 } from './webgl_shaders'
 import { INSTANCE_FLOATS } from './particle_simulation'
 import type { TitleSprite } from './title_sprite'
 import { RING_BINS } from './ring_energy'
+import { GRID_COLOR, GRID_INSTANCE_COUNT, GRID_INSTANCE_FLOATS, GRID_WAVE_GAIN, createGridInstances, type GridSettings } from './space_grid'
 
 const INSTANCE_STRIDE = INSTANCE_FLOATS * 4
 const INSTANCED_ATTRIBUTES = [ATTRIBUTE_LOCATIONS.segment, ATTRIBUTE_LOCATIONS.style, ATTRIBUTE_LOCATIONS.color]
@@ -101,6 +104,9 @@ export interface CompositeSettings {
   // CSS pixels, and CSS pixels per second
   dustBlow: number
   dustDrift: number
+  // Brightness of the flat grid on the sky behind the black hole (0 turns it off) and its cell size
+  skyGrid: number
+  gridCell: number
   // Colours of the intro, 0xRRGGBB
   colorFlash: number
   colorLight: number
@@ -180,6 +186,8 @@ export interface FrameInput {
   ringFed: boolean
   title: TitleSettings
   composite: CompositeSettings
+  // The space sheet, drawn over the finished frame
+  grid: GridSettings
 }
 
 export interface ParticleRenderer {
@@ -273,7 +281,8 @@ function getUniforms<T extends string> (gl: WebGLRenderingContext, program: WebG
  * 2. stamps every particle segment as one instanced, anti-aliased round-capped quad, keeping the
  *    brighter of the particle and the scene,
  * 3. composites the scene to the screen through the black hole shader, which also lays the
- *    intro title behind the lens so it bends like starlight.
+ *    intro title behind the lens so it bends like starlight,
+ * 4. while the space sheet is on, draws its lines over the frame, keeping the brighter of the two.
  * Returns null when the context lacks instancing or a program fails to build.
  */
 export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRenderer | null {
@@ -296,9 +305,13 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     a_color: ATTRIBUTE_LOCATIONS.color
   })
   const compositeProgram = createProgram(gl, compositeVertexShaderSource, compositeFragmentShaderSource, position)
-  const programs = [fadeProgram, particleProgram, compositeProgram]
+  const gridProgram = createProgram(gl, gridVertexShaderSource, gridFragmentShaderSource, {
+    ...position,
+    a_gridLine: ATTRIBUTE_LOCATIONS.gridLine
+  })
+  const programs = [fadeProgram, particleProgram, compositeProgram, gridProgram]
 
-  if (!fadeProgram || !particleProgram || !compositeProgram) {
+  if (!fadeProgram || !particleProgram || !compositeProgram || !gridProgram) {
     for (const program of programs) {
       if (program) gl.deleteProgram(program)
     }
@@ -318,8 +331,12 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     'titleCenter', 'titleHalfSize', 'titleAlpha', 'titleReveal', 'titleDissolve', 'titleDrift', 'titleGlow',
     'titleFlash', 'titleCooling', 'titleDust', 'titlePull', 'titleSwirl', 'titleReach', 'titleCapture', 'titleScale',
     'titleFringe', 'titleHalo', 'titleRedshift', 'titleGrain', 'titleBurn', 'titleFall', 'titleTidal', 'titleSpiral', 'titleSpread', 'titleStream', 'titleOrder', 'titleTrail', 'titleHeat', 'dustSweep', 'echoFloor', 'dustShock', 'dustBlow', 'dustDrift',
+    'skyGrid', 'gridCell',
     'colorFlash', 'colorLight', 'colorDust', 'colorTitle', 'colorEmber',
     'cameraZoom', 'shake', 'lensFringe', 'vignette', 'filmGrain', 'letterbox'
+  ] as const)
+  const gridUniforms = getUniforms(gl, gridProgram, [
+    'resolution', 'pixelRatio', 'view', 'camera', 'well', 'lines', 'wave', 'waveSpread', 'lens', 'jolt', 'color', 'shadow', 'frame'
   ] as const)
 
   gl.useProgram(compositeProgram)
@@ -342,6 +359,13 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
   gl.vertexAttribPointer(ATTRIBUTE_LOCATIONS.style, 2, gl.FLOAT, false, INSTANCE_STRIDE, 16)
   gl.vertexAttribPointer(ATTRIBUTE_LOCATIONS.color, 4, gl.UNSIGNED_BYTE, true, INSTANCE_STRIDE, 24)
   for (const location of INSTANCED_ATTRIBUTES) instancing.setDivisor(location, 1)
+
+  // The lines of the space sheet never change: the grid vertex shader places them
+  const gridBuffer = gl.createBuffer()
+  gl.bindBuffer(gl.ARRAY_BUFFER, gridBuffer)
+  gl.bufferData(gl.ARRAY_BUFFER, createGridInstances(), gl.STATIC_DRAW)
+  gl.vertexAttribPointer(ATTRIBUTE_LOCATIONS.gridLine, GRID_INSTANCE_FLOATS, gl.FLOAT, false, 0, 0)
+  instancing.setDivisor(ATTRIBUTE_LOCATIONS.gridLine, 1)
 
   function createLinearTexture (unit: number) {
     const texture = gl.createTexture()
@@ -398,6 +422,9 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     gl.useProgram(compositeProgram)
     setUniform2f(gl, compositeUniforms.resolution, width, height)
     setUniform1f(gl, compositeUniforms.pixelRatio, ratio)
+    gl.useProgram(gridProgram)
+    setUniform2f(gl, gridUniforms.resolution, width, height)
+    setUniform1f(gl, gridUniforms.pixelRatio, ratio)
   }
 
   function clearScene (background: readonly [number, number, number]) {
@@ -546,7 +573,47 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     setUniform1f(gl, u.dustShock, settings.dustShock)
     setUniform1f(gl, u.dustBlow, settings.dustBlow)
     setUniform1f(gl, u.dustDrift, settings.dustDrift)
+    setUniform1f(gl, u.skyGrid, settings.skyGrid)
+    if (settings.skyGrid > 0) setUniform1f(gl, u.gridCell, Math.max(settings.gridCell, 1))
     gl.drawArrays(gl.TRIANGLES, 0, QUAD_VERTEX_COUNT)
+  }
+
+  // The sheet is a diagram laid over the frame: it follows the scene camera's zoom and shake and the
+  // letterbox, ripples with the gravitational wave and stops at the black hole's shadow
+  function drawGrid (grid: GridSettings, settings: CompositeSettings) {
+    const u = gridUniforms
+    const zoom = Math.max(settings.cameraZoom, 0.05)
+    gl.useProgram(gridProgram)
+    setUniform2f(gl, u.view, grid.viewX, grid.viewY)
+    setUniform4f(gl, u.camera, grid.distance, grid.tiltSin, grid.tiltCos, grid.lineWidth)
+    setUniform4f(gl, u.well, grid.wellX, grid.wellZ, grid.throat, grid.depth)
+    setUniform2f(gl, u.lines, Math.max(grid.cell, 1), Math.max(grid.span, 1))
+    if (settings.gravityWaveAmplitude > 0) {
+      setUniform4f(gl, u.wave, settings.gravityWaveAmplitude * GRID_WAVE_GAIN, settings.gravityWaveTime,
+        2 * Math.PI * settings.gravityWaveFrequency, 1 / Math.max(settings.gravityWaveDecay, 0.001))
+      setUniform2f(gl, u.waveSpread, Math.max(settings.gravityWaveRadius, 1), Math.max(settings.lightSpeed, 1))
+    } else {
+      setUniform4f(gl, u.wave, 0, 0, 0, 0)
+    }
+    setUniform4f(gl, u.lens, settings.centerX, settings.centerY, zoom, 0)
+    setUniform2f(gl, u.jolt, settings.shakeX, settings.shakeY)
+    setUniform4f(gl, u.color, GRID_COLOR[0] * grid.brightness, GRID_COLOR[1] * grid.brightness, GRID_COLOR[2] * grid.brightness, 1)
+    // Where the composite pass put the black hole on the frame
+    setUniform4f(gl, u.shadow,
+      (settings.centerX + (settings.holeX - settings.shakeX - settings.centerX) * zoom) * ratio,
+      (settings.centerY + (settings.holeY - settings.shakeY - settings.centerY) * zoom) * ratio,
+      settings.horizon * zoom * ratio, 0)
+    setUniform2f(gl, u.frame, height, settings.letterbox * ratio)
+
+    gl.enableVertexAttribArray(ATTRIBUTE_LOCATIONS.gridLine)
+    // Brighter of the line and the frame, so crossings and the joints of a line do not add up.
+    // Without that blend the lines are added to the frame
+    if (maxEquation !== null) gl.blendEquation(maxEquation)
+    else gl.blendFunc(gl.ONE, gl.ONE)
+    instancing.draw(QUAD_VERTEX_COUNT, GRID_INSTANCE_COUNT)
+    if (maxEquation !== null) gl.blendEquation(gl.FUNC_ADD)
+    else gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
+    gl.disableVertexAttribArray(ATTRIBUTE_LOCATIONS.gridLine)
   }
 
   function render (frame: FrameInput) {
@@ -569,10 +636,12 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
       }
     }
     composite(frame.composite, frame.title)
+    if (frame.grid.brightness > 0) drawGrid(frame.grid, frame.composite)
   }
 
   function dispose () {
     for (const location of INSTANCED_ATTRIBUTES) instancing.setDivisor(location, 0)
+    instancing.setDivisor(ATTRIBUTE_LOCATIONS.gridLine, 0)
     gl.disableVertexAttribArray(ATTRIBUTE_LOCATIONS.position)
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
     gl.deleteFramebuffer(sceneFramebuffer)
@@ -581,6 +650,7 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     gl.deleteTexture(ringTexture)
     gl.deleteBuffer(quadBuffer)
     gl.deleteBuffer(instanceBuffer)
+    gl.deleteBuffer(gridBuffer)
     for (const program of programs) gl.deleteProgram(program)
   }
 

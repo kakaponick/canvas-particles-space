@@ -120,7 +120,17 @@ export const SIMULATION_SETTING_SPECS = {
   lensingCore: spec('Core', 0, 2, 0.05, fixed(2, '×'), 'Higher: more detail inside the ring',
     'How far from the point right behind the black hole the bent rays stay, in Einstein ring radii. 0 smears that single point into a flat band along the ring; higher values fill the ring with detail from farther around it.'),
   lensingAbsorption: spec('Light Absorption', 0, 5, 0.05, fixed(2), 'Dark zone around the shadow; 0 = none',
-    'How much light the pull of the lens removes around the black hole. 0 = none; higher values open a wider dark zone, which also grows with Einstein Radius and Falloff.')
+    'How much light the pull of the lens removes around the black hole. 0 = none; higher values open a wider dark zone, which also grows with Einstein Radius and Falloff.'),
+  gridCell: spoken(spec('Spacing', 3, 25, 0.5, fixed(1, '%'), 'Cell size, % of short side',
+    'Size of one cell of the space grid as a share of the screen\'s short side. Both grids, the sheet and the lensed grid, use it.'), 'Grid Spacing'),
+  gridSheet: spoken(spec('Sheet', 0, 1, 0.01, percentOfOne, 'Curved sheet under the hole; 0 = off',
+    'Brightness of the space sheet: a square grid drawn as a surface seen at an angle, dented where the black hole sits, the classic picture of curved space. The dent is a diagram: its depth follows gravitational time dilation, flat far away and steepest at the shadow\'s edge, where it ends. The sheet stays put while the black hole moves across it, and the gravitational wave of the intro ripples through it. 0 turns it off.'), 'Sheet Brightness'),
+  gridTilt: spec('Sheet Tilt', 0, 75, 1, fixed(0, '°'), '0° = from above · higher: from the side',
+    'Angle the sheet is seen at. 0° looks straight down the well, where the dent only pulls the lines slightly together; 60° and above look along the sheet and show the well\'s depth.'),
+  gridDepth: spec('Well Depth', 0, 12, 0.1, fixed(1, '×'), 'Depth of the dent, in hole radii; 0 = flat',
+    'Depth of the sheet\'s well at the edge of the shadow, in black hole radii. 0 leaves the sheet flat.'),
+  gridSky: spoken(spec('Lensed Grid', 0, 1, 0.01, percentOfOne, 'Flat grid seen through the lens; 0 = off',
+    'Brightness of a flat square grid on the sky behind the black hole. It is read through the same bent rays as the stars, so it shows exactly what the lens does: the Einstein ring, the mirrored images inside it, the twist, the gravitational wave. 0 turns it off.'), 'Lensed Grid Brightness')
 } satisfies Record<string, SimulationSettingSpec>
 
 export type SimulationSliderKey = keyof typeof SIMULATION_SETTING_SPECS

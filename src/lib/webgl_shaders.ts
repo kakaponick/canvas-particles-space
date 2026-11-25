@@ -2,13 +2,18 @@
 // which draws the black hole, the explosion's light and the intro title over the scene. Written in GLSL ES 1.00 so the same sources run on WebGL2 and on
 // WebGL1 with ANGLE_instanced_arrays.
 
+import { GRID_COLOR } from './space_grid'
+
 // Attribute locations shared by every program; location 0 is always the full-screen quad
 export const ATTRIBUTE_LOCATIONS = {
   position: 0,
   segment: 1,
   style: 2,
-  color: 3
+  color: 3,
+  gridLine: 4
 } as const
+
+const GRID_COLOR_GLSL = `vec3(${GRID_COLOR.map(channel => channel.toFixed(3)).join(', ')})`
 
 // Two triangles covering clip space; the particle program reuses them as segment corners
 export const QUAD_VERTICES = new Float32Array([
@@ -210,6 +215,8 @@ export const compositeFragmentShaderSource = `
   uniform float u_dustShock;       // brightness of the dust where the matter front strikes it
   uniform float u_dustBlow;        // CSS pixels the blast pushes the dust outward
   uniform float u_dustDrift;       // CSS pixels per second the dust drifts on its own
+  uniform float u_skyGrid;         // brightness of the flat grid on the sky behind the hole; 0 turns it off
+  uniform float u_gridCell;        // CSS pixels per cell of that grid
 
   uniform vec2 u_titleCenter;
   uniform vec2 u_titleHalfSize;
@@ -271,6 +278,9 @@ export const compositeFragmentShaderSource = `
   const float DUST_HOLD_MAX = 1.8;
   // Seconds for the blast to push the dust most of its way
   const float DUST_BLOW_SECONDS = 1.2;
+  const vec3 GRID_COLOR = ${GRID_COLOR_GLSL};
+  // Half the width of a line of the flat grid, CSS pixels
+  const float GRID_HALF_LINE = 0.75;
 
   // Hash without sine (Dave Hoskins), stable across GPUs
   float hash12 (vec2 p) {
@@ -528,6 +538,13 @@ export const compositeFragmentShaderSource = `
       float flare = u_lightPower > 0.0 && lit >= 0.0 ? u_starFlare * exp(-lit / STAR_FLARE_DECAY) : 0.0;
       emitted += backgroundStar(cssPx, flare) * u_backgroundStars;
     }
+    if (u_skyGrid > 0.0) {
+      // A square grid on the sky, with a line through the middle of the screen. It is read where the
+      // bent ray comes from, so the lens, the gravitational wave and the matter front bend it like the
+      // stars, and it widens where the lens magnifies
+      vec2 fromLine = abs(fract((cssPx - 0.5 * u_resolution / u_pixelRatio) / u_gridCell - 0.5) - 0.5) * u_gridCell;
+      emitted += GRID_COLOR * u_skyGrid * clamp((GRID_HALF_LINE - min(fromLine.x, fromLine.y)) * u_pixelRatio + 0.5, 0.0, 1.0);
+    }
     // Light is invisible in empty space: the front shows where it strikes dust, and the dust
     // keeps glowing for a moment after it passes (the light echo)
     float shell = (sourceDist - u_lightRadius) / u_lightWidth;
@@ -621,6 +638,129 @@ export const compositeFragmentShaderSource = `
     }
 
     gl_FragColor = vec4(color, 1.0);
+  }
+`
+
+// The space sheet (space_grid.ts), drawn over the finished frame. Its two shaders share no uniform, so
+// their precisions never have to match. Every length uniform here is in CSS pixels
+export const gridVertexShaderSource = `
+  attribute vec2 a_position;  // quad corner: x picks the end of the piece, y the side
+  attribute vec4 a_gridLine;  // line number counted from the black hole, start and end along the line (-1..1), 1 = runs across the screen
+
+  uniform vec2 u_resolution;  // drawing buffer size in device pixels
+  uniform float u_pixelRatio;
+  uniform vec2 u_view;        // the point the camera looks at
+  uniform vec4 u_camera;      // its distance from the camera, sine and cosine of the tilt, line width
+  uniform vec4 u_well;        // the black hole on the sheet relative to that point, the radius its well ends at, the well's depth
+  uniform vec2 u_lines;       // cell size, how far from the black hole the lines reach
+  uniform vec4 u_wave;        // gravitational wave: height, seconds since it left the hole, angular frequency, 1 / decay time
+  uniform vec2 u_waveSpread;  // radius beyond which the wave weakens, the speed of light per second
+  uniform vec4 u_lens;        // the scene camera: centre of its zoom, the zoom, unused
+  uniform vec2 u_jolt;        // the scene camera's shake
+
+  varying vec2 v_ends;        // distance along the piece from its start and from its end
+  varying float v_across;     // signed distance from its axis
+  varying float v_halfWidth;
+  varying float v_alpha;
+
+  // The sheet is cut off this close to the camera, as a share of the camera's distance
+  const float NEAR = 0.2;
+  // Lines close to the camera are drawn at most this many times wider
+  const float MAX_SCALE = 3.0;
+
+  // A point of the sheet, given from the black hole: its place on screen, its size there relative to
+  // the point the camera looks at (negative behind the cut), and how lit it is
+  vec4 onScreen (vec2 fromHole) {
+    float r = length(fromHole);
+    float depth = 0.0;
+    // Depth follows gravitational time dilation: flat far away, vertical where the well ends
+    if (u_well.w > 0.0) depth = u_well.w * (1.0 - sqrt(1.0 - u_well.z / max(r, u_well.z)));
+    // The gravitational wave lifts the sheet along one axis and lowers it along the other, as it
+    // stretches and squeezes the sky in the composite pass
+    if (u_wave.x > 0.0) {
+      float emitted = u_wave.y - r / u_waveSpread.y;
+      if (emitted > 0.0) {
+        float wobble = exp(-emitted * u_wave.w) * sin(u_wave.z * emitted);
+        float spread = sqrt(u_waveSpread.x / max(r, u_waveSpread.x));
+        depth += u_wave.x * wobble * spread * (fromHole.x * fromHole.x - fromHole.y * fromHole.y) / max(r * r, 0.0001);
+      }
+    }
+    vec2 place = fromHole + u_well.xy;
+    float behind = u_camera.x + depth * u_camera.z - place.y * u_camera.y;
+    float scale = u_camera.x / max(behind, 1.0);
+    vec2 point = u_view + vec2(place.x, place.y * u_camera.z + depth * u_camera.y) * scale;
+    // The scene camera of the intro zooms and jolts the sheet with the rest of the frame
+    point = u_lens.xy + (point - u_jolt - u_lens.xy) * u_lens.z;
+    float lit = 1.0 - smoothstep(0.5 * u_lines.y, u_lines.y, r);
+    return vec4(point, behind > NEAR * u_camera.x ? scale * u_lens.z : -1.0, lit);
+  }
+
+  void main () {
+    bool crosswise = a_gridLine.w > 0.5;
+    // The lines stay where they are on the sheet while the black hole moves across it
+    float across = (a_gridLine.x - fract((crosswise ? u_well.y : u_well.x) / u_lines.x)) * u_lines.x;
+    // Pieces are short near the black hole, where the sheet curves, and long far from it
+    vec2 along = sign(a_gridLine.yz) * a_gridLine.yz * a_gridLine.yz * u_lines.y;
+    vec4 first = onScreen(crosswise ? vec2(along.x, across) : vec2(across, along.x));
+    vec4 last = onScreen(crosswise ? vec2(along.y, across) : vec2(across, along.y));
+
+    v_ends = vec2(0.0);
+    v_across = 0.0;
+    v_halfWidth = 0.0;
+    v_alpha = 0.0;
+    if (abs(across) > u_lines.y || first.z < 0.0 || last.z < 0.0 || first.w + last.w <= 0.0) {
+      gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+      return;
+    }
+
+    vec2 start = first.xy * u_pixelRatio;
+    vec2 delta = last.xy * u_pixelRatio - start;
+    float len = length(delta);
+    vec2 direction = len > 0.0001 ? delta / len : vec2(1.0, 0.0);
+    vec2 normal = vec2(-direction.y, direction.x);
+
+    // Lines thinner than a pixel are drawn one pixel wide and dimmed by the area they would cover
+    float end = a_position.x * 0.5 + 0.5;
+    float width = u_camera.w * u_pixelRatio * min(mix(first.z, last.z, end), MAX_SCALE);
+    float drawWidth = max(width, 1.0);
+    float halfWidth = drawWidth * 0.5;
+    float extent = halfWidth + 1.0;
+    float alongPiece = mix(-extent, len + extent, end);
+    float acrossPiece = a_position.y * extent;
+    vec2 pixel = start + direction * alongPiece + normal * acrossPiece;
+
+    v_ends = vec2(alongPiece, len - alongPiece);
+    v_across = acrossPiece;
+    v_halfWidth = halfWidth;
+    v_alpha = mix(first.w, last.w, end) * width / drawWidth;
+
+    // The screen has its first row at the top
+    gl_Position = vec4(pixel.x / u_resolution.x * 2.0 - 1.0, 1.0 - pixel.y / u_resolution.y * 2.0, 0.0, 1.0);
+  }
+`
+
+// Every length uniform here is in device pixels with a top-left origin
+export const gridFragmentShaderSource = `
+  ${HIGH_PRECISION}
+
+  uniform vec4 u_color;   // rgb at the sheet's brightness
+  uniform vec4 u_shadow;  // the black hole as the frame shows it: centre and shadow radius; radius 0 = none
+  uniform vec2 u_frame;   // height of the drawing buffer, height of each letterbox bar
+
+  varying vec2 v_ends;
+  varying float v_across;
+  varying float v_halfWidth;
+  varying float v_alpha;
+
+  void main () {
+    // Round caps, so the pieces of a line join without a notch
+    float beyondEnds = max(0.0, -min(v_ends.x, v_ends.y));
+    float alpha = v_alpha * clamp(v_halfWidth + 0.5 - length(vec2(beyondEnds, v_across)), 0.0, 1.0);
+    vec2 screen = vec2(gl_FragCoord.x, u_frame.x - gl_FragCoord.y);
+    // The black hole stands in front of the sheet: no line crosses its shadow or its ring
+    if (u_shadow.z > 0.0) alpha *= smoothstep(u_shadow.z * 1.04 + 1.0, u_shadow.z * 1.2 + 2.0, length(screen - u_shadow.xy));
+    if (u_frame.y > 0.0) alpha *= smoothstep(u_frame.y - 1.0, u_frame.y + 1.0, min(screen.y, u_frame.x - screen.y));
+    gl_FragColor = vec4(u_color.rgb * alpha, 1.0);
   }
 `
 

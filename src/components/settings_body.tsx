@@ -194,6 +194,17 @@ function SettingsBody () {
         </div>
       </LensingSection>
 
+      <SettingsSection id="space-grid" title="Space Grid">
+        {/* The sheet and its shape, the grid behind the lens, then the cell both share */}
+        <SettingSlider field="gridSheet" setter="setGridSheet" />
+        <SettingSlider field="gridTilt" setter="setGridTilt" />
+        <SettingSlider field="gridDepth" setter="setGridDepth" />
+        <div className="mt-3 flex flex-col gap-1">
+          <SettingSlider field="gridSky" setter="setGridSky" />
+          <SettingSlider field="gridCell" setter="setGridCell" />
+        </div>
+      </SettingsSection>
+
       <SettingsSection id="stars" title="Background Stars">
         <SettingSlider field="starsBrightness" setter="setStarsBrightness" />
         <SettingSlider field="starDensity" setter="setStarDensity" />
