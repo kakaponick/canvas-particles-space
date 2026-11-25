@@ -78,8 +78,9 @@ export interface StepSettings {
   // vanish into, stands off to one side of it
   captureX: number
   captureY: number
-  // The hole's spin, a/M, as a vector: to the right on screen, up, and toward the camera. Space near the
-  // hole turns about it and carries the particles round (DRAG_SHARE); all zero is a hole that does not spin
+  // The hole's spin, a/M, as a vector: to the right on screen, up, and toward the camera, times the Frame
+  // Drag setting. Space near the hole turns about it and carries the particles round (DRAG_SHARE); all
+  // zero is a hole that does not spin, or one that does not drag
   spinRight: number
   spinUp: number
   spinToward: number

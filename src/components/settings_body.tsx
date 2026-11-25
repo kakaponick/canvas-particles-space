@@ -179,6 +179,7 @@ function SettingsBody () {
           <SettingSlider field="blackHoleSpin" setter="setBlackHoleSpin" />
           <SettingSlider field="spinTilt" setter="setSpinTilt" />
           <SettingSlider field="spinAxis" setter="setSpinAxis" />
+          <SettingSlider field="frameDrag" setter="setFrameDrag" />
         </div>
         <div className="mt-3 flex flex-col gap-1">
           <SettingSlider field="gravityStrength" setter="setGravityStrength" />

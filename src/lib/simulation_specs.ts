@@ -78,6 +78,8 @@ export const SIMULATION_SETTING_SPECS = {
     'Angle between the spin axis and the line to the camera. 0° looks down the axis: the shadow stays round and the sky winds round it; 90° sees the hole side-on, where the shadow is flattest on the side that turns toward the camera. Above 90° the hole turns the other way, and so do the particles and orbiting stars it drags round.'),
   spinAxis: spec('Spin Axis', -180, 180, 1, fixed(0, '°'), 'Axis direction on screen; 0° = up',
     'Which way the spin axis points on the screen, turned from straight up toward the left. It turns the shadow\'s flat side and the lens\'s lean with it.'),
+  frameDrag: spec('Frame Drag', 0, 20, 0.1, fixed(1, '×'), 'How hard spin swirls particles; 1 = real',
+    'How hard a spinning black hole carries the particles round with the space near it, as a multiple of what the spin itself gives: at 1 a particle one black hole radius out is carried round half as fast as it falls, times Spin, and the drag fades one power of the distance faster than the pull. Higher values make the spiral show without zooming in and reach further out; 0 leaves the particles falling as into a hole that does not spin, while the shadow, the lens and the orbiting stars still follow Spin. It does nothing at Spin 0 or Gravity 0.'),
   gravityReach: spec('Gravity Reach', 0, 40, 0.5, fixed(1, '×'), 'How far gravity reaches, in hole radii',
     'How far the black hole\'s gravity reaches, in multiples of its size. Particles within this distance are affected by gravity and orbital forces.'),
   blackHoleDepth: spoken(spec('Depth', 0, 100, 1, fixed(0, '%'), 'Where the hole sits, % of Field Depth',

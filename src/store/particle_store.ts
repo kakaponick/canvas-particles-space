@@ -24,6 +24,7 @@ export interface ParticleState {
   blackHoleSpin: number
   spinTilt: number
   spinAxis: number
+  frameDrag: number
   // Reach of the black hole's gravity, in multiples of its size
   gravityReach: number
   ringEnabled: boolean
@@ -148,6 +149,7 @@ export interface ParticleState {
   setBlackHoleSpin: (spin: number) => void
   setSpinTilt: (degrees: number) => void
   setSpinAxis: (degrees: number) => void
+  setFrameDrag: (strength: number) => void
   setGravityReach: (reach: number) => void
   toggleRing: () => void
   toggleRingFeed: () => void
@@ -245,6 +247,7 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   blackHoleSpin: 0,
   spinTilt: 80,
   spinAxis: 0,
+  frameDrag: 1,
   gravityReach: 5,
   ringEnabled: true,
   ringFeedEnabled: true,
@@ -337,6 +340,7 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   setBlackHoleSpin: (spin) => set({ blackHoleSpin: spin }),
   setSpinTilt: (degrees) => set({ spinTilt: degrees }),
   setSpinAxis: (degrees) => set({ spinAxis: degrees }),
+  setFrameDrag: (strength) => set({ frameDrag: strength }),
   setGravityReach: (reach) => set({ gravityReach: reach }),
   toggleRing: () => set((state) => ({ ringEnabled: !state.ringEnabled })),
   toggleRingFeed: () => set((state) => ({ ringFeedEnabled: !state.ringFeedEnabled })),

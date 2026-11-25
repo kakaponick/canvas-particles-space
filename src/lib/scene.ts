@@ -731,8 +731,8 @@ export function createScene (
     settings.captureX = captureX
     settings.captureY = captureY
     // The particles are dragged round by the spin the shadow is drawn for: the same vector, held to the
-    // fastest spin there is
-    const dragShare = spin > 0 ? spin / Math.sqrt(across * across + spinToward * spinToward) : 0
+    // fastest spin there is, times Frame Drag
+    const dragShare = spin > 0 ? spin / Math.sqrt(across * across + spinToward * spinToward) * state.frameDrag : 0
     settings.spinRight = spinRight * dragShare
     settings.spinUp = spinUp * dragShare
     settings.spinToward = spinToward * dragShare

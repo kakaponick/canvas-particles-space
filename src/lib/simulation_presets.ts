@@ -8,7 +8,7 @@ export const SIMULATION_SETTING_KEYS = [
   'particleSize', 'spawnRadius', 'blackHoleDepth', 'gravityDepth', 'scrollSpeedStep',
   'baseBrightness', 'depthFade', 'minOpacity', 'maxOpacity', 'pulseIntensity', 'pulseSpeedMultiplier',
   'starsBrightness', 'starDensity', 'starCell',
-  'blackHoleSize', 'horizonScale', 'blackHoleSpin', 'spinTilt', 'spinAxis', 'gravityReach', 'gravityStrength', 'orbitalStrength', 'followFrequency',
+  'blackHoleSize', 'horizonScale', 'blackHoleSpin', 'spinTilt', 'spinAxis', 'frameDrag', 'gravityReach', 'gravityStrength', 'orbitalStrength', 'followFrequency',
   'blackHoleFollowing', 'blackHoleX', 'blackHoleY', 'cameraZoom', 'cameraX', 'cameraY', 'cameraPair',
   'companionSize', 'companionDistance', 'companionSpeed', 'companionWaves',
   'ringEnabled', 'ringFeedEnabled', 'ringBrightness', 'ringGlow', 'ringWidth', 'ringDoppler', 'ringSide', 'ringBase', 'ringFeed', 'ringAfterglow', 'ringFlowSpeed',

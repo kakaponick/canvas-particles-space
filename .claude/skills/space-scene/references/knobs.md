@@ -97,6 +97,7 @@ it is recycled, and what it carried lights the photon ring (section 6).
 | How fast it turns, a/M from 0 to 0.998 | `blackHoleSpin` |
 | Angle of its axis to the camera: 0° down the axis, 90° side-on | `spinTilt` |
 | Which way the axis points on screen, from up toward the left | `spinAxis` |
+| How hard the spin carries the particles round, × what the spin itself gives | `frameDrag` |
 
 - Spin reshapes the shadow in either lens: the side turning toward the camera flattens and the shadow moves
   the other way, and the photon ring follows the outline. Particles are captured on the circle that fits it.
@@ -111,6 +112,9 @@ it is recycled, and what it carried lights the photon ring (section 6).
   at every distance alike. Side-on (90°) there is no swirl: particles nearer than the hole are swept one way
   across the axis and those beyond it the other, so their trails cross above and below the hole. To see the
   drag alone, set `orbitalStrength` 0 and `baseSpeed` 0 and zoom in (`cameraZoom` 3).
+- `frameDrag` multiplies that drag and nothing else: 1 is the physical share, where the spiral needs a zoom
+  to be seen; about 4 winds a vortex round the shadow that reads at a zoom of 1 with the field flying, and
+  about 12 holds a bright ring of particles circling the hole before they fall. 0 keeps the shadow, the lens and the stars' swing and lets the particles fall straight.
 - `blackHoleSize` stays the mass: a spinning hole's shadow is a little smaller than a still one's.
 - The look needs `spinTilt` well away from 0°; at 0° the shadow stays round and only the sky winds.
 - Two holes that merge leave a spinning one about the axis of their orbit, which faces the camera, whatever
