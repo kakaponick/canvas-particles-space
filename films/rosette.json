@@ -1,0 +1,51 @@
+{
+  "duration": 40,
+  "fps": 30,
+  "size": "square",
+  "seed": 5,
+  "intro": false,
+  "settings": {
+    "blackHoleSize": 4,
+    "baseBrightness": 0.2,
+    "baseSpeed": 0.6,
+    "starsBrightness": 0.5,
+    "orbitSize": 7,
+    "orbitEccentricity": 0.85,
+    "orbitSpeed": 3,
+    "orbitTrail": 60,
+    "orbitStarSize": 2.5,
+    "ringFeed": 6,
+    "ringAfterglow": 3,
+    "ringGlow": 1.2
+  },
+  "tracks": {
+    "orbitCount": [
+      [0, 1],
+      [9, 3, "hold"],
+      [16, 8, "hold"],
+      [22, 20, "hold"]
+    ],
+    "orbitSpeed": [
+      [0, 3],
+      [9, 3],
+      [16, 4.5],
+      [30, 5]
+    ],
+    "cameraZoom": [
+      [0, 1.6],
+      [9, 1.6],
+      [16, 1.2],
+      [26, 1],
+      [31, 1],
+      [38, 2.2]
+    ],
+    "horizonScale": [
+      [29, 1],
+      [38, 5, "in"]
+    ],
+    "orbitTrail": [
+      [30, 60],
+      [38, 6]
+    ]
+  }
+}

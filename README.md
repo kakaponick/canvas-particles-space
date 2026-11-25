@@ -107,6 +107,13 @@ audio track. The same film is the same video on any machine.
   (`films/showreel_voiced.wav`), spoken by a [VoiceStudio](https://github.com/debpalash/VoiceStudio) running on
   this machine, in a designed voice or in the voice of a recording named in `SHOWREEL_VOICE`. Rendered videos
   and sound files in `films/` stay out of git.
+- **Five more films** in `films/`, each built on one thing the scene can do. `exposure.json`: trails that never
+  fade and a field that only gravity moves, so the black hole draws a knot with its own pull. `rosette.json`
+  (square): orbiting stars whose precession weaves a rosette, until a growing horizon takes them. `graph_paper.json`:
+  the lens travelling over the lensed grid, wound up by Twist, then two lenses. `rapid.json` (60 fps): the opening
+  stretched until the light takes four seconds to cross the frame. `waltz.json` (vertical, 60 fps): two black
+  holes closing and parting over the sheet before they merge. `node films/sound.mjs` writes a soundtrack for each
+  from the film's own keyframes.
 
 ## Project Structure
 

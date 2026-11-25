@@ -1,0 +1,94 @@
+{
+  "duration": 26,
+  "fps": 60,
+  "size": "1080p",
+  "seed": 21,
+  "settings": {
+    "blackHoleSize": 7,
+    "colorPalette": [
+      {
+        "r": 255,
+        "g": 244,
+        "b": 230,
+        "enabled": true,
+        "percent": 30
+      },
+      {
+        "r": 255,
+        "g": 190,
+        "b": 110,
+        "enabled": true,
+        "percent": 35
+      },
+      {
+        "r": 255,
+        "g": 120,
+        "b": 60,
+        "enabled": true,
+        "percent": 25
+      },
+      {
+        "r": 190,
+        "g": 60,
+        "b": 40,
+        "enabled": true,
+        "percent": 10
+      }
+    ],
+    "ringWidth": 0.02,
+    "ringGlow": 0.8,
+    "ringDoppler": 0.8,
+    "ringFlowSpeed": 3
+  },
+  "intro": {
+    "at": 0,
+    "title": "СВЕТ ИДЁТ\nЧЕТЫРЕ СЕКУНДЫ",
+    "params": {
+      "starChargeStart": 0.3,
+      "collapseAt": 4,
+      "starPeakGlow": 3,
+      "starRadiusGrowth": 0.04,
+      "glareRise": 0.3,
+      "glarePeak": 10,
+      "glareDecay": 1.6,
+      "lightCrossTime": 4,
+      "lightPower": 5,
+      "lightPowerDecay": 5,
+      "lightWidth": 0.02,
+      "echoPower": 2.5,
+      "echoPowerDecay": 6,
+      "echoDecay": 1.6,
+      "echoFloor": 0.5,
+      "dustThreshold": 0.4,
+      "dustScale": 420,
+      "matterSpeed": 0.14,
+      "waveRefraction": 60,
+      "waveWidth": 0.14,
+      "remnantAt": 5,
+      "remnantDecay": 3,
+      "redshiftDuration": 3,
+      "horizonAt": 6,
+      "horizonGrowth": 3,
+      "lensDuration": 4,
+      "ringDelay": 2,
+      "ringFadeIn": 3,
+      "ringdownAmplitude": 0.12,
+      "ringdownLength": 20,
+      "gravityWaveGain": 14,
+      "titleCooling": 3,
+      "titleSize": 0.5,
+      "dissolveAt": 10,
+      "dissolveDuration": 5,
+      "titleSwirl": 3
+    }
+  },
+  "tracks": {
+    "cameraZoom": [
+      [0, 2.4],
+      [2.6, 2.4],
+      [3.9, 1],
+      [16, 1],
+      [25, 4.5]
+    ]
+  }
+}

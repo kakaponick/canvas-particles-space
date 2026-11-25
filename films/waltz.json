@@ -1,0 +1,46 @@
+{
+  "duration": 34,
+  "fps": 60,
+  "size": "vertical",
+  "seed": 8,
+  "intro": false,
+  "settings": {
+    "blackHoleSize": 7,
+    "baseSpeed": 0,
+    "gravityReach": 16,
+    "gravityStrength": 8,
+    "orbitalStrength": 160,
+    "companionSize": 1,
+    "companionSpeed": 1,
+    "companionWaves": 3,
+    "gridSheet": 1,
+    "gridCell": 3.5,
+    "gridDepth": 6,
+    "speedGlow": 0.3,
+    "baseBrightness": 3,
+    "trailIntensity": 0.04,
+    "starsBrightness": 3,
+    "starDensity": 0.4
+  },
+  "tracks": {
+    "companionDistance": [
+      [0, 9],
+      [6, 3.4],
+      [10, 8],
+      [15, 3],
+      [19, 7],
+      [23, 2.6],
+      [26, 5],
+      [30, 0, "in"]
+    ],
+    "gridTilt": [
+      [0, 40],
+      [12, 55],
+      [24, 70],
+      [34, 62]
+    ],
+    "gravityWaveGain": [
+      [0, 3]
+    ]
+  }
+}
