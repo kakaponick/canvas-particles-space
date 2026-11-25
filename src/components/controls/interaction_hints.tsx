@@ -1,13 +1,36 @@
+import { useEffect, useState } from 'react'
 import { useInteractionHints } from '../../hooks/use_interaction_hints'
 import { useParticleStore } from '../../store/particle_store'
 
 const isTouchScreen = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches
 
-// Bottom line of hints for the interactions the visitor has not tried yet
+// Whether the scene holds the keyboard's focus: a Tab landed on it, or a key was pressed on it after a click
+function useSceneKeyboardFocus () {
+  const [focused, setFocused] = useState(false)
+  useEffect(() => {
+    const sync = () => {
+      const active = document.activeElement
+      setFocused(active instanceof HTMLCanvasElement && active.matches(':focus-visible'))
+    }
+    window.addEventListener('focusin', sync)
+    window.addEventListener('focusout', sync)
+    window.addEventListener('keyup', sync)
+    return () => {
+      window.removeEventListener('focusin', sync)
+      window.removeEventListener('focusout', sync)
+      window.removeEventListener('keyup', sync)
+    }
+  }, [])
+  return focused
+}
+
+// Bottom line of hints: the scene's keys while it holds the keyboard's focus, otherwise the interactions
+// the visitor has not tried yet
 function InteractionHints () {
   const introComplete = useParticleStore(state => state.introComplete)
   const threeD = useParticleStore(state => state.threeD)
   const used = useInteractionHints()
+  const keyboard = useSceneKeyboardFocus()
 
   const orbit = threeD && !used.orbit && (isTouchScreen ? 'SWIPE TO CIRCLE THE HOLE' : 'DRAG TO CIRCLE THE HOLE')
   const hints = isTouchScreen
@@ -21,7 +44,8 @@ function InteractionHints () {
       used.click && !used.drag && 'DRAG IT TO MOVE · DOUBLE-CLICK TO CENTER',
       !used.scroll && 'SCROLL TO CHANGE SPEED'
     ]
-  const label = hints.filter(Boolean).join(' · ')
+  const keys = threeD ? 'ARROWS CIRCLE THE HOLE · + − ZOOM · HOME RESETS' : '+ − ZOOM · ARROWS PAN WHEN ZOOMED · HOME RESETS'
+  const label = keyboard ? keys : hints.filter(Boolean).join(' · ')
 
   return (
     <div

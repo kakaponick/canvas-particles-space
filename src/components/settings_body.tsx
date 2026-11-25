@@ -120,7 +120,7 @@ function ThreeDSection ({ children }: { children: ReactNode }) {
     <SettingsSection
       id="three-d"
       title="3D View"
-      help="Drag the scene to circle the black hole"
+      help="Drag the scene or use arrows to circle"
       dimmed={!on}
       action={<SettingsSwitch on={on} onToggle={toggle} label="3D view" />}
     >

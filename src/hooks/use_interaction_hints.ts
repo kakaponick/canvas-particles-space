@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
+import { useParticleStore } from '../store/particle_store'
 
 export interface InteractionsUsed {
   move: boolean
   click: boolean
   drag: boolean
   scroll: boolean
-  // In 3D: turned the camera by dragging or swiping the scene
+  // In 3D: turned the camera by dragging or swiping the scene, or with its arrow keys
   orbit: boolean
 }
 
@@ -48,12 +49,18 @@ export function useInteractionHints (): InteractionsUsed {
       else if (event.target instanceof HTMLCanvasElement) mark('scroll')
     }
 
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.target instanceof HTMLCanvasElement && event.key.startsWith('Arrow') && useParticleStore.getState().threeD) mark('orbit')
+    }
+
     window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('keydown', handleKeyDown)
     window.addEventListener('click', handleClick)
     window.addEventListener('wheel', handleWheel, { passive: true })
     window.addEventListener('touchmove', handleTouchMove)
     return () => {
       window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('click', handleClick)
       window.removeEventListener('wheel', handleWheel)
       window.removeEventListener('touchmove', handleTouchMove)

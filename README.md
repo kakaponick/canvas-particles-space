@@ -71,6 +71,9 @@ On the scene:
 - **Touch**: drag the black hole with a finger; swipe up or down elsewhere to change Base Speed
 - **In 3D**: with 3D View on, drag the scene (or swipe it on a touch screen) to circle the camera around the
   black hole
+- **Keyboard**: Tab reaches the scene first. With the focus on it the arrow keys circle the 3D camera, or pan
+  a zoomed-in flat one; plus and minus zoom; Shift makes each step finer; Home resets the camera. A screen
+  reader hears where the camera now stands
 
 The toolbar at the top right holds the measured frame rate (while FPS Counter is on), the films, the Mandelbrot
 zoom, the intro debugger, Settings and fullscreen. Each panel opens and closes from its button there; Escape closes the panel the focus is

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useParticleStore } from '../store/particle_store'
 import { toFrameScale, REFERENCE_FPS } from '../lib/particle_simulation'
 import { getRenderingContext } from '../lib/particle_renderer'
@@ -11,6 +11,10 @@ import { createFramePacer, pacedFrameMs } from '../lib/frame_pacing'
 import type { TitleStyle } from '../lib/title_sprite'
 import { createParticleBudget, updateParticleBudget } from '../lib/particle_budget'
 import { randomSeed } from '../lib/random'
+import { cameraKeyChange, describeCamera, CAMERA_KEYS_HELP, CAMERA_KEY_SHORTCUTS } from '../lib/camera_keys'
+import { useFractalStore } from '../store/fractal_store'
+import { useFilmStore } from '../store/film_store'
+import { DEFAULT_PRESET } from '../store/preset_store'
 
 // The light front reaches the title about 0.85 s in; a face that is not ready by then is swapped in later
 const TITLE_FONT_TIMEOUT_MS = 700
@@ -52,7 +56,13 @@ function getRenderScale (width: number, height: number) {
 // particle budget, pointer and touch input, and what the loop publishes to the stores
 function ParticleCanvas () {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const statusRef = useRef<HTMLParagraphElement>(null)
+  const keysHelpId = useId()
   const [unsupported, setUnsupported] = useState(false)
+  // The Mandelbrot and film modes stand in front of the scene: it is then no stop for the Tab key
+  const fractalOpen = useFractalStore(state => state.open)
+  const filmOpen = useFilmStore(state => state.open)
+  const covered = fractalOpen || filmOpen
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -452,6 +462,18 @@ function ParticleCanvas () {
       if (baseSpeed !== state.baseSpeed) state.setBaseSpeed(baseSpeed)
     }
 
+    // The camera from the keyboard, while the scene has the focus: the arrows circle the 3D camera or pan
+    // the flat one, plus and minus zoom, Home resets (camera_keys.ts). The intro debugger, when open, has
+    // the arrows and Home for its timeline. A screen reader is told where the camera now is
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.ctrlKey || event.altKey || event.metaKey || useIntroDebugStore.getState().open) return
+      const change = cameraKeyChange(event.key, event.shiftKey, useParticleStore.getState(), DEFAULT_PRESET.settings)
+      if (!change) return
+      event.preventDefault()
+      if (Object.keys(change).length > 0) useParticleStore.setState(change)
+      if (statusRef.current) statusRef.current.textContent = describeCamera(event.key, useParticleStore.getState())
+    }
+
     const handleWheel = (event: WheelEvent) => {
       // Ctrl with the wheel, or a trackpad pinch, zooms the page
       if (event.ctrlKey) return
@@ -559,6 +581,7 @@ function ParticleCanvas () {
     canvas.addEventListener('click', handleClick)
     canvas.addEventListener('dblclick', handleDoubleClick)
     canvas.addEventListener('wheel', handleWheel, { passive: true })
+    canvas.addEventListener('keydown', handleKeyDown)
     canvas.addEventListener('touchstart', handleTouchStart, { passive: false })
     canvas.addEventListener('touchmove', handleTouchMove, { passive: false })
     canvas.addEventListener('touchend', handleTouchEnd)
@@ -601,10 +624,17 @@ function ParticleCanvas () {
     <>
       <canvas
         ref={canvasRef}
-        className="fixed top-0 left-0 w-full h-full touch-pinch-zoom"
-        role="img"
+        className="fixed top-0 left-0 w-full h-full touch-pinch-zoom
+          focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-[-3px] focus-visible:outline-neon-cyan"
+        // It takes keys of its own, so it is an application to a screen reader, which then passes them on
+        role="application"
         aria-label={SCENE_LABEL}
+        aria-describedby={keysHelpId}
+        aria-keyshortcuts={CAMERA_KEY_SHORTCUTS}
+        tabIndex={covered ? -1 : 0}
       />
+      <p id={keysHelpId} className="sr-only">{CAMERA_KEYS_HELP}</p>
+      <p ref={statusRef} role="status" className="sr-only" />
       {unsupported && (
         <div role="alert" className="fixed inset-0 flex items-center justify-center p-8 text-center font-mono text-sm text-text-light">
           This experience needs WebGL 2. Turn on hardware acceleration in your browser settings, or open the page in an up-to-date browser.
