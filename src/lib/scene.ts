@@ -16,7 +16,7 @@ import {
 import { createParticleRenderer, type FrameInput, type ParticleRenderer } from './particle_renderer'
 import { createIntroFrame, getRingdownTiming, ringdownWobble, sampleIntro, type IntroFrame, type RingdownTiming } from './intro_timeline'
 import { INTRO_LAYERS, type IntroLayer } from './intro_tracks'
-import type { IntroParams } from './intro_params'
+import { RINGDOWN_PHYSICAL_DECAY, RINGDOWN_PHYSICAL_FREQUENCY, type IntroParams } from './intro_params'
 import type { SimulationSettings } from './simulation_presets'
 import { stepSpring, type Spring2D } from './black_hole_motion'
 import { renderTitleSprite, waitForTitleFont, type TitleSprite, type TitleStyle } from './title_sprite'
@@ -40,7 +40,7 @@ const TITLE_SAFE_MARGIN = 16
 const MIN_HOLE_OVAL = 1e-4
 // The gravitational wave is switched off this many wobble decay times after its front left the screen
 const GRAVITY_WAVE_FADES = 6
-// Two black holes becoming one ring this many times harder than one forming in the intro
+// Two equal black holes becoming one leave an oval this many times longer than one forming in the intro
 const MERGER_RING = 3
 // A fired effect is over once everything it shows is fainter than this
 const CUE_FADED = 0.002
@@ -167,6 +167,8 @@ export function createScene (
 
   const intro = createIntroFrame()
   const ringTiming: RingdownTiming = { frequency: 1, decay: 1 }
+  // The ringing of the hole a pair leaves: a real hole's, at the speed of light the pair itself turns by
+  const mergerRing: RingdownTiming = { frequency: 1, decay: 1 }
   // Layers of the opening fired again: which are playing and the moment of the opening each clock is at
   const cue = { blastLayers: 0, blastTime: 0, ringLayers: 0, ringTime: 0, title: false, titleTime: 0 }
   const cueFrame = createIntroFrame()
@@ -296,12 +298,18 @@ export function createScene (
       remnantGlow: 0,
       remnantRedshift: 0,
       remnantRadius: 1,
-      holeOval: 0,
+      holeOvalX: 0,
+      holeOvalY: 0,
       gravityWaveAmplitude: 0,
       gravityWaveTime: -1,
       gravityWaveFrequency: 1,
       gravityWaveDecay: 1,
       gravityWaveRadius: 1,
+      gravityWaveSpin: 0,
+      gravityWaveAngle: 0,
+      gravityWaveSpeed: 1,
+      pairFront: -1,
+      pairFrontSoft: 1,
       gravityWaveX: 0,
       gravityWaveY: 0,
       companionX: 0,
@@ -586,11 +594,38 @@ export function createScene (
       cue.ringTime += dt
       sinceCueRing = cue.ringTime - (params.horizonAt + params.horizonGrowth)
     }
-    // The photon ring flickers with the ringdown wobble; the RINGDOWN layer removes both
-    // Two black holes that have just become one ring as a newborn one does
+    // A hole that formed alone wobbles in place, long sideways and then long upright: the opening's, and
+    // one fired again. The RINGDOWN layer removes it and the flicker of the photon ring with it
+    let wobble = hidden.ringdown ? 0 : intro.ringdown
+    if ((cue.ringLayers & RINGDOWN) !== 0 && !hidden.ringdown) wobble += ringdownWobble(sinceCueRing, params.ringdownAmplitude, ringTiming)
+    // Two black holes becoming one are another matter. As their shadows overlap the main one is drawn out
+    // along the line between them, the most as they become one. What they leave is a spinning hole, whose
+    // oval keeps turning the way the two circled, half a turn a wobble, while it fades. It rings as a real
+    // hole of its size and spin does, at the speed of light the pair's own orbit is counted in, so the
+    // last turns of the pair, the merger and the ringing are one motion
     const sinceMerger = pair.mergedAt >= 0 ? scene.time - pair.mergedAt : -1
-    let ringdown = hidden.ringdown ? 0 : intro.ringdown + ringdownWobble(sinceMerger, params.ringdownAmplitude * MERGER_RING, ringTiming)
-    if ((cue.ringLayers & RINGDOWN) !== 0 && !hidden.ringdown) ringdown += ringdownWobble(sinceCueRing, params.ringdownAmplitude, ringTiming)
+    const pairLight = LIGHT_SPEED * shortSide
+    const pairRate = Math.max(Math.abs(state.companionSpeed), 0.01)
+    mergerRing.frequency = RINGDOWN_PHYSICAL_FREQUENCY * pair.ringPitch * pairRate * pairLight / Math.max(shadowRadius, 4)
+    mergerRing.decay = RINGDOWN_PHYSICAL_DECAY * pair.ringLength * Math.max(shadowRadius, 4) / (pairRate * pairLight)
+    let drawnOut = 0
+    let drawnAlong = 0
+    let ringing = 0
+    if (pair.companion > 0 && !hidden.ringdown) {
+      const most = params.ringdownAmplitude * MERGER_RING * pair.symmetry
+      if (sinceMerger < 0) {
+        drawnOut = most * pair.merged
+        drawnAlong = pair.phase
+        ringing = drawnOut
+      } else {
+        drawnOut = most * Math.exp(-sinceMerger / mergerRing.decay)
+        drawnAlong = pair.mergedPhase + pair.mergedTurn * Math.PI * mergerRing.frequency * sinceMerger
+        ringing = drawnOut * Math.cos(2 * Math.PI * mergerRing.frequency * sinceMerger)
+      }
+    }
+    const ovalX = wobble + drawnOut * Math.cos(2 * drawnAlong)
+    const ovalY = drawnOut * Math.sin(2 * drawnAlong)
+    const ringdown = wobble + ringing
     const ringPower = intro.ringFade * Math.max(1 + params.ringFlicker * ringdown, 0)
     scene.ringdown = ringdown
 
@@ -789,7 +824,6 @@ export function createScene (
     composite.companionEinstein = companionRadius > 0 ? composite.einstein * pair.companion / pair.growth : 0
     composite.pairX = hole.x
     composite.pairY = hole.y
-    composite.pairWave = hidden.gravityWave ? 0 : pair.wave * pairUnit
     composite.pairPhase = pair.phase
     composite.pairPitch = pair.omega / (LIGHT_SPEED * shortSide)
     composite.ring = hidden.ring || !state.ringEnabled ? 0 : state.ringBrightness * ringPower
@@ -827,26 +861,38 @@ export function createScene (
     composite.remnantGlow = intro.remnantGlow
     composite.remnantRedshift = intro.remnantRedshift
     composite.remnantRadius = params.remnantRadius * shortSide
-    // The ringing horizon is an oval, stretched sideways while the wobble is positive
-    composite.holeOval = horizon > 0 && Math.abs(ringdown) > MIN_HOLE_OVAL ? ringdown : 0
+    // The ringing horizon is an oval, long along the axis the two numbers turn it to
+    const oval = horizon > 0 && Math.abs(ovalX) + Math.abs(ovalY) > MIN_HOLE_OVAL
+    composite.holeOvalX = oval ? ovalX : 0
+    composite.holeOvalY = oval ? ovalY : 0
     // The gravitational wave is that wobble carried outward at the speed of light: every point shows the
     // wobble the horizon had when the wave left it. It is off once its last ripples are past the far corner
-    // A merger sends the same wave from where the two met, once the intro's own is gone
     const waveLife = params.lightCrossTime / 1.15 + ringTiming.decay * GRAVITY_WAVE_FADES
     const introWave = intro.ringdownTime > 0 && intro.ringdownTime <= waveLife
-    const mergerWave = !introWave && sinceMerger > 0 && sinceMerger <= waveLife
+    // Two that became one send the ringing of the hole they leave, from where they met and at the pair's
+    // own speed of light, once the intro's wave is gone. It starts as strong as the pair's spiral had
+    // grown, which flies on ahead of it until its last arm is past the far corner
+    const farthest = Math.hypot(Math.max(hole.x, viewportWidth - hole.x), Math.max(hole.y, viewportHeight - hole.y))
+    const pairWave = hidden.gravityWave ? 0 : pair.wave * pairUnit
+    const mergerWave = !introWave && pairWave > 0 && sinceMerger >= 0 && sinceMerger <= farthest / pairLight + mergerRing.decay * GRAVITY_WAVE_FADES
+    composite.pairWave = sinceMerger >= 0 && sinceMerger * pairLight > farthest + shadowRadius ? 0 : pairWave
+    composite.pairFront = mergerWave ? sinceMerger : -1
+    composite.pairFrontSoft = 0.25 / mergerRing.frequency
     // A fired wave leaves the black hole as the newborn hole's did, once the other two are gone
     const cueWave = !introWave && !mergerWave && (cue.ringLayers & GRAVITY_WAVE) !== 0 && sinceCueRing > 0 && sinceCueRing <= waveLife
     if (sinceCueRing > Math.max(waveLife, ringTiming.decay * GRAVITY_WAVE_FADES)) cue.ringLayers = 0
     composite.gravityWaveAmplitude = hidden.gravityWave || !(introWave || mergerWave || cueWave)
       ? 0
-      : params.gravityWaveGain * params.ringdownAmplitude * shadowRadius * (mergerWave ? MERGER_RING * state.companionWaves : 1)
+      : mergerWave ? pairWave : params.gravityWaveGain * params.ringdownAmplitude * shadowRadius
     composite.gravityWaveTime = mergerWave ? sinceMerger : cueWave ? sinceCueRing : intro.ringdownTime
     composite.gravityWaveX = mergerWave || cueWave ? hole.x : originX
     composite.gravityWaveY = mergerWave || cueWave ? hole.y : originY
-    composite.gravityWaveFrequency = ringTiming.frequency
-    composite.gravityWaveDecay = ringTiming.decay
+    composite.gravityWaveFrequency = mergerWave ? mergerRing.frequency : ringTiming.frequency
+    composite.gravityWaveDecay = mergerWave ? mergerRing.decay : ringTiming.decay
     composite.gravityWaveRadius = shadowRadius
+    composite.gravityWaveSpin = mergerWave ? pair.mergedTurn : 0
+    composite.gravityWaveAngle = mergerWave ? pair.mergedPhase : 0
+    composite.gravityWaveSpeed = mergerWave ? pairLight : lightSpeed
     composite.backgroundStars = intro.backgroundStars * state.starsBrightness
     composite.starCell = state.starCell
     composite.starDensity = state.starDensity
@@ -880,7 +926,7 @@ export function createScene (
     if (state.gridSheet > 0) {
       placeGrid(
         frame.grid, state.gridTilt, state.gridDepth, gridCell, viewportWidth, viewportHeight, holeX, holeY, horizon,
-        settings.companionX, settings.companionY, companionRadius, hole.x, hole.y
+        settings.companionX, settings.companionY, companionRadius, hole.x, hole.y, pair.mergedPhase
       )
     }
 

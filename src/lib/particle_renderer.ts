@@ -98,16 +98,23 @@ export interface CompositeSettings {
   remnantGlow: number
   remnantRedshift: number
   remnantRadius: number
-  // Oval wobble of the ringing horizon, a share of its radius; 0 leaves it round
-  holeOval: number
-  // The gravitational wave carries that wobble outward: pixels of stretch at the shadow's edge (0 turns
-  // it off), seconds since it left the hole, the wobble's frequency in Hz and decay in seconds, and the
-  // shadow radius beyond which it weakens with distance
+  // Oval wobble of the ringing horizon: a share of its radius, times the cosine and the sine of twice the
+  // angle of its long axis; zeros leave it round
+  holeOvalX: number
+  holeOvalY: number
+  // The gravitational wave carries that wobble outward: pixels the sky is slid at the shadow's edge (0
+  // turns it off), seconds since it left the hole, the wobble's frequency in Hz and decay in seconds, and
+  // the shadow radius beyond which it weakens with distance
   gravityWaveAmplitude: number
   gravityWaveTime: number
   gravityWaveFrequency: number
   gravityWaveDecay: number
   gravityWaveRadius: number
+  // The way the oval turns as it rings (1 or -1; 0 = it wobbles in place), the angle its long axis had as
+  // the ringing began, and the pixels the wave travels a second
+  gravityWaveSpin: number
+  gravityWaveAngle: number
+  gravityWaveSpeed: number
   // Where that wave left from
   gravityWaveX: number
   gravityWaveY: number
@@ -123,6 +130,10 @@ export interface CompositeSettings {
   pairWave: number
   pairPhase: number
   pairPitch: number
+  // Once the two are one: seconds since then (negative before), and the seconds over which the pair's
+  // wave gives way to the ringing that follows it out
+  pairFront: number
+  pairFrontSoft: number
   backgroundStars: number
   starCell: number
   starDensity: number
@@ -354,7 +365,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     'center', 'starGlow', 'starRadius', 'sourcePower', 'glareRadius', 'exposure',
     'lightRadius', 'lightWidth', 'lightPower', 'lightSpeed', 'echoPower', 'echoDecay',
     'waveRadius', 'waveStrength', 'waveWidth', 'remnantGlow', 'remnantRedshift', 'remnantRadius',
-    'holeOval', 'gravityWaveAmplitude', 'gravityWaveTime', 'gravityWaveOmega', 'gravityWaveInvDecay', 'gravityWaveRadius', 'gravityWaveCenter', 'companion', 'pair', 'pairWave', 'backgroundStars',
+    'holeOval', 'gravityWaveAmplitude', 'gravityWaveTime', 'gravityWaveOmega', 'gravityWaveInvDecay', 'gravityWaveRadius', 'gravityWaveCenter', 'gravityWaveTurn', 'companion', 'pair', 'pairWave', 'pairFront', 'backgroundStars',
     'starCell', 'starDensity', 'starFlare', 'dustScale', 'dustThreshold', 'lightDustContrast',
     'titleCenter', 'titleHalfSize', 'titleAlpha', 'titleReveal', 'titleDissolve', 'titleDrift', 'titleGlow',
     'titleFlash', 'titleCooling', 'titleDust', 'titlePull', 'titleSwirl', 'titleReach', 'titleCapture', 'titleScale',
@@ -364,7 +375,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     'cameraZoom', 'zoomCenter', 'layerZoom', 'shake', 'lensFringe', 'vignette', 'filmGrain', 'letterbox'
   ] as const)
   const gridUniforms = getUniforms(gl, gridProgram, [
-    'resolution', 'pixelRatio', 'view', 'camera', 'well', 'lines', 'wave', 'waveSpread', 'lens', 'jolt', 'color', 'shadow', 'frame', 'well2', 'pairWave', 'pairAt', 'shadow2'
+    'resolution', 'pixelRatio', 'view', 'camera', 'well', 'lines', 'wave', 'waveSpread', 'waveTurn', 'lens', 'jolt', 'color', 'shadow', 'frame', 'well2', 'pairWave', 'pairAt', 'pairFront', 'shadow2'
   ] as const)
 
   gl.useProgram(compositeProgram)
@@ -712,7 +723,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     setUniform1f(gl, u.time, settings.time)
     setUniform2f(gl, u.hole, settings.holeX * ratio, settings.holeY * ratio)
     setUniform1f(gl, u.horizon, settings.horizon * ratio)
-    setUniform1f(gl, u.holeOval, settings.holeOval)
+    setUniform2f(gl, u.holeOval, settings.holeOvalX, settings.holeOvalY)
     setUniform1f(gl, u.einstein, settings.einstein * ratio)
     setUniform1f(gl, u.falloff, settings.falloff)
     setUniform1f(gl, u.falloffPivot, Math.max(settings.falloffPivot * ratio, 1))
@@ -755,11 +766,14 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
       setUniform1f(gl, u.gravityWaveInvDecay, 1 / Math.max(settings.gravityWaveDecay, 0.001))
       setUniform1f(gl, u.gravityWaveRadius, Math.max(settings.gravityWaveRadius * ratio, 1))
       setUniform2f(gl, u.gravityWaveCenter, settings.gravityWaveX * ratio, settings.gravityWaveY * ratio)
+      setUniform4f(gl, u.gravityWaveTurn, Math.cos(2 * settings.gravityWaveAngle), Math.sin(2 * settings.gravityWaveAngle),
+        settings.gravityWaveSpin, Math.max(settings.gravityWaveSpeed * ratio, 1))
     }
     setUniform4f(gl, u.companion, settings.companionX * ratio, settings.companionY * ratio, settings.companionRadius * ratio, settings.companionEinstein * ratio)
     if (settings.pairWave > 0) {
       setUniform4f(gl, u.pairWave, settings.pairWave * ratio, settings.pairPhase, settings.pairPitch / ratio, Math.max(settings.gravityWaveRadius * ratio, 1))
       setUniform2f(gl, u.pair, settings.pairX * ratio, settings.pairY * ratio)
+      setUniform4f(gl, u.pairFront, settings.pairFront, Math.max(settings.gravityWaveSpeed * ratio, 1), Math.max(settings.pairFrontSoft, 0.001), 0)
     } else {
       setUniform4f(gl, u.pairWave, 0, 0, 0, 1)
     }
@@ -794,7 +808,9 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     if (settings.gravityWaveAmplitude > 0) {
       setUniform4f(gl, u.wave, settings.gravityWaveAmplitude * GRID_WAVE_GAIN, settings.gravityWaveTime,
         2 * Math.PI * settings.gravityWaveFrequency, 1 / Math.max(settings.gravityWaveDecay, 0.001))
-      setUniform2f(gl, u.waveSpread, Math.max(settings.gravityWaveRadius, 1), Math.max(settings.lightSpeed, 1))
+      setUniform2f(gl, u.waveSpread, Math.max(settings.gravityWaveRadius, 1), Math.max(settings.gravityWaveSpeed, 1))
+      // The sheet looks at the scene from the other side of the screen's plane, so the oval turns the other way
+      setUniform4f(gl, u.waveTurn, Math.cos(2 * grid.ringPhase), Math.sin(2 * grid.ringPhase), -settings.gravityWaveSpin, 0)
     } else {
       setUniform4f(gl, u.wave, 0, 0, 0, 0)
     }
@@ -803,6 +819,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     if (settings.pairWave > 0 && grid.throat2 > 0) {
       setUniform4f(gl, u.pairWave, settings.pairWave * GRID_WAVE_GAIN, grid.pairPhase, -settings.pairPitch, Math.max(settings.gravityWaveRadius, 1))
       setUniform2f(gl, u.pairAt, grid.pairX, grid.pairZ)
+      setUniform4f(gl, u.pairFront, settings.pairFront, Math.max(settings.gravityWaveSpeed, 1), Math.max(settings.pairFrontSoft, 0.001), 0)
     } else {
       setUniform4f(gl, u.pairWave, 0, 0, 0, 1)
     }

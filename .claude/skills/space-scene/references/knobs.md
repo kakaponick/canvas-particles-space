@@ -161,12 +161,18 @@ come, as around a real black hole.
   by itself. Moving it from far to 0 over a film is a merger.
 - Below a distance of 1 + `companionSize` the shadows overlap and the main hole grows by the companion's
   mass. At 0 they are one hole, which rings and sends a last wave.
-- That last ring and wave are the opening's own, so their knobs are intro parameters and work in a film
-  without the opening too: `ringdownAmplitude`, `ringdownPitch`, `ringdownLength`, `gravityWaveGain`, and
-  `lightCrossTime` for how fast the wave crosses the frame.
-- The merger's wave is three times the opening's and is multiplied by `companionWaves` as well, so that
-  key scales both the pair's spiral wave and the last one. At the defaults the sheet folds over itself
-  above the hole; a `gravityWaveGain` of 1.5 to 3.5 leaves the rim of the well swaying.
+- The last turns, the merger and the ringing are one motion. The main hole is drawn out toward the
+  companion as the shadows merge; after the merger the oval keeps turning the way the pair did while it
+  dies away. Its tone is the merged hole's own (what is left spins, so two equal holes ring about 1.4
+  times higher than a still hole of that size) and runs on the pair's clock: `companionSpeed` scales it,
+  and the opening's `ringdownPitch`, `ringdownLength` and `lightCrossTime` do not.
+- `ringdownAmplitude`, an intro parameter, is how far the merged hole is drawn out: three times it for
+  equal masses, less for unequal ones. It works in a film without the opening.
+- `companionWaves` alone sets the wave. The spiral rises to its peak at the merger and flies on outward,
+  and the dying turns of the ringing follow it at the same strength, with no jump between them.
+  `gravityWaveGain` shapes only the opening's wave and a fired one.
+- A wave stretches the sky across its path, never along it, and weakens as 1 over the distance. At
+  `companionWaves` 1 the sheet sways through a merger; at 3 it folds into steep spiral arms.
 - At `companionSpeed` 1 a turn at 8 radii takes about 15 s. A short film wants 2 to show the pair circling.
 - Two horizons take more of the flight than one: over a long approach the field can thin out. Lower
   `gravityStrength`, or `horizonScale`, when the picture needs the particles.
@@ -182,6 +188,9 @@ come, as around a real black hole.
 
 - The sheet is a diagram: a surface dented where the hole sits, rippled by gravitational waves. It stays
   put while the hole moves across it. At a `gridTilt` of 60 and above the well's depth shows.
+- The dent is gravitational time dilation, and can be said so in a caption: a place is lowered by how much
+  time is slowed where the light seen at that distance passed closest to the hole. Far away the sheet is
+  flat; at the shadow's edge, where that light skims the photon sphere, it is `gridDepth` deep and ends.
 - The lensed grid is a measuring tool: it shows the Einstein ring, the mirrored image, the twist and the
   waves. Lower `baseBrightness` when it should be read clearly.
 
@@ -242,7 +251,8 @@ seconds from its start; everything after the explosion counts from `collapseAt`.
 - `lightCrossTime` is the speed of light on screen. The matter front moves at `matterSpeed` of it, and the
   gravitational wave at exactly it, so one key sets the pace of the whole explosion.
 - The ringdown's pitch and length are multiples of what a real hole of that size does, so a bigger hole
-  rings lower and longer without touching them.
+  rings lower and longer without touching them. They shape the opening's ringdown and a fired one, where
+  the oval stands still and squashes one way and then the other; a merger rings by itself (section 8).
 - `titleEntrance` and `titleExit` are choices: they take an option's name or index and cannot be keyframed.
   The falling-dust parameters matter only when the title falls into the hole; `titleDrift` and `titleSwirl`
   follow `gravityStrength` and `orbitalStrength`.

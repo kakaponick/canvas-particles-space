@@ -216,7 +216,7 @@ export const compositeFragmentShaderSource = `
   // Black hole
   uniform vec2 u_hole;
   uniform float u_horizon;       // shadow radius; 0 before the black hole forms
-  uniform float u_holeOval;      // ringdown wobble, a share of the radius; positive stretches it sideways, 0 keeps it round
+  uniform vec2 u_holeOval;       // ringdown wobble: a share of the radius, times the cosine and the sine of twice the angle of its long axis; zero keeps it round
   uniform float u_einstein;      // Einstein ring radius; 0 turns the lens off
   uniform float u_falloff;       // 2 is a point mass; higher widens the lens, lower shrinks it
   uniform float u_swirl;         // frame-dragging twist near the ring
@@ -261,9 +261,11 @@ export const compositeFragmentShaderSource = `
   uniform float u_gravityWaveInvDecay;  // 1 / the wobble's decay time
   uniform float u_gravityWaveRadius;    // shadow radius; the wave weakens with distance beyond it
   uniform vec2 u_gravityWaveCenter;     // where the wave left from
+  uniform vec4 u_gravityWaveTurn;       // cosine and sine of twice the angle the oval's long axis had as the ringing began, the way it turns (1, -1; 0 = it wobbles in place), pixels the wave travels a second
   uniform vec4 u_companion;      // a second black hole: centre, shadow radius (0 = none), Einstein radius
   uniform vec2 u_pair;           // the centre the two black holes turn around
   uniform vec4 u_pairWave;       // their spiral gravitational wave: pixels of stretch (0 = off), the pair's angle, turn of its arms per pixel, radius beyond which it weakens
+  uniform vec4 u_pairFront;      // once the two are one: seconds since then (negative = not yet), pixels the wave travels a second, seconds the old wave takes to give way to the new
   uniform float u_backgroundStars;
   uniform float u_starCell;        // CSS pixels per background-star cell
   uniform float u_starDensity;     // share of cells holding a star
@@ -451,6 +453,14 @@ export const compositeFragmentShaderSource = `
     return texture2D(u_image, 1.0 - abs(1.0 - mod(layerPx / u_resolution, 2.0))).rgb;
   }
 
+  // How strong a gravitational wave is at a distance from where it left: its strain falls as 1 / r, since
+  // the same energy crosses an ever larger sphere. Closer than the edge there is no wave yet, only the
+  // field of the source itself, which fades to nothing at the centre
+  float waveReach (float dist, float edge) {
+    float share = dist / edge;
+    return share < 1.0 ? share * share : 1.0 / share;
+  }
+
   void main () {
     // Where this pixel is on the screen, and where the zoomed and jolted camera looks through it
     vec2 screen = vec2(gl_FragCoord.x, u_resolution.y - gl_FragCoord.y);
@@ -460,41 +470,63 @@ export const compositeFragmentShaderSource = `
     float px = 1.0 / u_cameraZoom;
     vec2 offset = frag - u_hole;
     float dist = length(offset);
-    // A ringing horizon is an oval, stretched sideways and squeezed vertically while the wobble is
-    // positive and the other way round while it is negative. The shadow, the lens and the photon ring all
-    // measure their distance in that oval, so they wobble together. (x*x - y*y) / (r*r) is the cosine of twice the angle
-    if (u_holeOval != 0.0) dist /= 1.0 + u_holeOval * (offset.x * offset.x - offset.y * offset.y) / max(dist * dist, 0.0001);
+    // A ringing horizon is an oval: longer along one axis by the share it is shorter along the other, so
+    // it keeps its area, as a quadrupole does. The shadow, the lens and the photon ring all measure their
+    // distance in that oval, so they wobble together. (x*x - y*y) / (r*r) and 2*x*y / (r*r) are the cosine
+    // and the sine of twice the angle, which u_holeOval turns to the oval's long axis
+    if (u_holeOval != vec2(0.0)) {
+      dist /= 1.0 + (u_holeOval.x * (offset.x * offset.x - offset.y * offset.y) + u_holeOval.y * 2.0 * offset.x * offset.y) / max(dist * dist, 0.0001);
+    }
     vec2 samplePx = frag;
 
     // Gravitational wave: the horizon's wobble carried outward at the speed of light. Each point shows the
-    // wobble the horizon had when the wave left it, u_gravityWaveTime - r / c ago, as a stretch along the
-    // oval's own axis and a squeeze across it, weakening as it spreads
+    // wobble the horizon had when the wave left it, u_gravityWaveTime - r / c ago. A gravitational wave
+    // moves nothing along its way: what it stretches and squeezes lies across it. So the sky is not pushed
+    // out and in, as sound would push it, but slid sideways, most where the oval's long axis stood at 45
+    // degrees to the direction, and it weakens as 1 / r
     vec2 fromCenter = frag - u_center;
     float centerDist = length(fromCenter);
     if (u_gravityWaveAmplitude > 0.0) {
       vec2 fromWave = frag - u_gravityWaveCenter;
       float waveDist = length(fromWave);
-      float emitted = u_gravityWaveTime - waveDist / u_lightSpeed;
-      if (emitted > 0.0) {
-        float wobble = exp(-emitted * u_gravityWaveInvDecay) * sin(u_gravityWaveOmega * emitted);
-        float spread = sqrt(u_gravityWaveRadius / max(waveDist, u_gravityWaveRadius));
+      float emitted = u_gravityWaveTime - waveDist / u_gravityWaveTurn.w;
+      // A quarter of a wobble, over which the wave of a merger takes over from the pair's
+      float quarter = 1.5707963 / u_gravityWaveOmega;
+      if (emitted > (u_gravityWaveTurn.z == 0.0 ? 0.0 : -quarter)) {
         float invDist = 1.0 / max(waveDist, 0.0001);
-        float axis = (fromWave.x * fromWave.x - fromWave.y * fromWave.y) * invDist * invDist;
-        // Reading the scene from closer in shows it pushed outward: a positive wobble stretches sideways
-        samplePx -= fromWave * invDist * u_gravityWaveAmplitude * wobble * spread * axis;
+        float cos2 = (fromWave.x * fromWave.x - fromWave.y * fromWave.y) * invDist * invDist;
+        float sin2 = 2.0 * fromWave.x * fromWave.y * invDist * invDist;
+        float phase = u_gravityWaveOmega * emitted;
+        // The sine of twice the angle between this direction and the oval's long axis as the wave left
+        float across;
+        if (u_gravityWaveTurn.z == 0.0) {
+          // A hole that formed alone wobbles in place: long sideways, then long upright
+          across = sin(phase) * sin2;
+        } else {
+          // Two that became one leave an oval that turns the way they circled, half a turn a wobble
+          across = (sin2 * u_gravityWaveTurn.x - cos2 * u_gravityWaveTurn.y) * cos(phase)
+            - u_gravityWaveTurn.z * (cos2 * u_gravityWaveTurn.x + sin2 * u_gravityWaveTurn.y) * sin(phase);
+          across *= smoothstep(-quarter, quarter, emitted);
+        }
+        float strength = u_gravityWaveAmplitude * exp(-max(emitted, 0.0) * u_gravityWaveInvDecay) * waveReach(waveDist, u_gravityWaveRadius);
+        // Reading the scene from further round shows it slid back along the circle
+        samplePx += vec2(-fromWave.y, fromWave.x) * invDist * strength * across;
       }
     }
 
-    // Two black holes circling each other send out a wave of the same kind without end: its stretch
-    // points along the line between them as that line was when the wave left, so the arms wind into a
-    // two-armed spiral that turns with the pair. cos and sin of twice the angle come from x and y
+    // Two black holes circling each other send out a wave of the same kind without end. Each point shows
+    // the line between them as it stood when the wave left, so the pattern winds into a two-armed spiral
+    // that turns with the pair. Once they are one, the last of it keeps flying off ahead of the new hole's
+    // own ringing, which follows it out from the middle
     if (u_pairWave.x > 0.0) {
       vec2 fromPair = frag - u_pair;
       float pairDist = length(fromPair);
       float invDist = 1.0 / max(pairDist, 0.0001);
       float turn = 2.0 * (u_pairWave.z * pairDist - u_pairWave.y);
-      float arms = ((fromPair.x * fromPair.x - fromPair.y * fromPair.y) * cos(turn) - 2.0 * fromPair.x * fromPair.y * sin(turn)) * invDist * invDist;
-      samplePx -= fromPair * invDist * u_pairWave.x * sqrt(u_pairWave.w / max(pairDist, u_pairWave.w)) * arms;
+      float across = (2.0 * fromPair.x * fromPair.y * cos(turn) + (fromPair.x * fromPair.x - fromPair.y * fromPair.y) * sin(turn)) * invDist * invDist;
+      float strength = u_pairWave.x * waveReach(pairDist, u_pairWave.w);
+      if (u_pairFront.x >= 0.0) strength *= smoothstep(-u_pairFront.z, u_pairFront.z, pairDist / u_pairFront.y - u_pairFront.x);
+      samplePx += vec2(-fromPair.y, fromPair.x) * invDist * strength * across;
     }
 
     // The lens maps the background behind the hole into a ring of radius E, where the pull (E / r)^2
@@ -798,7 +830,9 @@ export const gridVertexShaderSource = `
   uniform vec2 u_pairAt;      // the centre the two turn around, from the first well
   uniform vec2 u_lines;       // cell size, how far from the black hole the lines reach
   uniform vec4 u_wave;        // gravitational wave: height, seconds since it left the hole, angular frequency, 1 / decay time
-  uniform vec2 u_waveSpread;  // radius beyond which the wave weakens, the speed of light per second
+  uniform vec2 u_waveSpread;  // radius beyond which the wave weakens, how far it travels a second
+  uniform vec4 u_waveTurn;    // cosine and sine of twice the angle on the sheet the oval's long axis had as the ringing began, the way it turns there (1, -1; 0 = it wobbles in place), unused
+  uniform vec4 u_pairFront;   // once the two are one: seconds since then (negative = not yet), how far the wave travels a second, seconds the old wave takes to give way to the new
   uniform vec4 u_lens;        // the scene camera: centre of its zoom, the zoom, unused
   uniform vec2 u_jolt;        // the scene camera's shake
 
@@ -812,31 +846,64 @@ export const gridVertexShaderSource = `
   // Lines close to the camera are drawn at most this many times wider
   const float MAX_SCALE = 3.0;
 
+  // How deep the sheet lies at a distance from a black hole whose shadow has the radius "edge", as a
+  // share of its depth at the shadow's edge. The sheet is drawn in the picture's own measure: a point of
+  // it stands where light passing the hole at that distance is seen, and lies as deep as time is slowed at
+  // the nearest that light comes to the hole, 1 - sqrt(1 - rs / nearest). Far away that is the Newtonian
+  // well, rs / 2r. At the shadow's edge the light skims the photon sphere, 1.5 rs, where a clock runs at
+  // 1 / sqrt(3) of its rate, and the sheet stands vertical: light any closer does not come back. The
+  // nearest approach of light seen at b is the largest root of r^3 = b^2 (r - rs), and the edge is at
+  // b = sqrt(27) / 2 rs, which leaves rs / nearest = x / (3 cos(acos(-x) / 3)) with x = edge / b
+  float dent (float away, float edge) {
+    float x = edge / max(away, edge);
+    float slowed = 1.0 - sqrt(max(1.0 - x / (3.0 * cos(acos(-x) / 3.0)), 0.0));
+    return slowed * 2.3660254;
+  }
+
+  // How strong a gravitational wave is at a distance from where it left: it falls as 1 / r. Closer than
+  // the edge there is no wave yet, only the field of the source itself, which fades to nothing at the centre
+  float waveReach (float dist, float edge) {
+    float share = dist / edge;
+    return share < 1.0 ? share * share : 1.0 / share;
+  }
+
   // A point of the sheet, given from the black hole: its place on screen, its size there relative to
   // the point the camera looks at (negative behind the cut), and how lit it is
   vec4 onScreen (vec2 fromHole) {
     float r = length(fromHole);
     float depth = 0.0;
-    // Depth follows gravitational time dilation: flat far away, vertical where the well ends
-    if (u_well.w > 0.0) depth = u_well.w * (1.0 - sqrt(1.0 - u_well.z / max(r, u_well.z)));
+    if (u_well.w > 0.0) depth = u_well.w * dent(r, u_well.z);
     // A second black hole dents the sheet the same way, and the dents add up
-    if (u_well2.w > 0.0) depth += u_well2.w * (1.0 - sqrt(1.0 - u_well2.z / max(length(fromHole - u_well2.xy), u_well2.z)));
-    // The pair's spiral wave lifts and lowers the sheet as it stretches the sky in the composite pass
+    if (u_well2.w > 0.0) depth += u_well2.w * dent(length(fromHole - u_well2.xy), u_well2.z);
+    // The pair's spiral wave is drawn as height: the sheet rises where the wave stretches space along the
+    // line the two stood on as it left, and sinks where it squeezes. The composite pass slides the sky by
+    // the same wave
     if (u_pairWave.x > 0.0) {
       vec2 fromPair = fromHole - u_pairAt;
       float pairDist = length(fromPair);
       float turn = 2.0 * (u_pairWave.z * pairDist - u_pairWave.y);
-      depth += u_pairWave.x * sqrt(u_pairWave.w / max(pairDist, u_pairWave.w)) *
+      float height = u_pairWave.x * waveReach(pairDist, u_pairWave.w);
+      if (u_pairFront.x >= 0.0) height *= smoothstep(-u_pairFront.z, u_pairFront.z, pairDist / u_pairFront.y - u_pairFront.x);
+      depth += height *
         ((fromPair.x * fromPair.x - fromPair.y * fromPair.y) * cos(turn) - 2.0 * fromPair.x * fromPair.y * sin(turn)) / max(pairDist * pairDist, 0.0001);
     }
-    // The gravitational wave lifts the sheet along one axis and lowers it along the other, as it
-    // stretches and squeezes the sky in the composite pass
+    // The wave of a ringing hole, the same way: a hole that formed alone wobbles in place, two that
+    // became one leave an oval that turns
     if (u_wave.x > 0.0) {
       float emitted = u_wave.y - r / u_waveSpread.y;
-      if (emitted > 0.0) {
-        float wobble = exp(-emitted * u_wave.w) * sin(u_wave.z * emitted);
-        float spread = sqrt(u_waveSpread.x / max(r, u_waveSpread.x));
-        depth += u_wave.x * wobble * spread * (fromHole.x * fromHole.x - fromHole.y * fromHole.y) / max(r * r, 0.0001);
+      float quarter = 1.5707963 / u_wave.z;
+      if (emitted > (u_waveTurn.z == 0.0 ? 0.0 : -quarter)) {
+        float cos2 = (fromHole.x * fromHole.x - fromHole.y * fromHole.y) / max(r * r, 0.0001);
+        float sin2 = 2.0 * fromHole.x * fromHole.y / max(r * r, 0.0001);
+        float phase = u_wave.z * emitted;
+        float along;
+        if (u_waveTurn.z == 0.0) {
+          along = sin(phase) * cos2;
+        } else {
+          along = (cos2 * u_waveTurn.x + sin2 * u_waveTurn.y) * cos(phase) + u_waveTurn.z * (sin2 * u_waveTurn.x - cos2 * u_waveTurn.y) * sin(phase);
+          along *= smoothstep(-quarter, quarter, emitted);
+        }
+        depth += u_wave.x * exp(-max(emitted, 0.0) * u_wave.w) * waveReach(r, u_waveSpread.x) * along;
       }
     }
     vec2 place = fromHole + u_well.xy;

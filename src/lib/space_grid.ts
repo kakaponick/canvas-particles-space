@@ -1,6 +1,9 @@
 // The space sheet: a square grid drawn as a surface seen at an angle, dented where the black hole sits.
-// The dent is a diagram, not a picture of the hole: its depth follows gravitational time dilation,
-// 1 - sqrt(1 - radius / distance), flat far away and vertical where it ends, at the shadow's edge.
+// The dent is a diagram, not a picture of the hole, and it is drawn in the picture's own measure: a point
+// of the sheet stands where light passing the hole at that distance is seen, and lies as deep as time is
+// slowed at the nearest that light comes to the hole. Far away that is the Newtonian well. At the shadow's
+// edge the light skims the photon sphere, where a clock runs at 58% of its rate, and the sheet stands
+// vertical, because light seen any closer never came back (the grid vertex shader's dent()).
 // The lines are a static buffer of segments the grid vertex shader places, so the sheet costs the main
 // thread a few numbers per frame and nothing while it is off.
 
@@ -55,6 +58,8 @@ export interface GridSettings {
   pairX: number
   pairZ: number
   pairPhase: number
+  // The angle on the sheet of the line the two stood on as they became one
+  ringPhase: number
 }
 
 export function createGridSettings (): GridSettings {
@@ -78,7 +83,8 @@ export function createGridSettings (): GridSettings {
     depth2: 0,
     pairX: 0,
     pairZ: 0,
-    pairPhase: 0
+    pairPhase: 0,
+    ringPhase: 0
   }
 }
 
@@ -132,7 +138,8 @@ function settleWell (screenX: number, screenY: number, horizon: number, depthInR
 // Lays the sheet out for one frame: the camera looks at the screen centre from above, tilted, and the
 // well is put where its bottom lands on the black hole. The sheet stays where it is on screen while the
 // black hole moves across it. A second black hole (radius above 0) gets a well of its own; `pairX`,
-// `pairY` is the place on screen the two turn around
+// `pairY` is the place on screen the two turn around, and `ringAngle` the angle on screen of the line they
+// stood on as they became one
 export function placeGrid (
   grid: GridSettings,
   tiltDegrees: number,
@@ -147,7 +154,8 @@ export function placeGrid (
   companionY: number,
   companionRadius: number,
   pairX: number,
-  pairY: number
+  pairY: number,
+  ringAngle: number
 ) {
   const longSide = Math.max(width, height)
   const distance = CAMERA_DISTANCE * longSide
@@ -170,6 +178,8 @@ export function placeGrid (
   grid.throat = wellThroat
   grid.depth = wellDepth
 
+  // A direction on screen lies further round on the tilted sheet, which is seen from the other side
+  grid.ringPhase = Math.atan2(-Math.sin(ringAngle) / cos, Math.cos(ringAngle))
   grid.throat2 = 0
   grid.depth2 = 0
   if (companionRadius > 0) {
