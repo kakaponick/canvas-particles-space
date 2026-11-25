@@ -411,6 +411,7 @@ come, as around a real black hole.
 | Which of two holes it looks at: -1 the main one, 0 their centre, 1 the second | `cameraPair` |
 | The field as a volume, seen from around the hole | `threeD` |
 | Where the 3D camera stands: around the hole, above or below it, and how fast it circles on its own | `cameraYaw`, `cameraPitch`, `cameraSpin` |
+| The 3D camera off its circle: its roll, its head turned right and up from the hole, and its move right, up and in, in radii | `cameraRoll`, `cameraLookYaw`, `cameraLookPitch`, `cameraMoveRight`, `cameraMoveUp`, `cameraMoveIn` |
 | How much of the 3D column fades at each of its ends, as a share of `farZ` | `threeDEndFade` |
 | The 3D camera: seconds it takes into and out of 3D, and the nearest point it circles, as a share of `farZ` | `threeDEase`, `threeDNearest` |
 | What counts as a cut of the camera, where the trails start afresh: a zoom, a move of the picture and, in 3D, a turn, each in one frame | `cameraCutZoom`, `cameraCutShift`, `cameraCutTurn` |
@@ -468,6 +469,24 @@ come, as around a real black hole.
   is gone by the time the camera is level with it and is never seen from below; a longer fade keeps it,
   dimmer, while the camera looks up from under it. Its wells stay under the black holes wherever they are
   seen.
+- The circle is where the camera starts; six keys take it anywhere from there, all in 3D only and all at
+  0 the circle alone, number for number. `cameraRoll` turns the whole picture about the middle of the
+  screen (positive anticlockwise), the sky, the sheet and the ring's bright side (`ringSide`) with it;
+  the circle and the head leave `ringSide` and `ringDoppler` where they are, so a film drives them. `cameraLookYaw` and `cameraLookPitch`
+  turn the camera's head without moving it: the hole slides off centre (to the edge at about 45°), so a
+  shot can open on empty space and swing onto the hole, or let the hole cross the frame. The sky slides
+  with the head as it does with the circle. `cameraMoveRight`, `cameraMoveUp` and `cameraMoveIn` move the
+  camera itself along its own axes, in radii of the hole at its full size: near particles slide past
+  faster than far ones (parallax, which no pan or zoom gives), and a move in is a real approach, so the
+  hole grows as it does in perspective and, under `lensingTraced`, the lens sees it from nearer too.
+  The camera circles about 11 radii away at the default size in a wide frame (half the frame's long side
+  over the shadow's radius), so `cameraMoveIn` near that is at the shadow; past it the hole is behind the
+  camera and its shadow, lens, ring and orbits are not drawn while the particles fly on. A fly-by is
+  `cameraMoveRight` held at a few radii while `cameraMoveIn` runs from below 0 to past the distance, with
+  `cameraLookYaw` turning to keep the hole in frame. The sheet keeps the circle's view (it is a
+  diagram); only the roll turns it.
+- A roll or a turn of the head by more than `cameraCutTurn`, or a move by more than `cameraCutShift`
+  pixels as seen at the hole, in one frame, is a cut like a jump of `cameraYaw`.
 
 ## 12. The page only
 
@@ -724,3 +743,5 @@ The cost of a knob, in the last column:
 | Fixed | File in src/lib | Cost |
 |---|---|---|
 | The picture is drawn into 4.5 million device pixels at most, 2 to a CSS pixel | particle_canvas.tsx | machine |
+| The 3D camera's nearest, 1 scene unit: a hole nearer than that, or behind the camera, is not drawn, and a stroke is cut there | scene.ts, particle_simulation_3d.ts | machine |
+| The orbits' traces are set in perspective around the hole's own place on the screen, not each point on its own, which a camera that looks far aside or comes very near shows as a slight misfit | webgl_shaders.ts | pixel: each point projected alone, which changes the bytes of 3D films with orbits |

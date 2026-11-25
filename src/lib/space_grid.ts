@@ -64,6 +64,9 @@ export interface GridSettings {
   // point the camera looks at: the cosine and sine of that turn, and 1 while it is on (0 lays them flat)
   spinCos: number
   spinSin: number
+  rollCos: number
+  rollSin: number
+  rolled: number
   spun: number
 }
 
@@ -98,6 +101,9 @@ export function createGridSettings (): GridSettings {
     ringPhase: 0,
     spinCos: 1,
     spinSin: 0,
+    rollCos: 1,
+    rollSin: 0,
+    rolled: 0,
     spun: 0
   }
 }
@@ -108,6 +114,13 @@ export function turnGrid (grid: GridSettings, radians: number) {
   grid.spun = radians !== 0 ? 1 : 0
   grid.spinCos = Math.cos(radians)
   grid.spinSin = Math.sin(radians)
+}
+
+// A 3D camera's roll turns the whole drawn sheet about the middle of the screen (positive: anticlockwise)
+export function rollGrid (grid: GridSettings, radians: number) {
+  grid.rolled = radians !== 0 ? 1 : 0
+  grid.rollCos = Math.cos(radians)
+  grid.rollSin = Math.sin(radians)
 }
 
 // One record per piece of a line: the line's number counted from the one nearest the black hole, where

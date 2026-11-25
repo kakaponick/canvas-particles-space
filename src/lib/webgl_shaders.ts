@@ -151,7 +151,7 @@ export const orbitVertexShaderSource = `
   uniform vec4 u_orbit;       // the black hole (device pixels), device pixels in a Schwarzschild radius, line width in device pixels
   uniform float u_dimmed;     // brightness every trace has lost since the traces began
   uniform vec4 u_turnX;       // 3D: where the camera turns the orbits' x axis, and its focal length in device pixels (0 = flat)
-  uniform vec4 u_turnY;       // where it turns their y axis, and the black hole's distance in device pixels
+  uniform vec4 u_turnY;       // where it turns their y axis, and the black hole's distance in device pixels (below 0: behind the camera, not drawn)
 
   varying vec2 v_ends;
   varying float v_across;
@@ -180,6 +180,10 @@ export const orbitVertexShaderSource = `
 
     vec2 start;
     vec2 delta;
+    if (u_turnY.w < 0.0) {
+      gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+      return;
+    }
     if (u_turnX.w > 0.0) {
       vec2 first = seenOrbit(a_segment.xy * u_orbit.z);
       start = u_zoom.xy + (u_orbit.xy + first - u_zoom.xy) * u_zoom.z;
@@ -335,6 +339,7 @@ export const compositeFragmentShaderSource = `
   uniform float u_gridCell;        // CSS pixels per cell of that grid
   uniform float u_skyGridLine;     // half the width of a line of that grid, CSS pixels
   uniform vec4 u_skyShift;         // CSS pixels the 3D camera's turn slides the stars (xy) and that grid (zw) by; zeros when flat
+  uniform vec3 u_skyRoll;          // the 3D camera's roll: its cosine and sine, 1 while it rolls
   uniform vec4 u_nebula;           // the nebula's brightness (0 turns it off), CSS pixels the 3D camera's turn slides it by (yz), CSS pixels of a full turn (0 when flat)
   uniform vec3 u_nebulaColor;
   uniform vec3 u_nebulaColorDeep;
@@ -491,6 +496,14 @@ ${DENT_GLSL}
   }
 
   // Static distant stars, one at most per cell; they flare as the light front passes
+  // Where a point of the screen was before a rolling 3D camera turned the sky about the middle of the
+  // screen, in CSS pixels
+  vec2 unrolled (vec2 cssPx) {
+    if (u_skyRoll.z == 0.0) return cssPx;
+    vec2 fromMiddle = cssPx - 0.5 * u_resolution / u_pixelRatio;
+    return 0.5 * u_resolution / u_pixelRatio + vec2(u_skyRoll.x * fromMiddle.x - u_skyRoll.y * fromMiddle.y, u_skyRoll.y * fromMiddle.x + u_skyRoll.x * fromMiddle.y);
+  }
+
   vec3 backgroundStar (vec2 cssPx, float flare) {
     vec2 cell = floor(cssPx / u_starCell);
     float presence = hash12(cell);
@@ -879,11 +892,11 @@ ${DENT_GLSL}
     if (u_backgroundStars > 0.0) {
       // The flare belongs to the light front, not to the dust echo, so hiding the echo keeps it
       float flare = u_lightPower > 0.0 && lit >= 0.0 ? u_starFlare * exp2(lit * u_starFlareRate) : 0.0;
-      emitted += backgroundStar(cssPx + u_skyShift.xy, flare) * u_backgroundStars;
+      emitted += backgroundStar(unrolled(cssPx) + u_skyShift.xy, flare) * u_backgroundStars;
     }
     if (u_nebula.x > 0.0) {
       // Behind the stars and read where the bent ray comes from, like them, and drifting on its own
-      vec2 nebulaAt = cssPx + u_nebula.yz + u_nebulaDrift * u_time;
+      vec2 nebulaAt = unrolled(cssPx) + u_nebula.yz + u_nebulaDrift * u_time;
       vec3 nebula = nebulaLight(nebulaAt);
       // In 3D the turn slides it by up to a full turn's width, and the nebula a full turn on takes over as
       // the turn comes round, so it never jumps
@@ -918,7 +931,7 @@ ${DENT_GLSL}
         // their width against the tighter one
         squeeze = max(slope, node / seen);
       }
-      vec2 fromLine = abs(fract((gridAt + u_skyShift.zw - 0.5 * u_resolution / u_pixelRatio) / u_gridCell - 0.5) - 0.5) * u_gridCell;
+      vec2 fromLine = abs(fract((unrolled(gridAt) + u_skyShift.zw - 0.5 * u_resolution / u_pixelRatio) / u_gridCell - 0.5) - 0.5) * u_gridCell;
       float line = clamp((u_skyGridLine - min(fromLine.x, fromLine.y) * u_cameraZoom / squeeze) * u_pixelRatio + 0.5, 0.0, 1.0);
       if (squeeze > 1.0) {
         // Where the cells shrink to a few pixels their lines merge into a haze of the light they share
@@ -1080,6 +1093,7 @@ export const gridVertexShaderSource = `
   uniform vec4 u_lens;        // the scene camera: centre of its zoom, the zoom, unused
   uniform vec2 u_jolt;        // the scene camera's shake
   uniform vec4 u_spin;        // 3D: cosine and sine of the turn that spins the lines in the sheet's plane, 1 while it is on
+  uniform vec3 u_roll;        // 3D: cosine and sine of the camera's roll, which turns the drawn sheet about u_view, 1 while it is on
 
   varying vec2 v_ends;        // distance along the piece from its start and from its end
   varying float v_across;     // signed distance from its axis
@@ -1137,6 +1151,10 @@ ${DENT_GLSL}
     float behind = u_camera.x + depth * u_camera.z - place.y * u_camera.y;
     float scale = u_camera.x / max(behind, 1.0);
     vec2 point = u_view + vec2(place.x, place.y * u_camera.z + depth * u_camera.y) * scale;
+    if (u_roll.z > 0.0) {
+      vec2 fromView = point - u_view;
+      point = u_view + vec2(u_roll.x * fromView.x + u_roll.y * fromView.y, u_roll.x * fromView.y - u_roll.y * fromView.x);
+    }
     // The scene camera of the intro zooms and jolts the sheet with the rest of the frame
     point = u_lens.xy + (point - u_jolt - u_lens.xy) * u_lens.z;
     float lit = 1.0 - smoothstep(u_sheet.z, u_lines.y, r);
@@ -1295,6 +1313,7 @@ export const latticeVertexShaderSource = `
   uniform vec4 u_row0;           // the camera's turn, row by row: the x row, and the focal length in device pixels
   uniform vec4 u_row1;           // the y row, and the depth of the point the camera circles
   uniform vec4 u_row2;           // the z row, and the distance under which lines fade out near the camera
+  uniform vec3 u_shift;          // where the point the camera circles lands in the camera's space, after its move and its head
   uniform vec2 u_vanish;         // the vanishing point in device pixels
   uniform vec4 u_hole;           // the black hole in the scene, the radius of its shadow (0 = no pull)
   uniform vec4 u_companion;      // a second black hole, the same way
@@ -1337,7 +1356,7 @@ ${DENT_GLSL}
   // A point of the scene in the camera's space: across, down, and its distance in front of the camera
   vec3 seen (vec3 point) {
     vec3 fromPivot = point - vec3(0.0, 0.0, u_row1.w);
-    return vec3(dot(u_row0.xyz, fromPivot), dot(u_row1.xyz, fromPivot), dot(u_row2.xyz, fromPivot) + u_row1.w);
+    return vec3(dot(u_row0.xyz, fromPivot), dot(u_row1.xyz, fromPivot), dot(u_row2.xyz, fromPivot)) + u_shift;
   }
 
   // A node of the line, given by its place across and how far along the line it lies from the black hole

@@ -47,9 +47,76 @@ export function cameraTurn (yaw: number, pitch: number, out: Float64Array) {
   out[8] = cp * ca
 }
 
+// Slots of a pose (cameraPose): the turn A row by row, then the offset b
+export const POSE_SLOTS = 12
+
+// Where the camera stands and looks, beyond its circle round the pivot c = (0, 0, pivot): a point p of the
+// scene is at q = A (p - c) + b in the camera's space (across, down, ahead of it). The circle's turn M
+// (cameraTurn) puts it as before; then the camera moves in its own axes (right, up, in toward what it
+// looks at, in scene units), turns its head (to the right, then up) and rolls about its line of sight
+// (positive turns the picture anticlockwise): A = R H M, b = R H ((0, 0, pivot) - move). With the move,
+// the head and the roll at 0 it is the circle alone, number for number
+export function cameraPose (
+  yaw: number,
+  pitch: number,
+  roll: number,
+  lookYaw: number,
+  lookPitch: number,
+  moveRight: number,
+  moveUp: number,
+  moveIn: number,
+  pivot: number,
+  out: Float64Array
+) {
+  cameraTurn(yaw, pitch, out)
+  // The scene's y runs down, so a camera that rises sees everything lower
+  out[9] = -moveRight
+  out[10] = moveUp
+  out[11] = pivot - moveIn
+  // Looking to the right moves what is ahead to the left: x and z turn about the vertical
+  if (lookYaw !== 0) {
+    const c = Math.cos(lookYaw)
+    const s = Math.sin(lookYaw)
+    for (let column = 0; column < 4; column++) {
+      const xi = column < 3 ? column : 9
+      const zi = column < 3 ? column + 6 : 11
+      const qx = out[xi]
+      const qz = out[zi]
+      out[xi] = c * qx - s * qz
+      out[zi] = s * qx + c * qz
+    }
+  }
+  // Looking up moves what is ahead down: y and z turn about the camera's own right
+  if (lookPitch !== 0) {
+    const c = Math.cos(lookPitch)
+    const s = Math.sin(lookPitch)
+    for (let column = 0; column < 4; column++) {
+      const yi = column < 3 ? column + 3 : 10
+      const zi = column < 3 ? column + 6 : 11
+      const qy = out[yi]
+      const qz = out[zi]
+      out[yi] = c * qy + s * qz
+      out[zi] = -s * qy + c * qz
+    }
+  }
+  // The roll turns the picture about the line of sight
+  if (roll !== 0) {
+    const c = Math.cos(roll)
+    const s = Math.sin(roll)
+    for (let column = 0; column < 4; column++) {
+      const xi = column < 3 ? column : 9
+      const yi = column < 3 ? column + 3 : 10
+      const qx = out[xi]
+      const qy = out[yi]
+      out[xi] = c * qx + s * qy
+      out[yi] = -s * qx + c * qy
+    }
+  }
+}
+
 // The camera now and in the frame before, kept at module level so the loop allocates nothing
-const turn = new Float64Array(9)
-const turnFrom = new Float64Array(9)
+const pose = new Float64Array(POSE_SLOTS)
+const poseFrom = new Float64Array(POSE_SLOTS)
 
 // Liang-Barsky clipping state, as in the flat loop
 let clipStart = 0
@@ -133,25 +200,38 @@ export function stepRange3d (
   // they are this many scene units
   const pivot = holeDepth
   const worldPerPixel = pivot / focal
-  cameraTurn(settings.cameraYaw, settings.cameraPitch, turn)
-  cameraTurn(settings.cameraYawFrom, settings.cameraPitchFrom, turnFrom)
-  // Row 0 has no y term: yaw turns around the vertical
-  const m0 = turn[0]
-  const m2 = turn[2]
-  const m3 = turn[3]
-  const m4 = turn[4]
-  const m5 = turn[5]
-  const m6 = turn[6]
-  const m7 = turn[7]
-  const m8 = turn[8]
-  const f0 = turnFrom[0]
-  const f2 = turnFrom[2]
-  const f3 = turnFrom[3]
-  const f4 = turnFrom[4]
-  const f5 = turnFrom[5]
-  const f6 = turnFrom[6]
-  const f7 = turnFrom[7]
-  const f8 = turnFrom[8]
+  cameraPose(
+    settings.cameraYaw, settings.cameraPitch, settings.cameraRoll, settings.cameraLookYaw, settings.cameraLookPitch,
+    settings.cameraMoveRight, settings.cameraMoveUp, settings.cameraMoveIn, pivot, pose
+  )
+  cameraPose(
+    settings.cameraYawFrom, settings.cameraPitchFrom, settings.cameraRollFrom, settings.cameraLookYawFrom,
+    settings.cameraLookPitchFrom, settings.cameraMoveRightFrom, settings.cameraMoveUpFrom, settings.cameraMoveInFrom, pivot, poseFrom
+  )
+  const m0 = pose[0]
+  const m1 = pose[1]
+  const m2 = pose[2]
+  const m3 = pose[3]
+  const m4 = pose[4]
+  const m5 = pose[5]
+  const m6 = pose[6]
+  const m7 = pose[7]
+  const m8 = pose[8]
+  const b0 = pose[9]
+  const b1 = pose[10]
+  const b2 = pose[11]
+  const f0 = poseFrom[0]
+  const f1 = poseFrom[1]
+  const f2 = poseFrom[2]
+  const f3 = poseFrom[3]
+  const f4 = poseFrom[4]
+  const f5 = poseFrom[5]
+  const f6 = poseFrom[6]
+  const f7 = poseFrom[7]
+  const f8 = poseFrom[8]
+  const g0 = poseFrom[9]
+  const g1 = poseFrom[10]
+  const g2 = poseFrom[11]
 
   const step = settings.speed * frameScale
   const pulseRate = settings.pulseSpeedMultiplier
@@ -221,9 +301,9 @@ export function stepRange3d (
     const startZ = z[i]
     // Where the particle stood, through the camera of the frame before
     const rz = startZ - pivot
-    let sx = f0 * px + f2 * rz
-    let sy = f3 * px + f4 * py + f5 * rz
-    let sz = f6 * px + f7 * py + f8 * rz + pivot
+    let sx = f0 * px + f1 * py + f2 * rz + g0
+    let sy = f3 * px + f4 * py + f5 * rz + g1
+    let sz = f6 * px + f7 * py + f8 * rz + g2
 
     let pz = startZ - step * speedMultiplier[i]
     if (pz <= 0) {
@@ -255,7 +335,7 @@ export function stepRange3d (
         if (distSq < captureRadiusSq) {
           if (ringEnergy) {
             // The light lands on the ring where the particle is seen around the hole
-            const ringX = -(m0 * dx + m2 * dz)
+            const ringX = -(m0 * dx + m1 * dy + m2 * dz)
             const ringY = -(m3 * dx + m4 * dy + m5 * dz)
             if (later) noteDeposit(later, from, ringX, ringY, captureEnergy)
             else depositRingEnergy(ringEnergy, ringX, ringY, captureEnergy)
@@ -266,7 +346,7 @@ export function stepRange3d (
         }
 
         if (ringEnergy && distSq < skimRadiusSq) {
-          const ringX = -(m0 * dx + m2 * dz)
+          const ringX = -(m0 * dx + m1 * dy + m2 * dz)
           const ringY = -(m3 * dx + m4 * dy + m5 * dz)
           if (later) noteDeposit(later, from, ringX, ringY, skimEnergy)
           else depositRingEnergy(ringEnergy, ringX, ringY, skimEnergy)
@@ -346,9 +426,9 @@ export function stepRange3d (
 
     // Where it stands now, through the camera of this frame
     const ez0 = pz - pivot
-    let ex = m0 * px + m2 * ez0
-    let ey = m3 * px + m4 * py + m5 * ez0
-    let ez = m6 * px + m7 * py + m8 * ez0 + pivot
+    let ex = m0 * px + m1 * py + m2 * ez0 + b0
+    let ey = m3 * px + m4 * py + m5 * ez0 + b1
+    let ez = m6 * px + m7 * py + m8 * ez0 + b2
 
     // A stroke that passes behind the camera is cut where it crosses the near plane
     if (sz < NEAR || ez < NEAR) {

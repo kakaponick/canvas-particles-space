@@ -271,6 +271,15 @@ export interface ParticleState {
   cameraYaw: number
   cameraPitch: number
   cameraSpin: number
+  // Where the 3D camera stands and looks beyond its circle: degrees it rolls (positive turns the picture
+  // anticlockwise), degrees its head turns right and up from the black hole, and black hole radii it moves
+  // right, up and in toward what it circles
+  cameraRoll: number
+  cameraLookYaw: number
+  cameraLookPitch: number
+  cameraMoveRight: number
+  cameraMoveUp: number
+  cameraMoveIn: number
   // Share of Field Depth over which the 3D column of particles fades at both its ends, seen from the side
   threeDEndFade: number
   // Seconds the 3D camera takes between the flat view and its place, and the nearest point it circles, as
@@ -468,6 +477,12 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   cameraYaw: 40,
   cameraPitch: 20,
   cameraSpin: 0,
+  cameraRoll: 0,
+  cameraLookYaw: 0,
+  cameraLookPitch: 0,
+  cameraMoveRight: 0,
+  cameraMoveUp: 0,
+  cameraMoveIn: 0,
   threeDEndFade: 0.12,
   threeDEase: 1.2,
   threeDNearest: 0.05,

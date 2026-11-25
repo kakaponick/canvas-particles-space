@@ -125,7 +125,8 @@ export interface StepSettings {
   // 1 steps the field in three dimensions (particle_simulation_3d.ts), 0 with the flat loop below. The
   // rest is read by the 3D loop alone: the two black holes in scene units, and the camera turned around
   // the point at holeDepth on the line of flight, in radians, now and in the frame before (where a stroke
-  // starts)
+  // starts), then where it stands and looks beyond that circle (cameraPose): its roll and the turn of its
+  // head, in radians, and its move right, up and in, in scene units, now and in the frame before
   threeD: number
   holeWorldX: number
   holeWorldY: number
@@ -137,6 +138,18 @@ export interface StepSettings {
   cameraPitch: number
   cameraYawFrom: number
   cameraPitchFrom: number
+  cameraRoll: number
+  cameraLookYaw: number
+  cameraLookPitch: number
+  cameraMoveRight: number
+  cameraMoveUp: number
+  cameraMoveIn: number
+  cameraRollFrom: number
+  cameraLookYawFrom: number
+  cameraLookPitchFrom: number
+  cameraMoveRightFrom: number
+  cameraMoveUpFrom: number
+  cameraMoveInFrom: number
   // Seen from the side, the 3D column fades over this share of Field Depth at both of its ends, so the
   // place particles are born and the place they leave are not hard edges
   endFade: number
@@ -388,6 +401,18 @@ export function createStepSettings (ringEnergy: RingEnergy | null = null): StepS
     cameraPitch: 0,
     cameraYawFrom: 0,
     cameraPitchFrom: 0,
+    cameraRoll: 0,
+    cameraLookYaw: 0,
+    cameraLookPitch: 0,
+    cameraMoveRight: 0,
+    cameraMoveUp: 0,
+    cameraMoveIn: 0,
+    cameraRollFrom: 0,
+    cameraLookYawFrom: 0,
+    cameraLookPitchFrom: 0,
+    cameraMoveRightFrom: 0,
+    cameraMoveUpFrom: 0,
+    cameraMoveInFrom: 0,
     endFade: 0.12
   }
 }

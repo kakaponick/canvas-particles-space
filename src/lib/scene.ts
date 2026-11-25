@@ -13,7 +13,7 @@ import {
   stepParticles,
   type SpawnSettings
 } from './particle_simulation'
-import { cameraTurn, stepParticles3d } from './particle_simulation_3d'
+import { POSE_SLOTS, cameraPose, cameraTurn, stepParticles3d } from './particle_simulation_3d'
 import { createParticleRenderer, type FrameInput, type ParticleRenderer } from './particle_renderer'
 import { createIntroFrame, getRingdownTiming, ringdownWobble, sampleIntro, type IntroFrame, type RingdownTiming } from './intro_timeline'
 import { INTRO_LAYERS, type IntroLayer } from './intro_tracks'
@@ -23,7 +23,7 @@ import { stepSpring, type Spring2D } from './black_hole_motion'
 import { renderTitleSprite, waitForTitleFont, type TitleSprite, type TitleStyle } from './title_sprite'
 export type { TitleSprite } from './title_sprite'
 import { clearRingEnergy, createRingEnergy, stepRingEnergy } from './ring_energy'
-import { createGridSettings, placeGrid, turnGrid } from './space_grid'
+import { createGridSettings, placeGrid, rollGrid, turnGrid } from './space_grid'
 import { LATTICE_LINES_PER_SIDE, createLatticeSettings, latticeAnchor } from './space_lattice'
 import { LIGHT_SPEED, SHADOW_RADII, clearOrbiters, createOrbitTuning, createOrbiters, stepOrbiters } from './orbiters'
 import { createPair, stepPair } from './companion'
@@ -226,9 +226,14 @@ export function createScene (
 
   const settings = createStepSettings(ringEnergy)
   // The 3D camera: how far it has eased from the flat view (0) to its place (1), the radians it has turned
-  // on its own, the turn the field was last stepped with, and whether that step was in 3D
-  const view = { blend: 0, spin: 0, yaw: 0, pitch: 0, stepped: false }
+  // on its own, the pose the field was last stepped with, and whether that step was in 3D
+  const view = {
+    blend: 0, spin: 0, yaw: 0, pitch: 0, roll: 0, lookYaw: 0, lookPitch: 0, moveRight: 0, moveUp: 0, moveIn: 0, stepped: false
+  }
+  // The camera's circle round the pivot, which places things in the scene, and its whole pose, which
+  // sees them (cameraPose)
   const turn = new Float64Array(9)
+  const pose = new Float64Array(POSE_SLOTS)
   // A point of the scene as the camera sees it: CSS pixels and its distance in front of the camera
   const seen = { x: 0, y: 0, depth: 1 }
 
@@ -421,6 +426,7 @@ export function createScene (
       skyGridLine: 1.5,
       starShiftX: 0,
       starShiftY: 0,
+      skyRoll: 0,
       gridShiftX: 0,
       gridShiftY: 0,
       colorFlash: 0xffffff,
@@ -587,13 +593,13 @@ export function createScene (
     return true
   }
 
-  // Where the 3D camera sees a point of the scene (turn, around the pivot at this depth), into `seen`
+  // Where the 3D camera sees a point of the scene (its pose, around the pivot at this depth), into `seen`
   function look (x: number, y: number, z: number, pivot: number, focal: number) {
     const away = z - pivot
-    const depth = turn[6] * x + turn[7] * y + turn[8] * away + pivot
+    const depth = pose[6] * x + pose[7] * y + pose[8] * away + pose[11]
     const scale = focal / Math.max(depth, NEAR_DEPTH)
-    seen.x = (turn[0] * x + turn[1] * y + turn[2] * away) * scale + settings.vanishX
-    seen.y = (turn[3] * x + turn[4] * y + turn[5] * away) * scale + settings.vanishY
+    seen.x = (pose[0] * x + pose[1] * y + pose[2] * away + pose[9]) * scale + settings.vanishX
+    seen.y = (pose[3] * x + pose[4] * y + pose[5] * away + pose[10]) * scale + settings.vanishY
     seen.depth = depth
   }
 
@@ -774,15 +780,38 @@ export function createScene (
       view.blend = blendTarget > view.blend ? Math.min(view.blend + move, 1) : Math.max(view.blend - move, 0)
     }
     const threeD = state.threeD || view.blend > 0
-    // The camera's turn and elevation, in radians (0 in the flat view)
+    // The camera's turn and elevation, in radians (0 in the flat view), then where it stands and looks
+    // beyond its circle: its roll and the turn of its head, in radians, and its move right, up and in, in
+    // scene units. The circle places things in the scene (the pair's plane); the pose is how they are seen
     let yaw = 0
     let pitch = 0
+    let roll = 0
+    let lookYaw = 0
+    let lookPitch = 0
+    let moveRight = 0
+    let moveUp = 0
+    let moveIn = 0
+    // The point the camera circles, and how much nearer to it than that the camera's move has brought it
+    const pivot = Math.max(state.farZ * state.blackHoleDepth / 100, state.farZ * state.threeDNearest)
+    let nearer = 1
     if (threeD) {
       view.spin = (view.spin + state.cameraSpin * DEGREE * dt) % FULL_TURN
       const eased = view.blend * view.blend * (3 - 2 * view.blend)
       yaw = eased * (state.cameraYaw * DEGREE + view.spin)
       pitch = eased * state.cameraPitch * DEGREE
+      roll = eased * state.cameraRoll * DEGREE
+      lookYaw = eased * state.cameraLookYaw * DEGREE
+      lookPitch = eased * state.cameraLookPitch * DEGREE
+      // The moves are in radii of the hole at its full size, or of the lattice's stand-in without one
+      const moveUnit = eased * (shadowRadius > 0 ? shadowRadius : state.gridLatticeUnit * shortSide) * pivot / Math.max(centerX, centerY)
+      moveRight = state.cameraMoveRight * moveUnit
+      moveUp = state.cameraMoveUp * moveUnit
+      moveIn = state.cameraMoveIn * moveUnit
       cameraTurn(yaw, pitch, turn)
+      cameraPose(yaw, pitch, roll, lookYaw, lookPitch, moveRight, moveUp, moveIn, pivot, pose)
+      if (moveRight !== 0 || moveUp !== 0 || moveIn !== 0) {
+        nearer = pivot / Math.max(Math.hypot(moveRight, moveUp, pivot - moveIn), NEAR_DEPTH)
+      }
     } else {
       view.spin = 0
     }
@@ -804,18 +833,19 @@ export function createScene (
     let spinUp = sceneUp
     let spinToward = sceneToward
     if (threeD) {
-      spinRight = turn[0] * sceneRight - turn[1] * sceneUp - turn[2] * sceneToward
-      spinUp = -(turn[3] * sceneRight - turn[4] * sceneUp - turn[5] * sceneToward)
-      spinToward = -(turn[6] * sceneRight - turn[7] * sceneUp - turn[8] * sceneToward)
+      spinRight = pose[0] * sceneRight - pose[1] * sceneUp - pose[2] * sceneToward
+      spinUp = -(pose[3] * sceneRight - pose[4] * sceneUp - pose[5] * sceneToward)
+      spinToward = -(pose[6] * sceneRight - pose[7] * sceneUp - pose[8] * sceneToward)
     }
     const across = Math.sqrt(spinRight * spinRight + spinUp * spinUp)
     const spin = horizon > 0 ? Math.min(Math.sqrt(across * across + spinToward * spinToward), SPIN_MAX) : 0
     const spinTilt = Math.atan2(across, spinToward)
     const spinAxis = across > 0 ? Math.atan2(-spinRight, spinUp) : ownAxis
     // Where the camera stands: the Ray Traced lens and the shadow's outline see the hole from there. A hole
-    // still growing, or grown by a merger, is a lighter or heavier one seen from the same place
+    // still growing, or grown by a merger, is a lighter or heavier one seen from the same place, and a 3D
+    // camera that moves nearer sees it from nearer
     const mass = horizon / (shadowShare * shortSide)
-    const cameraU = Math.min((state.lensingRadius > 0 ? cameraFor(state.lensingRadius) : FAR_CAMERA) * mass, 1 / CLOSEST_CAMERA)
+    const cameraU = Math.min((state.lensingRadius > 0 ? cameraFor(state.lensingRadius) : FAR_CAMERA) * mass * nearer, 1 / CLOSEST_CAMERA)
     updateShadowShape(shadowShape, spin, spinTilt, cameraU)
     // Particles are captured on the circle that fits the outline, which spin shifts off the hole's centre
     const shapeCos = Math.cos(spinAxis)
@@ -895,9 +925,8 @@ export function createScene (
     let viewPitch = 0
     const composite = frame.composite
     if (threeD) {
-      // The camera never circles a point nearer than a share of Field Depth, so a black hole at depth 0
-      // still has room around it
-      const pivot = Math.max(settings.holeDepth, state.farZ * state.threeDNearest)
+      // The camera never circles a point nearer than a share of Field Depth (pivot, above), so a black hole
+      // at depth 0 still has room around it
       const focal = settings.focal
       const worldPerPixel = pivot / focal
       // The pair's centre stands where the black hole is on the screen, as far away as the pivot; the two
@@ -921,52 +950,76 @@ export function createScene (
       look(settings.holeWorldX, settings.holeWorldY, pairZ, pivot, focal)
       holeX = seen.x
       holeY = seen.y
-      holeScale = pivot / Math.max(seen.depth, NEAR_DEPTH)
+      // A hole the camera has flown past is not drawn
+      const holeBehind = seen.depth <= NEAR_DEPTH
+      holeScale = holeBehind ? 0 : pivot / seen.depth
       settings.holeX = holeX
       settings.holeY = holeY
       settings.holeDepth = pivot
       settings.threeD = 1
       settings.cameraYaw = yaw
       settings.cameraPitch = pitch
+      settings.cameraRoll = roll
+      settings.cameraLookYaw = lookYaw
+      settings.cameraLookPitch = lookPitch
+      settings.cameraMoveRight = moveRight
+      settings.cameraMoveUp = moveUp
+      settings.cameraMoveIn = moveIn
       viewYaw = yaw
       viewPitch = pitch
-      // Strokes start where the particles were seen in the frame before, unless the camera jumped
+      // Strokes start where the particles were seen in the frame before, unless the camera jumped: turned
+      // by more than Cut at Turn, or moved by more than Cut at Move would show at the pivot
       let turned = yaw - view.yaw
       turned -= FULL_TURN * Math.round(turned / FULL_TURN)
       const cutTurn = state.cameraCutTurn
-      const cut = !view.stepped || Math.abs(turned) > cutTurn || Math.abs(pitch - view.pitch) > cutTurn
+      const moved = Math.hypot(moveRight - view.moveRight, moveUp - view.moveUp, moveIn - view.moveIn) / worldPerPixel
+      const cut = !view.stepped || Math.abs(turned) > cutTurn || Math.abs(pitch - view.pitch) > cutTurn ||
+        Math.abs(roll - view.roll) > cutTurn || Math.abs(lookYaw - view.lookYaw) > cutTurn ||
+        Math.abs(lookPitch - view.lookPitch) > cutTurn || moved > state.cameraCutShift
       settings.cameraYawFrom = cut ? yaw : view.yaw
       settings.cameraPitchFrom = cut ? pitch : view.pitch
+      settings.cameraRollFrom = cut ? roll : view.roll
+      settings.cameraLookYawFrom = cut ? lookYaw : view.lookYaw
+      settings.cameraLookPitchFrom = cut ? lookPitch : view.lookPitch
+      settings.cameraMoveRightFrom = cut ? moveRight : view.moveRight
+      settings.cameraMoveUpFrom = cut ? moveUp : view.moveUp
+      settings.cameraMoveInFrom = cut ? moveIn : view.moveIn
       // The orbiting stars circle the main hole across the line of flight too: the renderer turns their
-      // traces with the camera's columns for that plane and sets them at the hole's distance
+      // traces with the camera's columns for that plane and sets them at the hole's distance (below 0: the
+      // hole is behind the camera and they are not drawn)
       const orbitTurn = frame.orbitTurn
-      orbitTurn[0] = turn[0]
-      orbitTurn[1] = turn[3]
-      orbitTurn[2] = turn[6]
-      orbitTurn[3] = turn[1]
-      orbitTurn[4] = turn[4]
-      orbitTurn[5] = turn[7]
+      orbitTurn[0] = pose[0]
+      orbitTurn[1] = pose[3]
+      orbitTurn[2] = pose[6]
+      orbitTurn[3] = pose[1]
+      orbitTurn[4] = pose[4]
+      orbitTurn[5] = pose[7]
       frame.orbitFocal = focal
-      frame.orbitDepth = focal / holeScale
+      frame.orbitDepth = holeBehind ? -1 : focal / holeScale
       // The sky is infinitely far: it turns with the camera and does not move with its place. A full turn
       // slides the stars and the lensed grid by whole cells, so a turn past 180 degrees does not jump
       const starWrap = state.starCell * Math.max(1, Math.round(FULL_TURN * focal / state.starCell))
       const gridCell = state.gridCell / 100 * shortSide
       const gridWrap = gridCell * Math.max(1, Math.round(FULL_TURN * focal / gridCell))
-      composite.starShiftX = yaw / FULL_TURN * starWrap
-      composite.starShiftY = pitch * focal
-      composite.gridShiftX = yaw / FULL_TURN * gridWrap
-      composite.gridShiftY = pitch * focal
+      // The head turns the view as the circle does, and looking up is the circle's elevation the other way
+      const skyYaw = lookYaw === 0 ? yaw : yaw + lookYaw
+      const skyPitch = lookPitch === 0 ? pitch : pitch - lookPitch
+      composite.starShiftX = skyYaw / FULL_TURN * starWrap
+      composite.starShiftY = skyPitch * focal
+      composite.gridShiftX = skyYaw / FULL_TURN * gridWrap
+      composite.gridShiftY = skyPitch * focal
+      composite.skyRoll = roll
       // The nebula repeats in nothing, so it slides by the share of a full turn the camera has made and
       // the composite pass blends it into itself as the turn comes round
       composite.nebulaWrap = FULL_TURN * focal
-      composite.nebulaShiftX = ((yaw % FULL_TURN) + FULL_TURN) % FULL_TURN * focal
-      composite.nebulaShiftY = pitch * focal
+      composite.nebulaShiftX = ((skyYaw % FULL_TURN) + FULL_TURN) % FULL_TURN * focal
+      composite.nebulaShiftY = skyPitch * focal
     } else {
       settings.threeD = 0
       frame.orbitFocal = 0
       composite.starShiftX = 0
       composite.starShiftY = 0
+      composite.skyRoll = 0
       composite.gridShiftX = 0
       composite.gridShiftY = 0
       composite.nebulaWrap = 0
@@ -987,6 +1040,12 @@ export function createScene (
       }
       view.yaw = settings.cameraYaw
       view.pitch = settings.cameraPitch
+      view.roll = settings.cameraRoll
+      view.lookYaw = settings.cameraLookYaw
+      view.lookPitch = settings.cameraLookPitch
+      view.moveRight = settings.cameraMoveRight
+      view.moveUp = settings.cameraMoveUp
+      view.moveIn = settings.cameraMoveIn
       view.stepped = threeD
       // The orbiting stars circle the hole at its full size and light up as it forms. The renderer keeps
       // the stretches they fly and draws the traces from them, around the hole as it is this frame
@@ -1178,7 +1237,8 @@ export function createScene (
     composite.ringWidth = state.ringWidth
     composite.ringGlow = state.ringGlow
     composite.ringDoppler = state.ringDoppler
-    composite.ringSide = state.ringSide
+    // A rolling 3D camera turns the bright side with the rest of the picture
+    composite.ringSide = roll === 0 ? state.ringSide : state.ringSide + roll
     composite.ringPhase = ringEnergy.phase
     composite.ringBase = ringFed ? state.ringBase : 1
     composite.ringFeed = ringFed ? state.ringFeed : 0
@@ -1364,12 +1424,31 @@ export function createScene (
       grid.clearFrom = state.gridClearing
       grid.clearTo = state.gridClearingEdge
       grid.waveLift = state.gridWaveLift
+      // A camera that rolls turns the sheet about the middle of the screen: it is laid out for the holes as
+      // they stand before the roll, and the roll is turned in when it is drawn
+      let sheetHoleX = holeX
+      let sheetHoleY = holeY
+      let sheetCompanionX = settings.companionX
+      let sheetCompanionY = settings.companionY
+      if (roll !== 0) {
+        const c = Math.cos(roll)
+        const s = Math.sin(roll)
+        const hx = holeX - centerX
+        const hy = holeY - centerY
+        const kx = settings.companionX - centerX
+        const ky = settings.companionY - centerY
+        sheetHoleX = centerX + c * hx - s * hy
+        sheetHoleY = centerY + s * hx + c * hy
+        sheetCompanionX = centerX + c * kx - s * ky
+        sheetCompanionY = centerY + s * kx + c * ky
+      }
       placeGrid(
-        grid, sheetTilt, state.gridDepth, gridCell, viewportWidth, viewportHeight, holeX, holeY, horizon * holeScale,
-        settings.companionX, settings.companionY, companionRadius * companionScale, hole.x, hole.y, pair.mergedPhase,
+        grid, sheetTilt, state.gridDepth, gridCell, viewportWidth, viewportHeight, sheetHoleX, sheetHoleY, horizon * holeScale,
+        sheetCompanionX, sheetCompanionY, companionRadius * companionScale, hole.x, hole.y, pair.mergedPhase,
         state.gridDistance, state.gridSpan, state.gridFade
       )
       turnGrid(grid, viewYaw)
+      rollGrid(grid, roll)
     }
 
     // The lattice stands in the scene around the black hole and is seen by the 3D camera, or straight on
@@ -1378,11 +1457,10 @@ export function createScene (
     const lattice = frame.lattice
     lattice.brightness = state.gridLattice
     if (state.gridLattice > 0) {
-      const pivot = Math.max(settings.holeDepth, state.farZ * state.threeDNearest)
       const worldPerPixel = pivot / settings.focal
       const latticeTurn = lattice.turn
       if (threeD) {
-        latticeTurn.set(turn)
+        latticeTurn.set(pose)
         lattice.holeX = settings.holeWorldX
         lattice.holeY = settings.holeWorldY
         lattice.holeZ = settings.holeWorldZ
@@ -1394,6 +1472,7 @@ export function createScene (
         latticeTurn[0] = 1
         latticeTurn[4] = 1
         latticeTurn[8] = 1
+        latticeTurn[11] = pivot
         lattice.holeX = (holeX - settings.vanishX) * worldPerPixel
         lattice.holeY = (holeY - settings.vanishY) * worldPerPixel
         lattice.holeZ = pivot

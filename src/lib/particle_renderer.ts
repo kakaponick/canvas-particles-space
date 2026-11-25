@@ -256,6 +256,9 @@ export interface CompositeSettings {
   // in the flat mode
   starShiftX: number
   starShiftY: number
+  // A 3D camera's roll, in radians (positive: the picture turns anticlockwise); the sky turns with it
+  // about the middle of the screen
+  skyRoll: number
   gridShiftX: number
   gridShiftY: number
   // Colours of the intro, 0xRRGGBB
@@ -560,16 +563,16 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     'titleFringe', 'titleHalo', 'titleRedshift', 'titleGrain', 'titleBurn', 'titleFall', 'titleTidal', 'titleSpiral', 'titleSpread', 'titleStream', 'titleOrder', 'titleTrail', 'titleHeat', 'dustSweep', 'echoFloor', 'dustShock', 'dustBlow', 'dustDrift',
     'titleSpeck', 'titleWinkRest', 'titleWind', 'titleBurnShape', 'titleBurnRimWidth', 'titleFallShape', 'titleDustShape', 'titleDustCut', 'titleBurnEdge',
     'echoShape', 'echoSwell', 'dustMotion', 'dustFlare', 'starFlareRate', 'remnantShape', 'vignetteSpan', 'knee',
-    'skyGrid', 'gridCell', 'skyGridLine', 'skyShift', 'orbits', 'nebula', 'nebulaColor', 'nebulaColorDeep', 'nebulaColorCore', 'nebulaShape', 'nebulaLook', 'nebulaPatch', 'nebulaDrift', 'gridPull', 'gridColor', 'gridHaze',
+    'skyGrid', 'gridCell', 'skyGridLine', 'skyShift', 'skyRoll', 'orbits', 'nebula', 'nebulaColor', 'nebulaColorDeep', 'nebulaColorCore', 'nebulaShape', 'nebulaLook', 'nebulaPatch', 'nebulaDrift', 'gridPull', 'gridColor', 'gridHaze',
     'colorFlash', 'colorLight', 'colorDust', 'colorTitle', 'colorEmber',
     'cameraZoom', 'zoomCenter', 'layerZoom', 'shake', 'lensFringe', 'vignette', 'filmGrain', 'letterbox'
   ] as const)
   const gridUniforms = getUniforms(gl, gridProgram, [
-    'resolution', 'pixelRatio', 'view', 'camera', 'well', 'lines', 'wave', 'waveSpread', 'waveTurn', 'lens', 'jolt', 'color', 'shadow', 'frame', 'well2', 'pairWave', 'pairAt', 'pairFront', 'shadow2', 'spin', 'sheet', 'clearing'
+    'resolution', 'pixelRatio', 'view', 'camera', 'well', 'lines', 'wave', 'waveSpread', 'waveTurn', 'lens', 'jolt', 'color', 'shadow', 'frame', 'well2', 'pairWave', 'pairAt', 'pairFront', 'shadow2', 'spin', 'roll', 'sheet', 'clearing'
   ] as const)
 
   const latticeUniforms = getUniforms(gl, latticeProgram, [
-    'resolution', 'zoom', 'row0', 'row1', 'row2', 'vanish', 'hole', 'companion', 'lattice', 'anchor', 'color', 'fade'
+    'resolution', 'zoom', 'row0', 'row1', 'row2', 'shift', 'vanish', 'hole', 'companion', 'lattice', 'anchor', 'color', 'fade'
   ] as const)
 
   gl.useProgram(compositeProgram)
@@ -907,6 +910,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     setUniform4f(gl, u.row0, turn[0], turn[1], turn[2], lattice.focal * ratio)
     setUniform4f(gl, u.row1, turn[3], turn[4], turn[5], lattice.pivot)
     setUniform4f(gl, u.row2, turn[6], turn[7], turn[8], lattice.near)
+    setUniform3f(gl, u.shift, turn[9], turn[10], turn[11])
     setUniform2f(gl, u.vanish, lattice.vanishX * ratio, lattice.vanishY * ratio)
     setUniform4f(gl, u.hole, lattice.holeX, lattice.holeY, lattice.holeZ, lattice.edge)
     setUniform4f(gl, u.companion, lattice.companionX, lattice.companionY, lattice.companionZ, lattice.companionEdge)
@@ -1108,6 +1112,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
       setUniform1f(gl, u.skyGridLine, settings.skyGridLine * 0.5)
     }
     setUniform4f(gl, u.skyShift, settings.starShiftX, settings.starShiftY, settings.gridShiftX, settings.gridShiftY)
+    setUniform3f(gl, u.skyRoll, Math.cos(settings.skyRoll), Math.sin(settings.skyRoll), settings.skyRoll !== 0 ? 1 : 0)
     gl.drawArrays(gl.TRIANGLES, 0, QUAD_VERTEX_COUNT)
   }
 
@@ -1121,6 +1126,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     setUniform4f(gl, u.camera, grid.distance, grid.tiltSin, grid.tiltCos, grid.lineWidth)
     setUniform4f(gl, u.well, grid.wellX, grid.wellZ, grid.throat, grid.depth)
     setUniform4f(gl, u.spin, grid.spinCos, grid.spinSin, grid.spun, 0)
+    setUniform3f(gl, u.roll, grid.rollCos, grid.rollSin, grid.rolled)
     setUniform2f(gl, u.lines, Math.max(grid.cell, 1), Math.max(grid.span, 1))
     setUniform4f(gl, u.sheet, grid.near, grid.lineScale, grid.fadeFrom, 0)
     // Whole no nearer than gone

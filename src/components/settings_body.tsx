@@ -153,7 +153,14 @@ function SettingsBody () {
         <SettingSlider field="cameraPitch" />
         <SettingSlider field="cameraSpin" />
         <SettingsFine id="three-d">
-          {/* The column, then how the camera gets to its place and what counts as its cut */}
+          {/* Where the camera stands and looks beyond its circle, the column, then how the camera gets to its
+              place and what counts as its cut */}
+          <SettingSlider field="cameraRoll" />
+          <SettingSlider field="cameraLookYaw" />
+          <SettingSlider field="cameraLookPitch" />
+          <SettingSlider field="cameraMoveRight" />
+          <SettingSlider field="cameraMoveUp" />
+          <SettingSlider field="cameraMoveIn" />
           <SettingSlider field="threeDEndFade" />
           <SettingSlider field="threeDNearest" />
           <SettingSlider field="threeDEase" />

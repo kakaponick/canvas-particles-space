@@ -8,6 +8,7 @@
 // orbits' traces live in, which the composite pass reads through the lens, so the lattice behind the hole
 // is bent by it and the shadow covers it. The buffer is made the first time the lattice is shown, and the
 // lattice costs the main thread a few numbers a frame while it is on and nothing while it is off.
+import { POSE_SLOTS } from './particle_simulation_3d'
 
 // Lines on each side of the black hole across each axis, and the pieces each line is drawn in
 export const LATTICE_LINES_PER_SIDE = 6
@@ -42,9 +43,9 @@ export interface LatticeSettings {
   companionY: number
   companionZ: number
   companionEdge: number
-  // The camera: its turn (row-major 3 × 3, around the point at `pivot` on the line of flight), its focal
-  // length and the vanishing point in CSS pixels, and the distance under which lines fade out as they
-  // come close to it
+  // The camera: its pose (cameraPose: a turn, row-major 3 × 3, around the point at `pivot` on the line of
+  // flight, then the offset in the camera's space), its focal length and the vanishing point in CSS pixels,
+  // and the distance under which lines fade out as they come close to it
   turn: Float64Array
   pivot: number
   focal: number
@@ -62,7 +63,7 @@ export interface LatticeSettings {
 }
 
 export function createLatticeSettings (): LatticeSettings {
-  const turn = new Float64Array(9)
+  const turn = new Float64Array(POSE_SLOTS)
   turn[0] = 1
   turn[4] = 1
   turn[8] = 1
