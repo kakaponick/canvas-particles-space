@@ -1,7 +1,9 @@
 // A film: the scene as a short video, described by one JSON object. It names its length, frame, seed and
 // starting settings, and is a timeline of five kinds of things: values that move along keyframes (tracks),
 // layers that switch on and off (layers), the intro as a clip (intro), its events fired again (cues) and
-// the pace of the scene's own time (speed), with captions laid over the picture. planFilm checks it against the registries the panels are built from and
+// the pace of the scene's own time (speed), with a fade to black and captions laid over the picture and names
+// for its stretches (shots). A script (film_script.ts) is a shorter way to write this same object.
+// planFilm checks it against the registries the panels are built from and
 // turns it into a plan the renderer (film_render.ts) plays frame by frame. A film starts from the page's
 // defaults, never from what this browser happens to have set, so the same film is the same video anywhere.
 import { DEFAULT_PRESET, BUILT_IN_PRESETS, usePresetStore } from '../store/preset_store'
@@ -24,8 +26,8 @@ export const FILM_SIZES: Record<string, readonly [number, number]> = {
   square: [1080, 1080]
 }
 const FILM_SCALES = [0.5, 1, 1.5, 2]
-const MIN_DURATION = 0.5
-const MAX_DURATION = 180
+export const MIN_DURATION = 0.5
+export const MAX_DURATION = 180
 const MIN_FPS = 12
 // Up to 60 for the web; above it for a fast display, or to slow the film down afterwards
 const MAX_FPS = 240
@@ -38,9 +40,9 @@ const DEFAULT_WARMUP = 2
 const MAX_WARMUP = 10
 const CAPTION_FADE = 0.35
 // The most scene seconds one film second may hold: time-lapse; 0 is a still frame
-const MAX_SPEED = 4
+export const MAX_SPEED = 4
 
-const EASES = ['ease', 'linear', 'in', 'out', 'hold'] as const
+export const EASES = ['ease', 'linear', 'in', 'out', 'hold'] as const
 type Ease = typeof EASES[number]
 
 export const CAPTION_PLACES = ['bottom', 'top', 'center', 'hole', 'einstein', 'companion'] as const
@@ -66,8 +68,9 @@ export interface FilmCaption {
 
 export interface FilmTrack {
   key: string
-  // What the key belongs to: a half of the scene's input, the layer switches, or the film's own pace
-  target: 'settings' | 'params' | 'layers' | 'speed'
+  // What the key belongs to: a half of the scene's input, the layer switches, the film's own pace, or the
+  // dark laid over its picture
+  target: 'settings' | 'params' | 'layers' | 'speed' | 'fade'
   // A colour moves channel by channel
   color: boolean
   // A switch: its values are 0 and 1, and it flips at a key's second instead of moving towards it
@@ -88,6 +91,13 @@ export interface FilmCue {
   title: TitleText | null
 }
 
+// A stretch of the film with a name: it changes no frame, and is what a preview shows one frame of
+export interface FilmShot {
+  name: string
+  from: number
+  to: number
+}
+
 export interface FilmPlan {
   duration: number
   fps: number
@@ -105,6 +115,9 @@ export interface FilmPlan {
   introEnds: number | null
   // Scene seconds that pass in one film second, along keyframes; null is 1 throughout
   speed: FilmTrack | null
+  // Share of black laid over the picture and under the captions, along keyframes; null is none
+  fade: FilmTrack | null
+  shots: FilmShot[]
   cues: FilmCue[]
   warmup: number
   // The scene's input; tracks write into both as the film plays
@@ -150,12 +163,12 @@ function faceFor<Face extends string> (text: string, face: Face, where: string, 
   return 'unbounded'
 }
 
-const FILM_KEYS = ['duration', 'fps', 'size', 'width', 'height', 'scale', 'seed', 'preset', 'settings', 'intro', 'warmup', 'speed', 'tracks', 'layers', 'cues', 'captions']
+const FILM_KEYS = ['duration', 'fps', 'size', 'width', 'height', 'scale', 'seed', 'preset', 'settings', 'intro', 'warmup', 'speed', 'fade', 'tracks', 'layers', 'cues', 'captions', 'shots']
 const CUE_KEYS = ['at', 'play', 'params', 'title', 'font', 'uppercase']
 const INTRO_FILM_KEYS = ['at', 'preset', 'params', 'title', 'font', 'uppercase', 'hide']
 const CAPTION_KEYS = ['text', 'from', 'to', 'at', 'angle', 'size', 'color', 'font', 'fade']
 // The switches a film can flip along its tracks; it has no cursor for the black hole to follow
-const TRACK_SWITCHES = SETTING_KEYS.filter(key => key in TOGGLES && key !== 'blackHoleFollowing')
+export const TRACK_SWITCHES = SETTING_KEYS.filter(key => key in TOGGLES && key !== 'blackHoleFollowing')
 
 function inRange (key: string, value: unknown, min: number, max: number, notes: string[]) {
   const number = asNumber(key, value)
@@ -262,13 +275,29 @@ function readLayers (source: unknown, duration: number, attempt: Attempt): FilmT
   }, []))
 }
 
-// How fast the scene's time runs: one number for the whole film, or keyframes. Real time throughout is no track
-function readSpeed (source: unknown, duration: number, notes: string[]): FilmTrack | null {
+// A value of the film itself: one number for the whole film, or keyframes. A film that keeps it at `rest`
+// throughout has no track. Speed is how fast the scene's time runs, fade the dark over the picture
+function readPace (key: 'speed' | 'fade', source: unknown, duration: number, max: number, rest: number, notes: string[]): FilmTrack | null {
   if (source === undefined) return null
-  const read = (value: unknown) => inRange('speed', value, 0, MAX_SPEED, notes)
-  const keys = typeof source === 'number' ? { times: [0], values: [read(source)], eases: ['ease' as Ease] } : readKeyframes('speed', source, duration, read)
-  if (keys.values.every(value => value === 1)) return null
-  return { key: 'speed', target: 'speed', color: false, toggle: false, ...keys }
+  const read = (value: unknown) => inRange(key, value, 0, max, notes)
+  const keys = typeof source === 'number' ? { times: [0], values: [read(source)], eases: ['ease' as Ease] } : readKeyframes(key, source, duration, read)
+  if (keys.values.every(value => value === rest)) return null
+  return { key, target: key, color: false, toggle: false, ...keys }
+}
+
+function readShots (source: unknown, duration: number, attempt: Attempt): FilmShot[] {
+  if (source === undefined) return []
+  if (!Array.isArray(source)) fail('shots take an array: [{ name, from, to }]')
+  return source.flatMap((entry, index) => attempt<FilmShot[]>(() => {
+    const where = `shots[${index}]`
+    if (!isObject(entry)) fail(`${where} is not an object`)
+    takeKnown(entry, ['name', 'from', 'to'], `${where}.`, attempt)
+    if (typeof entry.name !== 'string' || entry.name.trim() === '') fail(`${where}.name takes what the shot is called`)
+    const from = clamp(asNumber(`${where}.from`, entry.from ?? 0), 0, duration)
+    const to = clamp(asNumber(`${where}.to`, entry.to ?? duration), 0, duration)
+    if (to <= from) fail(`${where}: to (${to}) must be later than from (${from})`)
+    return [{ name: entry.name.trim(), from, to }]
+  }, [])).sort((a, b) => a.from - b.from)
 }
 
 function readCues (source: unknown, duration: number, title: TitleText, notes: string[], attempt: Attempt): FilmCue[] {
@@ -447,7 +476,9 @@ export function planFilm (source: unknown): FilmPlan {
     : 0
 
   const frames = Math.max(1, Math.round(duration * fps))
-  const speed = attempt(() => readSpeed(source.speed, duration, notes), null)
+  const speed = attempt(() => readPace('speed', source.speed, duration, MAX_SPEED, 1, notes), null)
+  const fade = attempt(() => readPace('fade', source.fade, duration, 1, 0, notes), null)
+  const shots = attempt(() => readShots(source.shots, duration, attempt), [])
   // The intro runs on the scene's clock, which a speed track bends: "at" stays a second of the film
   let introTime = 0
   let introEnds: number | null = null
@@ -505,6 +536,8 @@ export function planFilm (source: unknown): FilmPlan {
     introEnds,
     warmup,
     speed,
+    fade,
+    shots,
     settings,
     params,
     hidden,
@@ -529,14 +562,22 @@ function sceneSeconds (speed: FilmTrack | null, fps: number, frames: number) {
   return passed
 }
 
-// How fast the scene's time runs at this second of the film
+// How fast the scene's time runs at this second of the film, and how dark the picture is
 export const filmSpeed = (plan: FilmPlan, time: number) => plan.speed ? trackValue(plan.speed, time) : 1
+export const filmFade = (plan: FilmPlan, time: number) => plan.fade ? trackValue(plan.fade, time) : 0
+
+// Keys above which a track is taken for a path drawn by a function, not written by hand
+const LONG_TRACK = 24
 
 function trackWords (track: FilmTrack) {
   const word = (value: number) => track.toggle
     ? (track.target === 'layers' ? (value === 1 ? 'on' : 'off') : String(value === 1))
     : track.color ? '#' + value.toString(16).padStart(6, '0') : seconds(value)
-  const shown = track.values.slice(0, 6).map(word).join(' > ') + (track.values.length > 6 ? ' > ...' : '')
+  // A path drawn by a function is hundreds of keys: its ends and how far it goes say more than its first six
+  const drawn = track.values.length > LONG_TRACK && !track.toggle && !track.color
+  const shown = drawn
+    ? `${word(track.values[0])} > ... > ${word(track.values[track.values.length - 1])} (${track.values.length} keys between ${word(Math.min(...track.values))} and ${word(Math.max(...track.values))})`
+    : track.values.slice(0, 6).map(word).join(' > ') + (track.values.length > 6 ? ' > ...' : '')
   return `${track.target === 'layers' ? 'layer ' : ''}${track.key}: ${shown}`
 }
 
@@ -553,9 +594,15 @@ function describeTimeline (plan: FilmPlan) {
     if (plan.introEnds === Infinity) entries.push({ at: plan.duration, text: `${span(plan.duration, plan.duration)}  the opening is still running when the film ends` })
     else if (plan.introEnds !== null) entries.push({ at: plan.introEnds, text: `${span(plan.introEnds, plan.introEnds)}  the opening is over` })
   }
+  for (const shot of plan.shots) entries.push({ at: shot.from, text: `${span(shot.from, shot.to)}  shot "${shot.name}"` })
+  const few = (values: number[], unit: string) => values.slice(0, 6).map(value => seconds(value) + unit).join(' > ') + (values.length > 6 ? ' > ...' : '')
   if (plan.speed) {
     const { times, values } = plan.speed
-    entries.push({ at: times[0], text: `${span(times[0], times[times.length - 1])}  time runs at ${values.map(value => seconds(value) + 'x').join(' > ')}` })
+    entries.push({ at: times[0], text: `${span(times[0], times[times.length - 1])}  time runs at ${few(values, 'x')}` })
+  }
+  if (plan.fade) {
+    const { times, values } = plan.fade
+    entries.push({ at: times[0], text: `${span(times[0], times[times.length - 1])}  the picture is dark by ${few(values, '')}` })
   }
   for (const track of plan.tracks) {
     const { times } = track
@@ -626,6 +673,8 @@ export const FILM_GUIDE = `A film is one JSON object; the scene renders it to an
 It is a timeline. Values move along keyframes (tracks), layers of the scene switch on and off (layers), the
 opening is a clip (intro), its events can be fired again (cues), and the scene's own time can slow or stop
 (speed). check and preview answer with the timeline they understood, one line for each thing that happens.
+A film with more than a few things on its timeline is easier written as a script that plays it forward and
+comes to this same object: see "A film as a script" below. Names and ranges are the same in both.
 
 {
   "duration": 12,            seconds, ${MIN_DURATION}-${MAX_DURATION}
@@ -648,6 +697,12 @@ opening is a clip (intro), its events can be fired again (cues), and the scene's
                              how fast the scene's time runs, as keyframes or one number: 1 is real time, 0.1
                              slow motion, 0 a still frame, up to ${MAX_SPEED}. Every second written in a film
                              stays a second of the film; a still frame is one picture, which a zoom magnifies
+  "fade": [[0, 1], [1.5, 0], [10.5, 0], [12, 1]],
+                             how dark the picture is, 0 to 1, as keyframes or one number: a fade in from
+                             black and out to it. Captions stay above it, so words can stand on black
+  "shots": [{ "name": "approach", "from": 0, "to": 6 }],
+                             names for stretches of the film. They change no frame; a preview with no
+                             seconds asked for shows one frame from the middle of each: a storyboard
   "layers": { "gravity": [[0, true], [5, false], [9, true]] },
                              a layer of the scene switched at its seconds, true shows it: ${INTRO_LAYERS.join(' | ')}.
                              "hide" in intro hides one for the whole film
@@ -691,6 +746,8 @@ Recipes
   The camera pulls back:   "tracks": { "cameraZoom": [[0, 1], [6, 0.5]] }
   A chapter title:         "cues": [{ "at": 12, "title": "ACT TWO",
                              "params": { "titleEntrance": "Fades in", "titleExit": "Fades out", "titleInAt": 0, "dissolveAt": 3 } }]
+  In from black and out:   "fade": [[0, 1], [1.5, 0], [10.5, 0], [12, 1]]
+  Words on black:          "fade": [[0, 1], [3, 1], [4.5, 0]], "captions": [{ "text": "Sagittarius A*", "from": 0.5, "to": 3.5, "at": "center" }]
   Vertical short:          "size": "vertical", "settings": { "blackHoleY": 0.42 }
 
 Check with preview (a contact sheet of frames) before render; both take the same film.`

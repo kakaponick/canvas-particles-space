@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // MCP server that turns the scene into short videos. It serves the built page (dist/) from this machine,
-// keeps one headless Chrome on it and gives an agent four tools: space_guide (how to write a film),
-// space_describe (what can be set), space_preview (a contact sheet of frames) and space_render (the mp4).
-// The page does the work through window.space.film; this file only carries JSON in and files out.
+// keeps one headless Chrome on it and gives an agent five tools: space_guide (how to write a film),
+// space_describe (what can be set), space_check (what a film will be, without drawing it), space_preview
+// (a contact sheet of frames) and space_render (the mp4). A film comes as its JSON or as a script that
+// writes it. The page does the work through window.space.film; this file only carries text in and files out.
 // No dependencies: the protocol is JSON-RPC lines on stdio, the browser is driven over its DevTools socket.
 //
 //   node mcp/space_mcp.mjs          after `pnpm build`; .mcp.json starts it for Claude Code
@@ -12,6 +13,7 @@ import http from 'node:http'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import vm from 'node:vm'
 import crypto from 'node:crypto'
 import readline from 'node:readline'
 import { spawn } from 'node:child_process'
@@ -29,16 +31,22 @@ const MIME = {
 const PAGE_READY_MS = 30_000
 const PROGRESS_EVERY_MS = 1000
 
-const INSTRUCTIONS = 'Makes 1-180 s videos of a black-hole particle scene from a JSON "film". ' +
-  'Call space_guide first for the format and recipes, space_describe to find setting names, ' +
-  'space_preview to look at frames, then space_render to write the mp4.'
+const INSTRUCTIONS = 'Makes 1-180 s videos of a black-hole particle scene from a "film": one JSON object, or a short ' +
+  'script that plays the film forward. Call space_guide first for both and their recipes, space_describe to find ' +
+  'setting names, space_check to read a film back as a timeline, space_preview to look at frames, then space_render ' +
+  'to write the mp4.'
 
-const FILM_SCHEMA = { type: 'object', description: 'The film, as space_guide describes it', additionalProperties: true }
+// A film comes one of two ways, and every tool that takes a film takes either
+const FILM_INPUT = {
+  film: { type: 'object', description: 'The film as JSON, as space_guide describes it', additionalProperties: true },
+  script: { type: 'string', description: 'The film as a script instead: JavaScript that plays it forward, as space_guide describes it' },
+  input: { type: 'object', description: 'What a script reads as "input": one script, several films', additionalProperties: true }
+}
 
 const TOOLS = [
   {
     name: 'space_guide',
-    description: 'How to write a film for the scene: the JSON format on one screen and ready recipes. Read it first.',
+    description: 'How to write a film for the scene: the JSON format, the script language and ready recipes. Read it first.',
     inputSchema: { type: 'object', properties: {} }
   },
   {
@@ -51,17 +59,30 @@ const TOOLS = [
     }
   },
   {
+    name: 'space_check',
+    description: 'Reads a film without drawing it, in a moment: its length and frame, the timeline it was understood as ' +
+      '(one line for each thing, in the order it happens), what was adjusted, and every mistake at once. ' +
+      'For a script also the seconds it marked, and the JSON it comes to when "out" names a file for it.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        ...FILM_INPUT,
+        out: { type: 'string', description: 'Path of a .json file to write the film a script comes to; relative paths start at the working directory' }
+      }
+    }
+  },
+  {
     name: 'space_preview',
     description: 'Draws frames of a film side by side in one picture, each with its second, exactly as the render will make them. ' +
+      'A film cut into shots is shown as its storyboard: one frame from the middle of each shot, with its name. ' +
       'Use it to check a film before rendering.',
     inputSchema: {
       type: 'object',
       properties: {
-        film: FILM_SCHEMA,
-        at: { type: 'array', items: { type: 'number' }, description: 'Seconds to show; evenly spread when left out' },
-        frames: { type: 'number', description: 'How many frames to spread over the film when "at" is left out (default 9)' }
-      },
-      required: ['film']
+        ...FILM_INPUT,
+        at: { type: 'array', items: { type: 'number' }, description: 'Seconds to show; a frame of each shot, or evenly spread, when left out' },
+        frames: { type: 'number', description: 'How many frames to spread evenly over the film when "at" is left out (default 9)' }
+      }
     }
   },
   {
@@ -70,12 +91,12 @@ const TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        film: FILM_SCHEMA,
+        ...FILM_INPUT,
         out: { type: 'string', description: 'Path of the mp4 to write; relative paths start at the working directory' },
         quality: { type: 'string', enum: ['medium', 'high', 'max'], description: 'Bitrate; high by default' },
         audio: { type: 'string', description: 'Path of an audio file (mp3, wav, m4a, ogg) laid under the picture from its start' }
       },
-      required: ['film', 'out']
+      required: ['out']
     }
   }
 ]
@@ -272,6 +293,24 @@ const inPage = (call, ...args) => `window.space.${call}(${args.map(arg => JSON.s
 
 // ---- Tools ----
 
+// The film a call names: the JSON object, or a script, whose mistakes of grammar are found here with their line
+// (the page's own reading of a script names the mistake but not where it is)
+function filmOf (args) {
+  const script = typeof args.script === 'string' ? args.script : typeof args.film === 'string' ? args.film : undefined
+  if (script === undefined) {
+    if (typeof args.film !== 'object' || args.film === null) throw new Error('Give the film: "film" (the JSON object) or "script" (the script as text)')
+    return args.film
+  }
+  try {
+    // Only read, never run: the script runs in the page
+    void new vm.Script(`(function () {${script}\n})`, { filename: 'film-script.js' })
+  } catch (error) {
+    const line = /film-script\.js:(\d+)/.exec(String(error.stack))
+    throw new Error(`${line ? `line ${line[1]}: ` : ''}the script cannot be read as JavaScript: ${error.message}`)
+  }
+  return script
+}
+
 const round = (value) => typeof value === 'number' ? Number(value.toFixed(4)) : value
 
 function describeText (settings, intro, presets, introPresets, layerInfo, filter) {
@@ -342,11 +381,36 @@ async function runTool (name, args, report) {
     return text(describeText(settings, intro, presets, introPresets, layerInfo, filter))
   }
 
+  if (name === 'space_check') {
+    const film = filmOf(args)
+    const checked = await page.evaluate(inPage('film.check', film, args.input))
+    const lines = [
+      `The film: ${+checked.duration.toFixed(2)} s, ${checked.fps} fps, ${checked.width}x${checked.height}, ${checked.frames} frames.`,
+      ...(checked.notes.length > 0 ? [`Adjusted: ${checked.notes.join('; ')}`] : []),
+      'Timeline:',
+      ...checked.timeline.map(line => '  ' + line)
+    ]
+    if (typeof film === 'string') {
+      const written = await page.evaluate(inPage('film.script', film, args.input))
+      const marks = Object.entries(written.marks).map(([mark, second]) => `${mark} ${second} s`)
+      if (marks.length > 0) lines.push(`Marks: ${marks.join(', ')}`)
+      if (typeof args.out === 'string' && args.out.trim() !== '') {
+        const out = path.resolve(process.cwd(), args.out)
+        fs.mkdirSync(path.dirname(out), { recursive: true })
+        fs.writeFileSync(out, JSON.stringify(written.film, null, 1) + '\n')
+        lines.push(`Wrote ${out}`)
+      }
+    }
+    return text(lines.join('\n'))
+  }
+
   if (name === 'space_preview') {
+    const film = filmOf(args)
     const options = {}
     if (Array.isArray(args.at)) options.at = args.at
     if (typeof args.frames === 'number') options.frames = args.frames
-    const sheet = await withProgress(page, report, () => page.evaluate(inPage('film.preview', args.film, options)))
+    if (args.input !== undefined) options.input = args.input
+    const sheet = await withProgress(page, report, () => page.evaluate(inPage('film.preview', film, options)))
     const note = sheet.notes.length > 0 ? `\nAdjusted: ${sheet.notes.join('; ')}` : ''
     // The film as it was understood, so what was meant can be checked against it before a render
     const timeline = `\nTimeline:\n${sheet.timeline.map(line => '  ' + line).join('\n')}`
@@ -364,12 +428,14 @@ async function runTool (name, args, report) {
 
   if (name === 'space_render') {
     if (typeof args.out !== 'string' || args.out.trim() === '') throw new Error('out takes the path of the mp4 to write')
+    const film = filmOf(args)
     let out = path.resolve(process.cwd(), args.out)
     if (path.extname(out).toLowerCase() !== '.mp4') out += '.mp4'
     fs.mkdirSync(path.dirname(out), { recursive: true })
 
     const options = { upload: '' }
     if (args.quality !== undefined) options.quality = args.quality
+    if (args.input !== undefined) options.input = args.input
     const tokens = []
     if (args.audio !== undefined) {
       const audio = path.resolve(process.cwd(), String(args.audio))
@@ -392,7 +458,7 @@ async function runTool (name, args, report) {
     options.upload = `${page.origin}/__film/upload/${token}`
 
     try {
-      const summary = await withProgress(page, report, () => page.evaluate(inPage('film.render', args.film, options)))
+      const summary = await withProgress(page, report, () => page.evaluate(inPage('film.render', film, options)))
       if (target.error || !target.written) throw target.error ?? new Error('The file did not arrive from the page')
       closeFile()
       fs.renameSync(target.path, out)

@@ -16,6 +16,7 @@ that a viewer sees what was meant, and what has already gone wrong once.
 9. Recipes that are not in the guide
 10. Films to start from
 11. The timeline: time, layers and events
+12. Writing a film as a script
 
 ## 1. Start from the picture, not from the keys
 
@@ -117,8 +118,11 @@ takes an audio file and lays it under the picture from the first second.
   side of a cut can carry the same label.
 - Two previews of one film are the same picture byte for byte. If a change to the code breaks that, the
   scene has picked up a clock or `Math.random`.
-- A check of the plan alone (no drawing) is `window.space.film.check(film)` on a page with `?agent`: it
-  lists the tracks it understood and every value it moved into range.
+- A check of the plan alone (no drawing) is `space_check`, or `window.space.film.check(film)` on a page
+  with `?agent`: it lists the timeline it understood, every value it moved into range and every mistake
+  at once. Run it before each preview; it takes a moment.
+- A film cut into shots is previewed as its storyboard when no seconds are asked for: one frame from the
+  middle of each shot, with the shot's name. Read it as a viewer would read a comic strip.
 - Things that pass the check and still show nothing: a lens with nothing behind it (raise `gridSky` or the
   stars), a ring with nothing falling in, a `baseSpeed` of 0 without gravity, orbit traces with `orbitTrail`
   at 0, a sheet seen from straight above (`gridTilt` 0).
@@ -181,7 +185,9 @@ seconds to cross the frame.
 
 In `films/`: `showreel.json` is a 50-second tour with labels (the opening, a zoom, the lens by keyframes,
 orbits, the sheet, a merger); `exposure.json`, `rosette.json`, `graph_paper.json`, `rapid.json` and
-`waltz.json` are each built on one ability. Copy the nearest one and change it; they all pass the check.
+`waltz.json` are each built on one ability. `language.js` is a film written as a script: shots, a path
+drawn by a function, a part used as a function, a loop of waves, slow motion, a title card, fades. Copy the
+nearest one and change it; they all pass the check.
 
 ## 11. The timeline: time, layers and events
 
@@ -227,3 +233,44 @@ Events:
   cue. A wave shows on the sheet and the lensed grid, and barely on the particles alone.
 - A fired event leaves nothing behind: once it has faded, the frames are the film's without it. Only a
   fired title's words stay: they are the title until another cue gives new ones.
+
+## 12. Writing a film as a script
+
+The words are in `space_guide`; this is how to use them.
+
+When to write a script and not the JSON: the film has more than a few things on its timeline, something in
+it repeats, something follows a path, or its lengths are still changing. In a script a shot made a second
+longer moves everything after it by itself; in the JSON every later second is rewritten by hand.
+
+- Cut the film into shots, in the order they play, and name each by what the viewer sees. A shot is one
+  picture: if its one frame on the storyboard does not say what the shot is for, the shot is two shots or
+  none.
+- `to` starts from where the value is, so nothing is repeated to hold it: a hold is `wait`.
+- What runs under several shots (a slow tilt of the sheet, a slow push) goes into `meanwhile` before them.
+- A caption with no seconds lasts as long as the shot it is in. Give seconds only to a label that comes
+  and goes inside a shot.
+- A part used twice is a function with what changes as its arguments; a rhythm is a loop:
+  `const beat = 60 / 96; for (...) { fire('ringdown', 'gravityWave'); wait(beat) }`.
+- `drive` is for a path no ease draws: a circle, a pulse, numbers from data. Begin it where the value
+  already is (grow the radius from 0), or the value jumps on its first frame. It writes 60 keys a second,
+  so keep it to the seconds that need it and use `to` with an ease wherever a curve will do.
+- `'spring'` runs about an eighth past its target before it settles. A value near the end of its range is
+  held at the end, and the check says so; then move it with `'out'` instead.
+- One value cannot be moved by two calls at once, which is the one mistake a script makes easy: a
+  `meanwhile` that moves the zoom for the whole film, and a shot that moves it too. The error names both
+  lines. Give the long move to one of them.
+- After `opening()` the second is not a round one (the opening is over on a frame, at about 5.83 s). Never
+  write that second by hand: what follows `opening()` in the script is after it, and `at()` takes the
+  `end` that `opening()` returns.
+- Chance comes from the film's seed (`random`, `pick`, `Math.random`): the same script is the same film,
+  and another seed is another one.
+- One script, several films: what differs is read from `input` (the words in two languages, a vertical and
+  a wide frame), given as `--input words.json` to the runner or as `input` to the tools.
+- Sound: `space_check` lists the seconds the script marked (`mark`, and the start of every shot). A
+  soundtrack is laid on those seconds; a narration goes the other way, the length of each spoken line
+  given as `input` and the shot waiting that long.
+- `fade` is the first and the last second of most films: `set({ fade: 1 })`, then `to({ fade: 0 }, 2)`.
+  Captions stay above it, so a line on black is a caption while the fade is 1. A title is part of the
+  picture and goes dark with it.
+- The script is the film: keep the `.js` in `films/`. The JSON it comes to (`space.mjs check film.js
+  out.json`) is for reading what a script did, key by key.

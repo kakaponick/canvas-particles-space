@@ -18,6 +18,7 @@ import {
   parseIntroValue, parseSettings, pickKeys, sliderName, unknownKey, type Patch
 } from './agent_values'
 import { FILM_GUIDE, planFilm } from './film'
+import { SCRIPT_GUIDE, writeFilm } from './film_script'
 import { cancelFilm, filmProgress, previewFilm, renderFilm, type PreviewOptions, type RenderOptions } from './film_render'
 
 // Defaults of the switches that are kept per device and so are not in the Default preset
@@ -37,12 +38,22 @@ const HELP = `window.space: the scene for agents. Every call returns plain JSON-
   readout()                fps, particles, pause state, intro time and phase
   frames(n)                wait for n drawn frames, e.g. after a change and before a screenshot
   film.guide()             how to write a film: the scene as a 1-180 s video on a timeline: keyframes for every
-                           setting, layers switched on and off, the opening's events fired again, slow motion, captions
+                           setting, layers switched on and off, the opening's events fired again, slow motion,
+                           captions; as one JSON object, or as a script that plays the film forward
   film.check(film) / film.preview(film, { at?, frames? }) / film.render(film, { quality?, audio?, download? })
                            what the film will be with its timeline line by line, a contact sheet of its frames
-                           (base64 JPEG), the mp4 itself
+                           (base64 JPEG), the mp4 itself. A film is the JSON object or a script as a string;
+                           what a script reads as input goes beside the other options, or second into check
+  film.script(source, input?)   the JSON a script writes, with the seconds it marked
   film.progress() / film.cancel()
 Colours take '#rrggbb'; choices take an option index or its name.`
+
+// A film as it was given: the object itself, or what a script writes, with what the script had to adjust
+function readFilm (source: unknown, input?: unknown): { film: unknown, notes: string[] } {
+  if (typeof source !== 'string') return { film: source, notes: [] }
+  const written = writeFilm(source, input)
+  return { film: written.film, notes: written.notes }
+}
 
 const matches = (filter: string | undefined, ...texts: string[]) =>
   filter === undefined || texts.some(text => text.toLowerCase().includes(filter.toLowerCase()))
@@ -289,10 +300,13 @@ export const sceneApi = {
   },
   frames: waitFrames,
   film: {
-    guide: () => FILM_GUIDE,
+    guide: () => `${FILM_GUIDE}\n\n${SCRIPT_GUIDE}`,
+    // The film a script writes: the JSON the other calls take, and the seconds the script marked
+    script: (source: unknown, input?: unknown) => writeFilm(source, input),
     // What the film will be, without drawing it: its frame, its length and what was adjusted
-    check: (film: unknown) => {
-      const plan = planFilm(film)
+    check: (film: unknown, input?: unknown) => {
+      const read = readFilm(film, input)
+      const plan = planFilm(read.film)
       return {
         duration: plan.duration,
         fps: plan.fps,
@@ -301,17 +315,26 @@ export const sceneApi = {
         height: plan.height * plan.scale,
         seed: plan.seed,
         intro: plan.introAt === null ? 'left out' : 'starts at ' + plan.introAt + ' s',
+        shots: plan.shots.map(shot => shot.name),
         tracks: plan.tracks.filter(track => track.target !== 'layers').map(track => track.key),
         layers: plan.tracks.filter(track => track.target === 'layers').map(track => track.key),
         cues: plan.cues.length,
         captions: plan.captions.length,
         // What happens when, one line each, in the order it happens
         timeline: plan.timeline,
-        notes: plan.notes
+        notes: [...read.notes, ...plan.notes]
       }
     },
-    preview: (film: unknown, options?: PreviewOptions) => previewFilm(film, options),
-    render: async (film: unknown, options?: RenderOptions) => (await renderFilm(film, options)).summary,
+    preview: async (film: unknown, options?: PreviewOptions & { input?: unknown }) => {
+      const read = readFilm(film, options?.input)
+      const sheet = await previewFilm(read.film, options)
+      return { ...sheet, notes: [...read.notes, ...sheet.notes] }
+    },
+    render: async (film: unknown, options?: RenderOptions & { input?: unknown }) => {
+      const read = readFilm(film, options?.input)
+      const { summary } = await renderFilm(read.film, options)
+      return { ...summary, notes: [...read.notes, ...summary.notes] }
+    },
     progress: filmProgress,
     cancel: cancelFilm
   }

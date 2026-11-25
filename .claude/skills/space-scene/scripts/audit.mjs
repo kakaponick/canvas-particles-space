@@ -37,6 +37,7 @@ export { INTRO_PARAM_SPECS, DEFAULT_INTRO_PARAMS } from ${source('lib/intro_para
 export { INTRO_LAYERS, CUE_LAYERS, INTRO_LAYER_NOTES, INTRO_TRACKS } from ${source('lib/intro_tracks.ts')}
 export { TITLE_FONTS } from ${source('lib/title_sprite.ts')}
 export { planFilm, FILM_SIZES, CAPTION_PLACES } from ${source('lib/film.ts')}
+export { writeFilm, SCRIPT_WORDS, SCRIPT_GUIDE } from ${source('lib/film_script.ts')}
 export { useParticleStore } from ${source('store/particle_store.ts')}
 export { BUILT_IN_PRESETS, DEFAULT_PRESET } from ${source('store/preset_store.ts')}
 export { BUILT_IN_INTRO_PRESETS } from ${source('store/intro_preset_store.ts')}
@@ -72,7 +73,7 @@ const registries = await loadRegistries()
 const {
   SLIDERS, TOGGLES, SETTING_KEYS, DEVICE_KEYS, ALL_SETTING_KEYS, INTRO_KEYS, parseSettings, INTRO_PARAM_SPECS,
   DEFAULT_INTRO_PARAMS, INTRO_LAYERS, CUE_LAYERS, INTRO_LAYER_NOTES, INTRO_TRACKS, TITLE_FONTS, planFilm, FILM_SIZES, CAPTION_PLACES,
-  useParticleStore, BUILT_IN_PRESETS, DEFAULT_PRESET, BUILT_IN_INTRO_PRESETS
+  useParticleStore, BUILT_IN_PRESETS, DEFAULT_PRESET, BUILT_IN_INTRO_PRESETS, writeFilm, SCRIPT_WORDS, SCRIPT_GUIDE
 } = registries
 
 const state = useParticleStore.getState()
@@ -198,7 +199,95 @@ for (const name of presetNames) attempt(`film.preset "${name}"`, () => planFilm(
 for (const name of introPresetNames) attempt(`film.intro.preset "${name}"`, () => planFilm({ duration: 1, intro: { preset: name } }))
 for (const size of Object.keys(FILM_SIZES)) attempt(`film.size "${size}"`, () => planFilm({ duration: 1, size }))
 
-// 7. The map names every knob, and names nothing that is gone. In references/knobs.md a name in
+// 7. A film as a script: the guide tells every word and its own example runs, a script says what the JSON
+// says and moves everything a film moves, the same script is the same film, and a mistake names its line
+for (const word of SCRIPT_WORDS) {
+  if (!new RegExp(`\\b${word}\\b`).test(SCRIPT_GUIDE)) problem(`the script guide does not tell the word "${word}"`)
+}
+const guideExample = SCRIPT_GUIDE.slice(SCRIPT_GUIDE.lastIndexOf('\nExample\n') + 9)
+if (!SCRIPT_GUIDE.includes('\nExample\n')) problem('the script guide has no example to run')
+else attempt('the script guide\'s example', () => planFilm(writeFilm(guideExample).film))
+
+const scriptPlan = (what, script, input) => attempt(what, () => planFilm(writeFilm(script, input).film))
+const samePlan = (what, script, film) => {
+  const written = scriptPlan(what, script)
+  const read = attempt(what, () => planFilm(film))
+  if (written && read && JSON.stringify(written) !== JSON.stringify(read)) problem(`${what}: the script and the JSON it stands for give different plans`)
+}
+samePlan('a script of values, layers, events and captions', `
+  film({ seed: 5, size: 'square' })
+  set({ cameraZoom: 2 })
+  shot('one', () => { wait(1); to({ cameraZoom: 4 }, 2, 'linear') })
+  hide('gravity'); fire('ringdown', { gravityWaveGain: 2 }); caption('x', 1, { at: 'top' })
+  slow(0.5, () => { wait(2) }, 0.5)
+`, {
+  duration: 5,
+  seed: 5,
+  size: 'square',
+  intro: false,
+  settings: { cameraZoom: 2 },
+  speed: [[3, 1], [3.5, 0.5], [4.5, 0.5], [5, 1]],
+  tracks: { cameraZoom: [[1, 2], [3, 4, 'linear']] },
+  layers: { gravity: [[0, true], [3, false]] },
+  cues: [{ at: 3, play: ['ringdown'], params: { gravityWaveGain: 2 } }],
+  captions: [{ text: 'x', from: 3, to: 4, at: 'top' }],
+  shots: [{ name: 'one', from: 0, to: 3 }]
+})
+samePlan('a script with the opening', `opening({ title: 'A', hide: ['camera'] }); wait(1)`,
+  (() => {
+    const ends = planFilm({ duration: 60, intro: {} }).introEnds
+    return { duration: Math.ceil(ends * 1e4) / 1e4 + 1, intro: { at: 0, title: 'A', hide: ['camera'] } }
+  })())
+
+const numberKeys = [...sliderKeys.filter(key => SETTING_KEYS.includes(key)), 'backgroundR', 'backgroundG', 'backgroundB',
+  ...INTRO_KEYS.filter(key => !(key in SLIDERS) && !INTRO_PARAM_SPECS[key].options && !INTRO_PARAM_SPECS[key].color)]
+const colorKeys = INTRO_KEYS.filter(key => INTRO_PARAM_SPECS[key].color)
+const edge = (key, end) => key.startsWith('background') ? (end === 'min' ? 0 : 255) : (SLIDERS[key] ?? INTRO_PARAM_SPECS[key])[end]
+const everything = scriptPlan('a script that moves every value', `
+  opening()
+  set(input.switches)
+  to(input.high, 1, 'spring')
+  to(input.low, 1, u => u * u)
+  drive(Object.fromEntries(Object.keys(input.high).map(key => [key, (s, u) => input.low[key] + (input.high[key] - input.low[key]) * u])), 1)
+  to(input.colors, 1)
+  to({ speed: 0.2, fade: 1 }, 1)
+  for (const layer of input.layers) { hide(layer); wait(0.1); show(layer) }
+  fire(...input.events)
+`, {
+  switches: Object.fromEntries(trackSwitches.map(key => [key, false])),
+  high: Object.fromEntries(numberKeys.map(key => [key, edge(key, 'max')])),
+  low: Object.fromEntries(numberKeys.map(key => [key, edge(key, 'min')])),
+  colors: Object.fromEntries(colorKeys.map(key => [key, '#ffffff'])),
+  layers: [...INTRO_LAYERS],
+  events: [...CUE_LAYERS]
+})
+if (everything) {
+  const moved = new Set(everything.tracks.map(track => track.key))
+  for (const key of [...numberKeys, ...colorKeys, ...trackSwitches, ...INTRO_LAYERS]) {
+    if (!moved.has(key)) problem(`a script cannot move "${key}", which a film moves`)
+  }
+  if (!everything.speed || !everything.fade) problem('a script cannot move speed or fade')
+}
+for (const key of choiceKeys) scriptPlan(`a script that sets the choice ${key}`, `set({ ${key}: 0 }); opening(); wait(1)`)
+
+const chance = 'film({ seed: 9 }); for (let i = 0; i < 5; i++) { to({ cameraZoom: random(1, 4), gridTilt: Math.random() * 60 }, pick([1, 2])) }'
+if (JSON.stringify(attempt('a script with chance', () => writeFilm(chance))) !== JSON.stringify(attempt('a script with chance', () => writeFilm(chance)))) {
+  problem('the same script with random() wrote two different films')
+}
+const lineOf = (what, script, line) => {
+  try {
+    writeFilm(script)
+    problem(`${what} was taken, and should be refused`)
+  } catch (error) {
+    if (!error.message.startsWith(`line ${line}:`)) problem(`${what} should name line ${line}: ${error.message}`)
+  }
+}
+lineOf('a script with an unknown key', 'wait(1)\nto({ nope: 1 }, 1)', 2)
+lineOf('a script with an unknown word', 'wait(1)\n\nzoomIn(2)', 3)
+lineOf('a script that moves one value twice at once', 'meanwhile(() => {\n  to({ cameraZoom: 3 }, 5)\n})\nwait(1)\nto({ cameraZoom: 2 }, 1)', 5)
+lineOf('a script that fires an event inside the opening', 'opening()\nat(1, () => {\n  fire("glare")\n})', 3)
+
+// 8. The map names every knob, and names nothing that is gone. In references/knobs.md a name in
 // backticks is a key, a layer, a preset, a font, a size or a caption place, and nothing else
 const mapPath = path.join(here, '..', 'references', 'knobs.md')
 const known = {
@@ -252,4 +341,5 @@ if (problems.length > 0) {
 console.log(`Every knob is within reach: ${sliderKeys.length} sliders, ${switchKeys.length} switches, ${otherKeys.length} other settings, ` +
   `${INTRO_KEYS.length} intro parameters, ${INTRO_LAYERS.length} layers a film switches (${CUE_LAYERS.length} of them events it fires again), ` +
   `${presetNames.length} presets, ${introPresetNames.length} intro presets. ` +
-  `The scene reads ${sceneReads.length} settings, all of them settable; knobs.md names every one.`)
+  `The scene reads ${sceneReads.length} settings, all of them settable; knobs.md names every one. ` +
+  `A script says all of it in ${SCRIPT_WORDS.length} words.`)

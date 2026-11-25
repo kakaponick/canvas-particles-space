@@ -13,7 +13,7 @@ The page then has `window.space`, and everything is done by running JavaScript i
 - `space.help()` lists every command.
 - `space.describe()` and `space.intro.describe()` list every setting with its range, default and meaning.
 - `space.set({ gravityStrength: 5 })`, `space.reset()` and `space.preset.apply('Schwarzschild')` change the scene.
-- `space.film.guide()` is the format of a film: the scene as an mp4 on a timeline. Every setting moves along keyframes, layers switch on and off, the opening's events (the flash, the light front, the ringing, the gravitational wave) are fired again at any second, time slows or stops, and captions lie over the picture. `space.film.check(film)` answers with the timeline it understood.
+- `space.film.guide()` is the format of a film: the scene as an mp4 on a timeline. Every setting moves along keyframes, layers switch on and off, the opening's events (the flash, the light front, the ringing, the gravitational wave) are fired again at any second, time slows or stops, and captions lie over the picture. `space.film.check(film)` answers with the timeline it understood. A film is one JSON object, or a script: JavaScript text that plays the film forward (`wait`, `to`, `shot`, `caption`), given as a string wherever a film is taken; `space.film.script(text)` returns the JSON it writes.
 
 With no browser of your own, write the calls for the person you work for: they open that address and paste them into the browser's console.
 
@@ -35,6 +35,6 @@ With a terminal, render on your own machine: it is faster and the file is writte
     cd canvas-particles-space && pnpm install && pnpm build
     node .claude/skills/space-scene/scripts/space.mjs render film.json out.mp4
 
-`film.json` holds the same object as the call above; `space.mjs guide` prints the format.
+`film.json` holds the same object as the call above, and a script in a `.js` file is taken in its place; `space.mjs guide` prints the format and the language.
 
 The repository also has a manual for agents and the same tools as an MCP server: https://github.com/kakaponick/canvas-particles-space

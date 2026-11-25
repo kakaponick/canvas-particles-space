@@ -97,12 +97,33 @@ is the same video on any machine.
 }
 ```
 
-- **For AI agents**: the `space` MCP server (`mcp/space_mcp.mjs`, listed in `.mcp.json`) has four tools:
-  `space_guide` (the format and recipes), `space_describe` (what can be set), `space_preview` (frames of the film
+A longer film is easier written as a script: JavaScript that plays the film forward, where no second is
+written by hand, a part of a film is a function and a path is a function of time. It comes to the same JSON
+(`films/language.js` is one):
+
+```js
+film({ preset: 'Schwarzschild', settings: { gridSheet: 0.6, orbitCount: 12 } })
+set({ fade: 1 })
+shot('arrival', () => {
+  caption('A black hole, from a distance')
+  to({ fade: 0 }, 2)
+  wait(3)
+})
+shot('approach', () => {
+  caption('Event horizon', { at: 'hole' })
+  to({ cameraZoom: 2.5 }, 6, 'spring')
+  slow(0.15, () => { wait(3) })
+})
+to({ fade: 1 }, 1.5)
+```
+
+- **For AI agents**: the `space` MCP server (`mcp/space_mcp.mjs`, listed in `.mcp.json`) has five tools:
+  `space_guide` (the format, the script language and recipes), `space_describe` (what can be set), `space_check`
+  (a film read back as a timeline, with every mistake and its line), `space_preview` (frames of the film
   side by side) and `space_render` (the mp4). Run `pnpm build` first; it needs Node 22+ and Chrome, Chromium or Edge.
   The `space-scene` skill in `.claude/skills/` is the manual that goes with them: every setting by the physical
   law it belongs to, how to drive the live page through `window.space`, how to make a film that reads, the same
-  four tools from a shell (`scripts/space.mjs`) and a check that agents reach every knob (`scripts/audit.mjs`).
+  tools from a shell (`scripts/space.mjs`) and a check that agents reach every knob (`scripts/audit.mjs`).
 - **An agent that has only the address** learns the rest from it: the page's HTML carries a short description
   of `window.space` behind `?agent` for a reader that runs no script, and the address answers with the same
   text when asked for markdown (`Accept: text/markdown`). The text is `public/index.md`.

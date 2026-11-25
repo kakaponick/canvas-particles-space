@@ -1,15 +1,19 @@
 #!/usr/bin/env node
-// The four tools of the space MCP server from a shell, for a session that did not load the server
-// (no space_guide, space_describe, space_preview, space_render among its tools). Run it from anywhere
-// inside the repository; it needs the built page (pnpm build), Node 22+ and Chrome, Chromium or Edge.
+// The tools of the space MCP server from a shell, for a session that did not load the server
+// (no space_guide, space_describe, space_check, space_preview, space_render among its tools). Run it from
+// anywhere inside the repository; it needs the built page (pnpm build), Node 22+ and Chrome, Chromium or Edge.
 //
 //   node space.mjs guide
 //   node space.mjs describe [word]
-//   node space.mjs preview <film.json> <out.jpg> [seconds,seconds,...]
-//   node space.mjs render <film.json> <out.mp4> [medium|high|max] [audio file]
+//   node space.mjs check <film> [out.json]
+//   node space.mjs preview <film> <out.jpg> [seconds,seconds,...]
+//   node space.mjs render <film> <out.mp4> [medium|high|max] [audio file]
 //
+// A film is a .json file, or a script that plays it forward: a .js file. "--input <file.json>" anywhere on
+// the line is what a script reads as input. check writes the JSON a script comes to when it is given a place.
 // Several preview or render jobs may follow one another on one line, three or four words each; the
-// browser is then started once. A seconds list of "-" spreads nine frames over the film.
+// browser is then started once. A seconds list of "-" leaves the choice of frames to the film: a frame of
+// each shot, or nine spread over it.
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
@@ -21,8 +25,10 @@ import { fileURLToPath } from 'node:url'
 const USAGE = [
   'node space.mjs guide',
   'node space.mjs describe [word]',
-  'node space.mjs preview <film.json> <out.jpg> [seconds,seconds,...]',
-  'node space.mjs render <film.json> <out.mp4> [medium|high|max] [audio file]'
+  'node space.mjs check <film.json|film.js> [out.json]',
+  'node space.mjs preview <film.json|film.js> <out.jpg> [seconds,seconds,...]',
+  'node space.mjs render <film.json|film.js> <out.mp4> [medium|high|max] [audio file]',
+  'and --input <file.json> for what a script reads as input'
 ].join('\n')
 
 function findRoot () {
@@ -35,26 +41,48 @@ function findRoot () {
   throw new Error('Run this inside the canvas-particles-space repository')
 }
 
-function readFilm (file) {
+const isScript = file => /\.[cm]?js$/i.test(file)
+const isFilm = file => isScript(file) || file.toLowerCase().endsWith('.json')
+
+// The film a file holds, as the tools take it: a script as its text, a JSON film as its object
+function readFilm (file, input) {
   try {
-    return JSON.parse(fs.readFileSync(file, 'utf8'))
+    const text = fs.readFileSync(file, 'utf8')
+    if (!isScript(file)) return { film: JSON.parse(text) }
+    return input === undefined ? { script: text } : { script: text, input }
   } catch (error) {
     throw new Error(`${file}: ${error.message}`)
   }
 }
 
 // One tool call for each job named on the command line
-function readJobs (command, words) {
+function readJobs (command, given) {
+  const words = [...given]
+  let input
+  const flag = words.indexOf('--input')
+  if (flag >= 0) {
+    const [, file] = words.splice(flag, 2)
+    if (!file) throw new Error('--input takes a JSON file')
+    try {
+      input = JSON.parse(fs.readFileSync(file, 'utf8'))
+    } catch (error) {
+      throw new Error(`${file}: ${error.message}`)
+    }
+  }
   if (command === 'guide') return [{ tool: 'space_guide', args: {} }]
   if (command === 'describe') return [{ tool: 'space_describe', args: words[0] ? { filter: words[0] } : {} }]
   const jobs = []
-  if (command === 'preview') {
+  if (command === 'check') {
+    const [film, out] = words
+    if (!film) throw new Error('check takes <film.json|film.js> [out.json]')
+    jobs.push({ tool: 'space_check', args: out ? { ...readFilm(film, input), out: path.resolve(out) } : readFilm(film, input), name: path.basename(film) })
+  } else if (command === 'preview') {
     for (let at = 0; at < words.length;) {
       const [film, out, third] = words.slice(at, at + 3)
-      if (!film || !out) throw new Error('preview takes <film.json> <out.jpg> [seconds,seconds,...]')
+      if (!film || !out) throw new Error('preview takes <film> <out.jpg> [seconds,seconds,...]')
       // The third word is this job's seconds unless it is the next job's film
       const isTimes = third !== undefined && (third === '-' || /^[\d.,\s]+$/.test(third))
-      const args = { film: readFilm(film) }
+      const args = readFilm(film, input)
       if (isTimes && third !== '-') args.at = third.split(',').map(Number)
       jobs.push({ tool: 'space_preview', args, out: path.resolve(out), name: path.basename(film) })
       at += isTimes ? 3 : 2
@@ -63,11 +91,11 @@ function readJobs (command, words) {
     const qualities = ['medium', 'high', 'max']
     for (let at = 0; at < words.length;) {
       const [film, out] = words.slice(at, at + 2)
-      if (!film || !out) throw new Error('render takes <film.json> <out.mp4> [medium|high|max] [audio file]')
+      if (!film || !out) throw new Error('render takes <film> <out.mp4> [medium|high|max] [audio file]')
       at += 2
-      const args = { film: readFilm(film), out: path.resolve(out) }
+      const args = { ...readFilm(film, input), out: path.resolve(out) }
       if (qualities.includes(words[at])) args.quality = words[at++]
-      if (words[at] !== undefined && !words[at].toLowerCase().endsWith('.json')) args.audio = path.resolve(words[at++])
+      if (words[at] !== undefined && !isFilm(words[at])) args.audio = path.resolve(words[at++])
       jobs.push({ tool: 'space_render', args, name: path.basename(film) })
     }
   }

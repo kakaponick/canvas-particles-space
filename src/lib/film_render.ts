@@ -11,7 +11,7 @@ import { SIMULATION_SETTING_SPECS } from './simulation_specs'
 import { getIntroDuration } from './intro_timeline'
 import type { TitleSprite, TitleStyle } from './title_sprite'
 import type { StreamTargetChunk } from 'mediabunny'
-import { applyTracks, filmSpeed, planFilm, type FilmPlan } from './film'
+import { applyTracks, filmFade, filmSpeed, planFilm, type FilmPlan } from './film'
 import { drawCaptions, loadCaptionFonts } from './film_captions'
 import { clamp, fail } from './agent_values'
 
@@ -170,6 +170,14 @@ async function createFilmPlayer (plan: FilmPlan, pixel: number) {
     }
     if (!show) return
     ctx.drawImage(glCanvas, 0, 0)
+    // The fade darkens the picture and leaves the captions, so words can stand on black
+    const dark = plan.fade ? filmFade(plan, time) : 0
+    if (dark > 0) {
+      ctx.globalAlpha = dark
+      ctx.fillStyle = '#000000'
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+      ctx.globalAlpha = 1
+    }
     if (plan.captions.length > 0) drawCaptions(ctx, plan, time, scene.frame.composite, canvas.width / plan.width)
   }
 
@@ -412,13 +420,18 @@ export interface PreviewOptions {
 }
 
 // Draws frames of the film side by side on one picture, each with its second in the corner. Every frame
-// is the one the render will make: the film is played from its start up to the last frame asked for
+// is the one the render will make: the film is played from its start up to the last frame asked for.
+// A film cut into shots is shown as its storyboard, a frame from the middle of each with the shot's name
 export async function previewFilm (source: unknown, options: PreviewOptions = {}) {
   const plan = planFilm(source)
   const count = clamp(Math.round(options.frames ?? DEFAULT_SHEET_FRAMES), 1, MAX_SHEET_FRAMES)
-  const wanted = Array.isArray(options.at) && options.at.length > 0
-    ? options.at.slice(0, MAX_SHEET_FRAMES).map(Number)
-    : Array.from({ length: count }, (_, index) => (index + 0.5) / count * plan.duration)
+  const at = Array.isArray(options.at) && options.at.length > 0 ? options.at : null
+  const board = at === null && options.frames === undefined && plan.shots.length > 1
+  const wanted = at
+    ? at.slice(0, MAX_SHEET_FRAMES).map(Number)
+    : board
+      ? plan.shots.slice(0, MAX_SHEET_FRAMES).map(shot => (shot.from + shot.to) / 2)
+      : Array.from({ length: count }, (_, index) => (index + 0.5) / count * plan.duration)
   if (wanted.some(time => !Number.isFinite(time))) fail('at takes seconds of the film, e.g. [1, 4.5, 9]')
   const indices = [...new Set(wanted.map(time => clamp(Math.round(time * plan.fps), 0, plan.frames - 1)))].sort((a, b) => a - b)
 
@@ -464,7 +477,9 @@ export async function previewFilm (source: unknown, options: PreviewOptions = {}
           const x = (slot % columns) * tile.width
           const y = Math.floor(slot / columns) * tile.height
           ctx.drawImage(tile, x, y)
-          const label = `${(index / plan.fps).toFixed(1)}s`
+          const second = index / plan.fps
+          const shot = board ? plan.shots.find(entry => second >= entry.from && second <= entry.to) : undefined
+          const label = `${second.toFixed(1)}s${shot ? '  ' + shot.name : ''}`
           ctx.fillStyle = 'rgba(0, 0, 0, 0.6)'
           ctx.fillRect(x, y, ctx.measureText(label).width + labelSize * 0.8, labelSize * 1.5)
           ctx.fillStyle = '#ffffff'

@@ -18,7 +18,7 @@ is always current.
 |---|---|
 | A key's range, default, unit, full meaning | `describe` with a filter word: `window.space.describe('lens')` on the page, `space_describe` for films |
 | The commands of the live page | `window.space.help()` |
-| The film format and ready recipes | `space_guide`, or `window.space.film.guide()` |
+| The film format, the script language and ready recipes | `space_guide`, or `window.space.film.guide()` |
 | Which keys belong to one physical effect, how they act on each other, the traps | [references/knobs.md](references/knobs.md) |
 | How to make a film that reads well, and what went wrong before | [references/films.md](references/films.md) |
 | The rules for changing the code (frame time, invariants, measuring) | `CLAUDE.md` at the repository root |
@@ -75,27 +75,37 @@ What trips an agent here:
 
 ### A video, or a picture that repeats: a film
 
-A film is one JSON object: frame and length, a seed, starting settings, and a timeline. On the timeline
+A film is one description: frame and length, a seed, starting settings, and a timeline. On the timeline
 any number, switch or colour moves along keyframes, the scene's layers switch on and off, the opening is a
 clip, its events (the flash, the fronts, the ringing, the gravitational wave) are fired again at any
 second, the scene's own time slows or stops, and captions lie over the picture. Everything the intro
 debugger does with time and layers, a film does. The same film is the same video on any machine. It plays in a
 scene of its own, from the page's defaults, so it never touches the page or anyone's saved settings.
 
-1. Read the format once: `space_guide`.
-2. Write the film as a `.json` file. Films of this project live in `films/`; a throwaway goes to a temp
-   folder.
-3. `space_preview` draws its frames side by side. Ask for the seconds where something changes, not an even
-   spread, and look at the picture before rendering.
-4. `space_render` writes the mp4 and reports what it adjusted. Read that line: a value moved into range is
+A film is written one of two ways, and every tool takes either. The JSON object itself suits a film of a
+few things. Anything longer is a script: JavaScript that plays the film forward (`wait`, `to`, `shot`,
+`caption`, `fire`), where no second is written by hand, a part of a film is a function, a path is a
+function of time, and the film is as long as what was played. A script comes to the same JSON, so nothing
+about the scene is said differently in it.
+
+1. Read both once: `space_guide`.
+2. Write the film as a `.js` script or a `.json` file. Films of this project live in `films/`; a throwaway
+   goes to a temp folder. Cut a script into shots: a shot is what a viewer would call one picture.
+3. `space_check` reads it back in a moment as a timeline, with every mistake at once and the line of each.
+4. `space_preview` draws its frames side by side: a frame of each shot when the film has shots (its
+   storyboard), or the seconds you ask for. Ask for the seconds where something changes, and look at the
+   picture before rendering.
+5. `space_render` writes the mp4 and reports what it adjusted. Read that line: a value moved into range is
    a value you got wrong.
 
-If the session has no `space_*` tools, the same four are a script away, run from anywhere in the
+If the session has no `space_*` tools, the same five are a script away, run from anywhere in the
 repository:
 
 ```
 node .claude/skills/space-scene/scripts/space.mjs guide
 node .claude/skills/space-scene/scripts/space.mjs describe orbit
+node .claude/skills/space-scene/scripts/space.mjs check films/language.js
+node .claude/skills/space-scene/scripts/space.mjs preview films/language.js out/language.jpg
 node .claude/skills/space-scene/scripts/space.mjs preview films/waltz.json out/waltz.jpg 4,12,29.5,31
 node .claude/skills/space-scene/scripts/space.mjs render films/waltz.json films/waltz.mp4 high
 ```
