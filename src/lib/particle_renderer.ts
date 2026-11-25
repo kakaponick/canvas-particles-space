@@ -55,6 +55,8 @@ export interface CompositeSettings {
   ring: number
   // In black hole radii
   ringWidth: number
+  // Strength of the soft light around the line; 0 leaves the bare line
+  ringGlow: number
   ringDoppler: number
   // Radians
   ringSide: number
@@ -327,7 +329,7 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
   const particleUniforms = getUniforms(gl, particleProgram, ['resolution', 'pixelRatio', 'center', 'doppler', 'speedGlow', 'frameScale'] as const)
   const compositeUniforms = getUniforms(gl, compositeProgram, [
     'resolution', 'pixelRatio', 'time', 'hole', 'horizon', 'einstein', 'falloff', 'falloffPivot', 'lensCore', 'maxBend', 'lensReach', 'twistLimit', 'swirl', 'absorption', 'ring',
-    'ringWidth', 'ringDoppler', 'ringSide', 'ringPhase', 'ringBase', 'ringFeed',
+    'ringWidth', 'ringGlow', 'ringDoppler', 'ringSide', 'ringPhase', 'ringBase', 'ringFeed',
     'center', 'starGlow', 'starRadius', 'sourcePower', 'glareRadius', 'exposure',
     'lightRadius', 'lightWidth', 'lightPower', 'lightSpeed', 'echoPower', 'echoDecay',
     'waveRadius', 'waveStrength', 'waveWidth', 'remnantGlow', 'remnantRedshift', 'remnantRadius',
@@ -609,6 +611,7 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     setUniform1f(gl, u.absorption, settings.absorption)
     setUniform1f(gl, u.ring, settings.ring)
     setUniform1f(gl, u.ringWidth, settings.ringWidth)
+    setUniform1f(gl, u.ringGlow, settings.ringGlow)
     setUniform1f(gl, u.ringDoppler, settings.ringDoppler)
     setUniform1f(gl, u.ringSide, settings.ringSide)
     setUniform1f(gl, u.ringPhase, settings.ringPhase)

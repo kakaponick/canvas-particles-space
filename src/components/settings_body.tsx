@@ -165,6 +165,7 @@ function SettingsBody () {
 
       <PhotonRingSection>
         <SettingSlider field="ringBrightness" setter="setRingBrightness" />
+        <SettingSlider field="ringGlow" setter="setRingGlow" />
         <SettingSlider field="ringWidth" setter="setRingWidth" />
         <SettingSlider field="ringDoppler" setter="setRingDoppler" />
         <SettingSlider field="ringSide" setter="setRingSide" />

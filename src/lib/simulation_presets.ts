@@ -10,7 +10,7 @@ export const SIMULATION_SETTING_KEYS = [
   'starsBrightness', 'starDensity', 'starCell',
   'blackHoleSize', 'eventHorizon', 'gravityReach', 'gravityStrength', 'orbitalStrength', 'followFrequency',
   'blackHoleFollowing', 'blackHoleX', 'blackHoleY',
-  'ringEnabled', 'ringFeedEnabled', 'ringBrightness', 'ringWidth', 'ringDoppler', 'ringSide', 'ringBase', 'ringFeed', 'ringAfterglow', 'ringFlowSpeed',
+  'ringEnabled', 'ringFeedEnabled', 'ringBrightness', 'ringGlow', 'ringWidth', 'ringDoppler', 'ringSide', 'ringBase', 'ringFeed', 'ringAfterglow', 'ringFlowSpeed',
   'lensingEnabled', 'lensingRadius', 'lensingRotation', 'lensingFalloff', 'lensingPivot', 'lensingCore', 'lensingMaxBend', 'lensingReach', 'lensingTwistLimit', 'lensingAbsorption',
   'gridCell', 'gridSheet', 'gridTilt', 'gridDepth', 'gridSky',
   'orbitCount', 'orbitSize', 'orbitEccentricity', 'orbitSpeed', 'orbitTrail', 'orbitStarSize',

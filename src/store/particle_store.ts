@@ -26,6 +26,8 @@ export interface ParticleState {
   // Photon ring: brightness, line thickness in black hole radii, contrast between its sides,
   // and the direction of its bright side in radians
   ringBrightness: number
+  // Strength of the soft light around the ring's line; 0 leaves the bare line
+  ringGlow: number
   ringWidth: number
   ringDoppler: number
   ringSide: number
@@ -125,6 +127,7 @@ export interface ParticleState {
   toggleRing: () => void
   toggleRingFeed: () => void
   setRingBrightness: (value: number) => void
+  setRingGlow: (value: number) => void
   setRingWidth: (value: number) => void
   setRingDoppler: (value: number) => void
   setRingSide: (value: number) => void
@@ -208,11 +211,12 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   gravityReach: 5,
   ringEnabled: true,
   ringFeedEnabled: true,
-  ringBrightness: 0.9,
-  ringWidth: 0.012,
-  ringDoppler: 0.45,
+  ringBrightness: 1,
+  ringGlow: 0.3,
+  ringWidth: 0.001,
+  ringDoppler: 0.2,
   ringSide: 1.9,
-  ringBase: 0.45,
+  ringBase: 0.8,
   ringFeed: 0.9,
   ringAfterglow: 0.6,
   ringFlowSpeed: 0.6,
@@ -288,6 +292,7 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   toggleRing: () => set((state) => ({ ringEnabled: !state.ringEnabled })),
   toggleRingFeed: () => set((state) => ({ ringFeedEnabled: !state.ringFeedEnabled })),
   setRingBrightness: (value) => set({ ringBrightness: value }),
+  setRingGlow: (value) => set({ ringGlow: value }),
   setRingWidth: (value) => set({ ringWidth: value }),
   setRingDoppler: (value) => set({ ringDoppler: value }),
   setRingSide: (value) => set({ ringSide: value }),

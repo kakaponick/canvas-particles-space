@@ -172,6 +172,7 @@ export const compositeFragmentShaderSource = `
   uniform float u_absorption;    // light the lens's pull removes around the shadow
   uniform float u_ring;          // photon ring brightness
   uniform float u_ringWidth;     // thickness of the line, in black hole radii
+  uniform float u_ringGlow;      // strength of the soft light around the line; 0 leaves the bare line
   uniform float u_ringDoppler;   // contrast between the approaching and the receding side
   uniform float u_ringSide;      // direction of the approaching side, radians
   uniform sampler2D u_ringEnergy; // light left around the ring by infalling matter
@@ -265,7 +266,11 @@ export const compositeFragmentShaderSource = `
   uniform float u_letterbox;     // height of each black bar, pixels
 
   const float PI = 3.14159265359;
-  const vec3 RING_COLOR = vec3(1.0, 0.86, 0.66);
+  const vec3 RING_COLOR = vec3(1.0);
+  // The ring's glow: how far its tight core and its wide skirt reach, in black hole radii, and the share
+  // of the glow each holds at the line
+  const vec2 RING_GLOW_REACH = vec2(0.035, 0.18);
+  const vec2 RING_GLOW_SHARE = vec2(0.3, 0.12);
   const vec3 RING_APPROACHING = vec3(0.8, 0.9, 1.0);
   const vec3 RING_RECEDING = vec3(1.0, 0.42, 0.16);
   // A blur spreads the letters' light thin; this brings the glow back to a visible level
@@ -602,9 +607,16 @@ export const compositeFragmentShaderSource = `
       // Photon ring: light that circled the hole before escaping, a hair-thin line hugging the shadow
       if (u_ring > 0.0 && dist < u_horizon * 1.6) {
         float ringLine = max(u_ringWidth * u_horizon, 1.5);
-        float edge = dist - u_horizon;
-        float inner = (edge - 0.7 * ringLine) / (0.45 * ringLine);
+        float fromLine = dist - u_horizon - 0.7 * ringLine;
+        float inner = fromLine / (0.45 * ringLine);
         float line = exp(-inner * inner);
+        // The glow is the light a camera spreads around a line this bright: tight around the line with a
+        // faint wide skirt, on both sides of it. It scales with the hole and is gone well inside the
+        // reach of this branch, so it never ends in an edge
+        if (u_ringGlow > 0.0) {
+          vec2 spread = fromLine / (u_horizon * RING_GLOW_REACH);
+          line += u_ringGlow * dot(RING_GLOW_SHARE, exp(-spread * spread));
+        }
 
         // The ring burns brighter where the simulation drops matter into the hole
         float ringAngle = atan(offset.y, offset.x);
@@ -615,7 +627,9 @@ export const compositeFragmentShaderSource = `
         float side = cos(ringAngle - u_ringSide);
         // Scaled so the bright side peaks at the ring's brightness: clipping to white would thicken the line
         float boost = (1.0 + 0.5 * u_ringDoppler * side) / (1.0 + 0.5 * u_ringDoppler);
-        vec3 tint = mix(RING_COLOR, side > 0.0 ? RING_APPROACHING : RING_RECEDING, abs(side) * u_ringDoppler);
+        // The colour follows the square of the contrast: a mild one only brightens and dims the sides of
+        // a white ring, a strong one also turns them blue and red
+        vec3 tint = mix(RING_COLOR, side > 0.0 ? RING_APPROACHING : RING_RECEDING, abs(side) * u_ringDoppler * u_ringDoppler);
         color += tint * u_ring * boost * boost * boost * line;
       }
     }

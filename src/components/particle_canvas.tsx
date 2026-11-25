@@ -245,6 +245,7 @@ function ParticleCanvas () {
         absorption: 0,
         ring: 0,
         ringWidth: 0,
+        ringGlow: 0,
         ringDoppler: 0,
         ringSide: 0,
         ringPhase: 0,
@@ -706,6 +707,7 @@ function ParticleCanvas () {
       composite.absorption = state.lensingAbsorption
       composite.ring = hidden.ring || !state.ringEnabled ? 0 : state.ringBrightness * ringPower
       composite.ringWidth = state.ringWidth
+      composite.ringGlow = state.ringGlow
       composite.ringDoppler = state.ringDoppler
       composite.ringSide = state.ringSide
       composite.ringPhase = ringEnergy.phase
