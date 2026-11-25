@@ -20,12 +20,15 @@ that a viewer sees what was meant, and what has already gone wrong once.
 13. Text that explains
 14. Shapes over the picture
 15. A reel: several films in one video
+16. The particle field: a look for every shot
 
 ## 1. Start from the picture, not from the keys
 
 Write down, second by second, what the viewer should see. Then give each moment the one or two knobs that
 make it, from knobs.md. A film that moves ten things at once shows none of them; one built on a single
 ability of the scene, taken to its end, is the one people watch twice.
+
+The particles are in every one of those pictures, so each shot says what they do: section 16.
 
 Give every change time: a viewer needs about three seconds to take in a new picture, and a label needs to
 stay as long as it takes to read twice.
@@ -400,3 +403,46 @@ A JSON object with `clips`; the same tools take it wherever they take a film, an
   clips, with the same place and size.
 - The frame and the rate are the reel's: a clip written for another frame is drawn in the reel's, and a
   caption placed for a vertical frame will not sit right in a wide one.
+
+## 16. The particle field: a look for every shot
+
+The particles are the scene; grids, shapes and captions explain what they do. A film that leaves the field
+at its defaults shows one flight in every shot, and whoever knows the scene sees it at once. So every shot
+gets a **look**: a handful of particle settings chosen for what the shot says. The keys and their laws are
+sections 2 to 4 of knobs.md; this is how to use them in a film.
+
+1. Say in one sentence what the particles do in the shot: "matter circles the hole", "nothing moves",
+   "everything runs sideways". A shot whose sentence is "they fly past as usual" has no look yet.
+2. Take the look from the table below, or build one from knobs.md.
+3. See it before writing the film: a reel of 7 s clips, one look each, with `"intro": false` and
+   `"warmup": 8`, previewed with no seconds asked for, is one picture of every look under its name, in
+   about ten seconds. The warm-up matters: a ring takes seconds to gather.
+4. Lay the looks along the film: the first in `film()`, each next one a `to()` over 2 to 3 s where its
+   shot begins, under a comment that says what the particles now show.
+5. Preview one frame of every shot at full size. The particles are done when each frame shows its
+   sentence with the captions covered.
+
+Looks that have been filmed (`films/fourth_dimension_*.js`), at `blackHoleSize` 8:
+
+| Look | Settings | What the viewer sees |
+|---|---|---|
+| A ring of matter | `gravityInertia` 0.92, `orbitalStrength` 90, `gravityStrength` 5, `gravityReach` 8, `baseSpeed` 1, `trailIntensity` 0.08 | A bright ring of swirling matter round the shadow and its mirrored copy inside the lens: the picture of a black hole people know. At a zoom keep `baseBrightness` near 1.1; from 1.5 the ring burns out |
+| Bent paths | `gravityInertia` 1, `baseSpeed` 2.5, `gravityStrength` 6, `gravityReach` 9 | Streaks swing round the hole and fly on. `gravityStrength` moved from 0.3 to 7 along a track is the pull arriving |
+| A disc in space | `threeD`, `gravityInertia` 0.95, `baseSpeed` 0.4, `gravityStrength` 6, `gravityReach` 12, `orbitalStrength` 80, `baseBrightness` 2, `speedGlow` 0.3 | A tilted disc circling the hole, its far side bent over the shadow by the traced lens. With `blackHoleSpin` and `frameDrag` 5 it winds |
+| Infall | `baseSpeed` 0, `orbitalStrength` 0, `trailIntensity` 0.03, `gravityStrength` 6, `gravityReach` 12, `gravityDepth` 60 | Hair-thin rays that brighten toward the hole and are faint beyond three radii: a second voice under a grid on a dark sky, not a picture alone. `orbitalStrength` 70 leans them into a spiral; `particleSizeMin` raised to `particleSize` heaps a bright band on the horizon |
+| A push | the infall with `gravityStrength` -12 and `horizonScale` 0 | The field emptied round the hole and heaped into a ring beyond it. With a flight (`baseSpeed` 3) and the ring's glow filling the shadow (`ringGlow` 3, `ringGlowSkirt` 1, `ringGlowSkirtShare` 3, `ringBase` 3) it is a white hole |
+| Stillness | `baseSpeed` 0 and no pull | A dark field: the stars and the nebula alone |
+| The stream as a direction | `threeD` with `blackHoleSize` 0: `cameraYaw` 90 runs it across the frame, `cameraPitch` 80 up it, both at 0 straight at the viewer | One direction of space, shown by everything moving along it. A move of 0.7 s from one to the next is a whip that smears the trails |
+| A tunnel | `baseSpeed` 70, `flightTintFrom` 0, `cameraZoom` 0.5, `trailIntensity` 0.05 | The flight folded round into a tube of two colours |
+
+What decides whether a look shows:
+
+- In the flat mode the flight comes at the camera out of the point where the hole usually stands, so the
+  default streaks run away from the hole. A shot that says "falls in" lets gravity carry the motion
+  (the ring, bent paths, the infall) or goes to 3D.
+- A particle's light is its speed and a far particle is a hairline (`particleSizeMin`), so a slow look is
+  a dim one: give it a dark sky, `speedGlow` toward 0, and judge it at full size.
+- A look forms and leaves over seconds. Start its `to()` under the line before the one it belongs to.
+- A hole given more mass along the film (`blackHoleSize` on a track) carries its ring with it.
+- A shape is laid where the particles already go: an arrow over a stream is a label, an arrow in place of
+  one is a diagram of something the scene could have shown.
