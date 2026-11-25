@@ -10,14 +10,23 @@
     <link rel="preload" href="/fonts/orbitron-latin-400.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="/fonts/geist-mono-latin-variable.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="/fonts/unbounded-latin-variable.woff2" as="font" type="font/woff2" crossorigin>
-    <style>html, body { background: #000; }</style>
+    <style>
+      html, body { background: #000; }
+      /* The page's description: what a reader that runs no script gets. The scene takes its place, and a
+         browser that runs scripts never shows it, so it does not flash before the scene is up */
+      #page-description { max-width: 72ch; padding: 2rem; color: #ccc; font: 15px/1.6 system-ui, sans-serif; }
+      #page-description h1 { margin: 0 0 1rem; font-size: 1.4rem; font-weight: 600; }
+      #page-description h2 { margin: 1.5rem 0 0.75rem; font-size: 1.15rem; font-weight: 600; }
+      #page-description p, #page-description ul, #page-description pre { margin: 0 0 0.9rem; }
+      #page-description ul { padding-left: 1.2rem; list-style: disc; }
+      #page-description code, #page-description pre { font-family: ui-monospace, monospace; font-size: 0.92em; }
+      #page-description a { color: #8cc8ff; }
+      .js #page-description { display: none; }
+    </style>
+    <script>document.documentElement.classList.add('js')</script>
 </head>
   <body>
-    <div id="root"></div>
-    <noscript>
-      <pre style="margin: 0; padding: 2rem; max-width: 80ch; white-space: pre-wrap; color: #ccc; font: 14px/1.5 ui-monospace, monospace;"><!--page-description--></pre>
-    </noscript>
+    <div id="root"><main id="page-description"><!--page-description--></main></div>
     <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>
-
