@@ -1,0 +1,126 @@
+{
+  "duration": 36,
+  "fps": 60,
+  "size": "1080p",
+  "seed": 11,
+  "intro": false,
+  "warmup": 10,
+  "settings": {
+    "blackHoleSize": 3,
+    "blackHoleX": 0.5,
+    "blackHoleY": 0.5,
+    "gravityStrength": 5,
+    "orbitalStrength": 90,
+    "gravityReach": 7,
+    "orbitSize": 3,
+    "orbitEccentricity": 0.6,
+    "orbitTrail": 8,
+    "orbitStarSize": 1,
+    "ringGlow": 0.15,
+    "starsBrightness": 1.6,
+    "gridCell": 5
+  },
+  "tracks": {
+    "cameraZoom": [
+      [0, 1],
+      [3, 1],
+      [11, 8],
+      [16, 1, "hold"],
+      [17.5, 2, "hold"],
+      [19, 4, "hold"],
+      [20.5, 8, "hold"],
+      [22, 8],
+      [24.5, 4],
+      [29.5, 4],
+      [35, 1]
+    ],
+    "blackHoleX": [
+      [22, 0.5],
+      [25.5, 0.36],
+      [28.5, 0.64],
+      [30.5, 0.5]
+    ],
+    "gridSky": [
+      [21.5, 0],
+      [23.5, 0.7],
+      [29, 0.7],
+      [31, 0]
+    ],
+    "baseBrightness": [
+      [21.5, 1],
+      [23.5, 0.5],
+      [29, 0.5],
+      [31, 1]
+    ],
+    "orbitCount": [
+      [0, 0],
+      [21.5, 3, "hold"]
+    ]
+  },
+  "captions": [
+    {
+      "text": "Zoom больше не растягивает картинку",
+      "from": 0.5,
+      "to": 3.6
+    },
+    {
+      "text": "Он рисует сцену заново на каждом увеличении",
+      "from": 4.2,
+      "to": 10.6
+    },
+    {
+      "text": "Кольцо: 1,5 px. Как и на 1×",
+      "from": 11.6,
+      "to": 15.7,
+      "at": "hole",
+      "angle": 35
+    },
+    {
+      "text": "1×",
+      "from": 16,
+      "to": 17.5,
+      "at": "top",
+      "size": 0.09,
+      "fade": 0
+    },
+    {
+      "text": "2×",
+      "from": 17.5,
+      "to": 19,
+      "at": "top",
+      "size": 0.09,
+      "fade": 0
+    },
+    {
+      "text": "4×",
+      "from": 19,
+      "to": 20.5,
+      "at": "top",
+      "size": 0.09,
+      "fade": 0
+    },
+    {
+      "text": "8×",
+      "from": 20.5,
+      "to": 22,
+      "at": "top",
+      "size": 0.09,
+      "fade": 0
+    },
+    {
+      "text": "Смена плана: следы начинаются с чистого кадра",
+      "from": 16.3,
+      "to": 21.7
+    },
+    {
+      "text": "Сетка, звёзды и следы орбит рисуются линиями",
+      "from": 23.6,
+      "to": 28.8
+    },
+    {
+      "text": "Камера отъезжает, и следы тянутся за ней",
+      "from": 30.6,
+      "to": 35.4
+    }
+  ]
+}

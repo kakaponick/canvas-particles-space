@@ -116,6 +116,9 @@ audio track. The same film is the same video on any machine.
   the lens travelling over the lensed grid, wound up by Twist, then two lenses. `rapid.json` (60 fps): the opening
   stretched until the light takes four seconds to cross the frame. `waltz.json` (vertical, 60 fps): two black
   holes closing and parting over the sheet before they merge.
+- **The zoom on its own**: `films/zoom.json` (60 fps, silent) pushes in from 1× to 8× on the photon ring, which
+  stays a line of a pixel and a half, cuts between 1×, 2×, 4× and 8×, travels with the black hole over the lensed
+  grid at 4× and pulls back with the trails streaking behind the camera.
 
 ## Project Structure
 
