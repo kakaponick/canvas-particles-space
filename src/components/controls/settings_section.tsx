@@ -78,6 +78,54 @@ export function SettingsRow ({ label, help, children, className }: SettingsRowPr
   )
 }
 
+interface SettingsFineProps {
+  // The section it closes, which names it among the remembered sections
+  id: string
+  children: ReactNode
+}
+
+// The settings of a section that are rarely moved, one click further in: the numbers that shape an effect
+// rather than set it. Closed, the section reads as it does without them. Like a section, it is built with
+// the page and only hidden while closed
+export function SettingsFine ({ id, children }: SettingsFineProps) {
+  const key = `${id}-fine`
+  const [open, setOpen] = useState(openSections[key] ?? false)
+  const baseId = useId()
+  const headerId = `${baseId}-header`
+  const panelId = `${baseId}-panel`
+
+  const toggle = () => {
+    rememberSection(key, !open)
+    setOpen(!open)
+  }
+
+  return (
+    <div className="mt-3">
+      <button
+        id={headerId}
+        type="button"
+        aria-expanded={open}
+        aria-controls={panelId}
+        onClick={toggle}
+        className="flex h-7 w-full items-center gap-1 pl-3 text-left font-mono text-[11px] tracking-[0.5px] text-text-light/70 transition-colors duration-150
+          hover:text-text-light focus-visible:outline focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-neon-cyan"
+      >
+        <ChevronRight aria-hidden="true" className={cn('-ml-4 h-3 w-3 shrink-0 transition-transform duration-150 motion-reduce:transition-none', open && 'rotate-90')} />
+        FINE TUNING
+      </button>
+      <div
+        id={panelId}
+        role="group"
+        hidden={!open}
+        aria-labelledby={headerId}
+        className={cn(open ? 'flex' : 'hidden', 'flex-col gap-1 pt-1')}
+      >
+        {children}
+      </div>
+    </div>
+  )
+}
+
 interface SettingsSectionProps {
   id: string
   title: string
