@@ -1,0 +1,26 @@
+{
+  "routes": [
+    {
+      "src": "/",
+      "has": [{ "type": "header", "key": "accept", "value": ".*text/markdown.*" }],
+      "dest": "/index.md",
+      "headers": {
+        "content-type": "text/markdown; charset=utf-8",
+        "vary": "Accept"
+      }
+    },
+    {
+      "src": "/",
+      "headers": {
+        "link": "</index.md>; rel=\"service-doc\"; type=\"text/markdown\"",
+        "vary": "Accept"
+      },
+      "continue": true
+    },
+    {
+      "src": "/index[.]md",
+      "headers": { "content-type": "text/markdown; charset=utf-8" },
+      "continue": true
+    }
+  ]
+}

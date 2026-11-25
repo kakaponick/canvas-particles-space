@@ -37,6 +37,8 @@ const READOUT_INTERVAL_MS = 66
 // With the debugger closed the intro plays at the debugger's speed; once it is over the scene eases back
 // to full speed over about this long, instead of jumping
 const SPEED_RETURN_MS = 800
+// What the canvas is, for a screen reader and for an agent that reads the page instead of seeing it
+const SCENE_LABEL = 'Particles flying through space around a black hole that bends their light. To script the scene, open the page with ?agent and call space.help().'
 
 function getRenderScale (width: number, height: number) {
   const budgetScale = Math.sqrt(PIXEL_BUDGET / Math.max(width * height, 1))
@@ -528,7 +530,12 @@ function ParticleCanvas () {
 
   return (
     <>
-      <canvas ref={canvasRef} className="fixed top-0 left-0 w-full h-full touch-pinch-zoom" aria-hidden="true" />
+      <canvas
+        ref={canvasRef}
+        className="fixed top-0 left-0 w-full h-full touch-pinch-zoom"
+        role="img"
+        aria-label={SCENE_LABEL}
+      />
       {unsupported && (
         <div role="alert" className="fixed inset-0 flex items-center justify-center p-8 text-center font-mono text-sm text-text-light">
           This experience needs WebGL 2. Turn on hardware acceleration in your browser settings, or open the page in an up-to-date browser.
