@@ -38,6 +38,10 @@ const LONGEST_TRACE = 60
 const TRACE_ROWS = Math.ceil(LONGEST_TRACE / STRETCH_SECONDS) + 1
 // Room for every star's longest trace
 const TRACE_CAPACITY = TRACE_ROWS * MAX_ORBITERS
+// The levels of the nebula's noise its clouds start at with Sparseness 0 (haze everywhere) and 1 (a few
+// thin wisps), the same span the opening's dust takes
+const NEBULA_LEVEL_LOW = 0.2
+const NEBULA_LEVEL_HIGH = 0.62
 
 // The output is opaque and fully redrawn every frame, so the context skips alpha, depth and MSAA
 const CONTEXT_ATTRIBUTES: WebGLContextAttributes = {
@@ -172,6 +176,24 @@ export interface CompositeSettings {
   nebula: number
   nebulaColor: SceneColor
   nebulaColorDeep: SceneColor
+  nebulaColorCore: SceneColor
+  // Its clouds: CSS pixels across, sparseness and edge (0..1 of the noise), how curled, how much denser in
+  // the middle, grain; CSS pixels a second they are read further along; the second colour's patches (in
+  // clouds across, share of the sky, softness); how far the thickest cloud turns to the core colour, and
+  // from what thickness
+  nebulaScale: number
+  nebulaSparseness: number
+  nebulaEdge: number
+  nebulaWarp: number
+  nebulaContrast: number
+  nebulaGrain: number
+  nebulaDriftX: number
+  nebulaDriftY: number
+  nebulaPatch: number
+  nebulaPatchShare: number
+  nebulaPatchSoftness: number
+  nebulaCore: number
+  nebulaCoreFrom: number
   nebulaShiftX: number
   nebulaShiftY: number
   nebulaWrap: number
@@ -459,7 +481,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     'titleCenter', 'titleHalfSize', 'titleAlpha', 'titleReveal', 'titleDissolve', 'titleDrift', 'titleGlow',
     'titleFlash', 'titleCooling', 'titleDust', 'titlePull', 'titleSwirl', 'titleReach', 'titleCapture', 'titleScale',
     'titleFringe', 'titleHalo', 'titleRedshift', 'titleGrain', 'titleBurn', 'titleFall', 'titleTidal', 'titleSpiral', 'titleSpread', 'titleStream', 'titleOrder', 'titleTrail', 'titleHeat', 'dustSweep', 'echoFloor', 'dustShock', 'dustBlow', 'dustDrift',
-    'skyGrid', 'gridCell', 'skyGridLine', 'skyShift', 'orbits', 'nebula', 'nebulaColor', 'nebulaColorDeep', 'gridPull', 'gridColor',
+    'skyGrid', 'gridCell', 'skyGridLine', 'skyShift', 'orbits', 'nebula', 'nebulaColor', 'nebulaColorDeep', 'nebulaColorCore', 'nebulaShape', 'nebulaLook', 'nebulaPatch', 'nebulaDrift', 'gridPull', 'gridColor',
     'colorFlash', 'colorLight', 'colorDust', 'colorTitle', 'colorEmber',
     'cameraZoom', 'zoomCenter', 'layerZoom', 'shake', 'lensFringe', 'vignette', 'filmGrain', 'letterbox'
   ] as const)
@@ -947,6 +969,17 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     if (settings.nebula > 0) {
       setUniform3f(gl, u.nebulaColor, settings.nebulaColor.r, settings.nebulaColor.g, settings.nebulaColor.b)
       setUniform3f(gl, u.nebulaColorDeep, settings.nebulaColorDeep.r, settings.nebulaColorDeep.g, settings.nebulaColorDeep.b)
+      setUniform3f(gl, u.nebulaColorCore, settings.nebulaColorCore.r, settings.nebulaColorCore.g, settings.nebulaColorCore.b)
+      // Sparseness slides the level the clouds start at across the noise, which spans 0..0.875 around 0.44
+      setUniform4f(gl, u.nebulaShape, Math.max(settings.nebulaScale, 1), NEBULA_LEVEL_LOW + (NEBULA_LEVEL_HIGH - NEBULA_LEVEL_LOW) * settings.nebulaSparseness,
+        Math.max(settings.nebulaEdge, 0.001), settings.nebulaWarp)
+      setUniform4f(gl, u.nebulaLook, settings.nebulaContrast, settings.nebulaGrain, settings.nebulaCore, Math.min(settings.nebulaCoreFrom, 0.999))
+      // The share of the sky the second colour takes moves the level its patches turn at from above the noise
+      // to below it
+      const soft = Math.max(settings.nebulaPatchSoftness, 0.001)
+      const middle = 1 + soft / 2 - settings.nebulaPatchShare * (1 + soft)
+      setUniform3f(gl, u.nebulaPatch, Math.max(settings.nebulaPatch * settings.nebulaScale, 1), middle - soft / 2, middle + soft / 2)
+      setUniform2f(gl, u.nebulaDrift, settings.nebulaDriftX, settings.nebulaDriftY)
     }
     if (settings.backgroundStars > 0) {
       const warm = settings.starWarm

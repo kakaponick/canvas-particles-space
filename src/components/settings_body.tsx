@@ -415,10 +415,29 @@ function SettingsBody () {
       </SettingsSection>
 
       <SettingsSection id="nebula" title="Nebula">
-        {/* The shape of its clouds is the opening's dust: Dust Scale, Sparseness and Drift in the intro debugger */}
+        {/* How bright, the clouds' size and fill, then its colours and how far the thickest cloud takes the third */}
         <SettingSlider field="nebula" />
-        <SettingColor field="nebulaColor" />
-        <SettingColor field="nebulaColorDeep" />
+        <SettingSlider field="nebulaScale" />
+        <SettingSlider field="nebulaSparseness" />
+        <div className="mt-3 flex flex-col gap-1">
+          <SettingColor field="nebulaColor" />
+          <SettingColor field="nebulaColorDeep" />
+          <SettingColor field="nebulaColorCore" />
+          <SettingSlider field="nebulaCore" />
+        </div>
+        <SettingsFine id="nebula">
+          {/* The clouds' look, their drift, the second colour's patches, where the core colour starts */}
+          <SettingSlider field="nebulaEdge" />
+          <SettingSlider field="nebulaWarp" />
+          <SettingSlider field="nebulaContrast" />
+          <SettingSlider field="nebulaGrain" />
+          <SettingSlider field="nebulaDrift" />
+          <SettingSlider field="nebulaDriftAngle" />
+          <SettingSlider field="nebulaPatch" />
+          <SettingSlider field="nebulaPatchShare" />
+          <SettingSlider field="nebulaPatchSoftness" />
+          <SettingSlider field="nebulaCoreFrom" />
+        </SettingsFine>
       </SettingsSection>
     </div>
   )

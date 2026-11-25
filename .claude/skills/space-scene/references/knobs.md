@@ -369,15 +369,28 @@ come, as around a real black hole.
   flicker. Set it at a cut, or with `starsTwinkle` at 0.
 - The same colour in `starsColorWarm` and `starsColorCool` gives a sky of one colour.
 
-`nebula`, `nebulaColor`, `nebulaColorDeep`: a nebula behind the stars, bent and rippled like them. It is the
-dust of the opening (section 13) glowing on its own, so its shape is the dust's: `dustScale` sizes the
-clouds, `dustThreshold` sets how much of the sky they fill (0.1 to 0.2 fills it with haze, the default
-leaves wisps), `dustDrift` moves them (0 holds the sky still). Those are intro parameters and work without
-the opening too; changing them changes the dust the flash lights as well. The nebula shows as the opening
-lets the stars show, and hiding the `stars` layer hides it. It adds light, so a dark background colour
-under it (`backgroundR`..`backgroundB`) deepens the gaps between the clouds. In 3D it turns with the camera
-and, having no cells to repeat by, blends into itself over a full turn, so its contrast is lowest when the
-camera looks back along the flight.
+### The nebula
+
+| What | Keys |
+|---|---|
+| How bright (0 is off) | `nebula` |
+| Its clouds: size, how much of the sky they fill, edges, curl, how much denser in the middle, grain | `nebulaScale`, `nebulaSparseness`, `nebulaEdge`, `nebulaWarp`, `nebulaContrast`, `nebulaGrain` |
+| Their drift: speed and direction on the screen | `nebulaDrift`, `nebulaDriftAngle` |
+| Its colours: main, the second in patches (size, share of the sky, softness), the core of the thickest cloud (how far, from what thickness) | `nebulaColor`, `nebulaColorDeep`, `nebulaPatch`, `nebulaPatchShare`, `nebulaPatchSoftness`, `nebulaColorCore`, `nebulaCore`, `nebulaCoreFrom` |
+
+- Clouds of gas and dust behind the stars, bent and rippled like them. They are made as the opening's dust
+  is (section 13), but every number is the nebula's own, so the dust the flash lights and the nebula can
+  differ; at the dust's values (`nebulaScale` = `dustScale`, `nebulaSparseness` = `dustThreshold`, the
+  look at its defaults) the two are the same clouds.
+- `nebulaSparseness` 0.1 to 0.3 fills the sky with clouds and narrow dark gaps, the default 0.55 leaves
+  clouds apart, 0.8 and above a few wisps. `nebulaWarp` 0 leaves round blotches; `nebulaGrain` near 1
+  shows the square cells the noise is built on.
+- `nebulaCore` grows from `nebulaCoreFrom` to the thickest cloud; at a low sparseness most of the sky is
+  thick, so raise `nebulaCoreFrom` (0.9) or the core colour washes over everything.
+- It shows as the opening lets the stars show, and hiding the `stars` layer hides it. It adds light, so a
+  dark background colour under it (`backgroundR`..`backgroundB`) deepens the gaps between the clouds.
+- In 3D it turns with the camera and, having no cells to repeat by, blends into itself over a full turn, so
+  its contrast is lowest when the camera looks back along the flight.
 
 ## 11. Where the black hole is, and the camera
 
@@ -607,7 +620,7 @@ The cost of a knob, in the last column:
 | One star at most in a cell, placed in its middle 0.6 and drawn inside that cell alone, which cuts a large `starsSize` off at its edge | webgl_shaders.ts | pixel |
 | How the Lensed Grid's pull is found: 8 halvings of the span the node can lie in, then a straight line across the last | webgl_shaders.ts | machine |
 | Where the pulled grid turns to haze: its cells under 6 device px start to merge into the light they share, wholly at 3 | webgl_shaders.ts | frame |
-| The nebula's patches of its second colour, 3 Dust Scales across, turning over the middle 0.4 of a noise | webgl_shaders.ts | frame |
+| The nebula's clouds: three layers of noise, each 2.1 times finer and turned, the slower noise that curls them at 0.8 of their size, the grain at 1.7 times the finest; a Detail knob for the layers would take a loop to a fixed most with a break | webgl_shaders.ts | pixel |
 
 ### The opening
 

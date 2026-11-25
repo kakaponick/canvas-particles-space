@@ -78,11 +78,28 @@ export interface ParticleState {
   starsBrightness: number
   starDensity: number
   starCell: number
-  // The nebula: the opening's dust lit steadily behind the stars (0 turns it off), and its two colours,
-  // '#rrggbb'
+  // The nebula behind the stars: its brightness (0 turns it off), its three colours ('#rrggbb'), its clouds
+  // (CSS pixels across, how sparse, how soft their edges, how curled, how much denser in the middle, how
+  // grained), their drift (CSS pixels a second, degrees: 0 right, 90 up), the patches of the second colour
+  // (in clouds across, the share of the sky, how soft) and how far the thickest cloud turns to the core
+  // colour, from what thickness
   nebula: number
   nebulaColor: string
   nebulaColorDeep: string
+  nebulaColorCore: string
+  nebulaScale: number
+  nebulaSparseness: number
+  nebulaEdge: number
+  nebulaWarp: number
+  nebulaContrast: number
+  nebulaGrain: number
+  nebulaDrift: number
+  nebulaDriftAngle: number
+  nebulaPatch: number
+  nebulaPatchShare: number
+  nebulaPatchSoftness: number
+  nebulaCore: number
+  nebulaCoreFrom: number
   // A background star: its width in CSS pixels, the two colours its tint lies between, '#rrggbb', how much
   // of its light the twinkle takes, the twinkle's rate as a multiple of its own, and the brightness of the
   // faintest star as a share of the brightest
@@ -344,6 +361,20 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   nebula: 0,
   nebulaColor: '#1c8c78',
   nebulaColorDeep: '#2a4fb0',
+  nebulaColorCore: '#d8e88a',
+  nebulaScale: 220,
+  nebulaSparseness: 0.55,
+  nebulaEdge: 0.22,
+  nebulaWarp: 0.9,
+  nebulaContrast: 0.55,
+  nebulaGrain: 0.3,
+  nebulaDrift: 10,
+  nebulaDriftAngle: -143,
+  nebulaPatch: 3,
+  nebulaPatchShare: 0.5,
+  nebulaPatchSoftness: 0.4,
+  nebulaCore: 0,
+  nebulaCoreFrom: 0.6,
   starsSize: 1.55,
   starsColorWarm: '#ffd19e',
   starsColorCool: '#bfd9ff',

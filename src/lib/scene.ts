@@ -360,6 +360,20 @@ export function createScene (
       nebula: 0,
       nebulaColor: createSceneColor(),
       nebulaColorDeep: createSceneColor(),
+      nebulaColorCore: createSceneColor(),
+      nebulaScale: 0,
+      nebulaSparseness: 0,
+      nebulaEdge: 0,
+      nebulaWarp: 0,
+      nebulaContrast: 0,
+      nebulaGrain: 0,
+      nebulaDriftX: 0,
+      nebulaDriftY: 0,
+      nebulaPatch: 0,
+      nebulaPatchShare: 0,
+      nebulaPatchSoftness: 0,
+      nebulaCore: 0,
+      nebulaCoreFrom: 0,
       nebulaShiftX: 0,
       nebulaShiftY: 0,
       nebulaWrap: 0,
@@ -1199,6 +1213,21 @@ export function createScene (
     composite.nebula = intro.backgroundStars * state.nebula
     readSceneColor(composite.nebulaColor, state.nebulaColor)
     readSceneColor(composite.nebulaColorDeep, state.nebulaColorDeep)
+    readSceneColor(composite.nebulaColorCore, state.nebulaColorCore)
+    composite.nebulaScale = state.nebulaScale
+    composite.nebulaSparseness = state.nebulaSparseness
+    composite.nebulaEdge = state.nebulaEdge
+    composite.nebulaWarp = state.nebulaWarp
+    composite.nebulaContrast = state.nebulaContrast
+    composite.nebulaGrain = state.nebulaGrain
+    // The clouds are read further along the way opposite to their drift; the screen's y runs down
+    composite.nebulaDriftX = -state.nebulaDrift * Math.cos(state.nebulaDriftAngle * DEGREE)
+    composite.nebulaDriftY = state.nebulaDrift * Math.sin(state.nebulaDriftAngle * DEGREE)
+    composite.nebulaPatch = state.nebulaPatch
+    composite.nebulaPatchShare = state.nebulaPatchShare
+    composite.nebulaPatchSoftness = state.nebulaPatchSoftness
+    composite.nebulaCore = state.nebulaCore
+    composite.nebulaCoreFrom = state.nebulaCoreFrom
     const starSize = state.starsSize / STAR_SIZE
     composite.starSpread = STAR_SPREAD * starSize * starSize
     composite.starTwinkle = state.starsTwinkle

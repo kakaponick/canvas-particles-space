@@ -332,6 +332,11 @@ export const compositeFragmentShaderSource = `
   uniform vec4 u_nebula;           // the nebula's brightness (0 turns it off), CSS pixels the 3D camera's turn slides it by (yz), CSS pixels of a full turn (0 when flat)
   uniform vec3 u_nebulaColor;
   uniform vec3 u_nebulaColorDeep;
+  uniform vec3 u_nebulaColorCore;
+  uniform vec4 u_nebulaShape;      // its clouds: CSS pixels across, the level they start at and the width of their edge, how hard the slower noise bends them
+  uniform vec4 u_nebulaLook;       // how much denser the middle of a cloud is, its grain, how far the thickest cloud turns to the core colour, and the thickness that starts at
+  uniform vec3 u_nebulaPatch;      // patches of the second colour: CSS pixels across, the two levels of a noise they turn over between
+  uniform vec2 u_nebulaDrift;      // CSS pixels a second the clouds are read further along, so they drift the other way
   uniform float u_gridPull;        // how far the Lensed Grid is drawn in towards the hole, the Pull; 0 leaves it flat
   uniform vec3 u_gridColor;        // colour of its lines
 
@@ -394,8 +399,6 @@ export const compositeFragmentShaderSource = `
   const float DUST_HOLD_MAX = 1.8;
   // Seconds for the blast to push the dust most of its way
   const float DUST_BLOW_SECONDS = 1.2;
-  // Width of a patch of the nebula's second colour, in Dust Scales
-  const float NEBULA_PATCH = 3.0;
   // Halvings that find the node the Lensed Grid's pull brings to a point; a straight line across the last
   // one leaves it well under a pixel off
   const int GRID_PULL_STEPS = 8;
@@ -456,11 +459,27 @@ ${DENT_GLSL}
     return away * away / (away + wish);
   }
 
-  // The nebula is the same dust, glowing on its own: its main colour, turning to the second one in
-  // patches NEBULA_PATCH clouds across
+  // The nebula: clouds made as the opening's dust is, with every number its own. The noise is read
+  // through a slower one that bends it into wisps (u_nebulaShape.w), sharpened into clouds from a level
+  // (yz), made denser in the middle (u_nebulaLook.x) and grained (y). Its colour turns to the second one in
+  // patches (u_nebulaPatch) and to the core colour where the cloud is thickest (u_nebulaLook.zw)
   vec3 nebulaLight (vec2 cssPx) {
-    float other = smoothstep(0.3, 0.7, valueNoise(cssPx / (NEBULA_PATCH * u_dustScale) + 23.0));
-    return mix(u_nebulaColor, u_nebulaColorDeep, other) * dust(cssPx);
+    vec2 p = cssPx / u_nebulaShape.x;
+    p += u_nebulaShape.w * (vec2(valueNoise(p * 0.8 + 3.1), valueNoise(p * 0.8 + 17.4)) - 0.5);
+    mat2 turn = mat2(0.8, 0.6, -0.6, 0.8);
+    float n = 0.0;
+    float amplitude = 0.5;
+    for (int i = 0; i < 3; i++) {
+      n += amplitude * valueNoise(p);
+      p = turn * p * 2.1 + 11.7;
+      amplitude *= 0.5;
+    }
+    float cloud = smoothstep(u_nebulaShape.y, u_nebulaShape.y + u_nebulaShape.z, n);
+    float density = cloud * (1.0 - u_nebulaLook.x + u_nebulaLook.x * cloud) * (1.0 - u_nebulaLook.y + u_nebulaLook.y * valueNoise(p * 1.7));
+    float other = smoothstep(u_nebulaPatch.y, u_nebulaPatch.z, valueNoise(cssPx / u_nebulaPatch.x + 23.0));
+    vec3 tint = mix(u_nebulaColor, u_nebulaColorDeep, other);
+    if (u_nebulaLook.z > 0.0) tint = mix(tint, u_nebulaColorCore, u_nebulaLook.z * smoothstep(u_nebulaLook.w, 1.0, cloud));
+    return tint * density;
   }
 
   // Static distant stars, one at most per cell; they flare as the light front passes
@@ -852,8 +871,8 @@ ${DENT_GLSL}
       emitted += backgroundStar(cssPx + u_skyShift.xy, flare) * u_backgroundStars;
     }
     if (u_nebula.x > 0.0) {
-      // Behind the stars and read where the bent ray comes from, like them; it drifts as the dust does
-      vec2 nebulaAt = cssPx + u_nebula.yz + u_dustDrift * u_time * vec2(0.8, -0.6);
+      // Behind the stars and read where the bent ray comes from, like them, and drifting on its own
+      vec2 nebulaAt = cssPx + u_nebula.yz + u_nebulaDrift * u_time;
       vec3 nebula = nebulaLight(nebulaAt);
       // In 3D the turn slides it by up to a full turn's width, and the nebula a full turn on takes over as
       // the turn comes round, so it never jumps

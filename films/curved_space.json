@@ -45,26 +45,13 @@
     ],
     "gridSkyPull": 8,
     "gridColor": "#3f86ff",
-    "lensingEnabled": false
-  },
-  "tracks": {
-    "dustScale": [
-      [
-        0,
-        300
-      ]
-    ],
-    "dustThreshold": [
-      [
-        0,
-        0.22
-      ]
-    ],
-    "dustDrift": [
-      [
-        0,
-        4
-      ]
-    ]
+    "lensingEnabled": false,
+    "nebulaScale": 300,
+    "nebulaSparseness": 0.22,
+    "nebulaContrast": 0.75,
+    "nebulaDrift": 4,
+    "nebulaCore": 0.3,
+    "nebulaCoreFrom": 0.9,
+    "nebulaColorCore": "#c4dc78"
   }
 }
