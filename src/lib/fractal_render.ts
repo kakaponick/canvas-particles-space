@@ -33,7 +33,7 @@ function planOf (source: unknown, input?: unknown) {
   return plan
 }
 
-async function loadFonts (plan: FractalPlan) {
+export async function loadFonts (plan: FractalPlan) {
   const loads: Promise<unknown>[] = [loadCaptionFonts(plan)]
   if (plan.hud) loads.push(document.fonts.load(`500 32px "${HUD_FONT}"`))
   await Promise.race([Promise.all(loads), new Promise(resolve => setTimeout(resolve, FONT_WAIT_MS))])
@@ -69,7 +69,7 @@ function captionPlan (plan: FractalPlan) {
 }
 
 // The film's renderer at `pixel` device pixels a film pixel, and the 2D canvas its frames land on
-function createFractalPlayer (plan: FractalPlan, pixel: number) {
+export function createFractalPlayer (plan: FractalPlan, pixel: number) {
   const width = Math.max(2, Math.round(plan.width * pixel / 2) * 2)
   const height = Math.max(2, Math.round(plan.height * pixel / 2) * 2)
   const renderer = createFractalRenderer(width, height)

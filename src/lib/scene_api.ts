@@ -22,6 +22,8 @@ import { FRACTAL_SCRIPT_GUIDE, SCRIPT_GUIDE, writeFilm, writeFractal } from './f
 import { cancelFilm, filmProgress, previewFilm, renderFilm, type PreviewOptions, type RenderOptions } from './film_render'
 import { FRACTAL_GUIDE } from './fractal'
 import { checkFractal, previewFractal, renderFractal } from './fractal_render'
+import { REEL_GUIDE, isReel } from './reel'
+import { checkReel, previewReel, renderReel, type ReelOptions } from './reel_render'
 
 // Defaults of the switches that are kept per device and so are not in the Default preset
 const DEVICE_TOGGLE_DEFAULTS: Record<string, boolean> = { adaptiveParticles: true, fpsCounter: false }
@@ -45,7 +47,9 @@ const HELP = `window.space: the scene for agents. Every call returns plain JSON-
   film.check(film) / film.preview(film, { at?, frames? }) / film.render(film, { quality?, audio?, download? })
                            what the film will be with its timeline line by line, a contact sheet of its frames
                            (base64 JPEG), the mp4 itself. A film is the JSON object or a script as a string;
-                           what a script reads as input goes beside the other options, or second into check
+                           what a script reads as input goes beside the other options, or second into check.
+                           An object with "clips" is a reel: several films and fractal films, each a clip, cut,
+                           faded through black or dissolved into one video (the guide's last part)
   film.script(source, input?)   the JSON a script writes, with the seconds it marked
   film.progress() / film.cancel()
   fractal.guide() / fractal.check(film) / fractal.preview(film, { at?, frames? }) / fractal.render(film, { quality?, audio?, download? })
@@ -306,11 +310,13 @@ export const sceneApi = {
   },
   frames: waitFrames,
   film: {
-    guide: () => `${FILM_GUIDE}\n\n${SCRIPT_GUIDE}`,
+    guide: () => `${FILM_GUIDE}\n\n${SCRIPT_GUIDE}\n\n${REEL_GUIDE}`,
     // The film a script writes: the JSON the other calls take, and the seconds the script marked
     script: (source: unknown, input?: unknown) => writeFilm(source, input),
     // What the film will be, without drawing it: its frame, its length and what was adjusted
     check: (film: unknown, input?: unknown) => {
+      // A description with clips is a reel: several films in one video (reel.ts)
+      if (isReel(film)) return checkReel(film)
       const read = readFilm(film, input)
       const plan = planFilm(read.film)
       return {
@@ -331,12 +337,14 @@ export const sceneApi = {
         notes: [...read.notes, ...plan.notes]
       }
     },
-    preview: async (film: unknown, options?: PreviewOptions & { input?: unknown }) => {
+    preview: async (film: unknown, options?: PreviewOptions & ReelOptions & { input?: unknown }) => {
+      if (isReel(film)) return previewReel(film, options)
       const read = readFilm(film, options?.input)
       const sheet = await previewFilm(read.film, options)
       return { ...sheet, notes: [...read.notes, ...sheet.notes] }
     },
-    render: async (film: unknown, options?: RenderOptions & { input?: unknown }) => {
+    render: async (film: unknown, options?: RenderOptions & ReelOptions & { input?: unknown }) => {
+      if (isReel(film)) return (await renderReel(film, options)).summary
       const read = readFilm(film, options?.input)
       const { summary } = await renderFilm(read.film, options)
       return { ...summary, notes: [...read.notes, ...summary.notes] }

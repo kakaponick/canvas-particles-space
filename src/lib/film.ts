@@ -29,9 +29,9 @@ export const FILM_SIZES: Record<string, readonly [number, number]> = {
 const FILM_SCALES = [0.5, 1, 1.5, 2]
 export const MIN_DURATION = 0.5
 export const MAX_DURATION = 180
-const MIN_FPS = 12
+export const MIN_FPS = 12
 // Up to 60 for the web; above it for a fast display, or to slow the film down afterwards
-const MAX_FPS = 240
+export const MAX_FPS = 240
 const MIN_SIDE = 240
 const MAX_SIDE = 3840
 // Device pixels of one frame: 4K

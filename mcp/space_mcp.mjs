@@ -37,7 +37,8 @@ const PROGRESS_EVERY_MS = 1000
 const INSTRUCTIONS = 'Makes 1-180 s videos of a black-hole particle scene from a "film": one JSON object, or a short ' +
   'script that plays the film forward. Call space_guide first for both and their recipes, space_describe to find ' +
   'setting names, space_check to read a film back as a timeline, space_preview to look at frames, then space_render ' +
-  'to write the mp4. The space_fractal_ tools make a zoom into the Mandelbrot set the same way, as deep as asked: ' +
+  'to write the mp4. A film with "clips" is a reel: several films and fractal films cut, faded or dissolved into ' +
+  'one video of up to 600 s. The space_fractal_ tools make a zoom into the Mandelbrot set the same way, as deep as asked: ' +
   'space_fractal_guide first.'
 
 // A film comes one of two ways, and every tool that takes a film takes either
@@ -54,10 +55,13 @@ const FRACTAL_INPUT = {
   input: { type: 'object', description: 'What a script reads as "input"', additionalProperties: true }
 }
 
+// For a reel: its dissolves hold two scenes at once unless this asks for one
+const ONE_SCENE = { type: 'boolean', description: 'For a reel (a film with "clips"): play every dissolve through black, so two scenes are never drawn at once' }
+
 const TOOLS = [
   {
     name: 'space_guide',
-    description: 'How to write a film for the scene: the JSON format, the script language and ready recipes. Read it first.',
+    description: 'How to write a film for the scene: the JSON format, the script language, a reel of several films in one video, and ready recipes. Read it first.',
     inputSchema: { type: 'object', properties: {} }
   },
   {
@@ -92,7 +96,8 @@ const TOOLS = [
       properties: {
         ...FILM_INPUT,
         at: { type: 'array', items: { type: 'number' }, description: 'Seconds to show; a frame of each shot, or evenly spread, when left out' },
-        frames: { type: 'number', description: 'How many frames to spread evenly over the film when "at" is left out (default 9)' }
+        frames: { type: 'number', description: 'How many frames to spread evenly over the film when "at" is left out (default 9)' },
+        oneScene: ONE_SCENE
       }
     }
   },
@@ -105,7 +110,8 @@ const TOOLS = [
         ...FILM_INPUT,
         out: { type: 'string', description: 'Path of the mp4 to write; relative paths start at the working directory' },
         quality: { type: 'string', enum: ['medium', 'high', 'max'], description: 'Bitrate; high by default' },
-        audio: { type: 'string', description: 'Path of an audio file (mp3, wav, m4a, ogg) laid under the picture from its start' }
+        audio: { type: 'string', description: 'Path of an audio file (mp3, wav, m4a, ogg) laid under the picture from its start' },
+        oneScene: ONE_SCENE
       },
       required: ['out']
     }
@@ -367,8 +373,72 @@ function filmOf (args) {
   return script
 }
 
+// The films a reel's clips may be
+const CLIP_FILMS = ['film', 'fractal']
+// A clip's film given as the name of a file on this machine, and not as a script
+const CLIP_FILE = /^[\w ./\\:~-]+\.(json|js)$/i
+
+// A reel (a film with "clips") as the page takes it: a clip's film named by a path is read here, from the
+// folder the server runs in, a .json file as its object and a .js file as its script; a clip's script gets
+// the same reading of its grammar a film's does. Anything else is the film it was. What cannot be read is
+// thrown, or written into `told` when a check wants it beside what the page finds
+function reelOf (film, told = null) {
+  if (typeof film !== 'object' || film === null || !Array.isArray(film.clips)) return film
+  const problems = []
+  const clips = film.clips.map((clip, index) => {
+    if (typeof clip !== 'object' || clip === null) return clip
+    const read = { ...clip }
+    for (const kind of CLIP_FILMS) {
+      let source = clip[kind]
+      if (typeof source !== 'string') continue
+      const where = `clips[${index}].${kind}`
+      if (CLIP_FILE.test(source.trim())) {
+        // From the folder the server runs in
+        const file = path.resolve(source.trim())
+        if (!fs.existsSync(file) || !fs.statSync(file).isFile()) {
+          problems.push({ where, text: `no film at ${file}` })
+          continue
+        }
+        const written = fs.readFileSync(file, 'utf8')
+        if (path.extname(file).toLowerCase() === '.json') {
+          try {
+            read[kind] = JSON.parse(written)
+          } catch (error) {
+            problems.push({ where, text: `${file} is not JSON: ${error.message}` })
+          }
+          continue
+        }
+        source = written
+        read[kind] = written
+      }
+      try {
+        void new vm.Script(`(function () {${source}\n})`, { filename: 'film-script.js' })
+      } catch (error) {
+        const line = /film-script\.js:(\d+)/.exec(String(error.stack))
+        problems.push({ where, text: `${line ? `line ${line[1]}: ` : ''}the script cannot be read as JavaScript: ${error.message}` })
+      }
+    }
+    return read
+  })
+  if (told) told.push(...problems)
+  else if (problems.length > 0) throw new Error(problems.map(problem => `${problem.where}: ${problem.text}`).join('\n'))
+  return { ...film, clips }
+}
+
 // A fractal film comes as a film does: its JSON, or a script read here for its grammar
 const fractalOf = args => filmOf(args)
+
+// The problems a message lists, one each: a numbered list under a first line, or the message itself
+function listed (message) {
+  const lines = message.split('\n')
+  if (lines.length < 2 || !lines[0].endsWith(':') || !lines[1].startsWith('1. ')) return [message]
+  const problems = []
+  for (const line of lines.slice(1)) {
+    if (/^\d+\. /.test(line)) problems.push(line.replace(/^\d+\. /, ''))
+    else problems[problems.length - 1] += '\n' + line
+  }
+  return problems
+}
 
 // Pictures a film's graphics may name by a path on this machine
 const PICTURES = ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.avif']
@@ -376,6 +446,19 @@ const PICTURES = ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.avif']
 // The pictures a film's graphics name by a path, each handed to the page under a one-off token, as the audio
 // is. A script's paths are known only once the page has written its JSON, so the page writes it first
 async function filmPictures (page, film, input) {
+  // A reel's pictures are those of its clips that are films of the scene, each found as a film's are
+  if (typeof film === 'object' && film !== null && Array.isArray(film.clips)) {
+    const all = { images: {}, missing: [], releases: [] }
+    for (const [index, clip] of film.clips.entries()) {
+      if (typeof clip !== 'object' || clip === null || (typeof clip.film !== 'object' && typeof clip.film !== 'string') || clip.film === null) continue
+      const found = await filmPictures(page, clip.film, clip.input).catch(() => null)
+      if (!found) continue
+      Object.assign(all.images, found.images)
+      all.missing.push(...found.missing.map(line => `clips[${index}].film.${line}`))
+      all.releases.push(found.release)
+    }
+    return { images: all.images, missing: all.missing, release: () => all.releases.forEach(release => release()) }
+  }
   const written = typeof film === 'string' ? (await page.evaluate(inPage('film.script', film, input))).film : film
   const graphics = Array.isArray(written?.graphics) ? written.graphics : []
   const images = {}
@@ -470,13 +553,21 @@ async function runTool (name, args, report) {
   }
 
   if (name === 'space_check') {
-    const film = filmOf(args)
+    // What this machine cannot read of a reel's clips is told together with what the page finds wrong
+    const unreadClips = []
+    const film = reelOf(filmOf(args), unreadClips)
     // A picture named by a path is looked for here, and told with whatever else the page found wrong
     let unread = null
     const checked = await page.evaluate(inPage('film.check', film, args.input)).catch(error => { unread = error })
     const pictures = await filmPictures(page, film, args.input).catch(() => null)
     pictures?.release()
     const lost = pictures?.missing ?? []
+    if (unreadClips.length > 0) {
+      // The page told those clips too, without the file or the line: its telling of them gives way to this one
+      const found = unread ? listed(unread.message).filter(line => !unreadClips.some(problem => line.startsWith(problem.where + ':'))) : []
+      const all = [...found, ...unreadClips.map(problem => `${problem.where}: ${problem.text}`), ...lost]
+      throw new Error(all.length === 1 ? all[0] : `${all.length} things in this reel cannot be read:\n${all.map((line, index) => `${index + 1}. ${line}`).join('\n')}`)
+    }
     if (unread) throw lost.length > 0 ? new Error(`${unread.message}\nAnd on this machine:\n${lost.join('\n')}`) : unread
     if (lost.length > 0) throw new Error(lost.join('\n'))
     const lines = [
@@ -500,8 +591,9 @@ async function runTool (name, args, report) {
   }
 
   if (name === 'space_preview') {
-    const film = filmOf(args)
+    const film = reelOf(filmOf(args))
     const options = {}
+    if (args.oneScene === true) options.oneScene = true
     if (Array.isArray(args.at)) options.at = args.at
     if (typeof args.frames === 'number') options.frames = args.frames
     if (args.input !== undefined) options.input = args.input
@@ -570,12 +662,13 @@ async function runTool (name, args, report) {
   if (name === 'space_render' || name === 'space_fractal_render') {
     if (typeof args.out !== 'string' || args.out.trim() === '') throw new Error('out takes the path of the mp4 to write')
     const fractal = name === 'space_fractal_render'
-    const film = fractal ? fractalOf(args) : filmOf(args)
+    const film = fractal ? fractalOf(args) : reelOf(filmOf(args))
     let out = path.resolve(process.cwd(), args.out)
     if (path.extname(out).toLowerCase() !== '.mp4') out += '.mp4'
     fs.mkdirSync(path.dirname(out), { recursive: true })
 
     const options = { upload: '' }
+    if (args.oneScene === true) options.oneScene = true
     if (args.quality !== undefined) options.quality = args.quality
     if (args.input !== undefined) options.input = args.input
     const tokens = []

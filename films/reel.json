@@ -1,0 +1,33 @@
+{
+  "size": "1080p",
+  "fps": 30,
+  "clips": [
+    {
+      "name": "горизонт",
+      "film": "films/horizon.js",
+      "from": 11.5,
+      "to": 27,
+      "transition": { "kind": "black", "seconds": 1 }
+    },
+    {
+      "name": "глубже",
+      "fractal": {
+        "duration": 12,
+        "target": "spiral",
+        "depth": 14,
+        "hud": true,
+        "captions": [
+          { "text": "У чёрной дыры есть дно.\nУ множества Мандельброта — нет", "from": 2.5, "to": 10.5, "font": "noto", "plate": 0.5 }
+        ]
+      },
+      "transition": { "kind": "dissolve", "seconds": 1.5 }
+    },
+    {
+      "name": "рисунок поверх кадра",
+      "film": "films/graphics.js",
+      "from": 9.5,
+      "to": 22,
+      "transition": { "kind": "black", "seconds": 1 }
+    }
+  ]
+}

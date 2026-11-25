@@ -73,7 +73,7 @@ function titleStyle (plan: FilmPlan, words = plan.title, set: Partial<FilmPlan['
 }
 
 // The film's own scene and the canvas its finished frames land on, captions included
-async function createFilmPlayer (plan: FilmPlan, pixel: number, imageUrls?: Record<string, string>) {
+export async function createFilmPlayer (plan: FilmPlan, pixel: number, imageUrls?: Record<string, string>) {
   const glCanvas = document.createElement('canvas')
   const gl = getRenderingContext(glCanvas)
   if (!gl) fail('WebGL 2 is not available, so a film cannot be drawn')
