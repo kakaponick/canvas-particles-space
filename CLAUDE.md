@@ -2,6 +2,10 @@
 
 A WebGL particle flight through space, ending in a black hole. React only drives the UI. The scene itself runs in one requestAnimationFrame loop.
 
+## Devices
+
+The project targets current browsers on capable hardware. Support for legacy browsers and weak devices is forbidden: no fallback, polyfill or second code path for an old browser, no lighter mode, lowered default or feature turned off for a slow GPU or a low-end phone, and no change is held back or reshaped by what it would cost on one. Frame time is measured and kept on this machine, as Measuring says; the WebGL2 requirement (see Invariants) is part of the same rule.
+
 ## UX
 
 The main quality of the interface is the balance between flexibility (the user can customise layout and look) and carefully chosen defaults for both, so every panel reads well before anyone touches it. Readability, compactness and clarity for the user are the main goal of UX: every UI change is judged by them first.
