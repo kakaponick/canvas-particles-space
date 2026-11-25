@@ -100,6 +100,10 @@ audio track. The same film is the same video on any machine.
   side by side) and `space_render` (the mp4). Run `pnpm build` first; it needs Node 22+ and Chrome, Chromium or Edge.
 - **By hand**: open the page with `?agent` and call `await space.film.render(film, { download: 'film.mp4' })`
   in the console; `space.film.guide()` prints the format.
+- **A film to start from**: `films/showreel.json` is a 50 s tour of what a film can do (the opening with its own
+  title, a zoom with labels on the shadow, the lens changed by keyframes, orbiting stars, the sheet, two black
+  holes merging). `node films/showreel_sound.mjs` writes its soundtrack, `films/showreel.wav`, to give
+  `space_render` as `audio`. Rendered videos and sound files in `films/` stay out of git.
 
 ## Project Structure
 
