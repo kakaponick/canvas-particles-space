@@ -137,7 +137,7 @@ export async function createFilmPlayer (plan: FilmPlan, pixel: number, imageUrls
   }
 
   // Motion is stepped at about the page's 60 Hz whatever the film's frame rate, so gravity and trails
-  // behave as they do live; only the last step of a frame is shown
+  // behave as they do live; only the last step of a frame is shown, and the tracks move at every step
   const steps = Math.max(1, Math.round(REFERENCE_FPS / plan.fps))
   const frameScale = REFERENCE_FPS / (plan.fps * steps)
   const dt = 1 / (plan.fps * steps)
@@ -165,12 +165,21 @@ export async function createFilmPlayer (plan: FilmPlan, pixel: number, imageUrls
     if (index === 0 || (plan.speed && pace === 0)) {
       // The first frame is the film at second 0: nothing has moved yet. A still frame moves nothing either
       scene.advance(0, 0, input, show)
-    } else if (!plan.speed) {
-      for (let step = 1; step <= steps; step++) scene.advance(frameScale, dt, input, show && step === steps)
     } else {
-      // Still stepped at about 60 Hz of the scene's time: slow motion takes finer steps, time-lapse more of them
-      const count = Math.max(1, Math.round(pace * REFERENCE_FPS))
-      for (let step = 1; step <= count; step++) scene.advance(pace * REFERENCE_FPS / count, pace / count, input, show && step === count)
+      // With a speed, still stepped at about 60 Hz of the scene's time: slow motion takes finer steps,
+      // time-lapse more of them. The tracks move at every step, each at its own second of the film: moved
+      // once a frame, a fast one (a turning camera) jumps at the frame's first step and stands still for the
+      // rest, and the strokes zigzag
+      const count = plan.speed ? Math.max(1, Math.round(pace * REFERENCE_FPS)) : steps
+      const scale = plan.speed ? pace * REFERENCE_FPS / count : frameScale
+      const seconds = plan.speed ? pace / count : dt
+      for (let step = 1; step <= count; step++) {
+        if (count > 1) {
+          applyTracks(plan, (index - 1 + step / count) / plan.fps)
+          input.particleCount = plan.settings.numParticles
+        }
+        scene.advance(scale, seconds, input, show && step === count)
+      }
     }
     if (!show) return
     ctx.drawImage(glCanvas, 0, 0)
