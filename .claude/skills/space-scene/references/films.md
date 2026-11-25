@@ -119,12 +119,13 @@ motion: a 120 fps film played at 30 is the whole scene four times slower.
   frames: stars and particles are born at other moments.
 - 4K and anything above 120 fps is encoded by the browser's software encoder, which is slow and gives
   every frame the bits of a 60 fps frame. Measured on this machine at the default quality: 4K at 120 fps
-  is about 240 Mbit/s, 4K at 180 fps 320 to 365 Mbit/s, rendered at 20 to 30 frames a second. A 20 s film
-  in 4K at 180 fps took 168 s and came to 0.8 GB.
-- The file is put together in the tab's memory. 0.8 GB works; nothing larger was tried, so keep a 4K
-  film above 60 fps under half a minute, or render it at the `medium` quality.
-- The stream names H.264 level 5.2 though its rate is above that level. Chrome and desktop players play
-  it; a strict hardware decoder may refuse.
+  is about 240 Mbit/s, 4K at 180 fps 320 to 365 Mbit/s. It renders 4K at 22 to 24 frames a second at
+  60 fps and 32 to 40 above it: a minute in 4K at 180 fps is 10 800 frames, took 337 s and came to 2.4 GB.
+- A render through the tools goes to the disk as it is encoded, so its size is bound by the disk, not by
+  the browser's memory. Only a film saved by hand with `download` is put together in the page.
+- The stream names the H.264 level its size and rate need (6.0 for 4K at 120 fps, 6.1 at 180). Chrome
+  plays it, though it drops frames of 4K at 180 fps (36 of 363 in two seconds of the minute-long film);
+  a television or a phone may not take a level above 5.2 at all, so check the device the film is for.
 
 ## 9. Recipes that are not in the guide
 

@@ -122,16 +122,33 @@ async function openStudio () {
     const url = new URL(request.url, 'http://localhost')
     const [, area, kind, token] = url.pathname.split('/')
     if (area === '__film' && kind === 'upload' && request.method === 'POST' && uploads.has(token)) {
+      // The page sends the file as it encodes it, a piece at a time with the place the piece belongs at
+      // ("at"); the last pieces go back to the start to fill in the index, so pieces are written in place
       const target = uploads.get(token)
-      const file = fs.createWriteStream(target.path)
-      request.pipe(file)
-      file.on('finish', () => {
+      let position = Number(url.searchParams.get('at') ?? 0)
+      const refuse = error => {
+        target.error ??= error
+        if (!response.headersSent) response.writeHead(500).end(String(error))
+        request.destroy()
+      }
+      if (!Number.isSafeInteger(position) || position < 0) return refuse(new Error('at takes a place in the file'))
+      try {
+        target.file ??= fs.openSync(target.path, 'w+')
+      } catch (error) {
+        return refuse(error)
+      }
+      request.on('data', piece => {
+        try {
+          fs.writeSync(target.file, piece, 0, piece.length, position)
+          position += piece.length
+        } catch (error) {
+          refuse(error)
+        }
+      })
+      request.on('end', () => {
+        if (target.error) return
         target.written = true
         response.writeHead(204).end()
-      })
-      file.on('error', error => {
-        target.error = error
-        response.writeHead(500).end(String(error))
       })
       return
     }
@@ -353,20 +370,27 @@ async function runTool (name, args, report) {
     }
     // The file is written beside its place and moved there whole, so a failed render leaves nothing half done
     const token = crypto.randomUUID()
-    const target = { path: `${out}.part`, written: false, error: null }
+    const target = { path: `${out}.part`, file: undefined, written: false, error: null }
+    const closeFile = () => {
+      if (target.file === undefined) return
+      fs.closeSync(target.file)
+      target.file = undefined
+    }
     page.uploads.set(token, target)
     tokens.push(() => page.uploads.delete(token))
     options.upload = `${page.origin}/__film/upload/${token}`
 
     try {
       const summary = await withProgress(page, report, () => page.evaluate(inPage('film.render', args.film, options)))
-      if (!target.written) throw target.error ?? new Error('The file did not arrive from the page')
+      if (target.error || !target.written) throw target.error ?? new Error('The file did not arrive from the page')
+      closeFile()
       fs.renameSync(target.path, out)
       const { notes, ...facts } = summary
       const note = notes.length > 0 ? `\nAdjusted: ${notes.join('; ')}` : ''
       return text(`Wrote ${out}\n${Object.entries(facts).filter(([, value]) => value !== null).map(([key, value]) => `${key}: ${value}`).join(', ')}${note}`)
     } finally {
       for (const release of tokens) release()
+      closeFile()
       fs.rmSync(target.path, { force: true })
     }
   }

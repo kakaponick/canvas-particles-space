@@ -10,6 +10,7 @@ import { createParticleCrew } from './particle_crew'
 import { SIMULATION_SETTING_SPECS } from './simulation_specs'
 import { getIntroDuration } from './intro_timeline'
 import type { TitleStyle } from './title_sprite'
+import type { StreamTargetChunk } from 'mediabunny'
 import { applyTracks, planFilm, type FilmPlan } from './film'
 import { drawCaptions, loadCaptionFonts } from './film_captions'
 import { clamp, fail } from './agent_values'
@@ -25,6 +26,15 @@ export type FilmQuality = keyof typeof QUALITY_BITS
 const BITRATE_FPS = 60
 const KEY_FRAME_SECONDS = 2
 const AUDIO_BITRATE = 160_000
+// The shortest packet an audio encoder makes, in samples; the file's index is given room for that many
+const SHORTEST_AUDIO_PACKET = 960
+// H.264 levels from 4.2 up: the level, the most macroblocks a frame may hold, the most a second, and the
+// most bits a second in the High profile
+const AVC_LEVELS = [
+  [42, 8704, 522_240, 62_500_000], [50, 22_080, 589_824, 168_750_000], [51, 36_864, 983_040, 300_000_000],
+  [52, 36_864, 2_073_600, 300_000_000], [60, 139_264, 4_177_920, 300_000_000], [61, 139_264, 8_355_840, 600_000_000],
+  [62, 139_264, 16_711_680, 1_000_000_000]
+] as const
 // Longest side of a contact sheet, the most an agent's image reader keeps
 const SHEET_SIDE = 1536
 const DEFAULT_SHEET_FRAMES = 9
@@ -204,14 +214,54 @@ export interface RenderOptions {
   quality?: FilmQuality
   // Address of an audio file laid under the picture from its first second
   audio?: string
-  // Where the finished file is sent with a POST; the film server gives its own address
+  // Where the file is sent as it is written: a POST for each piece, with the place it belongs at in
+  // `at`. The film server gives its own address
   upload?: string
-  // Saves the file through the browser's download, under this name
+  // Saves the file through the browser's download, under this name; the film is then held in the page
   download?: string
 }
 
-// Draws the whole film into an mp4. Returns what was made; the file itself goes to `upload` or
-// `download`, and is kept as `blob` for a caller in the page
+// The lowest H.264 level a stream of this frame, rate and bitrate fits in
+function avcLevel (width: number, height: number, fps: number, bitrate: number) {
+  const blocks = Math.ceil(width / 16) * Math.ceil(height / 16)
+  const fits = AVC_LEVELS.find(([, frame, second, bits]) => blocks <= frame && blocks * fps <= second && bitrate <= bits)
+  return (fits ?? AVC_LEVELS[AVC_LEVELS.length - 1])[0]
+}
+
+// The browser's software encoder names level 5.2 at most, whatever the frame rate. A stream above its
+// named level gets the true one written into the decoder's description, so a player is told what it is
+// given: in avcC and in the parameter set inside it the level is one whole byte. A level is only raised
+function raiseAvcLevel (config: VideoDecoderConfig, level: number): VideoDecoderConfig {
+  const source = config.description
+  if (!source) return config
+  const bytes = ArrayBuffer.isView(source) ? new Uint8Array(source.buffer, source.byteOffset, source.byteLength) : new Uint8Array(source)
+  // avcC: version, profile, compatibility, level, size of a NAL length, count of parameter sets, the
+  // first one's length (two bytes), then the set: NAL header, profile, constraints, level
+  const known = bytes.length > 11 && bytes[0] === 1 && (bytes[5] & 31) >= 1 && (bytes[8] & 31) === 7 && bytes[11] === bytes[3]
+  if (!known || bytes[3] >= level) return config
+  const raised = bytes.slice()
+  raised[3] = level
+  raised[11] = level
+  const named = level.toString(16).padStart(2, '0')
+  return { ...config, codec: config.codec.replace(/^(avc[13]\.[0-9a-f]{4})[0-9a-f]{2}$/i, (_, start: string) => start + named), description: raised }
+}
+
+// Sends the file to the film server as it is written, a piece at a time with the place the piece belongs
+// at, so a film of any size passes through the page without being held in it
+function createUploadSink (url: string) {
+  let size = 0
+  const writable = new WritableStream<StreamTargetChunk>({
+    async write (piece) {
+      const sent = await fetch(`${url}?at=${piece.position}`, { method: 'POST', body: piece.data })
+      if (!sent.ok) throw new Error(`The file could not be sent: ${sent.status} ${sent.statusText}`)
+      size = Math.max(size, piece.position + piece.data.byteLength)
+    }
+  })
+  return { writable, size: () => size }
+}
+
+// Draws the whole film into an mp4. Returns what was made. The file goes to `upload` piece by piece, or
+// is put together in the page for `download` and kept as `blob` for a caller there
 export async function renderFilm (source: unknown, options: RenderOptions = {}) {
   const plan = planFilm(source)
   const quality = options.quality ?? 'high'
@@ -229,15 +279,31 @@ export async function renderFilm (source: unknown, options: RenderOptions = {}) 
     const bitrate = Math.round(canvas.width * canvas.height * Math.min(plan.fps, BITRATE_FPS) * QUALITY_BITS[quality])
 
     try {
-      const format = new media.Mp4OutputFormat({ fastStart: 'in-memory' })
+      // Either way the index of the file is at its start, so it plays before it is all there. A file
+      // sent in pieces keeps room for the index and fills it in at the end; one held in the page is
+      // laid out once everything is known
+      const sink = options.upload && !options.download ? createUploadSink(options.upload) : null
+      const format = new media.Mp4OutputFormat({ fastStart: sink ? 'reserve' : 'in-memory' })
       const codec = await media.getFirstEncodableVideoCodec(format.getSupportedVideoCodecs(), {
         width: canvas.width, height: canvas.height, bitrate
       })
       if (!codec) fail(`This browser cannot encode ${canvas.width}x${canvas.height} video`)
 
-      const output = new media.Output({ format, target: new media.BufferTarget() })
-      const video = new media.CanvasSource(canvas, { codec, bitrate, keyFrameInterval: KEY_FRAME_SECONDS })
-      output.addVideoTrack(video, { frameRate: plan.fps })
+      const target = sink ? new media.StreamTarget(sink.writable, { chunked: true }) : new media.BufferTarget()
+      const output = new media.Output({ format, target })
+      // What the software encoder makes of the budget above 60 fps is what the level has to hold
+      const level = codec === 'avc'
+        ? avcLevel(canvas.width, canvas.height, plan.fps, bitrate * Math.max(plan.fps, BITRATE_FPS) / BITRATE_FPS)
+        : 0
+      const video = new media.CanvasSource(canvas, {
+        codec,
+        bitrate,
+        keyFrameInterval: KEY_FRAME_SECONDS,
+        onEncodedPacket: (_packet, meta) => {
+          if (level > 0 && meta?.decoderConfig) meta.decoderConfig = raiseAvcLevel(meta.decoderConfig, level)
+        }
+      })
+      output.addVideoTrack(video, { frameRate: plan.fps, maximumPacketCount: plan.frames })
 
       let audio: { decoded: AudioBuffer, length: number } | null = null
       let audioSource: InstanceType<typeof media.AudioBufferSource> | null = null
@@ -250,7 +316,7 @@ export async function renderFilm (source: unknown, options: RenderOptions = {}) 
         if (!found) fail('This browser cannot encode the audio track')
         audioCodec = found
         audioSource = new media.AudioBufferSource({ codec: found, bitrate: AUDIO_BITRATE })
-        output.addAudioTrack(audioSource)
+        output.addAudioTrack(audioSource, { maximumPacketCount: Math.ceil(audio.length / SHORTEST_AUDIO_PACKET * 1.4) + 64 })
       }
 
       await output.start()
@@ -279,20 +345,24 @@ export async function renderFilm (source: unknown, options: RenderOptions = {}) 
         throw error
       }
 
-      const buffer = output.target.buffer
-      if (!buffer) fail('The encoder returned no file')
-      const blob = new Blob([buffer], { type: 'video/mp4' })
-      if (options.upload) {
-        const sent = await fetch(options.upload, { method: 'POST', body: blob })
-        if (!sent.ok) fail(`The file could not be sent: ${sent.status} ${sent.statusText}`)
+      let blob: Blob | null = null
+      if (target instanceof media.BufferTarget) {
+        if (!target.buffer) fail('The encoder returned no file')
+        const held = new Blob([target.buffer], { type: 'video/mp4' })
+        blob = held
+        if (options.upload) {
+          const sent = await fetch(options.upload, { method: 'POST', body: held })
+          if (!sent.ok) fail(`The file could not be sent: ${sent.status} ${sent.statusText}`)
+        }
+        if (options.download) {
+          const link = document.createElement('a')
+          link.href = URL.createObjectURL(held)
+          link.download = options.download
+          link.click()
+          setTimeout(() => URL.revokeObjectURL(link.href), 60_000)
+        }
       }
-      if (options.download) {
-        const link = document.createElement('a')
-        link.href = URL.createObjectURL(blob)
-        link.download = options.download
-        link.click()
-        setTimeout(() => URL.revokeObjectURL(link.href), 60_000)
-      }
+      const bytes = blob ? blob.size : sink ? sink.size() : 0
       return {
         blob,
         summary: {
@@ -303,8 +373,8 @@ export async function renderFilm (source: unknown, options: RenderOptions = {}) 
           height: canvas.height,
           codec,
           audio: audioCodec,
-          megabytes: Number((blob.size / 1e6).toFixed(2)),
-          megabitsPerSecond: Number((blob.size * 8 / 1e6 / (plan.frames / plan.fps)).toFixed(1)),
+          megabytes: Number((bytes / 1e6).toFixed(2)),
+          megabitsPerSecond: Number((bytes * 8 / 1e6 / (plan.frames / plan.fps)).toFixed(1)),
           renderSeconds: Number(((performance.now() - started) / 1000).toFixed(1)),
           seed: plan.seed,
           notes: plan.notes
