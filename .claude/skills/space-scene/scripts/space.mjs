@@ -133,6 +133,12 @@ try {
 } finally {
   // Closing its input is how the server is told to leave; it then closes its browser and removes the profile
   server.stdin.end()
-  await Promise.race([new Promise(resolve => server.once('exit', resolve)), new Promise(resolve => setTimeout(resolve, 10_000))])
+  // The timer is let go once the server has left: a pending one would hold this process for its ten seconds
+  let timer
+  await Promise.race([
+    new Promise(resolve => server.once('exit', resolve)),
+    new Promise(resolve => { timer = setTimeout(resolve, 10_000) })
+  ])
+  clearTimeout(timer)
   server.kill()
 }

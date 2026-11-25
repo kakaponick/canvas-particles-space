@@ -25,6 +25,7 @@ import { createGridSettings, placeGrid } from './space_grid'
 import { LIGHT_SPEED, SHADOW_RADII, clearOrbiters, createOrbiters, stepOrbiters } from './orbiters'
 import { createPair, stepPair } from './companion'
 import { createRandom, seedRandom } from './random'
+import type { ParticleCrew } from './particle_crew'
 
 // The crumbling title follows the black hole's gravity: at these settings (the defaults) the dust
 // travels Dust Pull and turns by this many radians at Dust Swirl 1
@@ -108,7 +109,13 @@ export interface Scene {
   dispose: () => void
 }
 
-export function createScene (gl: WebGL2RenderingContext, seed: number, input: SceneInput): Scene | null {
+// With a `crew` the particle field is stepped on several cores (particle_crew.ts); the frames are the same
+export function createScene (
+  gl: WebGL2RenderingContext,
+  seed: number,
+  input: SceneInput,
+  crew: ParticleCrew | null = null
+): Scene | null {
   let renderer: ParticleRenderer | null = createParticleRenderer(gl)
   if (!renderer) return null
 
@@ -136,10 +143,10 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
   const random = createRandom(seed)
   const ringEnergy = createRingEnergy()
   let ringWasFed = true
-  const field = createParticleField()
+  const field = crew ? crew.field : createParticleField()
   const orbiters = createOrbiters(random)
   const pair = createPair()
-  const instances = createInstanceData()
+  const instances = crew ? crew.instances : createInstanceData()
   const spawn: SpawnSettings = {
     random,
     palette: createPaletteSampler(input.settings.colorPalette),
@@ -195,6 +202,8 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     fadeAlpha: 0,
     instances: instances.floats,
     instanceCount: 0,
+    instanceRuns: crew ? crew.runs : new Int32Array(0),
+    instanceRunCount: 0,
     orbitCount: 0,
     orbitRow: orbiters.row,
     orbitRowNew: true,
@@ -532,7 +541,12 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     frame.present = present
     if (frame.updateScene) {
       const simStart = performance.now()
-      frame.instanceCount = stepParticles(field, settings, spawn, instances)
+      if (crew) {
+        frame.instanceCount = crew.step(settings, spawn)
+        frame.instanceRunCount = crew.runCount
+      } else {
+        frame.instanceCount = stepParticles(field, settings, spawn, instances)
+      }
       // The orbiting stars circle the hole at its full size and light up as it forms. The renderer keeps
       // the stretches they fly and draws the traces from them, around the hole as it is this frame
       frame.orbitCount = stepOrbiters(

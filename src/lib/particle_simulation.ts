@@ -112,6 +112,22 @@ export interface InstanceData {
   colors: Uint32Array
 }
 
+// What a part of the field leaves for later when a crew steps it (particle_crew.ts): the respawns, which
+// draw from the scene's one random sequence, and the light for the photon ring. Both are kept in particle
+// order from the part's first slot, so playing the parts back in order repeats the plain loop exactly
+export interface StepLater {
+  // Particle index * 4 + the kind of respawn
+  respawns: Int32Array
+  respawnCount: number
+  // x, y and amount of each deposit, as the numbers the loop computed
+  deposits: Float64Array
+  depositCount: number
+}
+
+const RESPAWN_FAR = 0
+const RESPAWN_HOLE = 1
+const RESPAWN_COMPANION = 2
+
 const isLittleEndian = new Uint8Array(new Uint32Array([1]).buffer)[0] === 1
 
 // Packs a color so its bytes read r, g, b, a in memory, the order the GPU attribute expects
@@ -201,18 +217,21 @@ function growFloats (source: Float32Array, capacity: number): Float32Array {
   return grown
 }
 
-export function createParticleField (): ParticleField {
+// A field with `shared` above 0 holds that many particles in memory a crew's workers see as well, and
+// never grows
+export function createParticleField (shared = 0): ParticleField {
+  const floats = () => shared > 0 ? new Float32Array(new SharedArrayBuffer(shared * 4)) : new Float32Array(0)
   return {
     count: 0,
-    capacity: 0,
-    x: new Float32Array(0),
-    y: new Float32Array(0),
-    z: new Float32Array(0),
-    alpha: new Float32Array(0),
-    pulsePhase: new Float32Array(0),
-    pulseSpeed: new Float32Array(0),
-    speedMultiplier: new Float32Array(0),
-    color: new Uint32Array(0)
+    capacity: shared,
+    x: floats(),
+    y: floats(),
+    z: floats(),
+    alpha: floats(),
+    pulsePhase: floats(),
+    pulseSpeed: floats(),
+    speedMultiplier: floats(),
+    color: shared > 0 ? new Uint32Array(new SharedArrayBuffer(shared * 4)) : new Uint32Array(0)
   }
 }
 
@@ -240,8 +259,9 @@ export function setParticleCount (field: ParticleField, requested: number, spawn
   field.count = count
 }
 
-export function createInstanceData (): InstanceData {
-  return { capacity: 0, floats: new Float32Array(0), colors: new Uint32Array(0) }
+export function createInstanceData (shared = 0): InstanceData {
+  const buffer = shared > 0 ? new SharedArrayBuffer(shared * INSTANCE_FLOATS * 4) : new ArrayBuffer(0)
+  return { capacity: shared, floats: new Float32Array(buffer), colors: new Uint32Array(buffer) }
 }
 
 export function ensureInstanceCapacity (data: InstanceData, requested: number) {
@@ -279,6 +299,24 @@ export function stepParticles (
   settings: StepSettings,
   spawn: SpawnSettings,
   out: InstanceData
+): number {
+  return stepRange(field, settings, spawn, out, 0, field.count, null)
+}
+
+/**
+ * The hot loop over the particles `from`..`to`. Their segments go into `out` from slot `from`, so
+ * parts of one field never write over each other. With `later` the respawns and the ring's light are
+ * written down instead of done, for settleLater.
+ * Returns the number of instances written.
+ */
+export function stepRange (
+  field: ParticleField,
+  settings: StepSettings,
+  spawn: SpawnSettings,
+  out: InstanceData,
+  from: number,
+  to: number,
+  later: StepLater | null
 ): number {
   const { x, y, z, alpha, pulsePhase, pulseSpeed, speedMultiplier, color } = field
   const { floats, colors } = out
@@ -337,9 +375,9 @@ export function stepParticles (
   const maxX = width + clipMargin
   const maxY = height + clipMargin
 
-  let written = 0
+  let written = from
 
-  for (let i = 0; i < field.count; i++) {
+  for (let i = from; i < to; i++) {
     let px = x[i]
     let py = y[i]
     const startZ = z[i]
@@ -349,7 +387,8 @@ export function stepParticles (
 
     const pz = startZ - step * speedMultiplier[i]
     if (pz <= 0) {
-      spawnParticle(field, i, farZ, spawn)
+      if (later) later.respawns[from + later.respawnCount++] = i * 4 + RESPAWN_FAR
+      else spawnParticle(field, i, farZ, spawn)
       continue
     }
 
@@ -364,8 +403,13 @@ export function stepParticles (
 
       if (distSq < reachSq) {
         if (distSq < captureRadiusSq) {
-          if (ringEnergy) depositRingEnergy(ringEnergy, -dx, -dy, RING_CAPTURE_ENERGY)
-          respawnBeyondHorizon(field, i, spawn, holeX - vanishX, holeY - vanishY, captureRadius, spawnScale)
+          if (later) {
+            if (ringEnergy) noteDeposit(later, from, -dx, -dy, RING_CAPTURE_ENERGY)
+            later.respawns[from + later.respawnCount++] = i * 4 + RESPAWN_HOLE
+          } else {
+            if (ringEnergy) depositRingEnergy(ringEnergy, -dx, -dy, RING_CAPTURE_ENERGY)
+            respawnBeyondHorizon(field, i, spawn, holeX - vanishX, holeY - vanishY, captureRadius, spawnScale)
+          }
           continue
         }
 
@@ -374,7 +418,10 @@ export function stepParticles (
           const bell = 1 - depthOffset * depthOffset * 0.25
           const depthWeight = bell * bell * bell
 
-          if (ringEnergy && distSq < skimRadiusSq) depositRingEnergy(ringEnergy, -dx, -dy, skimEnergy * depthWeight)
+          if (ringEnergy && distSq < skimRadiusSq) {
+            if (later) noteDeposit(later, from, -dx, -dy, skimEnergy * depthWeight)
+            else depositRingEnergy(ringEnergy, -dx, -dy, skimEnergy * depthWeight)
+          }
 
           // Pull and orbit are screen-space pixels per frame, converted back to world units at this depth.
           // Pull falls off as (radius / distance)^2, so it needs the squared distance, not the distance
@@ -403,7 +450,8 @@ export function stepParticles (
 
       if (distSq < companionReachSq) {
         if (distSq < companionCaptureSq) {
-          respawnBeyondHorizon(field, i, spawn, companionX - vanishX, companionY - vanishY, companionCapture, spawnScale)
+          if (later) later.respawns[from + later.respawnCount++] = i * 4 + RESPAWN_COMPANION
+          else respawnBeyondHorizon(field, i, spawn, companionX - vanishX, companionY - vanishY, companionCapture, spawnScale)
           continue
         }
 
@@ -492,5 +540,41 @@ export function stepParticles (
     written++
   }
 
-  return written
+  return written - from
+}
+
+// A particle leaves at most one deposit a step, so a part's deposits fit in its own slots
+function noteDeposit (later: StepLater, from: number, x: number, y: number, amount: number) {
+  const o = (from + later.depositCount++) * 3
+  later.deposits[o] = x
+  later.deposits[o + 1] = y
+  later.deposits[o + 2] = amount
+}
+
+// Does what stepRange wrote down for the part that starts at `from`: the ring's light, then the respawns
+export function settleLater (
+  field: ParticleField,
+  settings: StepSettings,
+  spawn: SpawnSettings,
+  later: StepLater,
+  from: number
+) {
+  const { ringEnergy, vanishX, vanishY } = settings
+  const { respawns, deposits } = later
+  if (ringEnergy) {
+    const end = (from + later.depositCount) * 3
+    for (let o = from * 3; o < end; o += 3) depositRingEnergy(ringEnergy, deposits[o], deposits[o + 1], deposits[o + 2])
+  }
+  const spawnScale = settings.focal / spawn.farZ
+  for (let slot = from; slot < from + later.respawnCount; slot++) {
+    const i = respawns[slot] >> 2
+    const kind = respawns[slot] & 3
+    if (kind === RESPAWN_FAR) {
+      spawnParticle(field, i, settings.farZ, spawn)
+    } else if (kind === RESPAWN_HOLE) {
+      respawnBeyondHorizon(field, i, spawn, settings.holeX - vanishX, settings.holeY - vanishY, settings.captureRadius, spawnScale)
+    } else {
+      respawnBeyondHorizon(field, i, spawn, settings.companionX - vanishX, settings.companionY - vanishY, settings.companionCapture, spawnScale)
+    }
+  }
 }

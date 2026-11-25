@@ -102,8 +102,11 @@ takes an audio file and lays it under the picture from the first second.
 - Things that pass the check and still show nothing: a lens with nothing behind it (raise `gridSky` or the
   stars), a ring with nothing falling in, a `baseSpeed` of 0 without gravity, orbit traces with `orbitTrail`
   at 0, a sheet seen from straight above (`gridTilt` 0).
-- A render of 30 to 45 seconds at 1080p takes under ten seconds; 4K and 200 000 particles take
-  proportionally longer.
+- A preview plays the film from its start to the last second asked for and encodes nothing: about a
+  second and a half for 40 seconds of film, so look often. A render is held by the video encoder at about
+  200 frames a second at 1080p: a 30 fps film takes a sixth of its length, a 60 fps one a third, 4K
+  proportionally longer. Up to 60 000 particles cost a render nothing.
+- The script starts a browser of its own, about two seconds a call; several jobs on one line share it.
 - Rendered mp4 and audio files in `films/` are kept out of git; the json is the film. On Windows a render
   fails to replace an mp4 that a player still has open.
 

@@ -6,6 +6,8 @@ import { useParticleStore } from '../store/particle_store'
 import { REFERENCE_FPS } from './particle_simulation'
 import { getRenderingContext } from './particle_renderer'
 import { createScene, type SceneInput } from './scene'
+import { createParticleCrew } from './particle_crew'
+import { SIMULATION_SETTING_SPECS } from './simulation_specs'
 import { getIntroDuration } from './intro_timeline'
 import type { TitleStyle } from './title_sprite'
 import { applyTracks, planFilm, type FilmPlan } from './film'
@@ -73,17 +75,36 @@ async function createFilmPlayer (plan: FilmPlan, pixel: number) {
     reducedMotion: false,
     particleCount: plan.settings.numParticles
   }
-  const scene = createScene(gl, plan.seed, input)
-  if (!scene) fail('The scene could not start: its shaders did not build')
+  // The field is stepped on several cores where the page may share memory between threads; a track may
+  // raise the particle count, so the crew has room for the most a film can ask for
+  const crew = await createParticleCrew(SIMULATION_SETTING_SPECS.numParticles.max)
+  const scene = createScene(gl, plan.seed, input, crew)
+  if (!scene) {
+    crew?.dispose()
+    fail('The scene could not start: its shaders did not build')
+  }
+  const dispose = () => {
+    scene.dispose()
+    crew?.dispose()
+    gl.getExtension('WEBGL_lose_context')?.loseContext()
+  }
   scene.resize(plan.width, plan.height, pixel, input, true)
 
   const canvas = document.createElement('canvas')
   canvas.width = glCanvas.width
   canvas.height = glCanvas.height
   const ctx = canvas.getContext('2d', { alpha: false })
-  if (!ctx) fail('A 2D canvas is not available')
+  if (!ctx) {
+    dispose()
+    fail('A 2D canvas is not available')
+  }
 
-  await Promise.all([scene.setTitle(titleStyle(plan), FONT_WAIT_MS), loadCaptionFonts(plan)])
+  try {
+    await Promise.all([scene.setTitle(titleStyle(plan), FONT_WAIT_MS), loadCaptionFonts(plan)])
+  } catch (error) {
+    dispose()
+    throw error
+  }
 
   // The same start for the same seed, whatever was drawn while the scene was made
   scene.reseed(plan.seed)
@@ -122,11 +143,6 @@ async function createFilmPlayer (plan: FilmPlan, pixel: number) {
     if (!show) return
     ctx.drawImage(glCanvas, 0, 0)
     if (plan.captions.length > 0) drawCaptions(ctx, plan, time, scene.frame.composite, canvas.width / plan.width)
-  }
-
-  const dispose = () => {
-    scene.dispose()
-    gl.getExtension('WEBGL_lose_context')?.loseContext()
   }
 
   return { canvas, drawFrame, dispose }

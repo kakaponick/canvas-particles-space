@@ -143,7 +143,13 @@ async function openStudio () {
     }
     let file = path.resolve(DIST, '.' + decodeURIComponent(url.pathname))
     if (!file.startsWith(DIST) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) file = path.join(DIST, 'index.html')
-    response.writeHead(200, { 'content-type': MIME[path.extname(file).toLowerCase()] ?? 'application/octet-stream' })
+    // The two isolation headers let the page share memory between threads, which is how a film's
+    // particles are stepped on several cores (src/lib/particle_crew.ts)
+    response.writeHead(200, {
+      'content-type': MIME[path.extname(file).toLowerCase()] ?? 'application/octet-stream',
+      'cross-origin-opener-policy': 'same-origin',
+      'cross-origin-embedder-policy': 'require-corp'
+    })
     fs.createReadStream(file).pipe(response)
   })
   await new Promise((resolve, reject) => server.once('error', reject).listen(0, '127.0.0.1', resolve))

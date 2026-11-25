@@ -210,6 +210,10 @@ export interface FrameInput {
   fadeAlpha: number
   instances: Float32Array
   instanceCount: number
+  // Where the segments lie in `instances`: a start slot and a count for each of `instanceRunCount` runs,
+  // drawn in that order. No runs, as on the page: the segments lie together from slot 0
+  instanceRuns: Int32Array
+  instanceRunCount: number
   // Stars in orbit: `orbitRow` holds the stretch each of the `orbitCount` stars is flying, in
   // Schwarzschild radii from the black hole. The renderer keeps the stretches and draws the traces from them
   orbitCount: number
@@ -537,7 +541,19 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
       gl.bufferData(gl.ARRAY_BUFFER, instanceCapacity * INSTANCE_STRIDE, gl.DYNAMIC_DRAW)
     }
     // A range of the array goes up as it is, with no view made for it
-    gl.bufferSubData(gl.ARRAY_BUFFER, 0, frame.instances, 0, count * INSTANCE_FLOATS)
+    if (frame.instanceRunCount === 0) {
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, frame.instances, 0, count * INSTANCE_FLOATS)
+      return
+    }
+    // A crew's runs go up one after another, which closes the gaps between them
+    const runs = frame.instanceRuns
+    let slot = 0
+    for (let run = 0; run < frame.instanceRunCount; run++) {
+      const segments = runs[run * 2 + 1]
+      if (segments === 0) continue
+      gl.bufferSubData(gl.ARRAY_BUFFER, slot * INSTANCE_STRIDE, frame.instances, runs[run * 2] * INSTANCE_FLOATS, segments * INSTANCE_FLOATS)
+      slot += segments
+    }
   }
 
   // Stamps `count` segments into the bound target, keeping the brighter of a segment and what is already
