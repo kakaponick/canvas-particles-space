@@ -101,8 +101,9 @@ audio track. The same film is the same video on any machine.
   The `space-scene` skill in `.claude/skills/` is the manual that goes with them: every setting by the physical
   law it belongs to, how to drive the live page through `window.space`, how to make a film that reads, the same
   four tools from a shell (`scripts/space.mjs`) and a check that agents reach every knob (`scripts/audit.mjs`).
-- **An agent that has only the address** learns the rest from it: asked for markdown (`Accept: text/markdown`),
-  the page answers with a short description of `window.space` behind `?agent` (`public/index.md`).
+- **An agent that has only the address** learns the rest from it: the page's HTML carries a short description
+  of `window.space` behind `?agent` for a reader that runs no script, and the address answers with the same
+  text when asked for markdown (`Accept: text/markdown`). The text is `public/index.md`.
 - **By hand**: open the page with `?agent` and call `await space.film.render(film, { download: 'film.mp4' })`
   in the console; `space.film.guide()` prints the format.
 - **A film to start from**: `films/showreel.json` is a 50 s tour of what a film can do (the opening with its own
