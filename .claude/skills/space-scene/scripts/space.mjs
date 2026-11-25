@@ -5,15 +5,16 @@
 //
 //   node space.mjs guide
 //   node space.mjs describe [word]
-//   node space.mjs check <film> [out.json]
+//   node space.mjs check <film> [out.json]  |  check <film> <film> ...
 //   node space.mjs preview <film> <out.jpg> [seconds,seconds,...]
 //   node space.mjs render <film> <out.mp4> [medium|high|max] [audio file]
 //
 // A film is a .json file, or a script that plays it forward: a .js file. "--input <file.json>" anywhere on
 // the line is what a script reads as input. check writes the JSON a script comes to when it is given a place.
-// Several preview or render jobs may follow one another on one line, three or four words each; the
-// browser is then started once. A seconds list of "-" leaves the choice of frames to the film: a frame of
-// each shot, or nine spread over it.
+// Several check, preview or render jobs may follow one another on one line; the browser is then started
+// once, where each call starts its own (about three seconds). A seconds list of "-" leaves the choice of
+// frames to the film: a frame of each shot, or nine spread over it. A preview prints the timeline a check
+// does, so a film about to be previewed needs no check of its own.
 //
 // A zoom into the Mandelbrot set takes the same commands with "fractal-" before them (fractal-guide,
 // fractal-check, fractal-preview, fractal-render) and a fractal film, a .json file or a .js script.
@@ -28,7 +29,7 @@ import { fileURLToPath } from 'node:url'
 const USAGE = [
   'node space.mjs guide',
   'node space.mjs describe [word]',
-  'node space.mjs check <film.json|film.js> [out.json]',
+  'node space.mjs check <film.json|film.js> [out.json]  |  check <film> <film> ...',
   'node space.mjs preview <film.json|film.js> <out.jpg> [seconds,seconds,...]',
   'node space.mjs render <film.json|film.js> <out.mp4> [medium|high|max] [audio file]',
   'and --input <file.json> for what a script reads as input',
@@ -84,9 +85,15 @@ function readJobs (command, given) {
   if (command === 'describe') return [{ tool: 'space_describe', args: words[0] ? { filter: words[0] } : {} }]
   const jobs = []
   if (command === 'check') {
+    if (words.length === 0) throw new Error('check takes <film.json|film.js> [out.json], or several films')
+    // The JSON a script comes to is written only for one script and its place: in a list of films a .json
+    // word is a film, never a file to write over
     const [film, out] = words
-    if (!film) throw new Error('check takes <film.json|film.js> [out.json]')
-    jobs.push({ tool: 'space_check', args: out ? { ...readFilm(film, input), out: path.resolve(out) } : readFilm(film, input), name: path.basename(film) })
+    if (words.length === 2 && isScript(film) && out.toLowerCase().endsWith('.json')) {
+      jobs.push({ tool: 'space_check', args: { ...readFilm(film, input), out: path.resolve(out) }, name: path.basename(film) })
+    } else {
+      for (const each of words) jobs.push({ tool: 'space_check', args: readFilm(each, input), name: path.basename(each) })
+    }
   } else if (command === 'preview') {
     for (let at = 0; at < words.length;) {
       const [film, out, third] = words.slice(at, at + 3)

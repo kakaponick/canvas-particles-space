@@ -115,7 +115,11 @@ node .claude/skills/space-scene/scripts/space.mjs check films/language.js
 node .claude/skills/space-scene/scripts/space.mjs preview films/language.js out/language.jpg
 node .claude/skills/space-scene/scripts/space.mjs preview films/waltz.json out/waltz.jpg 4,12,29.5,31
 node .claude/skills/space-scene/scripts/space.mjs render films/waltz.json films/waltz.mp4 high
+node .claude/skills/space-scene/scripts/space.mjs preview films/a.js out/a.jpg - films/b.js out/b.jpg -
 ```
+
+Each call starts a browser (about three seconds), so several films go through one call: check, preview
+and render all take a list.
 
 Both the server and the script serve `dist/`, so run `pnpm build` after any change to the page; without it
 they draw the old scene and reject keys the code already has.

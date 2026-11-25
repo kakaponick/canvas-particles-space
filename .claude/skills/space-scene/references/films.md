@@ -134,7 +134,7 @@ takes an audio file and lays it under the picture from the first second.
   scene has picked up a clock or `Math.random`.
 - A check of the plan alone (no drawing) is `space_check`, or `window.space.film.check(film)` on a page
   with `?agent`: it lists the timeline it understood, every value it moved into range and every mistake
-  at once. Run it before each preview; it takes a moment.
+  at once. A preview prints the same timeline, so a film about to be previewed needs no check first.
 - A film cut into shots is previewed as its storyboard when no seconds are asked for: one frame from the
   middle of each shot, with the shot's name. Read it as a viewer would read a comic strip.
 - Things that pass the check and still show nothing: a lens with nothing behind it (raise `gridSky` or the
@@ -144,7 +144,12 @@ takes an audio file and lays it under the picture from the first second.
   second and a half for 40 seconds of film, so look often. A render is held by the video encoder at about
   200 frames a second at 1080p: a 30 fps film takes a sixth of its length, a 60 fps one a third, 4K
   proportionally longer. Up to 60 000 particles cost a render nothing.
-- The script starts a browser of its own, about two seconds a call; several jobs on one line share it.
+- The script starts a browser of its own, about three seconds a call; several jobs on one line share it.
+  Five checks one call each took 16 s, the same five on one line 3 s. So a set of films goes through each
+  step in one call: `check a.js b.js c.js`, `preview a.js a.jpg - b.js b.jpg -`, `render a.js a.mp4 high
+  b.js b.mp4 high`. After a fix, preview again only the films that changed, at the seconds that changed.
+- A render needs nothing after it but the mp4. Once the previews are right, start it in the background and
+  commit the films and finish the rest while it runs.
 - Rendered mp4 and audio files in `films/` are kept out of git; the json is the film. On Windows a render
   fails to replace an mp4 that a player still has open.
 
@@ -301,6 +306,10 @@ longer moves everything after it by itself; in the JSON every later second is re
 - Sound: `space_check` lists the seconds the script marked (`mark`, and the start of every shot). A
   soundtrack is laid on those seconds; a narration goes the other way, the length of each spoken line
   given as `input` and the shot waiting that long.
+- A film of a set length is not added up by hand: `to`, `drive` and `opening` move time as `wait` does,
+  `meanwhile` does not, and sums of them go wrong. The last shot waits for what is left,
+  `wait(60 - 3 - now())` before a closing `to({ fade: 1 }, 3)`, and the film is 60 s however the shots
+  before it change.
 - `fade` is the first and the last second of most films: `set({ fade: 1 })`, then `to({ fade: 0 }, 2)`.
   Captions stay above it, so a line on black is a caption while the fade is 1. A title is part of the
   picture and goes dark with it.
