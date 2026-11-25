@@ -1,29 +1,30 @@
-# Particle Universe ⭐
+# Gravitational Lensing Particle Simulator
 
-A stunning React SPA featuring an interactive particle animation with black hole physics and customizable visual effects.
+A WebGL2 particle flight through space that ends in a black hole. Particles fly past the camera, and the black
+hole pulls them in and bends the light behind it: a shadow, a photon ring and an Einstein ring. Stars can circle
+it on real orbits, a second black hole can circle with it and send out gravitational waves, two grids show curved
+space, and the camera zooms in on the shadow or pulls back. React drives only the panels; the scene runs in one
+`requestAnimationFrame` loop.
 
-## Features
-
-- 🌌 Warp speed particle animation
-- ⚫ Interactive black hole with gravitational effects
-- 🎨 Customizable color palette with weighted distribution
-- ⚙️ Real-time control panel for physics parameters
-- 💫 Dynamic particle pulsing and depth effects
+The same scene can be scripted from the browser's console or by an AI agent through `window.space`, and rendered
+to an mp4 film from a JSON description or a script (see [Films](#films)).
 
 ## Tech Stack
 
-- **React** 18.2 - UI framework
-- **TypeScript** - Type safety
-- **Vite** - Build tool and dev server
-- **Tailwind CSS** - Styling
-- **Zustand** - State management
-- **WebGL2** - Instanced particle rendering with a gravitational lensing pass
+- **React** 18 and **TypeScript** 5, built with **Vite** 5
+- **Tailwind CSS** 3, Radix UI primitives through shadcn/ui (`src/components/ui/`), lucide-react icons
+- **Zustand** 4 - state; the animation loop reads the stores directly, so React never renders per frame
+- **WebGL2** - instanced particle strokes and one full-screen composite pass for the lens, the ring, the opening
+  and the grids. There is no fallback: a browser without WebGL2 gets a message instead of the scene
+- **mediabunny** - encodes films to H.264 mp4 through WebCodecs; loaded only when a film is rendered
+- **Vercel** - hosting (`vercel.json`) and Vercel Analytics
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 18+ for the page; Node.js 22+ for the film server (`mcp/space_mcp.mjs`), which also needs Chrome,
+  Chromium or Edge
 - pnpm
 
 ### Installation
@@ -35,11 +36,14 @@ pnpm install
 # Start development server
 pnpm dev
 
-# Build for production
+# Type check and build for production into dist/
 pnpm build
 
 # Preview production build
 pnpm preview
+
+# Lint
+pnpm lint
 ```
 
 ## Opening
@@ -48,35 +52,87 @@ The page opens on its own, no click needed. A star brightens and explodes: its l
 the on-screen speed of light, visible only where it strikes dust, which keeps glowing for a moment
 (a light echo). The ejected matter follows more slowly and becomes the particle field. The core's light
 reddens away as it collapses, a black hole forms, rings down and sends out a gravitational wave that
-ripples the background stars, swallows the title and then drifts to your cursor. With the system
-"reduce motion" setting the explosion, fronts and wobble are skipped and the scene fades in.
+ripples the background stars, swallows the title and then drifts to your cursor. The whole opening takes
+about 6 seconds. With the system "reduce motion" setting the explosion, fronts and wobble are skipped and
+the scene fades in.
 
 ## Controls
 
-- **Mouse Movement**: The black hole follows your cursor with inertia
-- **Click Canvas**: Anchor the black hole where it is, or release it to follow again
-- **Scroll**: Change Base Speed over the scene; down is faster, up is slower
-- **Touch**: Drag the black hole with a finger; swipe up or down elsewhere to change Base Speed
-- **Intro debugger** (the timeline button at the top right, Alt+Shift+D, or `?debug` in the address): timeline with phase markers (drag a moment, or focus it and use the arrows, to retime it), playback speed from 0.05× to 2×, frame step, loop, switches to turn each effect of the opening off, and every tunable number of the opening (about 60, grouped; kept across reloads in this browser, with reset and "copy changed" to share the values)
-- **⚙️ Control Panel**: Adjust physics parameters and colors; Esc opens and closes it, and the current settings are kept in this browser across reloads
+On the scene:
 
-### Parameters
+- **Mouse movement**: the black hole follows your cursor with inertia
+- **Click**: anchor the black hole where it is, or release it to follow again. An anchored black hole can be
+  dragged to a new place; a double-click puts it back in the middle
+- **Scroll**: change Base Speed; down is faster, up is slower
+- **Touch**: drag the black hole with a finger; swipe up or down elsewhere to change Base Speed
 
-- **Particle Count**: Number of particles (1000-50000; 24000 by default, 12000 on phones)
-- **FPS Limit**: AUTO follows the display refresh rate; 30-144 caps it. Motion speed does not depend on the frame rate
-- **FPS Counter**: Shows the measured frame rate beside the buttons at the top right; off by default, kept per device
-- **Pulse Intensity**: Star twinkling effect (0-1)
-- **Base Speed**: Speed of the flight through space, also set by scrolling
-- **Black Hole Size**: Shadow radius as a share of the screen's short side
-- **Gravity Reach**: How far gravity reaches, in black hole radii
-- **Gravity**: Gravitational pull strength
-- **Orbital Force**: Tangential force around black hole
-- **Einstein Radius**: Einstein ring radius, in black hole radii
-- **Presets**: **Default** is tuned for the look; **Schwarzschild** is a real non-rotating black hole as far as the scene shows one: a point-mass lens with one mirrored image inside the Einstein ring, no twist, and capture at the edge of the shadow. Every length around the hole is in black hole radii, so Black Hole Size alone scales it
-- **Orbiting Stars**: stars with real orbits around the black hole (**Count**, 0 = none): ellipses that precess, faster the closer they come, with a trace that stays lit for **Trail** seconds. The traces are lines kept around the black hole, so they move and grow with it. **Orbit Size**, **Eccentricity** and **Orbit Speed** (its sign is the direction) shape them; a star that crosses the Event Horizon lights the photon ring
-- **Second Black Hole**: a companion of **Size** (in main hole radii, 0 = none) at **Distance** from the main one. The two circle their common centre at the rate Kepler's law gives, faster as they close in (**Orbit Speed** scales it, its sign is the direction), each with its own shadow, lens, ring, gravity and well in the sheet, and send out a spiral of gravitational **Waves**. Below a Distance of 1 + Size their shadows overlap and the main hole grows by the companion's mass; at 0 they are one, an oval that keeps turning as it rings down and sends a last wave. The waves stretch the picture across their path and weaken as 1 over the distance, as real ones do
-- **Zoom**: magnifies the view around the black hole, which stays where it is on the screen. The scene is drawn anew at the zoom, not enlarged: particles, orbits, the ring and the grids stay sharp, and hairlines stay hairlines
-- **Space Grid**: two grids for explaining curved space, both off until their brightness is above 0. **Sheet** is a grid seen at an angle (**Sheet Tilt**) and dented where the black hole sits (**Well Depth**) by how much time is slowed there; gravitational waves ripple through it. **Lensed Grid** is a flat grid on the sky read through the lens, so it shows what the lens does
+The toolbar at the top right holds the measured frame rate (while FPS Counter is on), the intro debugger,
+Settings and fullscreen. Each panel opens and closes from its button there; Escape closes the panel the focus is
+in, and with the focus outside both panels, Escape opens Settings. The panels show no help text: right-click a
+control (or press Shift+F10 or the Menu key on it, or long-press it on a touch screen) for its one-line hint and
+a reset to its default. A double-click on a slider, or Delete while it has the focus, also resets it.
+
+- **Settings**: every setting of the scene, in the groups below. The current settings are kept in this browser
+  across reloads
+- **Intro debugger** (its toolbar button, Alt+Shift+D, or `?debug` in the address): a timeline of the opening
+  with a track for each of its elements and the moments on it (drag a moment, or focus it and use the arrows, to
+  retime it), playback speed from 0.05× to 2×, frame step, loop, a switch to turn each element off, every
+  tunable number of the opening (98, grouped by track), the title's words, face and case, and presets of the
+  opening: Default and ten built-in looks, plus your own, saved with or without the scene's settings. Its values
+  are kept across reloads in this browser, with reset and "copy changed" to share them as JSON. The Keys
+  button in the debugger lists its keyboard shortcuts
+
+### Settings
+
+The Settings panel is built from `src/lib/simulation_specs.ts`, which holds every slider's range, step, unit
+and meaning; `window.space.describe()` reads the same text. The groups:
+
+- **Presets**: **Default** is tuned for the look; **Schwarzschild** is a real non-rotating black hole as far as
+  the scene shows one: a point-mass lens with one mirrored image inside the Einstein ring, no twist, and capture
+  at the edge of the shadow. Save your own setups under a name; they stay in this browser. Every length around
+  the hole is in black hole radii, so Black Hole Size alone scales it
+- **Playback**: Scene Motion (freeze the scene), **FPS Limit** (AUTO follows the display, or a cap of 30-240;
+  motion speed does not depend on the frame rate), FPS Counter, and **Particle Budget**, which lowers the particle
+  count while the processor cannot keep up and raises it again once it can
+- **Particles**: the field (**Count**, 500-200 000; 24 000 by default, 12 000 on screens narrower than 768 px),
+  its depth and spawn disc, Base Speed and its spread, the scroll step, particle size and how fast trails fade
+- **Particle Lighting**: brightness, how brightness follows speed and depth, the opacity range, the pulse
+- **Colors**: the particle palette, each colour with its share of the mix, and the background colour
+- **Black Hole**: **Size** (shadow radius as a share of the screen's short side), the Event Horizon where
+  particles are captured, the depth it sits at, **Gravity**, **Orbital Force**, **Gravity Reach** (in black hole
+  radii), Follow Cursor and how stiffly it follows, its resting position, and **Zoom**: magnifies the view around
+  the black hole, which stays where it is on the screen. The scene is drawn anew at the zoom, not enlarged:
+  particles, orbits, the ring and the grids stay sharp, and hairlines stay hairlines. Below 1 the camera pulls
+  back, and the picture repeats, mirrored, beyond its edges
+- **Second Black Hole**: a companion of **Size** (in main hole radii, 0 = none) at **Distance** from the main
+  one. The two circle their common centre at the rate Kepler's law gives, faster as they close in (**Orbit
+  Speed** scales it, its sign is the direction), each with its own shadow, lens, ring, gravity and well in the
+  sheet, and send out a spiral of gravitational **Waves**. Below a Distance of 1 + Size their shadows overlap and
+  the main hole grows by the companion's mass; at 0 they are one, an oval that keeps turning as it rings down and
+  sends a last wave. The waves stretch the picture across their path and weaken as 1 over the distance, as real
+  ones do
+- **Photon Ring**: brightness, glow, thickness, the Doppler contrast between its approaching and receding sides,
+  and the light that infalling particles leave on it
+- **Gravitational Lensing**: **Einstein Radius** (in black hole radii, 0 = no lens), how far the lens reaches,
+  its falloff, a twist of the sky, and the limits near the hole
+- **Orbiting Stars**: stars with real orbits around the black hole (**Count**, 0 = none): ellipses that precess,
+  faster the closer they come, with a trace that stays lit for **Trail** seconds. The traces are lines kept
+  around the black hole, so they move and grow with it. **Orbit Size**, **Eccentricity** and **Orbit Speed**
+  (its sign is the direction) shape them; a star that crosses the Event Horizon lights the photon ring
+- **Space Grid**: two grids for explaining curved space, both off until their brightness is above 0. **Sheet**
+  is a grid seen at an angle (**Sheet Tilt**) and dented where the black hole sits (**Well Depth**) by how much
+  time is slowed there; gravitational waves ripple through it. **Lensed Grid** is a flat grid on the sky read
+  through the lens, so it shows what the lens does
+- **Background Stars**: brightness, density and spacing
+
+## Driving the scene from the console
+
+Open the page with `?agent` in the address (in development `window.space` is always there) and call
+`space.help()` in the console: it lists every command. `space.describe()` and `space.intro.describe()` list
+every setting and intro parameter with its range, default and meaning; `space.set({ gravityStrength: 5 })`,
+`space.reset()` and `space.preset.apply('Schwarzschild')` change the scene, and `space.intro.*` drives the
+opening's timeline. The API is a separate chunk that visitors without `?agent` never download. The
+`space-scene` skill in `.claude/skills/` is the manual for agents.
 
 ## Films
 
@@ -157,40 +213,58 @@ to({ fade: 1 }, 1.5)
 ```
 src/
 ├── components/
-│   ├── particle_canvas.tsx    # Animation loop, input and resize handling
-│   ├── control_panel.tsx      # Settings panel shell and shortcuts
-│   ├── settings_body.tsx      # Every setting, built once with the page
-│   ├── color_palette.tsx      # Color management
-│   ├── blackhole_indicator.tsx
-│   └── interaction_hints.tsx  # Hints for the interactions not tried yet
+│   ├── particle_canvas.tsx      # Animation loop, frame-rate cap, particle budget, pointer and touch input
+│   ├── control_panel.tsx        # Scene toolbar and the Settings panel
+│   ├── settings_body.tsx        # Every setting, built once with the page
+│   ├── controls/                # Sliders, switches, presets, colours, the hint menu (hint_menu.tsx),
+│   │                            # the intro debugger (intro_debugger.tsx, intro_track_list.tsx, intro_preset_bar.tsx)
+│   └── ui/                      # shadcn/ui components
 ├── lib/
-│   ├── scene.ts               # The scene apart from the page: one frame from its inputs
-│   ├── random.ts              # Seeded random generator of a scene
-│   ├── particle_simulation.ts # Particle state and per-frame physics
-│   ├── particle_renderer.ts   # WebGL passes: trail fade, particles, title, black hole composite, space sheet
-│   ├── intro_timeline.ts      # Choreography of the opening seconds
-│   ├── black_hole_motion.ts   # Spring follow of the black hole
-│   ├── base_speed.ts          # Base Speed range and the scroll dial
-│   ├── title_sprite.ts        # Intro title rasterised for the lens
-│   ├── orbiters.ts            # Stars in real orbits around the black hole
-│   ├── companion.ts           # A second black hole: the pair's orbit, merger and waves
-│   ├── space_grid.ts          # The space sheet: its lines and where its well goes
-│   ├── webgl_shaders.ts       # GLSL sources and program helpers
-│   ├── scene_api.ts           # window.space: the scene for agents and the console
-│   ├── agent_values.ts        # How settings and parameters given to the API are checked
-│   ├── film.ts                # A film: its JSON format, the plan made from it, its guide
-│   ├── film_render.ts         # Plays a film in a scene of its own: mp4 and contact sheet
-│   └── film_captions.ts       # Captions drawn over a film's frames
+│   ├── scene.ts                 # The scene apart from the page: one frame from its inputs
+│   ├── particle_simulation.ts   # Particle state and the per-frame step
+│   ├── particle_budget.ts       # Trims and restores the particle count to fit the frame
+│   ├── particle_crew.ts         # Steps a film's particles on several cores (with particle_pieces.ts and the worker)
+│   ├── particle_renderer.ts     # WebGL passes: trails, particles, orbits, composite, space sheet
+│   ├── webgl_shaders.ts         # GLSL sources and program helpers
+│   ├── simulation_specs.ts      # Name, range, unit and meaning of every setting
+│   ├── simulation_presets.ts    # Named snapshots of the settings
+│   ├── intro_params.ts          # Every tunable number of the opening
+│   ├── intro_timeline.ts        # Choreography of the opening
+│   ├── intro_tracks.ts          # The opening as tracks and layers, for the debugger and films
+│   ├── intro_presets.ts         # Built-in looks of the opening
+│   ├── orbiters.ts              # Stars in real orbits around the black hole
+│   ├── companion.ts             # A second black hole: the pair's orbit, merger and waves
+│   ├── space_grid.ts            # The space sheet: its lines and where its well goes
+│   ├── ring_energy.ts           # Light that infalling matter leaves on the photon ring
+│   ├── title_sprite.ts          # The opening's title rasterised for the lens
+│   ├── black_hole_motion.ts     # Spring follow of the black hole
+│   ├── base_speed.ts            # Base Speed range and the scroll dial
+│   ├── frame_pacing.ts          # Keeps a one-off stall from making the scene jump
+│   ├── random.ts                # Seeded random generator of a scene
+│   ├── scene_api.ts             # window.space: the scene for agents and the console
+│   ├── agent_values.ts          # How values given to the API and to films are checked
+│   ├── film.ts                  # A film: its JSON format, the plan made from it, its guide
+│   ├── film_script.ts           # A film written as a script, and the script's guide
+│   ├── film_render.ts           # Plays a film in a scene of its own: mp4 and contact sheet
+│   ├── film_captions.ts         # Captions drawn over a film's frames
+│   └── caption_text.ts          # The marks a caption's text takes
 ├── store/
-│   ├── particle_store.ts      # Zustand state management
-│   └── settings_persistence.ts # Keeps the current settings across reloads
-├── app.tsx                    # Main app component
-├── main.tsx                   # Entry point
-└── index.css                  # Global styles
+│   ├── particle_store.ts        # Simulation settings and runtime state
+│   ├── settings_persistence.ts  # Keeps the current settings across reloads
+│   ├── preset_store.ts          # Default, Schwarzschild and saved presets
+│   ├── intro_debug_store.ts     # The intro debugger's state, the opening's numbers and title
+│   └── intro_preset_store.ts    # Presets of the opening
+├── hooks/                       # Colour palette selector, interaction hints
+├── app.tsx                      # Main app component
+├── main.tsx                     # Entry point; loads window.space in development or with ?agent
+└── index.css                    # Global styles and the bundled fonts
+mcp/space_mcp.mjs                # The space MCP server: films from a shell or an agent
+films/                           # Example films (.json and .js) and the showreel's sound scripts
+public/index.md                  # The page's description for agents
+.claude/skills/space-scene/      # The manual for agents, with the knob map and the audit
 ```
 
 ## License
 
 MIT. The fonts in `public/fonts` are under the SIL Open Font License; the Noto faces' copy of it is
 `public/fonts/noto-OFL.txt`.
-
