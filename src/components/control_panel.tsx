@@ -18,7 +18,9 @@ import { MeasuredFps } from './controls/frame_rate_control'
 import { INTRO_DOCK_ID, closeIntroDebugger, isInDock, toggleIntroDebugger } from '../lib/intro_dock'
 import HintMenu from './controls/hint_menu'
 import { FractalToggle } from './fractal_mode'
+import { FilmToggle } from './film_mode'
 import { useFractalStore } from '../store/fractal_store'
+import { useFilmStore } from '../store/film_store'
 
 // The panel closes only on request, so the scene can be used while settings are being tuned
 function keepOpen (event: Event) {
@@ -108,13 +110,20 @@ function ControlPanel () {
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange)
   }, [])
 
-  // Settings belongs to the particle scene and the Mandelbrot mode stands in for it: opening either closes the other
+  // Settings belongs to the particle scene and the Mandelbrot and film modes stand in for it: opening one closes the others
   useEffect(() => {
-    if (isOpen) useFractalStore.getState().setOpen(false)
+    if (!isOpen) return
+    useFractalStore.getState().setOpen(false)
+    useFilmStore.getState().setOpen(false)
   }, [isOpen])
-  useEffect(() => useFractalStore.subscribe((state, before) => {
-    if (state.open && !before.open) setIsOpen(false)
-  }), [])
+  useEffect(() => {
+    const offFractal = useFractalStore.subscribe((state, before) => { if (state.open && !before.open) setIsOpen(false) })
+    const offFilms = useFilmStore.subscribe((state, before) => { if (state.open && !before.open) setIsOpen(false) })
+    return () => {
+      offFractal()
+      offFilms()
+    }
+  }, [])
 
   // Tells the page Settings is open, so the intro debugger can move over on a wide screen (index.css)
   useEffect(() => {
@@ -145,6 +154,7 @@ function ControlPanel () {
           order is the tab order */}
       <div role="group" aria-label="Scene controls" className="fixed right-3 top-3 z-[60] flex gap-2">
         <SceneFps />
+        <FilmToggle className={SCENE_BUTTON} />
         <FractalToggle className={SCENE_BUTTON} />
         <IntroDebuggerToggle />
         {/* The trigger toggles: it opens Settings and, pressed again, closes it */}

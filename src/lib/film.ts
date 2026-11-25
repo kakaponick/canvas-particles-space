@@ -270,7 +270,7 @@ function faceFor<Face extends string> (text: string, face: Face, where: string, 
   return 'unbounded'
 }
 
-const FILM_KEYS = ['duration', 'fps', 'size', 'width', 'height', 'scale', 'seed', 'preset', 'settings', 'intro', 'warmup', 'speed', 'fade', 'tracks', 'layers', 'cues', 'captions', 'graphics', 'shots']
+export const FILM_KEYS = ['duration', 'fps', 'size', 'width', 'height', 'scale', 'seed', 'preset', 'settings', 'intro', 'warmup', 'speed', 'fade', 'tracks', 'layers', 'cues', 'captions', 'graphics', 'shots']
 // What every shape takes, and what each kind takes besides
 export const GRAPHIC_COMMON = ['kind', 'from', 'to', 'fade', 'color', 'opacity', 'width', 'dash', 'fill', 'fillOpacity', 'values', 'draw']
 export const GRAPHIC_KEYS: Record<GraphicKind, readonly string[]> = {

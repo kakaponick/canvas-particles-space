@@ -46,7 +46,7 @@ const makePlayer = (clip: ReelClip, pixel: number, images?: Record<string, strin
 
 // The reel's player at `pixel` video pixels a film pixel. `first` is the first frame of the reel that will
 // be asked for: its clip's player is made now, and its canvas gives the reel's canvas its size
-async function createReelPlayer (plan: ReelPlan, pixel: number, options: ReelOptions & { images?: Record<string, string> }, first: number) {
+export async function createReelPlayer (plan: ReelPlan, pixel: number, options: ReelOptions & { images?: Record<string, string> }, first: number) {
   const { clips } = plan
   const notes: string[] = []
   const players: (ClipPlayer | null)[] = clips.map(() => null)

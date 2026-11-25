@@ -5,13 +5,16 @@ import IntroDebugger from './components/controls/intro_debugger'
 import BlackHoleIndicator from './components/controls/blackhole_indicator'
 import InteractionHints from './components/controls/interaction_hints'
 import FractalMode from './components/fractal_mode'
+import FilmMode, { FilmDrop } from './components/film_mode'
 import { useFractalStore } from './store/fractal_store'
+import { useFilmStore } from './store/film_store'
 
-// What is drawn over the particle scene to talk about it; the Mandelbrot mode stands in front of the scene
-// and has none of it
+// What is drawn over the particle scene to talk about it; the Mandelbrot and film modes stand in front of
+// the scene and have none of it
 function SceneOverlays () {
   const fractal = useFractalStore(state => state.open)
-  if (fractal) return null
+  const film = useFilmStore(state => state.open)
+  if (fractal || film) return null
   return (
     <>
       <BlackHoleIndicator />
@@ -27,6 +30,8 @@ function App () {
       <ParticleCanvas />
       <SceneOverlays />
       <FractalMode />
+      <FilmMode />
+      <FilmDrop />
       <ControlPanel />
       <IntroDebugger />
     </div>

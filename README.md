@@ -70,8 +70,8 @@ On the scene:
 - **Scroll**: change Base Speed; down is faster, up is slower
 - **Touch**: drag the black hole with a finger; swipe up or down elsewhere to change Base Speed
 
-The toolbar at the top right holds the measured frame rate (while FPS Counter is on), the intro debugger,
-Settings and fullscreen. Each panel opens and closes from its button there; Escape closes the panel the focus is
+The toolbar at the top right holds the measured frame rate (while FPS Counter is on), the films, the Mandelbrot
+zoom, the intro debugger, Settings and fullscreen. Each panel opens and closes from its button there; Escape closes the panel the focus is
 in, and with the focus outside both panels, Escape opens Settings. The panels show no help text: right-click a
 control (or press Shift+F10 or the Menu key on it, or long-press it on a touch screen) for its one-line hint and
 a reset to its default. A double-click on a slider, or Delete while it has the focus, also resets it.
@@ -228,6 +228,20 @@ to({ fade: 1 }, 1.5)
   stays a line of a pixel and a half, cuts between 1×, 2×, 4× and 8×, travels with the black hole over the lensed
   grid at 4× and pulls back with the trails streaking behind the camera.
 
+### Watching films in the browser
+
+The clapperboard button in the scene toolbar opens the film mode: a film plays live on the page, drawn as it plays
+by the same players that render the mp4, so every frame on screen is the frame the video will have. When the
+machine falls behind, a frame is stepped without being shown, and the film slows down rather than skip ahead. It
+plays films of the scene, fractal films and reels, as JSON or as scripts. The panel opens a film from a file, or
+from a file dropped anywhere on the page or text pasted onto it; it also lists the films opened before and the
+films in `films/`, which are bundled with the page. A film whose shapes use a picture, or a reel that names
+other files, asks for those files, and they can be opened or dropped next to the film; files in `films/` are
+found by themselves. From Scene turns the scene as it is set now into a 20 s film. Under the picture there is Play
+and Pause (Space or K) and the film's progress. Save MP4 renders the film on this machine at the quality chosen;
+Film File and Copy hand over the film's own text. `?film=kerr_around` in the address opens a film of the library
+straight away.
+
 ### Mandelbrot zoom
 
 The film renderer has a fork that draws a zoom into the Mandelbrot set instead of the scene, as deep as asked:
@@ -255,6 +269,7 @@ src/
 ├── components/
 │   ├── particle_canvas.tsx      # Animation loop, frame-rate cap, particle budget, pointer and touch input
 │   ├── control_panel.tsx        # Scene toolbar and the Settings panel
+│   ├── film_mode.tsx            # The film mode: a film played live, opened and saved
 │   ├── settings_body.tsx        # Every setting, built once with the page
 │   ├── controls/                # Sliders, switches, presets, colours, the hint menu (hint_menu.tsx),
 │   │                            # the intro debugger (intro_debugger.tsx, intro_track_list.tsx, intro_preset_bar.tsx)
@@ -286,6 +301,8 @@ src/
 │   ├── film.ts                  # A film: its JSON format, the plan made from it, its guide
 │   ├── film_script.ts           # A film written as a script, and the script's guide
 │   ├── film_render.ts           # Plays a film in a scene of its own: mp4 and contact sheet
+│   ├── film_live.ts             # Plays a film live on the page, paced by the clock (film_session.ts drives it)
+│   ├── film_library.ts          # The films of films/, bundled for the film mode
 │   ├── film_captions.ts         # Captions drawn over a film's frames
 │   ├── reel.ts                  # A reel: several films in one video, its format and guide (reel_render.ts plays it)
 │   ├── film_graphics.ts         # Shapes drawn over a film's frames: lines, circles, charts, pictures
@@ -295,6 +312,7 @@ src/
 │   ├── settings_persistence.ts  # Keeps the current settings across reloads
 │   ├── preset_store.ts          # Default, Schwarzschild and saved presets
 │   ├── intro_debug_store.ts     # The intro debugger's state, the opening's numbers and title
+│   ├── film_store.ts            # The film mode: the film in it, how it plays, the films opened before
 │   └── intro_preset_store.ts    # Presets of the opening
 ├── hooks/                       # Colour palette selector, interaction hints
 ├── app.tsx                      # Main app component
