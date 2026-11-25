@@ -29,3 +29,4 @@ dist-ssr
 # Rendered films and their sound; the films themselves are the json files
 films/*.mp4
 films/*.wav
+films/voice/

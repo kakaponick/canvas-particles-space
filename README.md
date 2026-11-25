@@ -103,7 +103,10 @@ audio track. The same film is the same video on any machine.
 - **A film to start from**: `films/showreel.json` is a 50 s tour of what a film can do (the opening with its own
   title, a zoom with labels on the shadow, the lens changed by keyframes, orbiting stars, the sheet, two black
   holes merging). `node films/showreel_sound.mjs` writes its soundtrack, `films/showreel.wav`, to give
-  `space_render` as `audio`. Rendered videos and sound files in `films/` stay out of git.
+  `space_render` as `audio`; `node films/showreel_voice.mjs` then lays a narration over it
+  (`films/showreel_voiced.wav`), spoken by a [VoiceStudio](https://github.com/debpalash/VoiceStudio) running on
+  this machine, in a designed voice or in the voice of a recording named in `SHOWREEL_VOICE`. Rendered videos
+  and sound files in `films/` stay out of git.
 
 ## Project Structure
 
