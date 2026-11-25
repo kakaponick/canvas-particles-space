@@ -398,52 +398,135 @@ fired is its parameters in the table of section 13.
 
 ## 16. What is still fixed in code
 
-A film shows only what it can set, so every number here is a limit on films. Each line says what is fixed
-and what a knob for it would take. A film that needs one is asking for that knob: make it (SKILL.md, "A new
+A film shows only what it can set, so every number here is a limit on films. The tables cover the scene:
+the particles, the holes, the lens, the grids, the opening and its title. Each line says what is fixed and
+what a knob for it would cost. A film that needs one is asking for that knob: make it (SKILL.md, "A new
 ability: the code"), delete its line here and write the film. A change that leaves a new number in the code
 adds its line, and its report names it.
 
-**Free to bring out**: read once a frame or once a star, nothing per particle.
+The cost of a knob, in the last column:
 
-| Fixed | File in src/lib | A knob would |
+- **frame**: read once a frame, or handed to a shader as a uniform in place of the constant. Free.
+- **birth**: read once when a star or a title is made. Free.
+- **particle**, **pixel**: adds work to every particle of the hot loop or to every pixel of the composite
+  pass, so CLAUDE.md's Measuring decides.
+- **has one**: a value of nature whose multiple is a knob already, named in the line. Nothing to bring out.
+- **machine**: held by frame time, memory or the precision of the arithmetic. It stays.
+
+### The particles
+
+| Fixed | File in src/lib | Cost |
 |---|---|---|
-| The spin's drag on the orbiting stars: always the physical share, whatever `frameDrag` says | scene.ts, orbiters.ts | multiply the spin handed to the stars |
-| How much the orbits differ from `orbitSize` and `orbitEccentricity`: each star gets 0.6 to 1.4 of the size and 0.6 to 1 of the eccentricity | orbiters.ts | be read when a star is born |
-| The 0.6 s a new star takes to light up; the flare a captured star leaves in the ring, six particles' worth | orbiters.ts | be read once a star |
-| How the light fed to the ring is shared: 0.9 from a captured particle, 0.0005 a frame from one skimming within 1.5 radii; `ringFeed` scales both | particle_simulation.ts, particle_simulation_3d.ts | be a step number hoisted above the loop |
-| How hard spin lying in the screen sweeps near and far particles apart: as hard as spin toward the camera swirls them | particle_simulation.ts | be a step number hoisted above the loop |
-| The thinnest stroke, 0.3 px at the far end of the field | particle_simulation.ts, particle_simulation_3d.ts | be a step number hoisted above the loop |
-| The closest orbit a pair turns at before it merges, 0.6 of touching | companion.ts | be read once a frame |
-| The spin a merger leaves, 0.69 for two equal holes | companion.ts | multiply it once a frame, 1 = real |
-| The sheet's camera, 2.5 long screen sides away, its span of 2.2, and the wave's lift on it, 4 times its stretch of the sky | space_grid.ts | be a uniform a frame |
-| The 3D camera's 1.2 s ease between the flat view and its place, and the turn of 0.35 radians in a frame past which the trails start afresh | scene.ts | be read once a frame |
-| How far the sheet leans in 3D: the camera's elevation, up to 75°, past which it fades out before it is seen edge-on | scene.ts | be read once a frame |
-| The fade of the 3D column over 0.12 of Field Depth at both its ends, seen from the side | particle_simulation_3d.ts | be a step number hoisted above the loop |
-| The lattice's lines, 1.5 px wide and 1.6 times the sheet's colour, fading out nearer the camera than half the way to the point it circles | space_lattice.ts, scene.ts | be a uniform a frame |
+| The speed at which a particle reaches half its brightness, 0.15 px a 60 Hz frame; `speedGlow` bends the curve round it | webgl_shaders.ts | frame |
+| The tint of a fast flight: blue ahead and red at the edges, turning 0.59 of a half diagonal out, 0.8 of the colour at most, growing from `baseSpeed` 2 to 12 | webgl_shaders.ts, scene.ts | frame |
+| The thinnest stroke, 0.3 px at the far end of the field | particle_simulation.ts, particle_simulation_3d.ts | frame |
+| How the pull falls with distance, as (radius / distance)^2, and the bell of the depth band (in 3D the true distance, out to the sphere of Gravity Reach) | particle_simulation.ts, particle_simulation_3d.ts | particle |
+| The spin's drag, spin / 2 at one radius | particle_simulation.ts, particle_simulation_3d.ts | has one: `frameDrag` |
+| How the drag falls: one power of the distance faster than the pull, so `frameDrag` makes the vortex stronger and never wider | particle_simulation.ts, particle_simulation_3d.ts | particle |
+| How hard spin lying in the screen sweeps near and far particles apart: as hard as spin toward the camera swirls them | particle_simulation.ts | frame |
+| What spin lying in the screen does along the line of sight: nothing, so both sides of a tilted hole fall alike | particle_simulation.ts | particle |
+| A captured particle is reborn in four tries, else on the rim, up to half a capture radius outside it | particle_simulation.ts, particle_simulation_3d.ts | machine |
+| The fade of the 3D column over 0.12 of Field Depth at both its ends, seen from the side | particle_simulation_3d.ts | frame |
+| Motion capped at six reference frames a step; a stall treated as one frame | particle_simulation.ts, frame_pacing.ts | machine |
 
-**Costs the hot loop**: work per particle, so CLAUDE.md's Measuring decides.
+### The photon ring
 
-| Fixed | File in src/lib | A knob would |
+| Fixed | File in src/lib | Cost |
 |---|---|---|
-| How the pull falls with distance, as (radius / distance)^2, and the bell of the depth band (in 3D the true distance, out to the sphere of Gravity Reach) | particle_simulation.ts, particle_simulation_3d.ts | put a power or a second polynomial on every pulled particle |
-| How the spin's drag falls: one power of the distance faster than the pull, so `frameDrag` makes the vortex stronger and never wider | particle_simulation.ts, particle_simulation_3d.ts | put a branch or a power on every dragged particle |
-| What spin lying in the screen does along the line of sight: nothing, so both sides of a tilted hole fall alike | particle_simulation.ts | put a division on every dragged particle |
+| The ring's colour, white, and the tints of its approaching and receding sides, blue-white and orange | webgl_shaders.ts | frame |
+| The line: never thinner than 1.5 px, standing 0.7 of its width outside the shadow's edge | webgl_shaders.ts | frame |
+| The glow's shape: a tight core reaching 0.035 radii with 0.3 of the glow and a skirt reaching 0.18 with 0.12; `ringGlow` scales both | webgl_shaders.ts | frame |
+| How the light fed to the ring is shared: 0.9 from a captured particle, 0.0005 a frame from one skimming within 1.5 radii; `ringFeed` scales both | particle_simulation.ts, particle_simulation_3d.ts | frame |
+| The flare a captured star leaves: six particles' worth, spread 0.2 of a radian to each side | orbiters.ts | birth |
+| The second hole's ring: a plain line at `ringBase`, with no feed and no Doppler sides | webgl_shaders.ts | pixel |
+| The ring's light is kept in 256 directions | ring_energy.ts | machine |
 
-**Nature, with its multiple already a knob**: nothing to bring out.
+### The lens and the shadow
 
-| Fixed | File in src/lib | Its knob |
+| Fixed | File in src/lib | Cost |
 |---|---|---|
-| The shadow at 2.598 Schwarzschild radii | orbiters.ts | `blackHoleSize` is the shadow |
-| The speed of light for the orbiting stars, 1.2 short sides a second, and how their orbits precess | orbiters.ts | `orbitSpeed` is the rate of their time |
-| Kepler's law for the pair | companion.ts | `companionSpeed` is the rate of its time |
-| A real hole's ringdown tone | intro_params.ts | `ringdownPitch` and `ringdownLength` multiply it |
-| The spin's drag on the particles, spin / 2 at one radius | particle_simulation.ts, particle_simulation_3d.ts | `frameDrag` multiplies it |
+| The shadow at 2.598 Schwarzschild radii, and the ray's path under Ray Traced | lens_trace.ts, kerr_glsl.ts | has one: `blackHoleSize` is the shadow |
+| The fastest spin, 0.998 | scene.ts | has one: the top of `blackHoleSpin` |
+| The nearest the Ray Traced camera stands, 2 Schwarzschild radii | lens_trace.ts | machine: the photon sphere is at 1.5 |
+| The stylized lens's bubble, the cosine of the pull, which `lensingReach` blends with a point mass | webgl_shaders.ts | pixel |
+| How much light the pull removes: half the pull, times `lensingAbsorption` | webgl_shaders.ts | has one |
+| The second hole's lens: a point mass, softened inside half its shadow, with none of the lens settings | webgl_shaders.ts | pixel |
+| The outline of a spinning hole's shadow: 128 points, redrawn when the camera moves 2% | kerr_shadow.ts | machine |
 
-**The machine**: the same on every film, held by frame time or memory.
+### Orbiting stars
 
-| Fixed | File in src/lib |
-|---|---|
-| At most 64 orbiting stars | orbiters.ts |
-| The sheet's 225 lines each way, in 192 pieces each | space_grid.ts |
-| The lattice's 13 lines each way along each of the three axes, in 48 pieces each | space_lattice.ts |
-| Motion capped at six reference frames a step; a stall treated as one frame | particle_simulation.ts, frame_pacing.ts |
+| Fixed | File in src/lib | Cost |
+|---|---|---|
+| The speed of light, 1.2 short sides a second, and how the orbits precess | orbiters.ts | has one: `orbitSpeed` is the rate of their time |
+| The spin's drag on the stars: always the physical share, whatever `frameDrag` says | scene.ts, orbiters.ts | frame |
+| How much the orbits differ from `orbitSize` and `orbitEccentricity`: each star gets 0.6 to 1.4 of the size and 0.6 to 1 of the eccentricity | orbiters.ts | birth |
+| The closest an orbit comes, 1.3 Schwarzschild radii, and the 400 at which a star has escaped and is replaced | orbiters.ts | frame |
+| The 0.6 s a new star takes to light up | orbiters.ts | frame |
+| At most 64 stars, and traces of 60 s at most | orbiters.ts, particle_renderer.ts | machine |
+
+### A second black hole and the waves
+
+| Fixed | File in src/lib | Cost |
+|---|---|---|
+| Kepler's law for the pair | companion.ts | has one: `companionSpeed` is the rate of its time |
+| The spiral wave's stretch, 0.16 radii at the shadow as the two touch | companion.ts | has one: `companionWaves` |
+| That a wave weakens as 1 over the distance and moves the picture across its path | webgl_shaders.ts | has one: `companionWaves`, `gravityWaveGain` |
+| A real hole's ringdown tone, and how spin raises it | intro_params.ts, companion.ts | has one: `ringdownPitch`, `ringdownLength` |
+| The closest orbit a pair turns at before it merges, 0.6 of touching | companion.ts | frame |
+| The spin a merger leaves, 0.69 for two equal holes | companion.ts | frame |
+| The oval two equal holes leave, three times longer than one forming in the opening, and the quarter of a wobble over which the merged hole's wave takes over | scene.ts | frame |
+| The second hole has no spin of its own | companion.ts, particle_simulation.ts | particle and pixel: a new effect |
+
+### The grids and the sky
+
+| Fixed | File in src/lib | Cost |
+|---|---|---|
+| The colour of both grids, and the Lensed Grid's line, 1.5 px wide | space_grid.ts, webgl_shaders.ts | frame |
+| The sheet's camera, 2.5 long screen sides away, and its span of 2.2, fading over the outer half | space_grid.ts, webgl_shaders.ts | frame |
+| The wave's lift on the sheet, 4 times its stretch of the sky | space_grid.ts | frame |
+| The sheet's lines: 1.25 px, at most 3 times wider near the camera, cut off nearer than 0.2 of its distance, and cleared from 1.04 to 1.2 radii round each hole | space_grid.ts, webgl_shaders.ts | frame |
+| How deep the sheet lies at a distance: the slowing of time where light passing there comes nearest | webgl_shaders.ts | has one: `gridDepth` |
+| The sheet's 225 lines each way, in 192 pieces each | space_grid.ts | machine |
+| How far the sheet leans in 3D: the camera's elevation, up to 75°, past which it fades out before it is seen edge-on | scene.ts | frame |
+| The lattice's lines: 1.5 px wide, 1.6 times the sheet's colour, in a ball of 6 cells that fades over its outer half | space_lattice.ts, webgl_shaders.ts | frame |
+| How the lattice fades with depth: out nearer the camera than half the way to the point it circles, and down to 0.3 far behind that point | scene.ts, webgl_shaders.ts | frame |
+| The lattice's 13 lines each way along each of the three axes, in 48 pieces each | space_lattice.ts | machine |
+| A background star: a point of light about 1.5 px across, tinted between warm and cool, twinkling by 15% | webgl_shaders.ts | frame |
+| One star at most in a cell, placed in its middle 0.6 | webgl_shaders.ts | pixel |
+
+### The opening
+
+| Fixed | File in src/lib | Cost |
+|---|---|---|
+| The dust's clouds: three layers of noise, each 2.1 times finer, bent by a slower one; `dustScale` and `dustThreshold` size and thin them | webgl_shaders.ts | pixel |
+| How long dust holds the light: 0.4 of `echoDecay` in thin haze to 1.8 in the thickest cloud, swelling over 0.15 of it, and dimming with distance over half a screen width | webgl_shaders.ts | frame |
+| The dust's motion: the direction it drifts, and the 1.2 s the blast takes to push it `dustBlow` | webgl_shaders.ts | frame |
+| Where the matter front lights the dust: 0.6 of its width behind the front | webgl_shaders.ts | frame |
+| The 0.18 s a background star stays flared by the light front | webgl_shaders.ts | frame |
+| The remnant's colours as it reddens: from the flash to the ember, then dark, 0.7 dimmer at the end | webgl_shaders.ts | frame |
+| How far the blast reaches: 1.15 times the farthest corner of the screen | scene.ts | frame |
+| The camera's shake, two sines a side at 40 to 83 radians a second, and the 0.16 s its kick takes to drop to a third | scene.ts, intro_timeline.ts | frame |
+| The camera's zoom: a tenth of the way before the collapse and the rest eased out until `cameraSettle` | intro_timeline.ts | frame |
+| The eases of the timeline: how each fade and growth starts and settles between its two moments | intro_timeline.ts | frame |
+| The film look: the vignette from 0.45 to 1.45 of the frame's half size, highlights rolled off above 0.8, `lensFringe` growing to the corners | webgl_shaders.ts | frame |
+| The opening for reduced motion: 2.6 s, its fades fixed | intro_timeline.ts | machine |
+
+### The title
+
+| Fixed | File in src/lib | Cost |
+|---|---|---|
+| The hole the title's fall is measured against: at `gravityStrength` 2.5 and `orbitalStrength` 40 the dust travels `titleDrift` and turns 0.35 of a radian at `titleSwirl` 1; a stronger hole counts up to 4 times | scene.ts, webgl_shaders.ts | frame |
+| Its dust: specks 2 CSS px across in currents 11 px wide, dust beyond gravity's reach falling at 0.15 of the speed, each speck winking out over 0.15 of the fall | webgl_shaders.ts | frame |
+| The streak behind the falling letters: three fainter copies, each 13% behind the last; `titleTrail` scales them | webgl_shaders.ts | pixel |
+| The burning: the ragged edge's two grains, 18 and 5 px, eating in from the ends, with a rim 2.5 times the ember | webgl_shaders.ts | frame |
+| How much the inner part winds further round at `titleSpiral` 1: 0.4 to 3 times | webgl_shaders.ts | frame |
+| How a title arrives and leaves: 9 times larger as it flies past the camera, 12% too large fading in, 6% growing as it fades out | intro_timeline.ts | frame |
+| Its setting: lines 1.3 em apart and 1400 px wide at most, 16 px clear of the screen's edges, the halo brought up 1.5 times | title_sprite.ts, scene.ts, webgl_shaders.ts | birth |
+
+### The camera of the scene
+
+| Fixed | File in src/lib | Cost |
+|---|---|---|
+| A cut: a zoom of more than 8%, a move of more than 80 px or, in 3D, a turn of more than 0.35 radians in one frame starts the trails afresh | particle_renderer.ts, scene.ts | frame |
+| The 3D camera's 1.2 s ease between the flat view and its place, and the nearest point it circles, 0.05 of Field Depth | scene.ts | frame |
+| The picture is drawn into 4.5 million device pixels at most, 2 to a CSS pixel | particle_canvas.tsx | machine |
