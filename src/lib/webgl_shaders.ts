@@ -1,6 +1,6 @@
 // WebGL shaders for the particle renderer: trail fade, particle segments and the composite pass,
-// which draws the black hole, the explosion's light and the intro title over the scene. Written in GLSL ES 1.00 so the same sources run on WebGL2 and on
-// WebGL1 with ANGLE_instanced_arrays.
+// which draws the black hole, the explosion's light and the intro title over the scene. They run on WebGL2
+// and are still written in GLSL ES 1.00, which WebGL2 compiles as it is.
 
 import { GRID_COLOR } from './space_grid'
 
@@ -26,14 +26,6 @@ export const QUAD_VERTICES = new Float32Array([
 ])
 
 export const QUAD_VERTEX_COUNT = 6
-
-const HIGH_PRECISION = `
-  #ifdef GL_FRAGMENT_PRECISION_HIGH
-  precision highp float;
-  #else
-  precision mediump float;
-  #endif
-`
 
 export const fadeVertexShaderSource = `
   attribute vec2 a_position;
@@ -122,7 +114,7 @@ export const particleVertexShaderSource = `
 `
 
 export const particleFragmentShaderSource = `
-  ${HIGH_PRECISION}
+  precision highp float;
 
   varying vec2 v_ends;
   varying float v_across;
@@ -149,7 +141,7 @@ export const compositeVertexShaderSource = `
 
 // Every length uniform is in device pixels with a top-left origin
 export const compositeFragmentShaderSource = `
-  ${HIGH_PRECISION}
+  precision highp float;
 
   uniform sampler2D u_image;
   uniform sampler2D u_title;     // white alpha mask of the intro title
@@ -661,8 +653,8 @@ export const compositeFragmentShaderSource = `
   }
 `
 
-// The space sheet (space_grid.ts), drawn over the finished frame. Its two shaders share no uniform, so
-// their precisions never have to match. Every length uniform here is in CSS pixels
+// The space sheet (space_grid.ts), drawn over the finished frame. Every length uniform here is in CSS
+// pixels
 export const gridVertexShaderSource = `
   attribute vec2 a_position;  // quad corner: x picks the end of the piece, y the side
   attribute vec4 a_gridLine;  // line number counted from the black hole, start and end along the line (-1..1), 1 = runs across the screen
@@ -761,7 +753,7 @@ export const gridVertexShaderSource = `
 
 // Every length uniform here is in device pixels with a top-left origin
 export const gridFragmentShaderSource = `
-  ${HIGH_PRECISION}
+  precision highp float;
 
   uniform vec4 u_color;   // rgb at the sheet's brightness
   uniform vec4 u_shadow;  // the black hole as the frame shows it: centre and shadow radius; radius 0 = none
@@ -785,7 +777,7 @@ export const gridFragmentShaderSource = `
 `
 
 function createShader (
-  gl: WebGLRenderingContext,
+  gl: WebGL2RenderingContext,
   type: number,
   source: string
 ): WebGLShader | null {
@@ -806,7 +798,7 @@ function createShader (
 
 // Compiles and links a program with fixed attribute locations; shader objects are released after linking
 export function createProgram (
-  gl: WebGLRenderingContext,
+  gl: WebGL2RenderingContext,
   vertexSource: string,
   fragmentSource: string,
   attributes: Record<string, number>

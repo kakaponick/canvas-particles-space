@@ -205,11 +205,6 @@ export interface ParticleRenderer {
   dispose: () => void
 }
 
-interface Instancing {
-  setDivisor: (location: number, divisor: number) => void
-  draw: (vertexCount: number, instanceCount: number) => void
-}
-
 interface CachedUniform {
   location: WebGLUniformLocation | null
   x: number
@@ -218,42 +213,22 @@ interface CachedUniform {
   w: number
 }
 
-export function getRenderingContext (canvas: HTMLCanvasElement): WebGLRenderingContext | null {
-  return canvas.getContext('webgl2', CONTEXT_ATTRIBUTES) ?? canvas.getContext('webgl', CONTEXT_ATTRIBUTES)
+export function getRenderingContext (canvas: HTMLCanvasElement): WebGL2RenderingContext | null {
+  return canvas.getContext('webgl2', CONTEXT_ATTRIBUTES)
 }
 
-function isWebGL2 (gl: WebGLRenderingContext): gl is WebGL2RenderingContext {
-  return typeof WebGL2RenderingContext !== 'undefined' && gl instanceof WebGL2RenderingContext
-}
-
-function getInstancing (gl: WebGLRenderingContext): Instancing | null {
-  if (isWebGL2(gl)) {
-    return {
-      setDivisor: (location, divisor) => gl.vertexAttribDivisor(location, divisor),
-      draw: (vertexCount, instanceCount) => gl.drawArraysInstanced(gl.TRIANGLES, 0, vertexCount, instanceCount)
-    }
-  }
-
-  const extension = gl.getExtension('ANGLE_instanced_arrays')
-  if (!extension) return null
-  return {
-    setDivisor: (location, divisor) => extension.vertexAttribDivisorANGLE(location, divisor),
-    draw: (vertexCount, instanceCount) => extension.drawArraysInstancedANGLE(gl.TRIANGLES, 0, vertexCount, instanceCount)
-  }
-}
-
-function getUniform (gl: WebGLRenderingContext, program: WebGLProgram, name: string): CachedUniform {
+function getUniform (gl: WebGL2RenderingContext, program: WebGLProgram, name: string): CachedUniform {
   return { location: gl.getUniformLocation(program, name), x: NaN, y: NaN, z: NaN, w: NaN }
 }
 
 // Uniform setters skip the GL call when the value has not changed since the last frame
-function setUniform1f (gl: WebGLRenderingContext, uniform: CachedUniform, x: number) {
+function setUniform1f (gl: WebGL2RenderingContext, uniform: CachedUniform, x: number) {
   if (uniform.x === x) return
   uniform.x = x
   gl.uniform1f(uniform.location, x)
 }
 
-function setUniform2f (gl: WebGLRenderingContext, uniform: CachedUniform, x: number, y: number) {
+function setUniform2f (gl: WebGL2RenderingContext, uniform: CachedUniform, x: number, y: number) {
   if (uniform.x === x && uniform.y === y) return
   uniform.x = x
   uniform.y = y
@@ -261,13 +236,13 @@ function setUniform2f (gl: WebGLRenderingContext, uniform: CachedUniform, x: num
 }
 
 // A colour arrives as 0xRRGGBB
-function setUniformColor (gl: WebGLRenderingContext, uniform: CachedUniform, color: number) {
+function setUniformColor (gl: WebGL2RenderingContext, uniform: CachedUniform, color: number) {
   if (uniform.x === color) return
   uniform.x = color
   gl.uniform3f(uniform.location, (color >> 16 & 255) / 255, (color >> 8 & 255) / 255, (color & 255) / 255)
 }
 
-function setUniform4f (gl: WebGLRenderingContext, uniform: CachedUniform, x: number, y: number, z: number, w: number) {
+function setUniform4f (gl: WebGL2RenderingContext, uniform: CachedUniform, x: number, y: number, z: number, w: number) {
   if (uniform.x === x && uniform.y === y && uniform.z === z && uniform.w === w) return
   uniform.x = x
   uniform.y = y
@@ -276,7 +251,7 @@ function setUniform4f (gl: WebGLRenderingContext, uniform: CachedUniform, x: num
   gl.uniform4f(uniform.location, x, y, z, w)
 }
 
-function getUniforms<T extends string> (gl: WebGLRenderingContext, program: WebGLProgram, names: readonly T[]) {
+function getUniforms<T extends string> (gl: WebGL2RenderingContext, program: WebGLProgram, names: readonly T[]) {
   const uniforms = {} as Record<T, CachedUniform>
   for (const name of names) uniforms[name] = getUniform(gl, program, `u_${name}`)
   return uniforms
@@ -290,19 +265,9 @@ function getUniforms<T extends string> (gl: WebGLRenderingContext, program: WebG
  * 3. composites the scene to the screen through the black hole shader, which also lays the
  *    intro title behind the lens so it bends like starlight,
  * 4. while the space sheet is on, draws its lines over the frame, keeping the brighter of the two.
- * Returns null when the context lacks instancing or a program fails to build.
+ * Returns null when a program fails to build.
  */
-export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRenderer | null {
-  const supportedInstancing = getInstancing(gl)
-  if (!supportedInstancing) {
-    console.warn('Instanced drawing is not supported, particles will not render')
-    return null
-  }
-  const instancing: Instancing = supportedInstancing
-  const gl2 = isWebGL2(gl) ? gl : null
-  // Particles are stamped with the brighter-of-two blend; WebGL1 has it as an extension
-  const maxEquation = gl2 ? gl2.MAX : gl.getExtension('EXT_blend_minmax')?.MAX_EXT ?? null
-
+export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRenderer | null {
   const position = { a_position: ATTRIBUTE_LOCATIONS.position }
   const fadeProgram = createProgram(gl, fadeVertexShaderSource, fadeFragmentShaderSource, position)
   const particleProgram = createProgram(gl, particleVertexShaderSource, particleFragmentShaderSource, {
@@ -371,14 +336,14 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
   }
   gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuffer)
   pointInstances(0)
-  for (const location of INSTANCED_ATTRIBUTES) instancing.setDivisor(location, 1)
+  for (const location of INSTANCED_ATTRIBUTES) gl.vertexAttribDivisor(location, 1)
 
   // The lines of the space sheet never change: the grid vertex shader places them
   const gridBuffer = gl.createBuffer()
   gl.bindBuffer(gl.ARRAY_BUFFER, gridBuffer)
   gl.bufferData(gl.ARRAY_BUFFER, createGridInstances(), gl.STATIC_DRAW)
   gl.vertexAttribPointer(ATTRIBUTE_LOCATIONS.gridLine, GRID_INSTANCE_FLOATS, gl.FLOAT, false, 0, 0)
-  instancing.setDivisor(ATTRIBUTE_LOCATIONS.gridLine, 1)
+  gl.vertexAttribDivisor(ATTRIBUTE_LOCATIONS.gridLine, 1)
 
   function createLinearTexture (unit: number) {
     const texture = gl.createTexture()
@@ -488,20 +453,17 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
       instanceCapacity = Math.ceil(count * 1.5)
       gl.bufferData(gl.ARRAY_BUFFER, instanceCapacity * INSTANCE_STRIDE, gl.DYNAMIC_DRAW)
     }
-    // WebGL2 uploads a range of the array as it is; WebGL1 needs a view, a small object per frame
-    if (gl2) gl2.bufferSubData(gl2.ARRAY_BUFFER, 0, frame.instances, 0, count * INSTANCE_FLOATS)
-    else gl.bufferSubData(gl.ARRAY_BUFFER, 0, frame.instances.subarray(0, count * INSTANCE_FLOATS))
+    // A range of the array goes up as it is, with no view made for it
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, frame.instances, 0, count * INSTANCE_FLOATS)
   }
 
   // Stamps `count` segments into the bound target, keeping the brighter of a segment and what is already
-  // there, so stamps do not add up. Without that blend the premultiplied stamps are laid over it instead
+  // there, so stamps do not add up
   function stampSegments (count: number) {
     for (const location of INSTANCED_ATTRIBUTES) gl.enableVertexAttribArray(location)
-    if (maxEquation !== null) gl.blendEquationSeparate(maxEquation, gl.FUNC_ADD)
-    else gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
-    instancing.draw(QUAD_VERTEX_COUNT, count)
-    if (maxEquation !== null) gl.blendEquation(gl.FUNC_ADD)
-    else gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
+    gl.blendEquationSeparate(gl.MAX, gl.FUNC_ADD)
+    gl.drawArraysInstanced(gl.TRIANGLES, 0, QUAD_VERTEX_COUNT, count)
+    gl.blendEquation(gl.FUNC_ADD)
     for (const location of INSTANCED_ATTRIBUTES) gl.disableVertexAttribArray(location)
   }
 
@@ -688,13 +650,10 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
     setUniform2f(gl, u.frame, height, settings.letterbox * ratio)
 
     gl.enableVertexAttribArray(ATTRIBUTE_LOCATIONS.gridLine)
-    // Brighter of the line and the frame, so crossings and the joints of a line do not add up.
-    // Without that blend the lines are added to the frame
-    if (maxEquation !== null) gl.blendEquation(maxEquation)
-    else gl.blendFunc(gl.ONE, gl.ONE)
-    instancing.draw(QUAD_VERTEX_COUNT, GRID_INSTANCE_COUNT)
-    if (maxEquation !== null) gl.blendEquation(gl.FUNC_ADD)
-    else gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
+    // Brighter of the line and the frame, so crossings and the joints of a line do not add up
+    gl.blendEquation(gl.MAX)
+    gl.drawArraysInstanced(gl.TRIANGLES, 0, QUAD_VERTEX_COUNT, GRID_INSTANCE_COUNT)
+    gl.blendEquation(gl.FUNC_ADD)
     gl.disableVertexAttribArray(ATTRIBUTE_LOCATIONS.gridLine)
   }
 
@@ -727,8 +686,8 @@ export function createParticleRenderer (gl: WebGLRenderingContext): ParticleRend
   }
 
   function dispose () {
-    for (const location of INSTANCED_ATTRIBUTES) instancing.setDivisor(location, 0)
-    instancing.setDivisor(ATTRIBUTE_LOCATIONS.gridLine, 0)
+    for (const location of INSTANCED_ATTRIBUTES) gl.vertexAttribDivisor(location, 0)
+    gl.vertexAttribDivisor(ATTRIBUTE_LOCATIONS.gridLine, 0)
     gl.disableVertexAttribArray(ATTRIBUTE_LOCATIONS.position)
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
     gl.deleteFramebuffer(sceneFramebuffer)

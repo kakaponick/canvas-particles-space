@@ -17,7 +17,7 @@ A stunning React SPA featuring an interactive particle animation with black hole
 - **Vite** - Build tool and dev server
 - **Tailwind CSS** - Styling
 - **Zustand** - State management
-- **WebGL** - Instanced particle rendering with a gravitational lensing pass (WebGL2, or WebGL1 with `ANGLE_instanced_arrays`)
+- **WebGL2** - Instanced particle rendering with a gravitational lensing pass
 
 ## Getting Started
 

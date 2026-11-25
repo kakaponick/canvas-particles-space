@@ -1070,7 +1070,7 @@ function ParticleCanvas () {
       <canvas ref={canvasRef} className="fixed top-0 left-0 w-full h-full touch-pinch-zoom" aria-hidden="true" />
       {unsupported && (
         <div role="alert" className="fixed inset-0 flex items-center justify-center p-8 text-center font-mono text-sm text-text-light">
-          This experience needs WebGL. Turn on hardware acceleration in your browser settings or open the page in another browser.
+          This experience needs WebGL 2. Turn on hardware acceleration in your browser settings, or open the page in an up-to-date browser.
         </div>
       )}
     </>
