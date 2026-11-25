@@ -52,6 +52,8 @@
     "nebulaDrift": 4,
     "nebulaCore": 0.3,
     "nebulaCoreFrom": 0.9,
-    "nebulaColorCore": "#c4dc78"
+    "nebulaColorCore": "#c4dc78",
+    "gridSkyHaze": 50,
+    "gridSkyHazeSpan": 0.45
   }
 }

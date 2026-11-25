@@ -392,6 +392,8 @@ export function createScene (
       skyGrid: 0,
       gridCell: 64,
       gridPull: 0,
+      gridHaze: 6,
+      gridHazeSpan: 0.5,
       gridColor: createSceneColor(),
       skyGridLine: 1.5,
       starShiftX: 0,
@@ -1261,6 +1263,8 @@ export function createScene (
     const gridCell = state.gridCell / 100 * shortSide
     composite.skyGrid = state.gridSky
     composite.gridPull = state.gridSkyPull
+    composite.gridHaze = state.gridSkyHaze
+    composite.gridHazeSpan = state.gridSkyHazeSpan
     readSceneColor(composite.gridColor, state.gridColor, SIMULATION_COLOR_SPECS.gridColor.exact)
     composite.gridCell = gridCell
     composite.skyGridLine = state.gridSkyLine

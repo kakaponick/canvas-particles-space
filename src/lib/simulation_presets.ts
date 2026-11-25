@@ -20,7 +20,7 @@ export const SIMULATION_SETTING_KEYS = [
   'ringFeedCapture', 'ringFeedSkim', 'ringFeedReach', 'ringStarFlare', 'ringStarSpread', 'ringStarSides',
   'lensingEnabled', 'lensingTraced', 'lensingRadius', 'lensingRotation', 'lensingFalloff', 'lensingPivot', 'lensingCore', 'lensingMaxBend', 'lensingReach', 'lensingTwistLimit', 'lensingAbsorption',
   'gridCell', 'gridSheet', 'gridTilt', 'gridDepth', 'gridSky', 'gridSkyPull', 'gridColor', 'gridLattice', 'gridLatticeCell', 'gridLatticeWarp',
-  'gridDistance', 'gridSpan', 'gridFade', 'gridWaveLift', 'gridLine', 'gridLineNear', 'gridNear', 'gridClearing', 'gridClearingEdge', 'gridTiltLimit', 'gridTiltFade', 'gridSkyLine',
+  'gridDistance', 'gridSpan', 'gridFade', 'gridWaveLift', 'gridLine', 'gridLineNear', 'gridNear', 'gridClearing', 'gridClearingEdge', 'gridTiltLimit', 'gridTiltFade', 'gridSkyLine', 'gridSkyHaze', 'gridSkyHazeSpan',
   'gridLatticeLine', 'gridLatticeGain', 'gridLatticeReach', 'gridLatticeFade', 'gridLatticeNear', 'gridLatticeFar', 'gridLatticeNearEdge', 'gridLatticeUnit',
   'orbitCount', 'orbitSize', 'orbitEccentricity', 'orbitSpeed', 'orbitTrail', 'orbitStarSize',
   'orbitDrag', 'orbitSizeSpread', 'orbitEccentricitySpread', 'orbitClosest', 'orbitEscape', 'orbitFadeIn',

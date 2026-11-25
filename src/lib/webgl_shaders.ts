@@ -338,6 +338,7 @@ export const compositeFragmentShaderSource = `
   uniform vec3 u_nebulaPatch;      // patches of the second colour: CSS pixels across, the two levels of a noise they turn over between
   uniform vec2 u_nebulaDrift;      // CSS pixels a second the clouds are read further along, so they drift the other way
   uniform float u_gridPull;        // how far the Lensed Grid is drawn in towards the hole, the Pull; 0 leaves it flat
+  uniform vec2 u_gridHaze;         // device pixels a cell of it pulled in shrinks to before its lines start to merge into a haze, and those at which the haze is whole
   uniform vec3 u_gridColor;        // colour of its lines
 
   uniform vec2 u_titleCenter;
@@ -402,9 +403,6 @@ export const compositeFragmentShaderSource = `
   // Halvings that find the node the Lensed Grid's pull brings to a point; a straight line across the last
   // one leaves it well under a pixel off
   const int GRID_PULL_STEPS = 8;
-  // Device pixels a cell of that grid shrinks to before its lines start to merge into a haze, which is
-  // whole at half of it
-  const float GRID_HAZE_CELL = 6.0;
   // Impact parameter of the photon sphere, Schwarzschild radii: a ray aimed closer falls in
   const float CRITICAL_IMPACT = 2.5980762;
   // Farthest a traced ray reads the scene, in units of the projection: near the direction straight behind
@@ -912,7 +910,7 @@ ${DENT_GLSL}
       if (squeeze > 1.0) {
         // Where the cells shrink to a few pixels their lines merge into a haze of the light they share
         float cellPx = u_gridCell * u_cameraZoom * u_pixelRatio / squeeze;
-        line = mix(line, min(4.0 * u_skyGridLine * u_pixelRatio / cellPx, 1.0), smoothstep(GRID_HAZE_CELL, 0.5 * GRID_HAZE_CELL, cellPx));
+        line = mix(line, min(4.0 * u_skyGridLine * u_pixelRatio / cellPx, 1.0), smoothstep(u_gridHaze.x, u_gridHaze.y, cellPx));
       }
       emitted += u_gridColor * u_skyGrid * line;
     }

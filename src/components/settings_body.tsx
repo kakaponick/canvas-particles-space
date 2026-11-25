@@ -395,6 +395,8 @@ function SettingsBody () {
           </div>
           <div className="mt-3 flex flex-col gap-1">
             <SettingSlider field="gridSkyLine" />
+            <SettingSlider field="gridSkyHaze" />
+            <SettingSlider field="gridSkyHazeSpan" />
           </div>
         </SettingsFine>
       </SettingsSection>

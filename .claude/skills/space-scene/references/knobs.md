@@ -321,6 +321,11 @@ come, as around a real black hole.
   (8 bends the lines visibly to the frame's edges at `blackHoleSize` 12). It is not the sheet seen from
   above: the sheet's dent is short-ranged and drawn over the frame, so a dent deep enough to bend the
   edges would lay lines over the shadow.
+- Where the pull crowds the cells, they merge into a haze once a cell is smaller than `gridSkyHaze` screen
+  pixels, wholly at `gridSkyHazeSpan` of the way down from it. The default 6 only catches cells crowded to
+  a few pixels, which a Pull below 10 rarely makes; about three quarters of a cell on screen (50 px at
+  `gridCell` 6 in 1080p) dissolves the grid round the shadow into a glow, and a value at or above the cell
+  hazes the grid everywhere, since far from the hole a cell is its full size.
 - The lattice is the sheet's law in three dimensions: lines along the three axes of the scene, each node
   drawn in towards the hole by the same slowing of time, in shadow radii times `gridLatticeWarp`, taken so
   that no node reaches the centre and no line folds over. It is a ball of `gridLatticeReach` cells around
@@ -620,7 +625,6 @@ The cost of a knob, in the last column:
 | A star's own twinkle, 2 to 5 radians a second, the brighter the faster, and its brightness, the square of an even draw | webgl_shaders.ts | has one: `starsTwinkleSpeed`, `starsFaintest` |
 | One star at most in a cell, placed in its middle 0.6 and drawn inside that cell alone, which cuts a large `starsSize` off at its edge | webgl_shaders.ts | pixel |
 | How the Lensed Grid's pull is found: 8 halvings of the span the node can lie in, then a straight line across the last | webgl_shaders.ts | machine |
-| Where the pulled grid turns to haze: its cells under 6 device px start to merge into the light they share, wholly at 3 | webgl_shaders.ts | frame |
 | The nebula's clouds: three layers of noise, each 2.1 times finer and turned, the slower noise that curls them at 0.8 of their size, the grain at 1.7 times the finest; a Detail knob for the layers would take a loop to a fixed most with a break | webgl_shaders.ts | pixel |
 
 ### The opening

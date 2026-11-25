@@ -198,8 +198,11 @@ export interface ParticleState {
   // In 3D the most the sheet is seen tilted, degrees, and the degrees past that over which it fades out
   gridTiltLimit: number
   gridTiltFade: number
-  // Width of the lensed grid's lines, CSS pixels
+  // Width of the lensed grid's lines, CSS pixels; the CSS pixels a cell of it pulled in shrinks to before its
+  // lines start to merge into a haze, and the share of that by which the haze is whole
   gridSkyLine: number
+  gridSkyHaze: number
+  gridSkyHazeSpan: number
   // The space lattice (space_lattice.ts): brightness (0 = off), its cell in black hole radii, and how
   // strongly its nodes are pulled in, in shadow radii of the slowing of time
   gridLattice: number
@@ -447,6 +450,8 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   gridTiltLimit: 75,
   gridTiltFade: 15,
   gridSkyLine: 1.5,
+  gridSkyHaze: 6,
+  gridSkyHazeSpan: 0.5,
   gridLatticeLine: 1.5,
   gridLatticeGain: 1.6,
   gridLatticeReach: 6,

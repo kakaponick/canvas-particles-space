@@ -221,6 +221,10 @@ export interface CompositeSettings {
   // How far that grid is drawn in towards the hole (0 leaves it flat), and the colour of every grid
   gridPull: number
   gridColor: SceneColor
+  // CSS pixels a cell of it pulled in shrinks to before its lines start to merge into a haze, and the share
+  // of that by which the haze is whole
+  gridHaze: number
+  gridHazeSpan: number
   // The width of that grid's lines in CSS pixels
   skyGridLine: number
   // CSS pixels the 3D camera's turn slides the sky by: the background stars, then the lensed grid; zeros
@@ -481,7 +485,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     'titleCenter', 'titleHalfSize', 'titleAlpha', 'titleReveal', 'titleDissolve', 'titleDrift', 'titleGlow',
     'titleFlash', 'titleCooling', 'titleDust', 'titlePull', 'titleSwirl', 'titleReach', 'titleCapture', 'titleScale',
     'titleFringe', 'titleHalo', 'titleRedshift', 'titleGrain', 'titleBurn', 'titleFall', 'titleTidal', 'titleSpiral', 'titleSpread', 'titleStream', 'titleOrder', 'titleTrail', 'titleHeat', 'dustSweep', 'echoFloor', 'dustShock', 'dustBlow', 'dustDrift',
-    'skyGrid', 'gridCell', 'skyGridLine', 'skyShift', 'orbits', 'nebula', 'nebulaColor', 'nebulaColorDeep', 'nebulaColorCore', 'nebulaShape', 'nebulaLook', 'nebulaPatch', 'nebulaDrift', 'gridPull', 'gridColor',
+    'skyGrid', 'gridCell', 'skyGridLine', 'skyShift', 'orbits', 'nebula', 'nebulaColor', 'nebulaColorDeep', 'nebulaColorCore', 'nebulaShape', 'nebulaLook', 'nebulaPatch', 'nebulaDrift', 'gridPull', 'gridColor', 'gridHaze',
     'colorFlash', 'colorLight', 'colorDust', 'colorTitle', 'colorEmber',
     'cameraZoom', 'zoomCenter', 'layerZoom', 'shake', 'lensFringe', 'vignette', 'filmGrain', 'letterbox'
   ] as const)
@@ -1001,6 +1005,10 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     if (settings.skyGrid > 0) {
       setUniform1f(gl, u.gridCell, Math.max(settings.gridCell, 1))
       setUniform1f(gl, u.gridPull, settings.gridPull)
+      if (settings.gridPull > 0) {
+        const haze = Math.max(settings.gridHaze, 0.1) * ratio
+        setUniform2f(gl, u.gridHaze, haze, haze * (1 - Math.min(Math.max(settings.gridHazeSpan, 0.05), 0.95)))
+      }
       setUniform3f(gl, u.gridColor, settings.gridColor.r, settings.gridColor.g, settings.gridColor.b)
       setUniform1f(gl, u.skyGridLine, settings.skyGridLine * 0.5)
     }
