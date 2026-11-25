@@ -317,6 +317,7 @@ function SettingsBody () {
             the twist and the limits near the hole */}
         <RayTracedRow />
         <SettingSlider field="lensingRadius" />
+        <SettingSlider field="lensingFromCamera" />
         <SettingSlider field="lensingAbsorption" />
         <StylizedLens>
           <SettingSlider field="lensingReach" />

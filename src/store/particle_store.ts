@@ -124,6 +124,8 @@ export interface ParticleState {
   backgroundB: number
   // Einstein ring radius, in multiples of the black hole radius
   lensingRadius: number
+  // Share of the lens's camera taken from where the scene's camera stands, in place of Einstein Radius
+  lensingFromCamera: number
   lensingEnabled: boolean
   // The exact light paths of a black hole that does not spin (lens_trace.ts) in place of the stylized lens
   lensingTraced: boolean
@@ -408,6 +410,7 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   backgroundG: 0,
   backgroundB: 0,
   lensingRadius: 1.7,
+  lensingFromCamera: 0,
   lensingEnabled: true,
   lensingTraced: true,
   farZ: 5000,

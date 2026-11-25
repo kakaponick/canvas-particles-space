@@ -160,7 +160,7 @@ The lens bends the finished picture (particles, stars, grids), not the particles
 |---|---|
 | On or off | `lensingEnabled` |
 | Exact light paths (ray traced) or the stylized lens | `lensingTraced` |
-| Size of the Einstein ring, in radii | `lensingRadius` |
+| Size of the Einstein ring, in radii, or how much of it the scene's own camera sets | `lensingRadius`, `lensingFromCamera` |
 | Shape outside the ring: 0 a compact bubble, 1 a point mass | `lensingReach` |
 | How the pull changes with distance, and where that changes nothing | `lensingFalloff`, `lensingPivot` |
 | What shows inside the ring | `lensingMaxBend`, `lensingCore` |
@@ -181,6 +181,13 @@ The lens bends the finished picture (particles, stars, grids), not the particles
   radii (the nearest), 2.13 at 10, 2.86 at 21. A near camera sees a very wide field around a small hole.
 - `lensingRadius` 0 turns the lens off just as `lensingEnabled` false does, so a film can fade the lens in
   with a number or cut it with the switch.
+- `lensingRadius` and the camera of the particles are two cameras: one says how far the lens sees the
+  hole from, the other draws the particles in perspective. `lensingFromCamera` at 1 makes them one: the
+  lens stands where the scene's camera does, half the frame's long side from the hole in the units the
+  shadow is drawn in (about 29 Schwarzschild radii at the default `blackHoleSize` in a wide frame, an
+  Einstein ring of about 3.3), nearer as `cameraMoveIn` brings the 3D camera in. A larger hole is then
+  seen from nearer, with a smaller ring and a wider warp of the sky; `cameraZoom` is a longer lens and
+  changes nothing. Between 0 and 1 the two distances blend; `lensingRadius` stays the switch.
 - The lens is hard to see on a dark sky. `gridSky` above 0 (section 9) shows exactly what it does.
 - `lensingAbsorption` takes light away around the shadow. When the particles next to the hole look dim,
   this is the first key to lower, before any brightness of the particles themselves.

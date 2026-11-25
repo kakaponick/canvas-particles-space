@@ -91,6 +91,18 @@ export function ringRatio (u: number) {
   return Math.tan(0.5 * ringAngle(u)) / Math.tan(0.5 * shadowAngle(u))
 }
 
+// The Einstein ring in shadow radii for a camera at 1 / u, as ringRatio, worked out again only when u
+// changes: a camera that stands still costs nothing
+let ratioU = NaN
+let ratioAtU = 1
+export function einsteinRatioAt (u: number) {
+  if (u !== ratioU) {
+    ratioU = u
+    ratioAtU = ringRatio(u)
+  }
+  return ratioAtU
+}
+
 // 1 / the distance the camera stands at for an Einstein ring of this many shadow radii. The ring grows as the
 // camera backs away, so the distance is found by halving; below what the nearest camera sees it stays there.
 // Worked out again only when the Einstein Radius changes

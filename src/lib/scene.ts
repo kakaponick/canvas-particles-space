@@ -27,7 +27,7 @@ import { createGridSettings, placeGrid, rollGrid, turnGrid } from './space_grid'
 import { LATTICE_LINES_PER_SIDE, createLatticeSettings, latticeAnchor } from './space_lattice'
 import { LIGHT_SPEED, SHADOW_RADII, clearOrbiters, createOrbitTuning, createOrbiters, stepOrbiters } from './orbiters'
 import { createPair, stepPair } from './companion'
-import { CLOSEST_CAMERA, cameraFor, shadowAngle } from './lens_trace'
+import { CLOSEST_CAMERA, CRITICAL_IMPACT, cameraFor, einsteinRatioAt, shadowAngle } from './lens_trace'
 import { createShadowShape, updateShadowShape } from './kerr_shadow'
 import { createRandom, seedRandom } from './random'
 import { createSceneColor, readSceneColor } from './scene_color'
@@ -845,7 +845,18 @@ export function createScene (
     // still growing, or grown by a merger, is a lighter or heavier one seen from the same place, and a 3D
     // camera that moves nearer sees it from nearer
     const mass = horizon / (shadowShare * shortSide)
-    const cameraU = Math.min((state.lensingRadius > 0 ? cameraFor(state.lensingRadius) : FAR_CAMERA) * mass * nearer, 1 / CLOSEST_CAMERA)
+    let cameraU = Math.min((state.lensingRadius > 0 ? cameraFor(state.lensingRadius) : FAR_CAMERA) * mass * nearer, 1 / CLOSEST_CAMERA)
+    // Lens from Camera: the lens sees the hole from where the scene's camera stands, a shadow of `horizon`
+    // pixels (2.6 Schwarzschild radii) half the frame's long side away, nearer by the 3D camera's move, in
+    // place of where Einstein Radius puts it; between the two the distances are blended on a log scale. The
+    // Einstein ring is then the one a camera there sees, for the stylized lens too
+    let einsteinRatio = state.lensingRadius
+    const fromCamera = horizon > 0 && state.lensingRadius > 0 ? state.lensingFromCamera : 0
+    if (fromCamera > 0) {
+      const seenU = Math.min(horizon / CRITICAL_IMPACT * nearer / Math.max(centerX, centerY), 1 / CLOSEST_CAMERA)
+      cameraU = fromCamera === 1 ? seenU : Math.exp((1 - fromCamera) * Math.log(cameraU) + fromCamera * Math.log(seenU))
+      einsteinRatio = einsteinRatioAt(cameraU)
+    }
     updateShadowShape(shadowShape, spin, spinTilt, cameraU)
     // Particles are captured on the circle that fits the outline, which spin shifts off the hole's centre
     const shapeCos = Math.cos(spinAxis)
@@ -1199,7 +1210,7 @@ export function createScene (
     composite.holeX = holeX
     composite.holeY = holeY
     composite.horizon = horizon * holeScale
-    const einstein = state.lensingEnabled && !hidden.lens ? horizon * state.lensingRadius * intro.lensScale : 0
+    const einstein = state.lensingEnabled && !hidden.lens ? horizon * einsteinRatio * intro.lensScale : 0
     composite.einstein = einstein * holeScale
     // Ray Traced: the Einstein Radius places the camera (cameraU above); the scale keeps the shadow a hole
     // of this mass would cast without spin the size the shadow is drawn, in 3D as it is seen from where the
