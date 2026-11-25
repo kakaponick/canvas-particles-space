@@ -270,6 +270,8 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       colorTitle: 0xffffff,
       colorEmber: 0xffffff,
       cameraZoom: 1,
+      zoomX: 0,
+      zoomY: 0,
       shakeX: 0,
       shakeY: 0,
       lensFringe: 0,
@@ -528,7 +530,19 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     // The words never leave the frame: whatever the title's position, its size, the screen's shape,
     // the camera's zoom and the letterbox bars, they stay clear of the bars and the screen's edges.
     // A title flying past the camera is the one exception, it is meant to outgrow the screen
-    const cameraZoom = hidden.camera ? 1 : intro.cameraZoom
+    const introZoom = hidden.camera ? 1 : intro.cameraZoom
+    const cameraZoom = introZoom * state.cameraZoom
+    // Two zooms in one: the intro's around the explosion and the Zoom setting's around the black hole
+    // together leave one point of the frame where it is
+    let zoomX = originX
+    let zoomY = originY
+    const zoomed = 1 - 1 / cameraZoom
+    if (state.cameraZoom !== 1 && Math.abs(zoomed) > 1e-6) {
+      const own = 1 - 1 / state.cameraZoom
+      const shared = 1 / state.cameraZoom - 1 / cameraZoom
+      zoomX = (hole.x * own + originX * shared) / zoomed
+      zoomY = (hole.y * own + originY * shared) / zoomed
+    }
     let titleScale = 1 + params.titlePush * intro.titleAge
     let titleX = centerX
     let titleY = centerY + params.titleOffset * shortSide
@@ -538,8 +552,8 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       const bar = hidden.camera ? 0 : params.letterbox * viewportHeight
       const halfWidth = titleSprite.textWidth * 0.5 * titleScale * cameraZoom
       const halfHeight = titleSprite.textHeight * 0.5 * titleScale * cameraZoom
-      titleX = originX + (keepInside(originX + (titleX - originX) * cameraZoom, halfWidth, TITLE_SAFE_MARGIN, viewportWidth) - originX) / cameraZoom
-      titleY = originY + (keepInside(originY + (titleY - originY) * cameraZoom, halfHeight, bar + TITLE_SAFE_MARGIN, viewportHeight) - originY) / cameraZoom
+      titleX = zoomX + (keepInside(zoomX + (titleX - zoomX) * cameraZoom, halfWidth, TITLE_SAFE_MARGIN, viewportWidth) - zoomX) / cameraZoom
+      titleY = zoomY + (keepInside(zoomY + (titleY - zoomY) * cameraZoom, halfHeight, bar + TITLE_SAFE_MARGIN, viewportHeight) - zoomY) / cameraZoom
     }
     title.x = titleX
     title.y = titleY
@@ -647,6 +661,8 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     const film = hidden.camera ? 0 : intro.film
     const shake = hidden.camera ? 0 : intro.shake
     composite.cameraZoom = cameraZoom
+    composite.zoomX = zoomX
+    composite.zoomY = zoomY
     composite.shakeX = shake * (Math.sin(animationTime * 83.1) + 0.6 * Math.sin(animationTime * 47.3)) / 1.6
     composite.shakeY = shake * (Math.sin(animationTime * 71.7 + 1.3) + 0.6 * Math.sin(animationTime * 39.9 + 0.4)) / 1.6
     composite.lensFringe = params.lensFringe * film

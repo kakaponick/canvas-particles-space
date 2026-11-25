@@ -250,7 +250,8 @@ export const compositeFragmentShaderSource = `
   uniform vec3 u_colorEmber;     // the cooling core, falling and burning title dust
 
   // Camera and film
-  uniform float u_cameraZoom;    // zoom of the whole frame around u_center; 1 is none
+  uniform float u_cameraZoom;    // zoom of the whole frame around u_zoomCenter; 1 is none
+  uniform vec2 u_zoomCenter;     // the point of the frame the zoom leaves where it is, pixels
   uniform vec2 u_shake;          // jolt of the camera, pixels
   uniform float u_lensFringe;    // colour fringing of the scene at the frame's corners, pixels
   uniform float u_vignette;      // darkening of the corners
@@ -376,7 +377,7 @@ export const compositeFragmentShaderSource = `
   void main () {
     // Where this pixel is on the screen, and where the zoomed and jolted camera looks through it
     vec2 screen = vec2(gl_FragCoord.x, u_resolution.y - gl_FragCoord.y);
-    vec2 frag = u_center + (screen - u_center) / u_cameraZoom + u_shake;
+    vec2 frag = u_zoomCenter + (screen - u_zoomCenter) / u_cameraZoom + u_shake;
     vec2 offset = frag - u_hole;
     float dist = length(offset);
     // A ringing horizon is an oval, stretched sideways and squeezed vertically while the wobble is

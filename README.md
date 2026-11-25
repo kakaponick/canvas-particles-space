@@ -74,7 +74,31 @@ ripples the background stars, swallows the title and then drifts to your cursor.
 - **Einstein Radius**: Einstein ring radius, in black hole radii
 - **Presets**: **Default** is tuned for the look; **Schwarzschild** is a real non-rotating black hole as far as the scene shows one: a point-mass lens with one mirrored image inside the Einstein ring, no twist, and capture at the edge of the shadow. Every length around the hole is in black hole radii, so Black Hole Size alone scales it
 - **Orbiting Stars**: stars with real orbits around the black hole (**Count**, 0 = none): ellipses that precess, faster the closer they come, with a trace that stays lit for **Trail** seconds. **Orbit Size**, **Eccentricity** and **Orbit Speed** (its sign is the direction) shape them; a star that crosses the Event Horizon lights the photon ring
+- **Zoom**: magnifies the view around the black hole, which stays where it is on the screen
 - **Space Grid**: two grids for explaining curved space, both off until their brightness is above 0. **Sheet** is a grid seen at an angle (**Sheet Tilt**) and dented where the black hole sits (**Well Depth**); the gravitational wave of the opening ripples through it. **Lensed Grid** is a flat grid on the sky read through the lens, so it shows what the lens does
+
+## Films
+
+The scene can be rendered to a short mp4 (1-180 s, H.264, up to 4K) from one JSON description: its length and
+frame, a seed, starting settings, the opening as a clip, keyframes for any setting, captions and an optional
+audio track. The same film is the same video on any machine.
+
+```json
+{
+  "duration": 12,
+  "preset": "Schwarzschild",
+  "intro": false,
+  "settings": { "gridSheet": 0.6, "orbitCount": 12 },
+  "tracks": { "cameraZoom": [[0, 1], [12, 2.5]] },
+  "captions": [{ "text": "Event horizon", "from": 2, "to": 8, "at": "hole" }]
+}
+```
+
+- **For AI agents**: the `space` MCP server (`mcp/space_mcp.mjs`, listed in `.mcp.json`) has four tools:
+  `space_guide` (the format and recipes), `space_describe` (what can be set), `space_preview` (frames of the film
+  side by side) and `space_render` (the mp4). Run `pnpm build` first; it needs Node 22+ and Chrome, Chromium or Edge.
+- **By hand**: open the page with `?agent` and call `await space.film.render(film, { download: 'film.mp4' })`
+  in the console; `space.film.guide()` prints the format.
 
 ## Project Structure
 
@@ -98,7 +122,12 @@ src/
 │   ├── title_sprite.ts        # Intro title rasterised for the lens
 │   ├── orbiters.ts            # Stars in real orbits around the black hole
 │   ├── space_grid.ts          # The space sheet: its lines and where its well goes
-│   └── webgl_shaders.ts       # GLSL sources and program helpers
+│   ├── webgl_shaders.ts       # GLSL sources and program helpers
+│   ├── scene_api.ts           # window.space: the scene for agents and the console
+│   ├── agent_values.ts        # How settings and parameters given to the API are checked
+│   ├── film.ts                # A film: its JSON format, the plan made from it, its guide
+│   ├── film_render.ts         # Plays a film in a scene of its own: mp4 and contact sheet
+│   └── film_captions.ts       # Captions drawn over a film's frames
 ├── store/
 │   ├── particle_store.ts      # Zustand state management
 │   └── settings_persistence.ts # Keeps the current settings across reloads

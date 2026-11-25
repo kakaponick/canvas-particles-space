@@ -161,6 +161,7 @@ function SettingsBody () {
         <SettingSlider field="followFrequency" setter="setFollowFrequency" />
         <SettingSlider field="blackHoleX" setter="setBlackHoleX" />
         <SettingSlider field="blackHoleY" setter="setBlackHoleY" />
+        <SettingSlider field="cameraZoom" setter="setCameraZoom" />
       </SettingsSection>
 
       <PhotonRingSection>

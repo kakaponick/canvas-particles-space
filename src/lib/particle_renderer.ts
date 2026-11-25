@@ -118,6 +118,9 @@ export interface CompositeSettings {
   colorEmber: number
   // Camera and film
   cameraZoom: number
+  // The point of the frame the zoom leaves where it is
+  zoomX: number
+  zoomY: number
   shakeX: number
   shakeY: number
   lensFringe: number
@@ -307,7 +310,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     'titleFringe', 'titleHalo', 'titleRedshift', 'titleGrain', 'titleBurn', 'titleFall', 'titleTidal', 'titleSpiral', 'titleSpread', 'titleStream', 'titleOrder', 'titleTrail', 'titleHeat', 'dustSweep', 'echoFloor', 'dustShock', 'dustBlow', 'dustDrift',
     'skyGrid', 'gridCell', 'orbits',
     'colorFlash', 'colorLight', 'colorDust', 'colorTitle', 'colorEmber',
-    'cameraZoom', 'shake', 'lensFringe', 'vignette', 'filmGrain', 'letterbox'
+    'cameraZoom', 'zoomCenter', 'shake', 'lensFringe', 'vignette', 'filmGrain', 'letterbox'
   ] as const)
   const gridUniforms = getUniforms(gl, gridProgram, [
     'resolution', 'pixelRatio', 'view', 'camera', 'well', 'lines', 'wave', 'waveSpread', 'lens', 'jolt', 'color', 'shadow', 'frame'
@@ -555,6 +558,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     setUniformColor(gl, u.colorTitle, settings.colorTitle)
     setUniformColor(gl, u.colorEmber, settings.colorEmber)
     setUniform1f(gl, u.cameraZoom, Math.max(settings.cameraZoom, 0.05))
+    setUniform2f(gl, u.zoomCenter, settings.zoomX * ratio, settings.zoomY * ratio)
     setUniform2f(gl, u.shake, settings.shakeX * ratio, settings.shakeY * ratio)
     setUniform1f(gl, u.lensFringe, settings.lensFringe * ratio)
     setUniform1f(gl, u.vignette, settings.vignette)
@@ -641,13 +645,13 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     } else {
       setUniform4f(gl, u.wave, 0, 0, 0, 0)
     }
-    setUniform4f(gl, u.lens, settings.centerX, settings.centerY, zoom, 0)
+    setUniform4f(gl, u.lens, settings.zoomX, settings.zoomY, zoom, 0)
     setUniform2f(gl, u.jolt, settings.shakeX, settings.shakeY)
     setUniform4f(gl, u.color, GRID_COLOR[0] * grid.brightness, GRID_COLOR[1] * grid.brightness, GRID_COLOR[2] * grid.brightness, 1)
     // Where the composite pass put the black hole on the frame
     setUniform4f(gl, u.shadow,
-      (settings.centerX + (settings.holeX - settings.shakeX - settings.centerX) * zoom) * ratio,
-      (settings.centerY + (settings.holeY - settings.shakeY - settings.centerY) * zoom) * ratio,
+      (settings.zoomX + (settings.holeX - settings.shakeX - settings.zoomX) * zoom) * ratio,
+      (settings.zoomY + (settings.holeY - settings.shakeY - settings.zoomY) * zoom) * ratio,
       settings.horizon * zoom * ratio, 0)
     setUniform2f(gl, u.frame, height, settings.letterbox * ratio)
 

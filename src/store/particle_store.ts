@@ -108,6 +108,8 @@ export interface ParticleState {
   orbitSpeed: number
   orbitTrail: number
   orbitStarSize: number
+  // How much the camera magnifies the scene around the black hole; 1 is no zoom
+  cameraZoom: number
   frameRateCap: number
   measuredFps: number
   // Lower the particle count automatically when the simulation overruns the frame
@@ -182,6 +184,7 @@ export interface ParticleState {
   setGridTilt: (value: number) => void
   setGridDepth: (value: number) => void
   setGridSky: (value: number) => void
+  setCameraZoom: (value: number) => void
   setOrbitCount: (value: number) => void
   setOrbitSize: (value: number) => void
   setOrbitEccentricity: (value: number) => void
@@ -262,6 +265,7 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   gridTilt: 65,
   gridDepth: 2.5,
   gridSky: 0,
+  cameraZoom: 1,
   orbitCount: 0,
   orbitSize: 4,
   orbitEccentricity: 0.5,
@@ -341,6 +345,7 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   setGridTilt: (value) => set({ gridTilt: value }),
   setGridDepth: (value) => set({ gridDepth: value }),
   setGridSky: (value) => set({ gridSky: value }),
+  setCameraZoom: (value) => set({ cameraZoom: value }),
   setOrbitCount: (value) => set({ orbitCount: value }),
   setOrbitSize: (value) => set({ orbitSize: value }),
   setOrbitEccentricity: (value) => set({ orbitEccentricity: value }),

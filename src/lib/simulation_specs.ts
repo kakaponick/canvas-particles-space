@@ -124,6 +124,8 @@ export const SIMULATION_SETTING_SPECS = {
     'How far from the point right behind the black hole the bent rays stay, in Einstein ring radii. 0 smears that single point into a flat band along the ring; higher values fill the ring with detail from farther around it.'),
   lensingAbsorption: spec('Light Absorption', 0, 5, 0.05, fixed(2), 'Dark zone around the shadow; 0 = none',
     'How much light the pull of the lens removes around the black hole. 0 = none; higher values open a wider dark zone, which also grows with Einstein Radius and Falloff.'),
+  cameraZoom: spoken(spec('Zoom', 1, 8, 0.05, fixed(2, '×'), 'Magnifies the view around the black hole',
+    'How much the camera magnifies the scene. The black hole stays where it is on the screen and everything else moves away from it, so a film can push in on the shadow and its ring. 1 is no zoom.'), 'Camera Zoom'),
   gridCell: spoken(spec('Spacing', 3, 25, 0.5, fixed(1, '%'), 'Cell size, % of short side',
     'Size of one cell of the space grid as a share of the screen\'s short side. Both grids, the sheet and the lensed grid, use it.'), 'Grid Spacing'),
   gridSheet: spoken(spec('Sheet', 0, 1, 0.01, percentOfOne, 'Curved sheet under the hole; 0 = off',
