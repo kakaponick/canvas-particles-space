@@ -296,7 +296,8 @@ come, as around a real black hole.
 | Cell size, shared by the sheet and the lensed grid | `gridCell` |
 | The sheet: brightness (0 is off), viewing angle, depth of the well in radii | `gridSheet`, `gridTilt`, `gridDepth` |
 | The lattice in three dimensions: brightness (0 is off), its cell in radii, how hard it is drawn in | `gridLattice`, `gridLatticeCell`, `gridLatticeWarp` |
-| A flat grid on the sky read through the lens (0 is off) | `gridSky` |
+| A flat grid on the sky read through the lens (0 is off), and how far it is drawn in towards the hole (0 is flat) | `gridSky`, `gridSkyPull` |
+| The colour of all three | `gridColor` |
 
 - The sheet is a diagram: a surface dented where the hole sits, rippled by gravitational waves. It stays
   put while the hole moves across it. At a `gridTilt` of 60 and above the well's depth shows.
@@ -305,6 +306,14 @@ come, as around a real black hole.
   flat; at the shadow's edge, where that light skims the photon sphere, it is `gridDepth` deep and ends.
 - The lensed grid is a measuring tool: it shows the Einstein ring, the mirrored image, the twist and the
   waves. Lower `baseBrightness` when it should be read clearly.
+- `gridSkyPull` draws the lensed grid in towards the hole: the classic picture of space pulled in by a
+  mass, lines above the hole sagging to it, lines beside it bowing in, cells crowding into a haze round the
+  shadow. It is the lattice's law on the flat grid (the slowing of time, in shadow radii times the Pull,
+  never folding), so it falls as 1 over the distance. The lens bends the grid the other way, outward, on
+  top of it: with `lensingEnabled` false the pull shows alone, the picture of a well seen from above
+  (8 bends the lines visibly to the frame's edges at `blackHoleSize` 12). It is not the sheet seen from
+  above: the sheet's dent is short-ranged and drawn over the frame, so a dent deep enough to bend the
+  edges would lay lines over the shadow.
 - The lattice is the sheet's law in three dimensions: lines along the three axes of the scene, each node
   drawn in towards the hole by the same slowing of time, in shadow radii times `gridLatticeWarp`, taken so
   that no node reaches the centre and no line folds over. It is a ball of 6 cells around the hole that
@@ -540,7 +549,10 @@ The cost of a knob, in the last column:
 
 | Fixed | File in src/lib | Cost |
 |---|---|---|
-| The colour of both grids, and the Lensed Grid's line, 1.5 px wide | space_grid.ts, webgl_shaders.ts | frame |
+| The Lensed Grid's line, 1.5 px wide | webgl_shaders.ts | frame |
+| The colour of the grids | space_grid.ts | has one: `gridColor` |
+| How the Lensed Grid's pull is found: 8 halvings of the span the node can lie in, then a straight line across the last | webgl_shaders.ts | machine |
+| Where the pulled grid turns to haze: its cells under 6 device px start to merge into the light they share, wholly at 3 | webgl_shaders.ts | frame |
 | The sheet's camera, 2.5 long screen sides away, and its span of 2.2, fading over the outer half | space_grid.ts, webgl_shaders.ts | frame |
 | The wave's lift on the sheet, 4 times its stretch of the sky | space_grid.ts | frame |
 | The sheet's lines: 1.25 px, at most 3 times wider near the camera, cut off nearer than 0.2 of its distance, and cleared from 1.04 to 1.2 radii round each hole | space_grid.ts, webgl_shaders.ts | frame |

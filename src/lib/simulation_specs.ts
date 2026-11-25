@@ -3,6 +3,7 @@
 // API (scene_api.ts) describes and validates settings with it, so a setting is described in exactly one place.
 import { BASE_SPEED_MAX, BASE_SPEED_MIN, BASE_SPEED_STEP } from './base_speed'
 import { HORIZON_SCALE_MAX } from './simulation_presets'
+import { GRID_COLOR } from './space_grid'
 
 export interface SimulationSettingSpec {
   label: string
@@ -224,6 +225,8 @@ export const SIMULATION_SETTING_SPECS = {
     'How strongly the lattice is drawn in towards the black hole. A node wishes to move in by the slowing of time where it stands, in shadow radii, times this: Pull 1 wishes a node at the shadow\'s edge in by one radius, and the wish falls as 1 over the distance far away. The wish is taken so that no node ever reaches the centre, so a strong pull draws the lines in tight around the hole and none of them folds over. 0 leaves the lines straight.'),
   gridSky: spoken(spec('Lensed Grid', 0, 1, 0.01, percentOfOne, 'Flat grid seen through the lens; 0 = off',
     'Brightness of a flat square grid on the sky behind the black hole. It is read through the same bent rays as the stars, so it shows exactly what the lens does: the Einstein ring, the mirrored images inside it, the twist, the gravitational wave. 0 turns it off.'), 'Lensed Grid Brightness'),
+  gridSkyPull: spoken(spec('Grid Pull', 0, 10, 0.1, fixed(1), 'Grid drawn in toward the hole; 0 = flat',
+    'How far the Lensed Grid is drawn in towards the black hole, the classic picture of space pulled in by a mass: lines above the hole sag towards it, lines beside it bow in, and the cells crowd together and merge into a haze round the shadow. It is the lattice\'s law on the flat grid: a node is drawn in by the slowing of time where it stands, in shadow radii times this, taken so that no node reaches the centre and no line folds over, so the pull falls as 1 over the distance far away. The lens still bends the grid on top of it; a weak lens or none shows the pull alone. Several black hole radii out a Pull of 4 moves the lines about half a radius. 0 leaves the grid flat.'), 'Lensed Grid Pull'),
   orbitCount: spoken(spec('Count', 0, 64, 1, count, 'Stars in orbit around the hole; 0 = none',
     'Number of stars in orbit around the black hole. Unlike the particles they have velocity and keep real orbits in the plane of the screen: ellipses whose long axis turns a little on every pass (relativistic precession), faster the closer they come. A star that crosses the Event Horizon radius lights the photon ring and is replaced by a new one. 0 = none.'), 'Orbiting Star Count'),
   orbitSize: spec('Orbit Size', 1.5, 20, 0.1, fixed(1, '×'), 'Mean orbit radius, in hole radii',
@@ -290,7 +293,10 @@ export const SIMULATION_COLOR_SPECS = {
   nebulaColor: color('Color', 'Main color of the nebula',
     'The color most of the nebula glows in. Nebula Brightness scales it, and its patches turn toward Nebula Second Color.', 'Nebula Color'),
   nebulaColorDeep: color('Second Color', 'Color of the nebula\'s other patches',
-    'The color the nebula turns toward in broad patches, several of its clouds across, so the sky is not one tint.', 'Nebula Second Color')
+    'The color the nebula turns toward in broad patches, several of its clouds across, so the sky is not one tint.', 'Nebula Second Color'),
+  gridColor: color('Grid Color', 'Color of the sheet, lattice and grid lines',
+    'The color of the lines of all three grids at full brightness: the sheet, the lattice (drawn 1.6 times brighter) and the Lensed Grid. Their brightness settings scale it.',
+    undefined, { hex: '#80bdff', rgb: GRID_COLOR })
 } satisfies Record<string, SimulationColorSpec>
 
 export type SimulationColorKey = keyof typeof SIMULATION_COLOR_SPECS

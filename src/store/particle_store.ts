@@ -152,6 +152,9 @@ export interface ParticleState {
   gridTilt: number
   gridDepth: number
   gridSky: number
+  // How far the Lensed Grid is drawn in towards the hole (0 leaves it flat), and the colour of every grid
+  gridSkyPull: number
+  gridColor: string
   // The space lattice (space_lattice.ts): brightness (0 = off), its cell in black hole radii, and how
   // strongly its nodes are pulled in, in shadow radii of the slowing of time
   gridLattice: number
@@ -340,6 +343,8 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   gridTilt: 65,
   gridDepth: 2.5,
   gridSky: 0,
+  gridSkyPull: 0,
+  gridColor: '#80bdff',
   gridLattice: 0,
   gridLatticeCell: 1,
   gridLatticeWarp: 3,

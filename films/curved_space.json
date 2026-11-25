@@ -5,19 +5,12 @@
   "seed": 5,
   "intro": false,
   "settings": {
-    "gridSky": 0.65,
-    "gridCell": 5.5,
+    "gridSky": 0.8,
+    "gridCell": 6,
     "blackHoleSize": 12,
-    "lensingTraced": false,
-    "lensingRadius": 2.3,
-    "lensingReach": 1,
-    "lensingFalloff": 1.3,
-    "lensingRotation": 0,
-    "lensingMaxBend": 6,
-    "lensingCore": 0,
     "lensingAbsorption": 0,
     "ringBrightness": 0.3,
-    "ringGlow": 0.6,
+    "ringGlow": 1,
     "ringFeed": 0.4,
     "starsBrightness": 2.5,
     "starDensity": 0.35,
@@ -35,13 +28,43 @@
     "orbitalStrength": 90,
     "gravityReach": 3.5,
     "colorPalette": [
-      { "r": 220, "g": 255, "b": 245, "enabled": true, "percent": 50 },
-      { "r": 180, "g": 230, "b": 255, "enabled": true, "percent": 50 }
-    ]
+      {
+        "r": 220,
+        "g": 255,
+        "b": 245,
+        "enabled": true,
+        "percent": 50
+      },
+      {
+        "r": 180,
+        "g": 230,
+        "b": 255,
+        "enabled": true,
+        "percent": 50
+      }
+    ],
+    "gridSkyPull": 8,
+    "gridColor": "#3f86ff",
+    "lensingEnabled": false
   },
   "tracks": {
-    "dustScale": [[0, 300]],
-    "dustThreshold": [[0, 0.22]],
-    "dustDrift": [[0, 4]]
+    "dustScale": [
+      [
+        0,
+        300
+      ]
+    ],
+    "dustThreshold": [
+      [
+        0,
+        0.22
+      ]
+    ],
+    "dustDrift": [
+      [
+        0,
+        4
+      ]
+    ]
   }
 }

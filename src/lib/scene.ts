@@ -381,6 +381,8 @@ export function createScene (
       dustDrift: 0,
       skyGrid: 0,
       gridCell: 64,
+      gridPull: 0,
+      gridColor: createSceneColor(),
       starShiftX: 0,
       starShiftY: 0,
       gridShiftX: 0,
@@ -1219,6 +1221,8 @@ export function createScene (
     // over the frame with its well under the black hole
     const gridCell = state.gridCell / 100 * shortSide
     composite.skyGrid = state.gridSky
+    composite.gridPull = state.gridSkyPull
+    readSceneColor(composite.gridColor, state.gridColor, SIMULATION_COLOR_SPECS.gridColor.exact)
     composite.gridCell = gridCell
     frame.grid.brightness = state.gridSheet
     if (state.gridSheet > 0) {

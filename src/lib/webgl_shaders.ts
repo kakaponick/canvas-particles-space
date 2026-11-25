@@ -2,7 +2,6 @@
 // which draws the black hole, the explosion's light and the intro title over the scene. They run on WebGL2
 // and are still written in GLSL ES 1.00, which WebGL2 compiles as it is.
 
-import { GRID_COLOR } from './space_grid'
 import { SHADOW_SAMPLES } from './kerr_shadow'
 import { KERR_GLSL } from './kerr_glsl'
 import { LATTICE_SEGMENTS } from './space_lattice'
@@ -17,7 +16,22 @@ export const ATTRIBUTE_LOCATIONS = {
   latticeLine: 5
 } as const
 
-const GRID_COLOR_GLSL = `vec3(${GRID_COLOR.map(channel => channel.toFixed(3)).join(', ')})`
+// How deep the sheet lies, how far a node of the lattice is pulled in and how far the Lensed Grid is drawn in,
+// at a distance from a black hole; one text, so the three follow the same law
+const DENT_GLSL = `  // How deep the sheet lies at a distance from a black hole whose shadow has the radius "edge", as a
+  // share of its depth at the shadow's edge. The sheet is drawn in the picture's own measure: a point of
+  // it stands where light passing the hole at that distance is seen, and lies as deep as time is slowed at
+  // the nearest that light comes to the hole, 1 - sqrt(1 - rs / nearest). Far away that is the Newtonian
+  // well, rs / 2r. At the shadow's edge the light skims the photon sphere, 1.5 rs, where a clock runs at
+  // 1 / sqrt(3) of its rate, and the sheet stands vertical: light any closer does not come back. The
+  // nearest approach of light seen at b is the largest root of r^3 = b^2 (r - rs), and the edge is at
+  // b = sqrt(27) / 2 rs, which leaves rs / nearest = x / (3 cos(acos(-x) / 3)) with x = edge / b
+  float dent (float away, float edge) {
+    float x = edge / max(away, edge);
+    float slowed = 1.0 - sqrt(max(1.0 - x / (3.0 * cos(acos(-x) / 3.0)), 0.0));
+    return slowed * 2.3660254;
+  }
+`
 
 // Two triangles covering clip space; the particle program reuses them as segment corners
 export const QUAD_VERTICES = new Float32Array([
@@ -314,6 +328,8 @@ export const compositeFragmentShaderSource = `
   uniform vec4 u_nebula;           // the nebula's brightness (0 turns it off), CSS pixels the 3D camera's turn slides it by (yz), CSS pixels of a full turn (0 when flat)
   uniform vec3 u_nebulaColor;
   uniform vec3 u_nebulaColorDeep;
+  uniform float u_gridPull;        // how far the Lensed Grid is drawn in towards the hole, the Pull; 0 leaves it flat
+  uniform vec3 u_gridColor;        // colour of its lines
 
   uniform vec2 u_titleCenter;
   uniform vec2 u_titleHalfSize;
@@ -376,9 +392,14 @@ export const compositeFragmentShaderSource = `
   const float DUST_BLOW_SECONDS = 1.2;
   // Width of a patch of the nebula's second colour, in Dust Scales
   const float NEBULA_PATCH = 3.0;
-  const vec3 GRID_COLOR = ${GRID_COLOR_GLSL};
   // Half the width of a line of the flat grid, CSS pixels
   const float GRID_HALF_LINE = 0.75;
+  // Halvings that find the node the Lensed Grid's pull brings to a point; a straight line across the last
+  // one leaves it well under a pixel off
+  const int GRID_PULL_STEPS = 8;
+  // Device pixels a cell of that grid shrinks to before its lines start to merge into a haze, which is
+  // whole at half of it
+  const float GRID_HAZE_CELL = 6.0;
   // Impact parameter of the photon sphere, Schwarzschild radii: a ray aimed closer falls in
   const float CRITICAL_IMPACT = 2.5980762;
   // Farthest a traced ray reads the scene, in units of the projection: near the direction straight behind
@@ -423,6 +444,14 @@ export const compositeFragmentShaderSource = `
     float edge = mix(0.2, 0.62, u_dustThreshold);
     float cloud = smoothstep(edge, edge + 0.22, n);
     return cloud * (0.45 + 0.55 * cloud) * (0.7 + 0.3 * valueNoise(p * 1.7));
+  }
+
+${DENT_GLSL}
+  // Where the Lensed Grid's pull draws a node this many pixels from the black hole: the lattice's law, the
+  // slowing of time in shadow radii times the Pull, taken as R -> R^2 / (R + wish), so no line folds over
+  float pulledIn (float away) {
+    float wish = u_gridPull * (away >= u_horizon ? u_horizon * dent(away, u_horizon) : away);
+    return away * away / (away + wish);
   }
 
   // The nebula is the same dust, glowing on its own: its main colour, turning to the second one in
@@ -833,8 +862,38 @@ export const compositeFragmentShaderSource = `
       // A square grid on the sky, with a line through the middle of the screen. It is read where the
       // bent ray comes from, so the lens, the gravitational wave and the matter front bend it like the
       // stars, and it widens where the lens magnifies
-      vec2 fromLine = abs(fract((cssPx + u_skyShift.zw - 0.5 * u_resolution / u_pixelRatio) / u_gridCell - 0.5) - 0.5) * u_gridCell;
-      emitted += GRID_COLOR * u_skyGrid * clamp((GRID_HALF_LINE - min(fromLine.x, fromLine.y) * u_cameraZoom) * u_pixelRatio + 0.5, 0.0, 1.0);
+      vec2 gridAt = cssPx;
+      // How many times smaller than on the flat sky the grid is drawn here
+      float squeeze = 1.0;
+      if (u_gridPull > 0.0 && u_horizon > 0.0) {
+        // Drawn in towards the hole by the lattice's law: a node R from the hole is seen at
+        // R^2 / (R + wish), so this point shows the node that law brings here. The law never folds, so the
+        // node is found by halving the span it can lie in, then by the straight line across the last half
+        vec2 fromHole = samplePx - u_hole;
+        float seen = max(length(fromHole), 0.0001);
+        float near = seen;
+        float far = seen + u_gridPull * u_horizon;
+        for (int i = 0; i < GRID_PULL_STEPS; i++) {
+          float mid = 0.5 * (near + far);
+          if (pulledIn(mid) < seen) near = mid; else far = mid;
+        }
+        float nearMiss = pulledIn(near) - seen;
+        float farMiss = pulledIn(far) - seen;
+        float slope = (far - near) / max(farMiss - nearMiss, 0.0001);
+        float node = near - nearMiss * slope;
+        gridAt = (u_hole + fromHole * (node / seen)) / u_pixelRatio;
+        // Along the way to the hole and across it the grid shrinks by different shares; its lines keep
+        // their width against the tighter one
+        squeeze = max(slope, node / seen);
+      }
+      vec2 fromLine = abs(fract((gridAt + u_skyShift.zw - 0.5 * u_resolution / u_pixelRatio) / u_gridCell - 0.5) - 0.5) * u_gridCell;
+      float line = clamp((GRID_HALF_LINE - min(fromLine.x, fromLine.y) * u_cameraZoom / squeeze) * u_pixelRatio + 0.5, 0.0, 1.0);
+      if (squeeze > 1.0) {
+        // Where the cells shrink to a few pixels their lines merge into a haze of the light they share
+        float cellPx = u_gridCell * u_cameraZoom * u_pixelRatio / squeeze;
+        line = mix(line, min(4.0 * GRID_HALF_LINE * u_pixelRatio / cellPx, 1.0), smoothstep(GRID_HAZE_CELL, 0.5 * GRID_HAZE_CELL, cellPx));
+      }
+      emitted += u_gridColor * u_skyGrid * line;
     }
     // Light is invisible in empty space: the front shows where it strikes dust, and the dust
     // keeps glowing for a moment after it passes (the light echo)
@@ -967,22 +1026,6 @@ export const compositeFragmentShaderSource = `
 
 // The space sheet (space_grid.ts), drawn over the finished frame. Every length uniform here is in CSS
 // pixels
-// How deep the sheet lies, and how far a node of the lattice is pulled in, at a distance from a black hole;
-// one text, so the sheet and the lattice follow the same law
-const DENT_GLSL = `  // How deep the sheet lies at a distance from a black hole whose shadow has the radius "edge", as a
-  // share of its depth at the shadow's edge. The sheet is drawn in the picture's own measure: a point of
-  // it stands where light passing the hole at that distance is seen, and lies as deep as time is slowed at
-  // the nearest that light comes to the hole, 1 - sqrt(1 - rs / nearest). Far away that is the Newtonian
-  // well, rs / 2r. At the shadow's edge the light skims the photon sphere, 1.5 rs, where a clock runs at
-  // 1 / sqrt(3) of its rate, and the sheet stands vertical: light any closer does not come back. The
-  // nearest approach of light seen at b is the largest root of r^3 = b^2 (r - rs), and the edge is at
-  // b = sqrt(27) / 2 rs, which leaves rs / nearest = x / (3 cos(acos(-x) / 3)) with x = edge / b
-  float dent (float away, float edge) {
-    float x = edge / max(away, edge);
-    float slowed = 1.0 - sqrt(max(1.0 - x / (3.0 * cos(acos(-x) / 3.0)), 0.0));
-    return slowed * 2.3660254;
-  }
-`
 
 export const gridVertexShaderSource = `
   attribute vec2 a_position;  // quad corner: x picks the end of the piece, y the side

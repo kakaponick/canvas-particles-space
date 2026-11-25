@@ -20,7 +20,7 @@ import { MAX_ORBITERS, STRETCH_SECONDS } from './orbiters'
 import type { TitleSprite } from './title_sprite'
 import { RING_BINS } from './ring_energy'
 import { SHADOW_SAMPLES, type ShadowShape } from './kerr_shadow'
-import { GRID_COLOR, GRID_INSTANCE_COUNT, GRID_INSTANCE_FLOATS, GRID_WAVE_GAIN, createGridInstances, type GridSettings } from './space_grid'
+import { GRID_INSTANCE_COUNT, GRID_INSTANCE_FLOATS, GRID_WAVE_GAIN, createGridInstances, type GridSettings } from './space_grid'
 import { LATTICE_GAIN, LATTICE_INSTANCE_COUNT, LATTICE_INSTANCE_FLOATS, createLatticeInstances, type LatticeSettings } from './space_lattice'
 
 const INSTANCE_STRIDE = INSTANCE_FLOATS * 4
@@ -192,6 +192,9 @@ export interface CompositeSettings {
   // Brightness of the flat grid on the sky behind the black hole (0 turns it off) and its cell size
   skyGrid: number
   gridCell: number
+  // How far that grid is drawn in towards the hole (0 leaves it flat), and the colour of every grid
+  gridPull: number
+  gridColor: SceneColor
   // CSS pixels the 3D camera's turn slides the sky by: the background stars, then the lensed grid; zeros
   // in the flat mode
   starShiftX: number
@@ -446,7 +449,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     'titleCenter', 'titleHalfSize', 'titleAlpha', 'titleReveal', 'titleDissolve', 'titleDrift', 'titleGlow',
     'titleFlash', 'titleCooling', 'titleDust', 'titlePull', 'titleSwirl', 'titleReach', 'titleCapture', 'titleScale',
     'titleFringe', 'titleHalo', 'titleRedshift', 'titleGrain', 'titleBurn', 'titleFall', 'titleTidal', 'titleSpiral', 'titleSpread', 'titleStream', 'titleOrder', 'titleTrail', 'titleHeat', 'dustSweep', 'echoFloor', 'dustShock', 'dustBlow', 'dustDrift',
-    'skyGrid', 'gridCell', 'skyShift', 'orbits', 'nebula', 'nebulaColor', 'nebulaColorDeep',
+    'skyGrid', 'gridCell', 'skyShift', 'orbits', 'nebula', 'nebulaColor', 'nebulaColorDeep', 'gridPull', 'gridColor',
     'colorFlash', 'colorLight', 'colorDust', 'colorTitle', 'colorEmber',
     'cameraZoom', 'zoomCenter', 'layerZoom', 'shake', 'lensFringe', 'vignette', 'filmGrain', 'letterbox'
   ] as const)
@@ -778,7 +781,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
 
   // The lattice is drawn anew every frame into the layer of lines, bent towards the holes and seen by the
   // camera at its zoom, the brighter of a line and what is there so crossings do not add up
-  function drawLattice (lattice: LatticeSettings) {
+  function drawLattice (lattice: LatticeSettings, color: SceneColor) {
     gl.bindBuffer(gl.ARRAY_BUFFER, latticeBuffer)
     if (!latticeFilled) {
       latticeFilled = true
@@ -799,7 +802,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     setUniform4f(gl, u.lattice, lattice.cell, lattice.reach, lattice.warp, lattice.lineWidth * ratio)
     setUniform4f(gl, u.anchor, lattice.anchorX, lattice.anchorY, lattice.anchorZ, 0)
     const light = lattice.brightness * LATTICE_GAIN
-    setUniform4f(gl, u.color, Math.min(GRID_COLOR[0] * light, 1), Math.min(GRID_COLOR[1] * light, 1), Math.min(GRID_COLOR[2] * light, 1), 1)
+    setUniform4f(gl, u.color, Math.min(color.r * light, 1), Math.min(color.g * light, 1), Math.min(color.b * light, 1), 1)
     gl.enableVertexAttribArray(ATTRIBUTE_LOCATIONS.latticeLine)
     gl.blendEquationSeparate(gl.MAX, gl.FUNC_ADD)
     gl.drawArraysInstanced(gl.TRIANGLES, 0, QUAD_VERTEX_COUNT, LATTICE_INSTANCE_COUNT)
@@ -944,7 +947,11 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     setUniform1f(gl, u.dustDrift, settings.dustDrift)
     setUniform1f(gl, u.orbits, orbitsShown ? 1 : 0)
     setUniform1f(gl, u.skyGrid, settings.skyGrid)
-    if (settings.skyGrid > 0) setUniform1f(gl, u.gridCell, Math.max(settings.gridCell, 1))
+    if (settings.skyGrid > 0) {
+      setUniform1f(gl, u.gridCell, Math.max(settings.gridCell, 1))
+      setUniform1f(gl, u.gridPull, settings.gridPull)
+      setUniform3f(gl, u.gridColor, settings.gridColor.r, settings.gridColor.g, settings.gridColor.b)
+    }
     setUniform4f(gl, u.skyShift, settings.starShiftX, settings.starShiftY, settings.gridShiftX, settings.gridShiftY)
     gl.drawArrays(gl.TRIANGLES, 0, QUAD_VERTEX_COUNT)
   }
@@ -980,7 +987,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     }
     setUniform4f(gl, u.lens, settings.zoomX, settings.zoomY, zoom, 0)
     setUniform2f(gl, u.jolt, settings.shakeX, settings.shakeY)
-    setUniform4f(gl, u.color, GRID_COLOR[0] * grid.brightness, GRID_COLOR[1] * grid.brightness, GRID_COLOR[2] * grid.brightness, 1)
+    setUniform4f(gl, u.color, settings.gridColor.r * grid.brightness, settings.gridColor.g * grid.brightness, settings.gridColor.b * grid.brightness, 1)
     // Where the composite pass put the black hole on the frame
     setUniform4f(gl, u.shadow,
       (settings.zoomX + (settings.holeX - settings.shakeX - settings.zoomX) * zoom) * ratio,
@@ -1031,7 +1038,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
       const latticeShown = frame.lattice.brightness > 0
       if (frame.orbitCount > 0 || latticeShown) openLines()
       if (frame.orbitCount > 0) drawOrbits(frame)
-      if (latticeShown) drawLattice(frame.lattice)
+      if (latticeShown) drawLattice(frame.lattice, frame.composite.gridColor)
       gl.bindFramebuffer(gl.FRAMEBUFFER, null)
       // The last star gone, its traces go with it
       if (frame.orbitCount === 0) {

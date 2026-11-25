@@ -342,7 +342,7 @@ function SettingsBody () {
       </SettingsSection>
 
       <SettingsSection id="space-grid" title="Space Grid">
-        {/* The sheet and its shape, the lattice and its shape, the grid behind the lens, then the cell the sheet and that grid share */}
+        {/* The sheet and its shape, the lattice and its shape, the grid behind the lens and its pull, then the cell the sheet and that grid share, then the colour of all three */}
         <SettingSlider field="gridSheet" />
         <SettingSlider field="gridTilt" />
         <SettingSlider field="gridDepth" />
@@ -353,7 +353,11 @@ function SettingsBody () {
         </div>
         <div className="mt-3 flex flex-col gap-1">
           <SettingSlider field="gridSky" />
+          <SettingSlider field="gridSkyPull" />
           <SettingSlider field="gridCell" />
+        </div>
+        <div className="mt-3 flex flex-col gap-1">
+          <SettingColor field="gridColor" />
         </div>
       </SettingsSection>
 
