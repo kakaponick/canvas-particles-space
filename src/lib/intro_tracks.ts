@@ -103,7 +103,9 @@ const FINE = {
     'titleInOversize', 'titleInEase', 'titleRiseEase', 'titleFlyGrowth', 'titleFlyEase', 'titleOutGrowth', 'titleOutEase',
     'titlePullLimit', 'titleSpeckSize', 'titleCurrentSize', 'titleBeyondSpeed', 'titleWink',
     'titleSpiralRadius', 'titleSpiralMin', 'titleSpiralMax',
-    'titleBurnGrain', 'titleBurnFine', 'titleBurnEnds', 'titleBurnRim', 'titleBurnRimWidth'
+    'titleBurnGrain', 'titleBurnFine', 'titleBurnEnds', 'titleBurnRim', 'titleBurnRimWidth',
+    'titleFallFadeAt', 'titleFlyFadeAt', 'titleRiseLitBy', 'titleCurrentContrast', 'titleOrderReach', 'titleCaptureEdge', 'titleReachFade',
+    'titleDustSize', 'titleDustClumps', 'titleDustLow', 'titleDustHigh', 'titleBurnMix', 'titleBurnEdge'
   ],
   camera: ['cameraCreep', 'cameraSettleEase', 'cameraKickDecay', 'shakeRate', 'vignetteStart', 'vignetteEnd', 'filmKnee']
 } satisfies Record<string, IntroParamKey[]>

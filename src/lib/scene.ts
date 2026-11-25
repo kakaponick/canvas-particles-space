@@ -272,7 +272,9 @@ export function createScene (
       pull: 0, swirl: 0, reach: 0, capture: 0, scale: 1, fringe: 0, halo: 0, redshift: 0, grain: 1, burn: 0, fall: 0,
       tidal: 2, spiral: 1, spread: 0.75, stream: 0.5, order: 0.3, trail: 0.8, heat: 1.6,
       speckSize: 2, currentSize: 11, beyondSpeed: 0.15, wink: 0.15, spiralRadius: 0.3, spiralMin: 0.4, spiralMax: 3,
-      burnGrain: 18, burnFine: 5, burnEnds: 0.45, burnRim: 2.5, burnRimWidth: 0.1
+      burnGrain: 18, burnFine: 5, burnEnds: 0.45, burnRim: 2.5, burnRimWidth: 0.1,
+      currentContrast: 1.8, orderReach: 0.6, captureEdge: 0.25, reachFade: 1,
+      dustSize: 2.4, dustClumps: 0.55, dustLow: 0.15, dustHigh: 0.8, burnMix: 0.6, burnEdge: 0.06
     },
     composite: {
       time: 0,
@@ -1123,6 +1125,16 @@ export function createScene (
     title.burnEnds = params.titleBurnEnds
     title.burnRim = params.titleBurnRim
     title.burnRimWidth = params.titleBurnRimWidth
+    title.currentContrast = params.titleCurrentContrast
+    title.orderReach = params.titleOrderReach
+    title.captureEdge = params.titleCaptureEdge
+    title.reachFade = params.titleReachFade
+    title.dustSize = params.titleDustSize
+    title.dustClumps = params.titleDustClumps
+    title.dustLow = params.titleDustLow
+    title.dustHigh = params.titleDustHigh
+    title.burnMix = params.titleBurnMix
+    title.burnEdge = params.titleBurnEdge
 
     composite.time = animationTime
     composite.holeX = holeX

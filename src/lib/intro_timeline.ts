@@ -110,6 +110,9 @@ const smoothstep = (x: number) => x * x * (3 - 2 * x)
 const power = (x: number, n: number) => n === 2 ? x * x : n === 3 ? x * x * x : n === 4 ? x * x * x * x : Math.pow(x, n)
 // Fast at first and settling, the harder the higher the power; 1 is an even pace
 const easeOut = (x: number, n: number) => 1 - Math.pow(1 - x, n)
+// What is left of a stretch of 1 after a share of it, without the noise of the subtraction: 1 - 0.55 is not
+// the 0.45 the timeline was written with, and this is
+const rest = (share: number) => Math.round((1 - share) * 1e12) / 1e12
 
 export function createIntroFrame (): IntroFrame {
   return {
@@ -225,7 +228,7 @@ function sampleFullIntro (t: number, p: IntroParams, ring: RingdownTiming, frame
     frame.titleDissolve = 1 - arrived
     frame.titleFall = Math.pow(1 - arrived, p.titleRiseEase)
     frame.titleGrain = entrance === 2 ? 1 : 0
-    alpha = easeOutCubic(Math.min(arrived * 2.5, 1))
+    alpha = easeOutCubic(Math.min(arrived * (1 / p.titleRiseLitBy), 1))
   }
   if (leaving > 0) {
     if (exit === 0) {
@@ -233,11 +236,11 @@ function sampleFullIntro (t: number, p: IntroParams, ring: RingdownTiming, frame
       frame.titleDissolve = leaving
       frame.titleFall = Math.pow(leaving, p.titleFallEase)
       frame.titleGrain = p.titleGrain
-      alpha *= 1 - smoothstep(progress(leaving, 0.6, 0.4))
+      alpha *= 1 - smoothstep(progress(leaving, p.titleFallFadeAt, rest(p.titleFallFadeAt)))
     } else if (exit === 1) {
       const rush = power(leaving, p.titleFlyEase)
       frame.titleFly = 1 + p.titleFlyGrowth * rush
-      alpha *= 1 - smoothstep(progress(leaving, 0.55, 0.45))
+      alpha *= 1 - smoothstep(progress(leaving, p.titleFlyFadeAt, rest(p.titleFlyFadeAt)))
     } else if (exit === 2) {
       frame.titleBurn = leaving * leaving * (3 - 2 * leaving)
       if (leaving >= 1) alpha = 0

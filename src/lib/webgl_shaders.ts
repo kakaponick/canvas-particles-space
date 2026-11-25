@@ -380,6 +380,10 @@ export const compositeFragmentShaderSource = `
   uniform vec3 u_titleWind;      // the winding at u_titleSpiral 1: the share of the frame's height at which the turn is as set, the least and the most any part winds
   uniform vec4 u_titleBurnShape; // CSS pixels across the two grains of the fire's ragged edge, how much it eats in from the ends, its rim in ember colours
   uniform float u_titleBurnRimWidth; // how far ahead of the fire the letters glow
+  uniform vec4 u_titleFallShape; // the falling dust: how much its currents differ in speed, the share of the frame's height the order of vanishing spans, the horizon's outer edge and the end of gravity's fade as multiples of their radii
+  uniform vec3 u_titleDustShape; // the letters' grain: CSS pixels across its clumps, the share of it that follows them, and the rest
+  uniform vec2 u_titleDustCut;   // the grain below which a letter is empty and above which it is solid
+  uniform vec3 u_titleBurnEdge;  // the fire's edge: the share of its large grain, the rest, and how soft it is
 
   // Colours of the intro
   uniform vec3 u_colorFlash;     // the star, the glare and the white-hot core
@@ -821,10 +825,10 @@ ${DENT_GLSL}
         // radius of no return is gone
         vec2 fromHole = samplePx - u_hole;
         float holeDist = max(length(fromHole), 1.0);
-        float beyondReach = u_titleReach > 0.0 ? smoothstep(u_titleReach, 2.0 * u_titleReach, holeDist) : 1.0;
+        float beyondReach = u_titleReach > 0.0 ? smoothstep(u_titleReach, u_titleFallShape.w * u_titleReach, holeDist) : 1.0;
         // Every speck has its own speed, and neighbours share a current, so the specks travel in
         // streams rather than each on its own
-        float current = clamp((valueNoise(cssPx * u_titleSpeck.y + 41.0) - 0.5) * 1.8 + 0.5, 0.0, 1.0);
+        float current = clamp((valueNoise(cssPx * u_titleSpeck.y + 41.0) - 0.5) * u_titleFallShape.x + 0.5, 0.0, 1.0);
         float speed = mix(0.5, mix(hash12(grainCell + 41.0), current, u_titleStream), u_titleGrain);
         float fall = u_titleFall * max(1.0 + 2.0 * u_titleSpread * (speed - 0.5), 0.0) * mix(1.0, u_titleSpeck.z, beyondReach);
         local = (titleSource(fromHole, holeDist, fall) - u_titleCenter) / titleSpan;
@@ -836,10 +840,10 @@ ${DENT_GLSL}
         trail *= u_titleTrail * min(4.0 * u_titleFall, 1.0);
         // Each speck winks out at its own moment, the ones nearest the hole first; without grain the
         // letters stay whole until the hole has them
-        float nearness = clamp(holeDist / (0.6 * u_resolution.y), 0.0, 1.0);
+        float nearness = clamp(holeDist / (u_titleFallShape.y * u_resolution.y), 0.0, 1.0);
         float lifetime = mix(1.0, mix(hash12(grainCell + 73.0), nearness, u_titleOrder), u_titleGrain);
         keep = smoothstep(u_titleDissolve - u_titleSpeck.w, u_titleDissolve, lifetime * u_titleWinkRest);
-        if (u_titleCapture > 0.0) keep *= smoothstep(u_titleCapture, u_titleCapture * 1.25 + 1.0, holeDist);
+        if (u_titleCapture > 0.0) keep *= smoothstep(u_titleCapture, u_titleCapture * u_titleFallShape.z + 1.0, holeDist);
         infall = min(fall, 1.0);
       }
       if ((abs(local.x) <= 1.0 && abs(local.y) <= 1.0) || trail > 0.0) {
@@ -847,16 +851,16 @@ ${DENT_GLSL}
         // title's centre and blue a little further out
         float fringe = u_titleFringe / max(u_titleHalfSize.x, 1.0);
         vec3 mask = max(vec3(titleMask(local * (1.0 - fringe)), titleMask(local), titleMask(local * (1.0 + fringe))), vec3(trail));
-        float grain = 0.55 * valueNoise(cssPx / 2.4) + 0.45 * hash12(grainCell + 7.0);
+        float grain = u_titleDustShape.y * valueNoise(cssPx / u_titleDustShape.x) + u_titleDustShape.z * hash12(grainCell + 7.0);
         // Fire eats the letters from the ends of the title inwards along a ragged edge, which glows
         float burnRim = 0.0;
         if (u_titleBurn > 0.0) {
-          float fuel = mix(0.6 * valueNoise(cssPx / u_titleBurnShape.x) + 0.4 * valueNoise(cssPx / u_titleBurnShape.y), 1.0 - abs(local.x), u_titleBurnShape.z);
+          float fuel = mix(u_titleBurnEdge.x * valueNoise(cssPx / u_titleBurnShape.x) + u_titleBurnEdge.y * valueNoise(cssPx / u_titleBurnShape.y), 1.0 - abs(local.x), u_titleBurnShape.z);
           float burnt = u_titleBurn * 1.15;
-          keep *= smoothstep(burnt - 0.06, burnt, fuel);
+          keep *= smoothstep(burnt - u_titleBurnEdge.z, burnt, fuel);
           burnRim = 1.0 - smoothstep(burnt, burnt + u_titleBurnRimWidth, fuel);
         }
-        vec3 density = mask * keep * mix(1.0, smoothstep(0.15, 0.8, grain), u_titleDust);
+        vec3 density = mask * keep * mix(1.0, smoothstep(u_titleDustCut.x, u_titleDustCut.y, grain), u_titleDust);
         // Glow around the letters, drawn out sideways like the flare of an anamorphic lens
         float halo = u_titleHalo > 0.0 ? TITLE_HALO_GAIN * titleGlow(local) * u_titleHalo * (1.0 - u_titleDissolve) : 0.0;
         // The front arrives over its own width rather than as a hard edge

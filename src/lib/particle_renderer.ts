@@ -341,6 +341,22 @@ export interface TitleSettings {
   burnEnds: number
   burnRim: number
   burnRimWidth: number
+  // The falling dust's finer shape: how much the currents differ in speed, the share of the frame's height
+  // the order of vanishing spans, the width of the horizon's edge as a share of its radius, and the width
+  // gravity's reach fades over in reaches
+  currentContrast: number
+  orderReach: number
+  captureEdge: number
+  reachFade: number
+  // The grain of the letters: CSS pixels across its clumps, the share of it that follows them, and the
+  // grain below which a letter is empty and above which it is solid
+  dustSize: number
+  dustClumps: number
+  dustLow: number
+  dustHigh: number
+  // The fire's edge: the share of its large grain in it, and how soft it is
+  burnMix: number
+  burnEdge: number
 }
 
 export interface FrameInput {
@@ -542,7 +558,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     'titleCenter', 'titleHalfSize', 'titleAlpha', 'titleReveal', 'titleDissolve', 'titleDrift', 'titleGlow',
     'titleFlash', 'titleCooling', 'titleDust', 'titlePull', 'titleSwirl', 'titleReach', 'titleCapture', 'titleScale',
     'titleFringe', 'titleHalo', 'titleRedshift', 'titleGrain', 'titleBurn', 'titleFall', 'titleTidal', 'titleSpiral', 'titleSpread', 'titleStream', 'titleOrder', 'titleTrail', 'titleHeat', 'dustSweep', 'echoFloor', 'dustShock', 'dustBlow', 'dustDrift',
-    'titleSpeck', 'titleWinkRest', 'titleWind', 'titleBurnShape', 'titleBurnRimWidth',
+    'titleSpeck', 'titleWinkRest', 'titleWind', 'titleBurnShape', 'titleBurnRimWidth', 'titleFallShape', 'titleDustShape', 'titleDustCut', 'titleBurnEdge',
     'echoShape', 'echoSwell', 'dustMotion', 'dustFlare', 'starFlareRate', 'remnantShape', 'vignetteSpan', 'knee',
     'skyGrid', 'gridCell', 'skyGridLine', 'skyShift', 'orbits', 'nebula', 'nebulaColor', 'nebulaColorDeep', 'nebulaColorCore', 'nebulaShape', 'nebulaLook', 'nebulaPatch', 'nebulaDrift', 'gridPull', 'gridColor', 'gridHaze',
     'colorFlash', 'colorLight', 'colorDust', 'colorTitle', 'colorEmber',
@@ -945,6 +961,10 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
       setUniform3f(gl, u.titleWind, title.spiralRadius, title.spiralMin, Math.max(title.spiralMax, title.spiralMin))
       setUniform4f(gl, u.titleBurnShape, Math.max(title.burnGrain, 0.1), Math.max(title.burnFine, 0.1), title.burnEnds, title.burnRim)
       setUniform1f(gl, u.titleBurnRimWidth, Math.max(title.burnRimWidth, 0.001))
+      setUniform4f(gl, u.titleFallShape, title.currentContrast, Math.max(title.orderReach, 0.001), 1 + Math.max(title.captureEdge, 0), 1 + Math.max(title.reachFade, 0.001))
+      setUniform3f(gl, u.titleDustShape, Math.max(title.dustSize, 0.1), title.dustClumps, 1 - title.dustClumps)
+      setUniform2f(gl, u.titleDustCut, title.dustLow, Math.max(title.dustHigh, title.dustLow + 0.001))
+      setUniform3f(gl, u.titleBurnEdge, title.burnMix, 1 - title.burnMix, Math.max(title.burnEdge, 0.001))
     }
     setUniformColor(gl, u.colorFlash, settings.colorFlash)
     setUniformColor(gl, u.colorLight, settings.colorLight)

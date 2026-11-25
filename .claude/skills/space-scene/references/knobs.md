@@ -529,8 +529,9 @@ them alone is drawn as it was; the intro debugger keeps them in the Fine Tuning 
 | Collapsing core | `remnantEmberAt`, `remnantWhiteness`, `remnantDeep`, `remnantDim` |
 | Shadow, lens, ring | `horizonEase` |
 | Title: type | `titleLineHeight`, `titleMaxWidth`, `titleMargin` |
-| Title: arriving | `titleInOversize`, `titleInEase`, `titleRiseEase`, `titlePushEase` |
-| Title: leaving | `titleFlyGrowth`, `titleFlyEase`, `titleOutGrowth`, `titleOutEase`, `titlePullLimit`, `titleSpeckSize`, `titleCurrentSize`, `titleBeyondSpeed`, `titleWink`, `titleSpiralRadius`, `titleSpiralMin`, `titleSpiralMax`, `titleBurnGrain`, `titleBurnFine`, `titleBurnEnds`, `titleBurnRim`, `titleBurnRimWidth` |
+| Title: light | `titleDustSize`, `titleDustClumps`, `titleDustLow`, `titleDustHigh` |
+| Title: arriving | `titleInOversize`, `titleInEase`, `titleRiseEase`, `titlePushEase`, `titleRiseLitBy` |
+| Title: leaving | `titleFlyGrowth`, `titleFlyEase`, `titleOutGrowth`, `titleOutEase`, `titlePullLimit`, `titleSpeckSize`, `titleCurrentSize`, `titleBeyondSpeed`, `titleWink`, `titleSpiralRadius`, `titleSpiralMin`, `titleSpiralMax`, `titleBurnGrain`, `titleBurnFine`, `titleBurnEnds`, `titleBurnRim`, `titleBurnRimWidth`, `titleFallFadeAt`, `titleFlyFadeAt`, `titleCurrentContrast`, `titleOrderReach`, `titleCaptureEdge`, `titleReachFade`, `titleBurnMix`, `titleBurnEdge` |
 | Camera and film stock | `cameraCreep`, `cameraSettleEase`, `cameraKickDecay`, `shakeRate`, `vignetteStart`, `vignetteEnd`, `filmKnee` |
 
 - `lightReach` is how far past the farthest corner the fronts run in `lightCrossTime`, so it multiplies the
@@ -563,12 +564,23 @@ them alone is drawn as it was; the intro debugger keeps them in the Fine Tuning 
   `titleDust` with them; `titleCurrentSize` is the width of the currents of `titleStream`;
   `titleBeyondSpeed` is the speed of dust beyond `gravityReach`; a speck takes `titleWink` of the fall to
   go out, in the order `titleOrder` sets.
+- The finer shape of that fall: the currents of `titleStream` differ in speed by `titleCurrentContrast`;
+  `titleOrder` puts out the dust nearest the hole first and the dust `titleOrderReach` of the screen's
+  height away last; dust fades out over `titleCaptureEdge` of the horizon's radius outside `horizonScale`;
+  and the speed of dust beyond `gravityReach` gives way to `titleBeyondSpeed` over `titleReachFade` reaches.
+- When a title dims and is lit: one falling in starts to dim `titleFallFadeAt` of the way through
+  `dissolveDuration`, one flying past at `titleFlyFadeAt`, and one gathering from dust or coming out of
+  the hole is fully lit `titleRiseLitBy` of the way through `titleInDuration`.
+- The grain of `titleDust`: clumps `titleDustSize` across, which the grain follows by `titleDustClumps`
+  and each speck's own chance by the rest; grain below `titleDustLow` leaves a letter empty and grain
+  above `titleDustHigh` leaves it solid, so the two set how much of a letter the dust eats.
 - At `titleSpiral` 1 the dust `titleSpiralRadius` of the screen's height from the hole turns as
   `titleSwirl` sets, nearer dust up to `titleSpiralMax` times that and farther dust down to
   `titleSpiralMin`.
-- The five keys that begin titleBurn shape the Burns away exit alone: the two grains of the fire's ragged
-  edge (`titleBurnGrain`, `titleBurnFine`), how much it eats in from the ends (`titleBurnEnds`), and its
-  glowing rim, `titleBurnRim` times `colorEmber` and `titleBurnRimWidth` wide.
+- The seven keys that begin titleBurn shape the Burns away exit alone: the two grains of the fire's ragged
+  edge (`titleBurnGrain`, `titleBurnFine`) and the share of the larger in it (`titleBurnMix`), how soft that
+  edge is (`titleBurnEdge`), how much it eats in from the ends (`titleBurnEnds`), and its glowing rim,
+  `titleBurnRim` times `colorEmber` and `titleBurnRimWidth` wide.
 - `cameraZoom` creeps `cameraCreep` of its way before `collapseAt`; `cameraKick` drops over
   `cameraKickDecay`; `shakeAmount` trembles at `shakeRate` times its own rate. `vignette` darkens from
   `vignetteStart` to `vignetteEnd`, in half sizes of the frame from its middle.
@@ -695,7 +707,6 @@ The cost of a knob, in the last column:
 | The colour of dust the front has just struck: the light front's, fading to the dust's own as the square of how fresh its glow is | webgl_shaders.ts | frame: a curve, not a number |
 | The pattern of the camera's shake: two sines a side, the second 0.6 as strong and a little over half as fast, at 40 to 83 radians a second | scene.ts | frame: a pattern, not a number; `shakeRate` speeds all of it |
 | The fades that are a smooth step between their two moments: the stars' fade-in, the lens, the ring, the film look lifting, the field turning to the screen's centre | intro_timeline.ts | frame: a shape with no number in it; each one's length is a knob, and the curves that are a power have theirs |
-| When a title dims within its leaving: from 0.6 of the fall, from 0.55 of the flight past; and that one gathering from dust is fully lit 0.4 of the way in | intro_timeline.ts | frame: moments inside a fade whose length is a knob; three more keys for the title |
 | How `lensFringe` grows: evenly from the middle of the frame to its corners | webgl_shaders.ts | frame: a shape, not a number |
 | The opening for reduced motion: 2.6 s, its fades fixed | intro_timeline.ts | machine |
 
@@ -704,10 +715,7 @@ The cost of a knob, in the last column:
 | Fixed | File in src/lib | Cost |
 |---|---|---|
 | The hole the title's fall is measured against: at `gravityStrength` 2.5 and `orbitalStrength` 40 the dust travels `titleDrift`, the whole title drawn in by 2.5 times that, and turns 0.35 of a radian at `titleSwirl` 1 | scene.ts, webgl_shaders.ts | has one: `titleDrift`, `titleSwirl` |
-| The falling dust's finer shape: a current's contrast of 1.8, the order of vanishing measured over 0.6 of the screen's height, the horizon's edge a quarter of its radius wide, gravity's reach fading over as far again | webgl_shaders.ts | frame |
-| The grain of the letters at `titleDust`: noise 2.4 px across mixed 0.55 to 0.45 with the specks, cut between 0.15 and 0.8 | webgl_shaders.ts | frame |
 | The streak behind the falling letters: three fainter copies, each 13% behind the last; `titleTrail` scales them | webgl_shaders.ts | pixel |
-| The fire's edge: its two grains mixed 0.6 to 0.4, an edge 0.06 of the fuel wide | webgl_shaders.ts | frame |
 | The halo brought up 1.5 times, since a blur spreads the letters' light thin | webgl_shaders.ts | has one: `titleHalo` |
 | The room round the words for their glow, and a bitmap of 4096 px at most | title_sprite.ts | machine |
 
