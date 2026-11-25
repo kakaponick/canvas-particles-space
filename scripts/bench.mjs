@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// The checks of a change, made the way CLAUDE.md's Checking asks: frame time, and the bytes of the films.
-// Needs Node 22+ and Chrome, Chromium or Edge.
+// Frame time, measured the way CLAUDE.md's Measuring asks, and the bytes of the films for a change that wants
+// them compared. Needs Node 22+ and Chrome, Chromium or Edge.
 //
 //   node scripts/bench.mjs page [<dist> ...] [--against <commit>] [--runs 2] [--debug]
 //   node scripts/bench.mjs step [--against <commit>] [--runs 2] [--spin 0.99] [--inertia 0.9] [--3d]

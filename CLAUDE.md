@@ -10,22 +10,18 @@ A WebGL particle flight through space, ending in a black hole. React only drives
 
 ## Checking a change
 
-A change owes the checks of its kind, each run once, on the finished change. Each ends in a verdict, and the verdict goes into the commit message as printed.
+A change owes the checks of its kind, each run once, on the finished change. What each one answers goes into the commit message as printed.
 
 | The change | Owes |
 |---|---|
 | Any | `pnpm build` and `pnpm lint`, both clean |
 | Adds, renames or removes a setting, an intro parameter, a layer or a preset | the audit (Driving the scene), printing no problem |
-| Touches what the scene or a film draws | the films: `node scripts/bench.mjs films --against <commit>`, the commit before the change |
 | Adds work to the per-frame path: per particle, per pixel, a loop, an allocation | Measuring. A knob read once a frame and a uniform in place of a constant add none |
 
-- **The verdict closes the check.** `bench.mjs` ends in a line that begins `VERDICT`. On `within noise` or `same bytes` the check is done. The script has already repeated what was in doubt, the runs whose ranges were apart and the films whose hashes differed, so the same call again brings no new fact.
-- **`apart` and `the change moved` are findings.** Act on the cause, then run that check once more. A slower frame goes to Measuring. A moved film that uses what the change changes is the change's own business (Render performance). A moved film that does not use it has its cause in the diff, and the usual one is a shader's number that became a uniform: the compiler had folded the number, beside `exp` into the constant of `2^(x * log2 e)` and `x / c + d` into one multiply-add by `1 / c`, so the uniform holds the folded value and the shader takes `exp2(x * rate)` (`expRate`, `decayRate` in `particle_renderer.ts`).
-- **`not deterministic on <commit>` is the film's own fault**: it drew two pictures before the change. Name the film in the report and go on; finding why is a task of its own.
-- **The preview is the measure of a film.** `films` hashes the sheet a preview draws. Frames at full size and raw pixels are tools for finding a cause the preview has shown.
-- **An effect no film in `films/` uses is checked on a film that does**: a few lines of JSON in a temporary folder, named on the command line (`films <film> ... --against <commit>`), with `--at` for seconds past the twelfth.
-- **After a rebase on a master that moved**: build, lint and the audit again, then fast-forward at once. The films and the frame time were measured against the change's own parent and still hold. A conflict in the per-frame path or in a shader is new code, and owes the films once more.
-- **Checks take turns across the machine.** `bench.mjs` and the film server's previews and renders wait for one another (`scripts/turn.mjs`), since a build measured beside another agent's Chrome measures that agent. `waiting for ...` is that turn. A new script that drives Chrome takes it too.
+- **The verdict closes the measurement.** `bench.mjs` ends in a line that begins `VERDICT`. On `within noise` it is done: the script has already repeated the runs whose ranges were apart, so the same call again brings no new fact. `apart` with the change slower is a finding, and Measuring says what to do with it.
+- **The films' bytes are a tool, not a check.** A change is merged without comparing films. `node scripts/bench.mjs films --against <commit>` tells whether the previews of `films/` moved between two builds: it is for the user's asking, and for finding which change moved a picture that looks wrong.
+- **After a rebase on a master that moved**: build, lint and the audit again, then fast-forward at once. The frame time was measured against the change's own parent and still holds.
+- **Checks take turns across the machine.** The commands of `bench.mjs` and the film server's previews and renders wait for one another (`scripts/turn.mjs`), since a build measured beside another agent's Chrome measures that agent. `waiting for ...` is that turn. A new script that drives Chrome takes it too.
 
 ## Devices
 
@@ -56,9 +52,9 @@ The bottleneck is the **main thread**, not the GPU, and most of it is the `stepP
 
 Two words used here and in `docs/`:
 - **Gated**: the code runs only while its uniform or flag is non-zero and costs nothing otherwise; in a shader, `if (u_<effect> > 0.0)` with the uniform 0 while the effect is off.
-- **Deterministic**: one seed and one film draw the same bytes every time, and a film stepped by the crew draws the bytes the plain loop draws; checked by `bench.mjs films` (Checking a change).
+- **Deterministic**: one seed and one film draw the same bytes every time, and a film stepped by the crew draws the bytes the plain loop draws.
 
-What a change does to existing films is the change's own business: films that do not use it usually keep their bytes, which is a cheap check that nothing else moved, and when the look of existing films is meant to change, say so and show a frame before and after.
+What a change does to existing films is the change's own business: when their look is meant to change, say so and show a frame before and after.
 
 ### Frame pipeline
 

@@ -25,7 +25,6 @@ A film is the scene as a 1-180 s mp4, described by one JSON object: frame and le
 A film change is done when each check that applies passes:
 
 - Two previews with one seed are the same bytes, and a rendered mp4 plays (`<video>` in Chrome, or mediabunny's `Input` in Node for its tracks).
-- Films that do not use the change keep their bytes (`node scripts/bench.mjs films --against <commit>` says `same bytes`; `CLAUDE.md`, Checking a change, reads its other verdicts), or the difference is meant and shown with a frame before and after (`SPACE_DIST` points `space.mjs` at the build before the change).
-- A change to the step: that command says `same bytes` twice, as it is, where the plain loop steps the films, and with `--crew`, which sends the isolation headers so the crew steps them.
+- A change to the step: `node scripts/bench.mjs films --against <commit>` says `same bytes` twice, as it is, where the plain loop steps the films, and with `--crew`, which sends the isolation headers so the crew steps them.
 - A change to reels: a reel of one clip previews to the film's own bytes.
 - A change to what fractal films share (`film_render.ts`, `readPace`, `readCaptions`, `readShots`, the captions, the caption text, `playScript`): particle and fractal films keep their bytes or change as meant, and a fractal film still renders.
