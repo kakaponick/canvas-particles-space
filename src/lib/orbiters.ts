@@ -3,6 +3,8 @@
 // around Sagittarius A*), tight ones that swing close to the speed of light, and none that last inside
 // three Schwarzschild radii. Gravity is the Paczynski-Wiita potential, -GM / (r - rs): Newton's with the
 // Schwarzschild radius cut out, which puts the last stable orbit and the plunge where relativity does.
+// A spinning hole adds the drag of space round with it (Lense-Thirring), from the share of its spin along
+// the line to the camera, which is what turns orbits that lie in the screen.
 //
 // The state is kept in Schwarzschild radii and units of the speed of light, relative to the black hole, so
 // the orbits scale with the hole and move with it. They lie in the plane of the screen.
@@ -170,6 +172,7 @@ export function stepOrbiters (
   dt: number,
   shadowRadius: number,
   captureRadius: number,
+  spinToward: number,
   shortSide: number,
   opacity: number,
   trail: number,
@@ -205,6 +208,10 @@ export function stepOrbiters (
   const steps = Math.min(Math.max(Math.ceil(Math.abs(elapsed) / MAX_STEP), 1), MAX_STEPS)
   const step = elapsed / steps
   const halfStep = step * 0.5
+  // The share of the hole's spin along the line to the camera is what turns orbits in the plane of the
+  // screen: J = spin M^2 = spin / 4 in Schwarzschild radii, and 2 v J / r^3 across the motion. The screen's
+  // y runs down, so a hole turning anticlockwise to the eye turns the negative way here
+  const drag = -0.5 * spinToward
 
   for (let i = 0; i < count; i++) {
     let px = x[i]
@@ -217,16 +224,36 @@ export function stepOrbiters (
     // and runs backwards as well as forwards, which is how a negative speed reverses the orbits
     let clearance = r - 1 > MIN_CLEARANCE ? r - 1 : MIN_CLEARANCE
     let pull = -0.5 / (clearance * clearance * r)
-    for (let s = 0; s < steps; s++) {
-      pvx += pull * px * halfStep
-      pvy += pull * py * halfStep
-      px += pvx * step
-      py += pvy * step
-      r = Math.sqrt(px * px + py * py)
-      clearance = r - 1 > MIN_CLEARANCE ? r - 1 : MIN_CLEARANCE
-      pull = -0.5 / (clearance * clearance * r)
-      pvx += pull * px * halfStep
-      pvy += pull * py * halfStep
+    if (drag === 0) {
+      for (let s = 0; s < steps; s++) {
+        pvx += pull * px * halfStep
+        pvy += pull * py * halfStep
+        px += pvx * step
+        py += pvy * step
+        r = Math.sqrt(px * px + py * py)
+        clearance = r - 1 > MIN_CLEARANCE ? r - 1 : MIN_CLEARANCE
+        pull = -0.5 / (clearance * clearance * r)
+        pvx += pull * px * halfStep
+        pvy += pull * py * halfStep
+      }
+    } else {
+      // A spinning hole drags space round with it: a star moving with its turn is pushed out and one
+      // against it pulled in, across its motion, by 2 v J / r^3 (Lense-Thirring, in the plane of the orbit)
+      let twist = drag / (r * r * r)
+      for (let s = 0; s < steps; s++) {
+        let kick = pvx
+        pvx += (pull * px + twist * pvy) * halfStep
+        pvy += (pull * py - twist * kick) * halfStep
+        px += pvx * step
+        py += pvy * step
+        r = Math.sqrt(px * px + py * py)
+        clearance = r - 1 > MIN_CLEARANCE ? r - 1 : MIN_CLEARANCE
+        pull = -0.5 / (clearance * clearance * r)
+        twist = drag / (r * r * r)
+        kick = pvx
+        pvx += (pull * px + twist * pvy) * halfStep
+        pvy += (pull * py - twist * kick) * halfStep
+      }
     }
 
     if (r < capture || r > ESCAPE_RADIUS || r !== r) {

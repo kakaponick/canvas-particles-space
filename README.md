@@ -88,8 +88,9 @@ The Settings panel is built from `src/lib/simulation_specs.ts`, which holds ever
 and meaning; `window.space.describe()` reads the same text. The groups:
 
 - **Presets**: **Default** is tuned for the look; **Schwarzschild** is a real non-rotating black hole as far as
-  the scene shows one: a ray-traced lens and capture at the edge of the shadow. Save your own setups under a name; they stay in this browser. Every length around
-  the hole is in black hole radii, so Black Hole Size alone scales it
+  the scene shows one: a ray-traced lens and capture at the edge of the shadow; **Kerr** is the same hole spinning
+  at 0.99, seen side-on. Save your own setups under a name; they stay in this browser. Every length around the
+  hole is in black hole radii, so Black Hole Size alone scales it
 - **Playback**: Scene Motion (freeze the scene), **FPS Limit** (AUTO follows the display, or a cap of 30-240;
   motion speed does not depend on the frame rate), FPS Counter, and **Particle Budget**, which lowers the particle
   count while the processor cannot keep up and raises it again once it can
@@ -98,7 +99,9 @@ and meaning; `window.space.describe()` reads the same text. The groups:
 - **Particle Lighting**: brightness, how brightness follows speed and depth, the opacity range, the pulse
 - **Colors**: the particle palette, each colour with its share of the mix, and the background colour
 - **Black Hole**: **Size** (shadow radius as a share of the screen's short side), the Event Horizon where
-  particles are captured, the depth it sits at, **Gravity**, **Orbital Force**, **Gravity Reach** (in black hole
+  particles are captured, the depth it sits at, **Spin** with the tilt and direction of its axis (a spinning
+  hole's shadow flattens on the side turning toward the camera and shifts the other way, the photon ring follows
+  it, the orbiting stars are dragged round, and under Ray Traced so is the light), **Gravity**, **Orbital Force**, **Gravity Reach** (in black hole
   radii), Follow Cursor and how stiffly it follows, its resting position, and **Zoom**: magnifies the view around
   the black hole, which stays where it is on the screen. The scene is drawn anew at the zoom, not enlarged:
   particles, orbits, the ring and the grids stay sharp, and hairlines stay hairlines. Below 1 the camera pulls
@@ -112,7 +115,7 @@ and meaning; `window.space.describe()` reads the same text. The groups:
   ones do
 - **Photon Ring**: brightness, glow, thickness, the Doppler contrast between its approaching and receding sides,
   and the light that infalling particles leave on it
-- **Gravitational Lensing**: **Ray Traced** follows every pixel's ray round a black hole that does not spin, so
+- **Gravitational Lensing**: **Ray Traced** follows every pixel's ray round the black hole, spinning (Kerr) or not, so
   the Einstein ring, the mirrored image inside it and the thin rings of light that circled the hole come from
   the physics, and **Einstein Radius** (in black hole radii, 0 = no lens) places the camera. Off, the stylized
   lens adds how far it reaches, its falloff, a twist of the sky and the limits near the hole

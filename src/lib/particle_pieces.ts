@@ -16,7 +16,7 @@ const everyNumber = <Keys extends readonly StepNumber[]>(
 // The step's numbers in the order they cross to the workers
 const STEP_NUMBERS = everyNumber([
   'frameScale', 'time', 'speed', 'width', 'height', 'focal', 'vanishX', 'vanishY', 'holeX', 'holeY', 'holeRadius',
-  'captureRadius', 'companionX', 'companionY', 'companionRadius', 'companionCapture', 'gravityReach', 'holeDepth',
+  'captureRadius', 'captureX', 'captureY', 'companionX', 'companionY', 'companionRadius', 'companionCapture', 'gravityReach', 'holeDepth',
   'gravityDepth', 'lineWidth', 'gravityStrength', 'orbitalStrength', 'farZ', 'depthFade', 'pulseSpeedMultiplier',
   'pulseIntensity', 'baseBrightness', 'minOpacity', 'maxOpacity', 'revealRadius', 'revealX', 'revealY', 'revealFeather',
   'opacityScale'

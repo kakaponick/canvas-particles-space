@@ -90,6 +90,28 @@ it is recycled, and what it carried lights the photon ring (section 6).
 - Growing it over a film swallows the orbiting stars one by one, each with a flare on the ring.
 - A wide horizon does not empty the field: captured particles are reborn outside it.
 
+### Spin: a hole that turns (Kerr)
+
+| What | Keys |
+|---|---|
+| How fast it turns, a/M from 0 to 0.998 | `blackHoleSpin` |
+| Angle of its axis to the camera: 0° down the axis, 90° side-on | `spinTilt` |
+| Which way the axis points on screen, from up toward the left | `spinAxis` |
+
+- Spin reshapes the shadow in either lens: the side turning toward the camera flattens and the shadow moves
+  the other way, and the photon ring follows the outline. Particles are captured on the circle that fits it.
+- Under `lensingTraced` the light itself is followed round a Kerr hole: the sky is dragged round and the
+  rings inside the Einstein ring lean to one side. The stylized lens stays round.
+- The orbiting stars feel the pull round (Lense-Thirring) from the share of spin along the line to the
+  camera, so `spinTilt` near 0° or 180° swings them most and 90° not at all.
+- `blackHoleSize` stays the mass: a spinning hole's shadow is a little smaller than a still one's.
+- The look needs `spinTilt` well away from 0°; at 0° the shadow stays round and only the sky winds.
+- Two holes that merge leave a spinning one about the axis of their orbit, which faces the camera, whatever
+  `blackHoleSpin` says: the remnant's spin (0.69 for two equal holes) takes over as the shadows join.
+- The `Kerr` preset is Schwarzschild's setup spinning at 0.99, seen at 80°, with the ring's bright side
+  (`ringSide`) on the flat side, which turns toward the camera. `ringSide` does not follow the axis by
+  itself: the approaching side is at 180° plus `spinAxis` when `spinTilt` is below 90°.
+
 ## 5. The lens: how light bends
 
 The lens bends the finished picture (particles, stars, grids), not the particles' paths.
@@ -105,7 +127,7 @@ The lens bends the finished picture (particles, stars, grids), not the particles
 | Swirl of the sky | `lensingRotation`, `lensingTwistLimit` |
 | Dark zone around the shadow | `lensingAbsorption` |
 
-- `lensingTraced` true follows every pixel's ray round a hole that does not spin: the Einstein ring, the
+- `lensingTraced` true follows every pixel's ray round the hole, a Kerr one when it spins: the Einstein ring, the
   mirrored image inside it and the thin rings of light that circled the hole come from the physics, with
   nothing to tune but `lensingRadius` (where the camera stands) and `lensingAbsorption`. The other lens keys
   shape only the stylized lens (`lensingTraced` false, the default) and do nothing while it is on.
@@ -293,7 +315,7 @@ fired is its parameters in the table of section 13.
 
 ## 15. Presets, fonts, sizes, caption places
 
-- Simulation presets: `Default`, `Schwarzschild`.
+- Simulation presets: `Default`, `Schwarzschild`, `Kerr`.
 - Looks of the opening: `Default`, `Slow Burn`, `Flashbang`, `Anamorphic`, `Event Horizon`, `Nebula`,
   `Silent Dark`, `Supernova`, `Whirlpool`, `Swallowed`, `Requiem`. A look sets intro parameters, sometimes
   the title's face and some scene settings; parameters given beside it are laid over it.

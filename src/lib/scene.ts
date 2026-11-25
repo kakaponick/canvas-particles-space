@@ -26,6 +26,7 @@ import { createGridSettings, placeGrid } from './space_grid'
 import { LIGHT_SPEED, SHADOW_RADII, clearOrbiters, createOrbiters, stepOrbiters } from './orbiters'
 import { createPair, stepPair } from './companion'
 import { CLOSEST_CAMERA, cameraFor, shadowAngle } from './lens_trace'
+import { createShadowShape, updateShadowShape } from './kerr_shadow'
 import { createRandom, seedRandom } from './random'
 import type { ParticleCrew } from './particle_crew'
 
@@ -45,6 +46,11 @@ const GRAVITY_WAVE_FADES = 6
 const MERGER_RING = 3
 // A fired effect is over once everything it shows is fainter than this
 const CUE_FADED = 0.002
+const DEGREE = Math.PI / 180
+// The most a black hole spins, a/M: the top of the Spin slider
+const SPIN_MAX = 0.998
+// 1 / the camera's distance in Schwarzschild radii with no lens to place it: far enough to be at infinity
+const FAR_CAMERA = 1e-3
 // One bit for each layer, for the set of layers a fired effect plays
 const LAYER_BIT = Object.fromEntries(INTRO_LAYERS.map((layer, index) => [layer, 1 << index])) as Record<IntroLayer, number>
 const STAR = LAYER_BIT.star
@@ -180,6 +186,7 @@ export function createScene (
   const field = crew ? crew.field : createParticleField()
   const orbiters = createOrbiters(random)
   const pair = createPair()
+  const shadowShape = createShadowShape()
   const instances = crew ? crew.instances : createInstanceData()
   const spawn: SpawnSettings = {
     random,
@@ -203,6 +210,8 @@ export function createScene (
     holeY: NaN,
     holeRadius: 0,
     captureRadius: 0,
+    captureX: 0,
+    captureY: 0,
     companionX: 0,
     companionY: 0,
     companionRadius: 0,
@@ -275,6 +284,10 @@ export function createScene (
       traceU: 0,
       traceScale: 1,
       traceShare: 1,
+      spin: 0,
+      spinTilt: 0,
+      spinAxis: 0,
+      shadowShape,
       ring: 0,
       ringWidth: 0,
       ringGlow: 0,
@@ -661,6 +674,31 @@ export function createScene (
     const holeY = hole.y + pair.mainY * pairUnit
     const companionRadius = pair.companion * pairUnit
 
+    // Spin: the hole's own and, as two black holes merge, that of the hole they leave, about the axis of
+    // their orbit, which faces the camera since the pair turns in the plane of the screen. The two add as
+    // vectors (right, up, toward the camera) in the share the merger has come
+    const ownTilt = state.spinTilt * DEGREE
+    const ownAxis = state.spinAxis * DEGREE
+    const keep = 1 - pair.merged
+    const spinRight = -state.blackHoleSpin * Math.sin(ownTilt) * Math.sin(ownAxis) * keep
+    const spinUp = state.blackHoleSpin * Math.sin(ownTilt) * Math.cos(ownAxis) * keep
+    // A pair turning the way the screen's angles run, clockwise to the eye, spins away from the camera
+    const spinToward = state.blackHoleSpin * Math.cos(ownTilt) * keep + pair.spin * pair.merged * (pair.omega > 0 ? -1 : 1)
+    const across = Math.sqrt(spinRight * spinRight + spinUp * spinUp)
+    const spin = horizon > 0 ? Math.min(Math.sqrt(across * across + spinToward * spinToward), SPIN_MAX) : 0
+    const spinTilt = Math.atan2(across, spinToward)
+    const spinAxis = across > 0 ? Math.atan2(-spinRight, spinUp) : ownAxis
+    // Where the camera stands: the Ray Traced lens and the shadow's outline see the hole from there. A hole
+    // still growing, or grown by a merger, is a lighter or heavier one seen from the same place
+    const mass = horizon / (shadowShare * shortSide)
+    const cameraU = Math.min((state.lensingRadius > 0 ? cameraFor(state.lensingRadius) : FAR_CAMERA) * mass, 1 / CLOSEST_CAMERA)
+    updateShadowShape(shadowShape, spin, spinTilt, cameraU)
+    // Particles are captured on the circle that fits the outline, which spin shifts off the hole's centre
+    const shapeCos = Math.cos(spinAxis)
+    const shapeSin = Math.sin(spinAxis)
+    const captureX = holeX + horizon * (shadowShape.centerRight * shapeCos - shadowShape.centerUp * shapeSin)
+    const captureY = holeY - horizon * (shadowShape.centerRight * shapeSin + shadowShape.centerUp * shapeCos)
+
     const speed = state.baseSpeed * intro.speedBoost
     scene.speed = speed
 
@@ -682,7 +720,9 @@ export function createScene (
     settings.companionRadius = companionRadius
     settings.companionCapture = companionRadius * state.horizonScale
     settings.holeRadius = horizon
-    settings.captureRadius = captureRadius
+    settings.captureRadius = captureRadius * shadowShape.radius
+    settings.captureX = captureX
+    settings.captureY = captureY
     // With the feed off the simulation stops collecting light, and old light does not return later
     const ringFed = state.ringEnabled && state.ringFeedEnabled
     if (ringWasFed && !ringFed) clearRingEnergy(ringEnergy)
@@ -723,7 +763,7 @@ export function createScene (
       // the stretches they fly and draws the traces from them, around the hole as it is this frame
       frame.orbitCount = stepOrbiters(
         orbiters, state.orbitCount, state.orbitSize, state.orbitEccentricity, state.orbitSpeed, dt,
-        shadowRadius, shadowRadius * state.horizonScale, shortSide,
+        shadowRadius, shadowRadius * state.horizonScale, spinToward, shortSide,
         Math.min(holeGrowth, 1), state.orbitTrail, spawn.palette, settings.ringEnergy
       )
       frame.orbitRowNew = orbiters.rowNew
@@ -814,17 +854,21 @@ export function createScene (
     composite.holeY = holeY
     composite.horizon = horizon
     composite.einstein = state.lensingEnabled && !hidden.lens ? horizon * state.lensingRadius * intro.lensScale : 0
-    // Ray Traced: the Einstein Radius places the camera. A hole that is still growing, or has taken in a
-    // companion, is a lighter or heavier hole seen from the same place, so the camera stands farther or
-    // nearer in its radii; the scale keeps the traced shadow the size the shadow is drawn
+    // Ray Traced: the Einstein Radius places the camera (cameraU above); the scale keeps the shadow a hole
+    // of this mass would cast without spin the size the shadow is drawn
     if (state.lensingTraced && composite.einstein > 0) {
-      const u = Math.min(cameraFor(state.lensingRadius) * horizon / (shadowShare * shortSide), 1 / CLOSEST_CAMERA)
-      composite.traceU = u
-      composite.traceScale = horizon / Math.tan(0.5 * shadowAngle(u))
+      composite.traceU = cameraU
+      composite.traceScale = horizon / Math.tan(0.5 * shadowAngle(cameraU))
       composite.traceShare = intro.lensScale
     } else {
       composite.traceU = 0
     }
+    // Spin bends the outline of the shadow and the photon ring in either lens, and the light itself under
+    // Ray Traced
+    composite.spin = spin
+    composite.spinTilt = spinTilt
+    composite.spinAxis = spinAxis
+    composite.shadowShape = shadowShape
     composite.falloff = state.lensingFalloff
     composite.falloffPivot = state.lensingPivot / 100 * shortSide
     composite.lensCore = state.lensingCore

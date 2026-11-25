@@ -3,6 +3,8 @@
 // and are still written in GLSL ES 1.00, which WebGL2 compiles as it is.
 
 import { GRID_COLOR } from './space_grid'
+import { SHADOW_SAMPLES } from './kerr_shadow'
+import { KERR_GLSL } from './kerr_glsl'
 
 // Attribute locations shared by every program; location 0 is always the full-screen quad
 export const ATTRIBUTE_LOCATIONS = {
@@ -227,6 +229,8 @@ export const compositeFragmentShaderSource = `
   uniform float u_twistLimit;    // cap on the pull the twist follows, so a wide lens does not wind up the scene
   uniform float u_absorption;    // light the lens's pull removes around the shadow
   uniform vec4 u_trace;          // Ray Traced lens: 1 / the camera's distance in Schwarzschild radii (0 = the stylized lens), pixels of 2 tan(angle / 2) from the hole, share of the bend shown, unused
+  uniform vec4 u_spin;           // the hole's spin a/M (0 = none), cosine and sine of its axis's angle to the line to the camera, turn of the axis on screen from up toward the left
+  uniform sampler2D u_shadowShape; // a spinning hole's shadow: its radius all the way round, in round-shadow radii, from the axis's right toward its up
   uniform float u_ring;          // photon ring brightness
   uniform float u_ringWidth;     // thickness of the line beyond its 1.5 px floor, in black hole radii
   uniform float u_ringGlow;      // strength of the soft light around the line; 0 leaves the bare line
@@ -358,6 +362,7 @@ export const compositeFragmentShaderSource = `
   // Farthest a traced ray reads the scene, in units of the projection: near the direction straight behind
   // the camera the stereographic plane runs off to infinity
   const float TRACE_FAR = 64.0;
+  const float SHADOW_SAMPLES = ${SHADOW_SAMPLES}.0;
 
   // Hash without sine (Dave Hoskins), stable across GPUs
   float hash12 (vec2 p) {
@@ -509,6 +514,9 @@ export const compositeFragmentShaderSource = `
       0.6521452 * (traceClimb(b, u * 0.3300095) + traceClimb(b, u * 0.6699905)));
   }
 
+  // The ray past a spinning hole (kerr_glsl.ts): kerrRay(psi, chi, hole, out dir)
+  ${KERR_GLSL}
+
   // How strong a gravitational wave is at a distance from where it left: its strain falls as 1 / r, since
   // the same energy crosses an ever larger sphere. Closer than the edge there is no wave yet, only the
   // field of the source itself, which fades to nothing at the centre
@@ -533,6 +541,16 @@ export const compositeFragmentShaderSource = `
     if (u_holeOval != vec2(0.0)) {
       dist /= 1.0 + (u_holeOval.x * (offset.x * offset.x - offset.y * offset.y) + u_holeOval.y * 2.0 * offset.x * offset.y) / max(dist * dist, 0.0001);
     }
+    // A spinning hole's shadow is not round: its edge in this direction, from the outline the main thread
+    // worked out (kerr_shadow.ts), turned with the axis. The shadow, the photon ring and the traced lens's
+    // capture all follow it
+    float shadowEdge = u_horizon;
+    if (u_spin.x > 0.0) {
+      float around = (atan(-offset.y, offset.x) - u_spin.w) / (2.0 * PI);
+      shadowEdge *= texture2D(u_shadowShape, vec2(around + 0.5 / SHADOW_SAMPLES, 0.5)).r;
+    }
+    // 1 where a traced ray fell into a spinning hole outside the outline drawn, which is only ever a hair
+    float fallen = 0.0;
     vec2 samplePx = frag;
 
     // Gravitational wave: the horizon's wobble carried outward at the speed of light. Each point shows the
@@ -597,10 +615,35 @@ export const compositeFragmentShaderSource = `
       // and the thinner rings of light that went round the hole once or more all come out of the sweep
       float ratio = u_einstein / max(dist, 0.0001);
       bend = ratio * ratio;
-      if (dist > u_horizon) {
+      if (dist > shadowEdge) {
         float theta = 2.0 * atan(dist / u_trace.y);
-        float source = clamp(tan(0.5 * (PI - traceSweep(theta, u_trace.x))), -TRACE_FAR, TRACE_FAR);
-        samplePx += (samplePx - u_hole) * (u_trace.y * source / dist - 1.0) * u_trace.z;
+        if (u_spin.x > 0.0) {
+          // A spinning hole: the ray no longer keeps to one plane, so it is followed in both of the
+          // camera's angles, chi measured from the axis's right toward its up, and the scene is read from
+          // the direction it escapes to (kerrRayFrom). The angles go in and come out as sines and cosines
+          // worked out from lengths, never through the GPU's own atan, sin and cos, which cost the ray a
+          // hundred times its precision
+          float slope = dist / u_trace.y;
+          vec2 psi = vec2(2.0 * slope, 1.0 - slope * slope) / (1.0 + slope * slope);
+          vec2 fromHole = samplePx - u_hole;
+          vec2 across = vec2(fromHole.x, -fromHole.y) / max(length(fromHole), 0.0001);
+          vec2 axis = vec2(cos(u_spin.w), sin(u_spin.w));
+          vec2 chi = vec2(across.y * axis.x - across.x * axis.y, across.x * axis.x + across.y * axis.y);
+          vec3 escape;
+          vec2 source = vec2(0.0);
+          if (kerrRayFrom(psi, chi, vec4(u_spin.xyz, u_trace.x), escape)) {
+            // tan(angle / 2) = sideways / (1 + forward), and the sideways part's own direction, turned back
+            // to the screen, whose y runs down
+            float reach = u_trace.y * min(1.0 / max(1.0 + escape.z, 0.000001), TRACE_FAR / max(length(escape.xy), 0.000001));
+            source = reach * vec2(escape.x * axis.x - escape.y * axis.y, -(escape.x * axis.y + escape.y * axis.x));
+          } else {
+            fallen = 1.0;
+          }
+          samplePx += (u_hole + source - samplePx) * u_trace.z;
+        } else {
+          float source = clamp(tan(0.5 * (PI - traceSweep(theta, u_trace.x))), -TRACE_FAR, TRACE_FAR);
+          samplePx += (samplePx - u_hole) * (u_trace.y * source / dist - 1.0) * u_trace.z;
+        }
       }
     } else if (u_einstein > 0.0) {
       float ratio = u_einstein / max(dist, 0.0001);
@@ -810,7 +853,8 @@ export const compositeFragmentShaderSource = `
     }
 
     if (u_horizon > 0.0) {
-      float besideHole = smoothstep(u_horizon - px, u_horizon + px, dist);
+      float besideHole = smoothstep(shadowEdge - px, shadowEdge + px, dist);
+      if (u_spin.x > 0.0) besideHole *= 1.0 - fallen * u_trace.z;
       color *= besideHole;
 
       // The second black hole's ring is a plain line: no matter is tracked falling into it
@@ -826,11 +870,12 @@ export const compositeFragmentShaderSource = `
         color += RING_COLOR * u_ring * u_ringBase * line * besideHole;
       }
 
-      // Photon ring: light that circled the hole before escaping, a hair-thin line hugging the shadow
-      if (u_ring > 0.0 && dist < u_horizon * 1.6) {
+      // Photon ring: light that circled the hole before escaping, a hair-thin line hugging the shadow, along
+      // its outline when the hole spins
+      if (u_ring > 0.0 && dist < shadowEdge * 1.6) {
         // Added to a floor rather than clamped to it, so every step of Thickness shows
         float ringLine = 1.5 * px + u_ringWidth * u_horizon;
-        float fromLine = dist - u_horizon - 0.7 * ringLine;
+        float fromLine = dist - shadowEdge - 0.7 * ringLine;
         float inner = fromLine / (0.45 * ringLine);
         float line = exp(-inner * inner);
         // The glow is the light a camera spreads around a line this bright: tight around the line with a

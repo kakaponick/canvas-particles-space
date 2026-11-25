@@ -4,6 +4,7 @@
 // numbers read from the film as it plays, Greek and mathematics, words that arrive one at a time.
 import { TITLE_FONTS } from './title_sprite'
 import type { CompositeSettings } from './particle_renderer'
+import { createShadowShape, shadowScaleAt } from './kerr_shadow'
 import { captionAlpha, captionValue, type CaptionNumbers, type FilmCaption, type FilmPlan } from './film'
 
 // What captions need of a film: its frame, length, captions and tracks, and where its numbers come from.
@@ -12,7 +13,7 @@ export type CaptionPlan = Pick<FilmPlan, 'width' | 'height' | 'duration' | 'capt
 
 // What captions need of the frame: where the black hole and the camera stand, for a caption that points
 export type CaptionFrame = Pick<CompositeSettings, 'letterbox' | 'cameraZoom' | 'holeX' | 'holeY' | 'horizon' | 'einstein' |
-  'companionRadius' | 'companionX' | 'companionY' | 'shakeX' | 'shakeY' | 'zoomX' | 'zoomY'>
+  'companionRadius' | 'companionX' | 'companionY' | 'shakeX' | 'shakeY' | 'zoomX' | 'zoomY' | 'shadowShape' | 'spinAxis'>
 import { captionLetters, writeNumber, type CaptionRun } from './caption_text'
 
 // The frame of a picture with no black hole: a caption that points aims at a round spot of `radius` pixels
@@ -20,7 +21,8 @@ import { captionLetters, writeNumber, type CaptionRun } from './caption_text'
 export function spotFrame (x: number, y: number, radius: number): CaptionFrame {
   return {
     letterbox: 0, cameraZoom: 1, holeX: x, holeY: y, horizon: radius,
-    einstein: 0, companionRadius: 0, companionX: 0, companionY: 0, shakeX: 0, shakeY: 0, zoomX: 0, zoomY: 0
+    einstein: 0, companionRadius: 0, companionX: 0, companionY: 0, shakeX: 0, shakeY: 0, zoomX: 0, zoomY: 0,
+    shadowShape: createShadowShape(), spinAxis: 0
   }
 }
 
@@ -241,12 +243,14 @@ export function drawCaptions (ctx: CanvasRenderingContext2D, plan: CaptionPlan, 
       const sceneY = second ? composite.companionY : composite.holeY
       const holeX = (composite.zoomX + (sceneX - composite.shakeX - composite.zoomX) * zoom) * pixel
       const holeY = (composite.zoomY + (sceneY - composite.shakeY - composite.zoomY) * zoom) * pixel
+      const angle = caption.angle * Math.PI / 180
+      // A spinning hole's shadow is not round: the label starts on its outline in that direction
+      const shadow = composite.horizon * shadowScaleAt(composite.shadowShape, angle, composite.spinAxis)
       const edge = (second
         ? composite.companionRadius
-        : caption.at === 'einstein' && composite.einstein > 0 ? composite.einstein : composite.horizon) * zoom * pixel
+        : caption.at === 'einstein' && composite.einstein > 0 ? composite.einstein : shadow) * zoom * pixel
       // A label can start anywhere around the hole it points at, in that hole's radii: an orbit, a distance
       const radius = caption.radius === null ? edge : (second ? composite.companionRadius : composite.horizon) * zoom * pixel * caption.radius
-      const angle = caption.angle * Math.PI / 180
       const dirX = Math.cos(angle)
       const dirY = -Math.sin(angle)
       const fromX = holeX + dirX * radius

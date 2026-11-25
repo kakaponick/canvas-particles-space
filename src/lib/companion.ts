@@ -56,12 +56,14 @@ export interface Pair {
   // higher its pitch is, and how many times longer it rings
   ringPitch: number
   ringLength: number
+  // The spin of the hole they leave, a/M, about the axis of their orbit
+  spin: number
 }
 
 export function createPair (): Pair {
   return {
     phase: 0, mergedAt: -1, companion: 0, growth: 1, mainX: 0, mainY: 0, companionX: 0, companionY: 0, omega: 0, wave: 0,
-    merged: 0, symmetry: 0, mergedPhase: 0, mergedTurn: 1, ringPitch: 1, ringLength: 1
+    merged: 0, symmetry: 0, mergedPhase: 0, mergedTurn: 1, ringPitch: 1, ringLength: 1, spin: 0
   }
 }
 
@@ -122,6 +124,7 @@ export function stepPair (pair: Pair, size: number, distance: number, speed: num
 
   const share = symmetry / 4
   const spin = Math.min(share * (SPIN_FIT[0] + share * (SPIN_FIT[1] + share * SPIN_FIT[2])), 0.95)
+  pair.spin = spin
   const tone = TONE_FIT[0] + TONE_FIT[1] * Math.pow(1 - spin, TONE_FIT[2])
   const quality = QUALITY_FIT[0] + QUALITY_FIT[1] * Math.pow(1 - spin, QUALITY_FIT[2])
   pair.ringPitch = tone / TONE_STILL

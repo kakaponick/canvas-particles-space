@@ -19,6 +19,11 @@ export interface ParticleState {
   // Radius of no return, in multiples of the black hole's size: what crosses it is recycled. 1 is the
   // edge of the shadow, where a real black hole captures light
   horizonScale: number
+  // How fast the black hole turns (a/M, 0 to 0.998), the angle between its axis and the line to the camera
+  // and the turn of the axis on the screen from up, both in degrees
+  blackHoleSpin: number
+  spinTilt: number
+  spinAxis: number
   // Reach of the black hole's gravity, in multiples of its size
   gravityReach: number
   ringEnabled: boolean
@@ -135,6 +140,9 @@ export interface ParticleState {
   setOrbitalStrength: (orbital: number) => void
   setBlackHoleSize: (size: number) => void
   setHorizonScale: (scale: number) => void
+  setBlackHoleSpin: (spin: number) => void
+  setSpinTilt: (degrees: number) => void
+  setSpinAxis: (degrees: number) => void
   setGravityReach: (reach: number) => void
   toggleRing: () => void
   toggleRingFeed: () => void
@@ -226,6 +234,9 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   orbitalStrength: 40,
   blackHoleSize: 8,
   horizonScale: 1,
+  blackHoleSpin: 0,
+  spinTilt: 80,
+  spinAxis: 0,
   gravityReach: 5,
   ringEnabled: true,
   ringFeedEnabled: true,
@@ -312,6 +323,9 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   setOrbitalStrength: (orbital) => set({ orbitalStrength: orbital }),
   setBlackHoleSize: (size) => set({ blackHoleSize: size }),
   setHorizonScale: (scale) => set({ horizonScale: scale }),
+  setBlackHoleSpin: (spin) => set({ blackHoleSpin: spin }),
+  setSpinTilt: (degrees) => set({ spinTilt: degrees }),
+  setSpinAxis: (degrees) => set({ spinAxis: degrees }),
   setGravityReach: (reach) => set({ gravityReach: reach }),
   toggleRing: () => set((state) => ({ ringEnabled: !state.ringEnabled })),
   toggleRingFeed: () => set((state) => ({ ringFeedEnabled: !state.ringFeedEnabled })),

@@ -32,6 +32,7 @@ export const SCHWARZSCHILD_PRESET: Readonly<SimulationPreset> = {
     ...pickSimulationSettings(defaultSettings),
     horizonScale: 1,
     orbitalStrength: 0,
+    blackHoleSpin: 0,
     lensingTraced: true,
     lensingRadius: 2.5,
     lensingReach: 1,
@@ -43,8 +44,26 @@ export const SCHWARZSCHILD_PRESET: Readonly<SimulationPreset> = {
   }
 }
 
+// The same faithful hole spinning nearly as fast as a hole can, seen almost side-on: the shadow flattened on
+// the side that turns toward the camera and pushed the other way, the lensed sky dragged round with it and
+// the orbiting stars swung by it. The camera stands a little nearer than Schwarzschild's, where spin shows more
+export const KERR_PRESET: Readonly<SimulationPreset> = {
+  id: 'kerr',
+  name: 'Kerr',
+  description: 'A fast-spinning black hole seen side-on: ray-traced lens',
+  settings: {
+    ...SCHWARZSCHILD_PRESET.settings,
+    blackHoleSpin: 0.99,
+    spinTilt: 80,
+    spinAxis: 0,
+    lensingRadius: 2.2,
+    // The ring is brightest on the side that turns toward the camera, the flat one: the left, with the axis up
+    ringSide: 3.15
+  }
+}
+
 // Presets that come with the page: they can be applied, never changed or deleted
-export const BUILT_IN_PRESETS: readonly Readonly<SimulationPreset>[] = [DEFAULT_PRESET, SCHWARZSCHILD_PRESET]
+export const BUILT_IN_PRESETS: readonly Readonly<SimulationPreset>[] = [DEFAULT_PRESET, SCHWARZSCHILD_PRESET, KERR_PRESET]
 
 export const isBuiltInPreset = (id: string) => BUILT_IN_PRESETS.some(preset => preset.id === id)
 

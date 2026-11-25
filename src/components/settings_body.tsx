@@ -171,10 +171,15 @@ function SettingsBody () {
       </SettingsSection>
 
       <SettingsSection id="black-hole" title="Black Hole" defaultOpen>
-        {/* The hole itself, then its pull, then where it sits */}
+        {/* The hole itself and its spin, then its pull, then where it sits */}
         <SettingSlider field="blackHoleSize" setter="setBlackHoleSize" />
         <SettingSlider field="horizonScale" setter="setHorizonScale" />
         <SettingSlider field="blackHoleDepth" setter="setBlackHoleDepth" />
+        <div className="mt-3 flex flex-col gap-1">
+          <SettingSlider field="blackHoleSpin" setter="setBlackHoleSpin" />
+          <SettingSlider field="spinTilt" setter="setSpinTilt" />
+          <SettingSlider field="spinAxis" setter="setSpinAxis" />
+        </div>
         <div className="mt-3 flex flex-col gap-1">
           <SettingSlider field="gravityStrength" setter="setGravityStrength" />
           <SettingSlider field="orbitalStrength" setter="setOrbitalStrength" />

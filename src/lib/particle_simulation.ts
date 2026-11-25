@@ -74,6 +74,10 @@ export interface StepSettings {
   holeY: number
   holeRadius: number
   captureRadius: number
+  // Centre of the capture circle: the hole's, except that a spinning hole's shadow, which the particles
+  // vanish into, stands off to one side of it
+  captureX: number
+  captureY: number
   // A second black hole on screen: its radius sets the strength of its gravity, and particles closer
   // than its capture radius are recycled. A zero radius means there is none
   companionX: number
@@ -334,6 +338,10 @@ export function stepRange (
   const holeRadiusSq = holeRadius * holeRadius
   const captureRadius = settings.captureRadius
   const captureRadiusSq = captureRadius * captureRadius
+  // Off the hole's centre only for a spinning hole; otherwise the distance to the hole is the one
+  const captureShiftX = settings.captureX - holeX
+  const captureShiftY = settings.captureY - holeY
+  const captureShifted = captureShiftX !== 0 || captureShiftY !== 0
   const spawnScale = focal / spawn.farZ
   const ringEnergy = settings.ringEnergy
   const skimRadius = holeRadius * RING_SKIM_REACH
@@ -402,13 +410,19 @@ export function stepRange (
       const distSq = dx * dx + dy * dy
 
       if (distSq < reachSq) {
-        if (distSq < captureRadiusSq) {
+        let captureSq = distSq
+        if (captureShifted) {
+          const cx = dx + captureShiftX
+          const cy = dy + captureShiftY
+          captureSq = cx * cx + cy * cy
+        }
+        if (captureSq < captureRadiusSq) {
           if (later) {
             if (ringEnergy) noteDeposit(later, from, -dx, -dy, RING_CAPTURE_ENERGY)
             later.respawns[from + later.respawnCount++] = i * 4 + RESPAWN_HOLE
           } else {
             if (ringEnergy) depositRingEnergy(ringEnergy, -dx, -dy, RING_CAPTURE_ENERGY)
-            respawnBeyondHorizon(field, i, spawn, holeX - vanishX, holeY - vanishY, captureRadius, spawnScale)
+            respawnBeyondHorizon(field, i, spawn, settings.captureX - vanishX, settings.captureY - vanishY, captureRadius, spawnScale)
           }
           continue
         }
@@ -572,7 +586,7 @@ export function settleLater (
     if (kind === RESPAWN_FAR) {
       spawnParticle(field, i, settings.farZ, spawn)
     } else if (kind === RESPAWN_HOLE) {
-      respawnBeyondHorizon(field, i, spawn, settings.holeX - vanishX, settings.holeY - vanishY, settings.captureRadius, spawnScale)
+      respawnBeyondHorizon(field, i, spawn, settings.captureX - vanishX, settings.captureY - vanishY, settings.captureRadius, spawnScale)
     } else {
       respawnBeyondHorizon(field, i, spawn, settings.companionX - vanishX, settings.companionY - vanishY, settings.companionCapture, spawnScale)
     }

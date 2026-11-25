@@ -17,6 +17,7 @@ import { INSTANCE_FLOATS } from './particle_simulation'
 import { MAX_ORBITERS, STRETCH_SECONDS } from './orbiters'
 import type { TitleSprite } from './title_sprite'
 import { RING_BINS } from './ring_energy'
+import { SHADOW_SAMPLES, type ShadowShape } from './kerr_shadow'
 import { GRID_COLOR, GRID_INSTANCE_COUNT, GRID_INSTANCE_FLOATS, GRID_WAVE_GAIN, createGridInstances, type GridSettings } from './space_grid'
 
 const INSTANCE_STRIDE = INSTANCE_FLOATS * 4
@@ -26,6 +27,7 @@ const SCENE_TEXTURE_UNIT = 0
 const TITLE_TEXTURE_UNIT = 1
 const RING_TEXTURE_UNIT = 2
 const ORBIT_TEXTURE_UNIT = 3
+const SHADOW_TEXTURE_UNIT = 4
 
 // A camera that zooms by more than this share in one frame, or moves the picture by more than this many CSS
 // pixels, has jumped: the particles' strokes then start afresh instead of crossing the screen
@@ -72,6 +74,12 @@ export interface CompositeSettings {
   traceU: number
   traceScale: number
   traceShare: number
+  // The hole's spin (a/M, 0 = none), the angle between its axis and the line to the camera and the turn
+  // of the axis on the screen from up, radians; the outline of its shadow (kerr_shadow.ts)
+  spin: number
+  spinTilt: number
+  spinAxis: number
+  shadowShape: ShadowShape
   ring: number
   // In black hole radii
   ringWidth: number
@@ -366,7 +374,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   const particleUniforms = getUniforms(gl, particleProgram, ['resolution', 'pixelRatio', 'center', 'doppler', 'speedGlow', 'frameScale', 'zoom', 'zoomFrom'] as const)
   const orbitUniforms = getUniforms(gl, orbitProgram, ['resolution', 'zoom', 'orbit', 'dimmed'] as const)
   const compositeUniforms = getUniforms(gl, compositeProgram, [
-    'resolution', 'pixelRatio', 'time', 'hole', 'horizon', 'einstein', 'falloff', 'falloffPivot', 'lensCore', 'maxBend', 'lensReach', 'twistLimit', 'swirl', 'absorption', 'trace', 'ring',
+    'resolution', 'pixelRatio', 'time', 'hole', 'horizon', 'einstein', 'falloff', 'falloffPivot', 'lensCore', 'maxBend', 'lensReach', 'twistLimit', 'swirl', 'absorption', 'trace', 'spin', 'ring',
     'ringWidth', 'ringGlow', 'ringDoppler', 'ringSide', 'ringPhase', 'ringBase', 'ringFeed',
     'center', 'starGlow', 'starRadius', 'sourcePower', 'glareRadius', 'exposure',
     'lightRadius', 'lightWidth', 'lightPower', 'lightSpeed', 'echoPower', 'echoDecay',
@@ -389,6 +397,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   gl.uniform1i(gl.getUniformLocation(compositeProgram, 'u_title'), TITLE_TEXTURE_UNIT)
   gl.uniform1i(gl.getUniformLocation(compositeProgram, 'u_ringEnergy'), RING_TEXTURE_UNIT)
   gl.uniform1i(gl.getUniformLocation(compositeProgram, 'u_orbitTrails'), ORBIT_TEXTURE_UNIT)
+  gl.uniform1i(gl.getUniformLocation(compositeProgram, 'u_shadowShape'), SHADOW_TEXTURE_UNIT)
 
   // Shared quad at location 0, bound once for every program
   const quadBuffer = gl.createBuffer()
@@ -435,6 +444,12 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   const ringTexture = createLinearTexture(RING_TEXTURE_UNIT)
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT)
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, RING_BINS, 1, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, null)
+  // The outline of a spinning hole's shadow, its radius all the way round; it repeats so the outline has no
+  // seam. Half floats are filterable in WebGL2, and a radius needs more than 8 bits
+  const shadowTexture = createLinearTexture(SHADOW_TEXTURE_UNIT)
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT)
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.R16F, SHADOW_SAMPLES, 1, 0, gl.RED, gl.FLOAT, null)
+  let shadowVersion = -1
   const titleTexture = createLinearTexture(TITLE_TEXTURE_UNIT)
   let titleWidth = 0
   let titleHeight = 0
@@ -740,6 +755,13 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     setUniform1f(gl, u.swirl, settings.swirl)
     setUniform1f(gl, u.absorption, settings.absorption)
     setUniform4f(gl, u.trace, settings.traceU, settings.traceScale * ratio, settings.traceShare, 0)
+    setUniform4f(gl, u.spin, settings.spin, Math.cos(settings.spinTilt), Math.sin(settings.spinTilt), settings.spinAxis)
+    if (settings.shadowShape.version !== shadowVersion) {
+      shadowVersion = settings.shadowShape.version
+      gl.activeTexture(gl.TEXTURE0 + SHADOW_TEXTURE_UNIT)
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, SHADOW_SAMPLES, 1, gl.RED, gl.FLOAT, settings.shadowShape.table)
+      gl.activeTexture(gl.TEXTURE0 + SCENE_TEXTURE_UNIT)
+    }
     setUniform1f(gl, u.ring, settings.ring)
     setUniform1f(gl, u.ringWidth, settings.ringWidth)
     setUniform1f(gl, u.ringGlow, settings.ringGlow)
@@ -910,6 +932,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     gl.deleteTexture(orbitTexture)
     gl.deleteTexture(titleTexture)
     gl.deleteTexture(ringTexture)
+    gl.deleteTexture(shadowTexture)
     gl.deleteBuffer(quadBuffer)
     gl.deleteBuffer(instanceBuffer)
     gl.deleteBuffer(traceBuffer)
