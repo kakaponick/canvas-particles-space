@@ -1,0 +1,19 @@
+{
+  "skillOverrides": {
+    "evolve": "off",
+    "fsloop": "off",
+    "fsloop-audit": "off"
+  },
+  "permissions": {
+    "deny": [
+      "Agent(fsloop-critic)",
+      "Agent(fsloop-debug)",
+      "Agent(fsloop-implement)",
+      "Agent(fsloop-shots)",
+      "Agent(shots-proof)",
+      "Agent(spike-researcher)",
+      "Agent(prod-check)",
+      "Agent(cold-read)"
+    ]
+  }
+}
