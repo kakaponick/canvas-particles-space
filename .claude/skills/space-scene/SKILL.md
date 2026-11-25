@@ -23,6 +23,7 @@ is always current.
 | How to make a film that reads well, and what went wrong before | [references/films.md](references/films.md) |
 | A zoom into the Mandelbrot set: its format and targets | `space_fractal_guide`, or `window.space.fractal.guide()` |
 | The rules for changing the code (frame time, invariants, measuring) | `CLAUDE.md` at the repository root |
+| The rules for changing the code of films, reels, captions or the Mandelbrot zoom | `docs/films.md`, `docs/fractal_films.md` |
 
 ## From a wish to a knob
 

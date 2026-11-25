@@ -313,7 +313,12 @@ export function readQuality (options: RenderOptions): FilmQuality {
 }
 
 // Encodes the frames a renderer draws into an mp4. The file goes to `upload` piece by piece, or is put
-// together in the page for `download` and kept as `blob` for a caller there. Called inside `exclusively`
+// together in the page for `download` and kept as `blob` for a caller there. Called inside `exclusively`.
+// A render is held by the video encoder, which Chrome already runs on the graphics card (about 200 frames
+// a second at 1080p on an RTX 3070, the main thread busy a third of that time). Measured and of no use:
+// encoding from the WebGL canvas without the 2D copy, `prefer-hardware`, `realtime`, reading the pixels
+// back by hand, other H.264 profiles. Two hardware encoders side by side reach about 300 frames a second
+// at the price of a second of frames held in video memory; that is not built
 export async function encodeVideo (job: EncodeJob, options: RenderOptions, started: number) {
   const quality = readQuality(options)
   const media = await import('mediabunny')

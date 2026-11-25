@@ -237,7 +237,7 @@ export async function previewFractal (source: unknown, options: PreviewOptions &
   })
 }
 
-// The film a live view stands for, from its second 0: what the page's Save Video turns into an mp4
+// The film a live view stands for, from its second 0: what the page's Save MP4 turns into an mp4
 export function liveFilm (state: { target: string, palette: string, rate: number, depth: number, seconds: number }): Patch {
   return {
     duration: state.seconds,
