@@ -216,6 +216,9 @@ export function createScene (
     captureRadius: 0,
     captureX: 0,
     captureY: 0,
+    spinRight: 0,
+    spinUp: 0,
+    spinToward: 0,
     companionX: 0,
     companionY: 0,
     companionRadius: 0,
@@ -727,6 +730,12 @@ export function createScene (
     settings.captureRadius = captureRadius * shadowShape.radius
     settings.captureX = captureX
     settings.captureY = captureY
+    // The particles are dragged round by the spin the shadow is drawn for: the same vector, held to the
+    // fastest spin there is
+    const dragShare = spin > 0 ? spin / Math.sqrt(across * across + spinToward * spinToward) : 0
+    settings.spinRight = spinRight * dragShare
+    settings.spinUp = spinUp * dragShare
+    settings.spinToward = spinToward * dragShare
     // With the feed off the simulation stops collecting light, and old light does not return later
     const ringFed = state.ringEnabled && state.ringFeedEnabled
     if (ringWasFed && !ringFed) clearRingEnergy(ringEnergy)

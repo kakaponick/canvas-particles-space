@@ -78,6 +78,11 @@ export interface StepSettings {
   // vanish into, stands off to one side of it
   captureX: number
   captureY: number
+  // The hole's spin, a/M, as a vector: to the right on screen, up, and toward the camera. Space near the
+  // hole turns about it and carries the particles round (DRAG_SHARE); all zero is a hole that does not spin
+  spinRight: number
+  spinUp: number
+  spinToward: number
   // A second black hole on screen: its radius sets the strength of its gravity, and particles closer
   // than its capture radius are recycled. A zero radius means there is none
   companionX: number
@@ -127,6 +132,11 @@ export interface StepLater {
   deposits: Float64Array
   depositCount: number
 }
+
+// How fast the space round a spinning hole carries a particle, against how fast the hole pulls it in, at
+// the hole's radius and a spin of 1. Space turns at 2 J / r^3 (Lense-Thirring), which with J = spin / 4
+// in the hole's radii is a speed of spin / 2 across the pull at one radius
+const DRAG_SHARE = 0.5
 
 const RESPAWN_FAR = 0
 const RESPAWN_HOLE = 1
@@ -360,6 +370,18 @@ export function stepRange (
   // ones that light up, and the rest of the field goes dark
   const pullScale = gravityStrength * 0.6 * frameScale * holeRadiusSq
   const orbitScale = orbitalStrength * 0.02
+  // Frame dragging: space turns about the spin's axis at a rate that falls as 1 / r^3, so it carries a
+  // particle across the pull one power of the distance more steeply than the pull itself falls. The share
+  // of spin toward the camera turns the particles in the screen, anticlockwise to the eye. The share that
+  // lies in the screen turns them about a line in it: those nearer than the hole's plane cross that line
+  // one way and those beyond it the other, as fast at the edge of a depth scale as the turn in the screen.
+  // What that share does along the line of sight is left out: it would only change how fast a particle
+  // flies. The drag is a share of the pull, so like the pull it does not depend on the flight speed
+  const dragScale = DRAG_SHARE * holeRadius
+  const dragToward = settings.spinToward * dragScale
+  const dragRight = settings.spinRight * dragScale
+  const dragUp = settings.spinUp * dragScale
+  const dragging = hasHole && (dragToward !== 0 || dragRight !== 0 || dragUp !== 0)
   // The second black hole pulls in proportion to its size and reaches as far in its own radii
   const companionRadius = settings.companionRadius
   const hasCompanion = hasHole && companionRadius > 0
@@ -442,11 +464,18 @@ export function stepRange (
           const clampedSq = distSq > 1 ? distSq : 1
           const invDistance = 1 / Math.sqrt(clampedSq)
           const pull = pullScale / clampedSq * depthWeight
-          const orbit = pull * orbitScale
           const toWorld = pz * invFocal * invDistance
 
-          px += (dx * pull - dy * orbit) * toWorld
-          py += (dy * pull + dx * orbit) * toWorld
+          if (dragging) {
+            const orbit = pull * (orbitScale + dragToward * invDistance)
+            const across = pull * depthOffset
+            px += (dx * pull - dy * orbit - across * dragUp) * toWorld
+            py += (dy * pull + dx * orbit - across * dragRight) * toWorld
+          } else {
+            const orbit = pull * orbitScale
+            px += (dx * pull - dy * orbit) * toWorld
+            py += (dy * pull + dx * orbit) * toWorld
+          }
           x[i] = px
           y[i] = py
 

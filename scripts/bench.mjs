@@ -2,7 +2,7 @@
 // Frame time, measured the way CLAUDE.md's Measuring asks. Needs Node 22+ and Chrome, Chromium or Edge.
 //
 //   node scripts/bench.mjs page <dist> [<dist> ...] [--runs 2] [--debug]
-//   node scripts/bench.mjs step [--runs 2]
+//   node scripts/bench.mjs step [--runs 2] [--spin 0.99]
 //
 // page serves each built page (pnpm build, then dist/; build the commit before a change into another
 // folder for the "before") in headless Chrome at 1920x1080, clicks CLICK TO START, waits 7 s for the
@@ -11,7 +11,8 @@
 // --debug loads the page with ?debug, which opens the intro debugger.
 //
 // step bundles the hot loop from src/ and times stepParticles alone: 300 warm-up steps, then 1500 timed
-// steps at 1920x1080, for 24 000 particles with the black hole and 24 000 and 10 000 without it. Its
+// steps at 1920x1080, for 24 000 particles with the black hole and 24 000 and 10 000 without it;
+// --spin turns the hole, its axis at 45° to the camera, so the particles are dragged round. Its
 // settings are written out below; keep them in step with StepSettings in particle_simulation.ts.
 import fs from 'node:fs'
 import os from 'node:os'
@@ -31,6 +32,7 @@ const flag = name => {
   return value
 }
 const runs = Number(flag('--runs') ?? 2)
+const spin = Number(flag('--spin') ?? 0)
 const debug = args.includes('--debug') ? (args.splice(args.indexOf('--debug'), 1), true) : false
 const [command, ...rest] = args
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
@@ -138,7 +140,7 @@ const STEP_ENTRY = `
 import { createParticleField, createInstanceData, createPaletteSampler, setParticleCount, stepParticles } from ${JSON.stringify(path.join(root, 'src/lib/particle_simulation.ts').replaceAll(path.sep, '/'))}
 import { createRandom, seedRandom } from ${JSON.stringify(path.join(root, 'src/lib/random.ts').replaceAll(path.sep, '/'))}
 
-export function run (count, hole) {
+export function run (count, hole, spin) {
   const random = createRandom()
   seedRandom(random, 7)
   const spawn = { random, palette: createPaletteSampler([{ r: 255, g: 255, b: 255, enabled: true, percent: 100 }]), farZ: 5000, speedVariance: 0.2, radius: 1.2 }
@@ -149,7 +151,7 @@ export function run (count, hole) {
   const settings = {
     frameScale: 1, time: 0, speed: 8, width: 1920, height: 1080, focal: 960, vanishX: 960, vanishY: 540,
     holeX: hole ? 960 : NaN, holeY: hole ? 540 : NaN, holeRadius: hole ? horizon : 0, captureRadius: horizon,
-    captureX: 960, captureY: 540, companionX: 0, companionY: 0, companionRadius: 0, companionCapture: 0,
+    captureX: 960, captureY: 540, spinRight: 0, spinUp: spin * Math.SQRT1_2, spinToward: spin * Math.SQRT1_2, companionX: 0, companionY: 0, companionRadius: 0, companionCapture: 0,
     ringEnergy: null, gravityReach: horizon * 5, holeDepth: 2500, gravityDepth: 900, lineWidth: 3, gravityStrength: 2.5,
     orbitalStrength: 0.5, farZ: 5000, depthFade: 0.5, pulseSpeedMultiplier: 1, pulseIntensity: 0.2, baseBrightness: 1,
     minOpacity: 0.1, maxOpacity: 1, revealRadius: Infinity, revealX: 960, revealY: 540, revealFeather: 80, opacityScale: 1
@@ -169,7 +171,7 @@ async function step () {
     await esbuild.build({ stdin: { contents: STEP_ENTRY, resolveDir: root, loader: 'ts' }, bundle: true, format: 'esm', platform: 'node', outfile: out, logLevel: 'silent' })
     const { run } = await import(pathToFileURL(out).href)
     for (let round = 1; round <= runs; round++) {
-      console.log(`run ${round}: 24000 with the hole ${run(24000, true).toFixed(3)} ms/step · 24000 without ${run(24000, false).toFixed(3)} ms · 10000 without ${run(10000, false).toFixed(3)} ms`)
+      console.log(`run ${round}: 24000 with the hole ${run(24000, true, spin).toFixed(3)} ms/step · 24000 without ${run(24000, false, 0).toFixed(3)} ms · 10000 without ${run(10000, false, 0).toFixed(3)} ms`)
     }
   } finally {
     fs.rmSync(path.dirname(out), { recursive: true, force: true })
@@ -179,6 +181,6 @@ async function step () {
 if (command === 'page') await page(rest)
 else if (command === 'step') await step()
 else {
-  console.log('node scripts/bench.mjs page <dist> [<dist> ...] [--runs 2] [--debug]\nnode scripts/bench.mjs step [--runs 2]')
+  console.log('node scripts/bench.mjs page <dist> [<dist> ...] [--runs 2] [--debug]\nnode scripts/bench.mjs step [--runs 2] [--spin 0.99]')
   process.exitCode = command ? 1 : 0
 }

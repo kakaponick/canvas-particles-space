@@ -101,7 +101,7 @@ and meaning; `window.space.describe()` reads the same text. The groups:
 - **Black Hole**: **Size** (shadow radius as a share of the screen's short side), the Event Horizon where
   particles are captured, the depth it sits at, **Spin** with the tilt and direction of its axis (a spinning
   hole's shadow flattens on the side turning toward the camera and shifts the other way, the photon ring follows
-  it, the orbiting stars are dragged round, and under Ray Traced so is the light), **Gravity**, **Orbital Force**, **Gravity Reach** (in black hole
+  it, the orbiting stars and the particles near the hole are dragged round, and under Ray Traced so is the light), **Gravity**, **Orbital Force**, **Gravity Reach** (in black hole
   radii), Follow Cursor and how stiffly it follows, its resting position, and **Zoom**: magnifies the view around
   the black hole, which stays where it is on the screen. The scene is drawn anew at the zoom, not enlarged:
   particles, orbits, the ring and the grids stay sharp, and hairlines stay hairlines. Below 1 the camera pulls

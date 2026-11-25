@@ -104,6 +104,13 @@ it is recycled, and what it carried lights the photon ring (section 6).
   rings inside the Einstein ring lean to one side. The stylized lens stays round.
 - The orbiting stars feel the pull round (Lense-Thirring) from the share of spin along the line to the
   camera, so `spinTilt` near 0° or 180° swings them most and 90° not at all.
+- The particles are carried round with the space near the hole (frame dragging), as a share of the pull:
+  spin / 2 at one hole radius, fading one power of the distance faster than the pull, so it shows within
+  two or three radii and needs `gravityStrength` above 0. Toward the camera (`spinTilt` near 0°) the spin
+  swirls them anticlockwise, away from it (near 180°) clockwise; it adds to `orbitalStrength`, which swirls
+  at every distance alike. Side-on (90°) there is no swirl: particles nearer than the hole are swept one way
+  across the axis and those beyond it the other, so their trails cross above and below the hole. To see the
+  drag alone, set `orbitalStrength` 0 and `baseSpeed` 0 and zoom in (`cameraZoom` 3).
 - `blackHoleSize` stays the mass: a spinning hole's shadow is a little smaller than a still one's.
 - The look needs `spinTilt` well away from 0°; at 0° the shadow stays round and only the sky winds.
 - Two holes that merge leave a spinning one about the axis of their orbit, which faces the camera, whatever
