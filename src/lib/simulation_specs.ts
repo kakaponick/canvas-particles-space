@@ -187,3 +187,8 @@ export const SIMULATION_SETTING_SPECS = {
 } satisfies Record<string, SimulationSettingSpec>
 
 export type SimulationSliderKey = keyof typeof SIMULATION_SETTING_SPECS
+
+// The settings only the stylized lens reads; the ray traced lens, the default, leaves them alone
+export const STYLIZED_LENS_KEYS = [
+  'lensingReach', 'lensingFalloff', 'lensingPivot', 'lensingRotation', 'lensingTwistLimit', 'lensingMaxBend', 'lensingCore'
+] as const satisfies readonly SimulationSliderKey[]

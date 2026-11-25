@@ -221,7 +221,7 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   backgroundB: 0,
   lensingRadius: 1.7,
   lensingEnabled: true,
-  lensingTraced: false,
+  lensingTraced: true,
   farZ: 5000,
   baseBrightness: 1.0,
   depthFade: 1.0,

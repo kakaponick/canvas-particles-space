@@ -183,7 +183,8 @@ A rosette of precession:
 
 Stars swallowed one by one, each lighting the ring: grow `horizonScale` from 1 to 5 over the last seconds.
 
-The lens explained: `gridSky` on, `baseBrightness` down to about 0.3, then keyframe `lensingRadius`,
+The lens explained: `gridSky` on, `baseBrightness` down to about 0.3, `lensingTraced` false to start
+on the stylized lens, then keyframe `lensingRadius`,
 `lensingReach` from 0 to 1 and `lensingRotation` through zero to the other sign. To end on the real thing,
 flip `lensingTraced` to true: the ring, its mirrored image and the photon rings as a hole that does not spin
 makes them.

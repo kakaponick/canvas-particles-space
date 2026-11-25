@@ -129,7 +129,7 @@ and meaning; `window.space.describe()` reads the same text. The groups:
   ones do
 - **Photon Ring**: brightness, glow, thickness, the Doppler contrast between its approaching and receding sides,
   and the light that infalling particles leave on it
-- **Gravitational Lensing**: **Ray Traced** follows every pixel's ray round the black hole, spinning (Kerr) or not, so
+- **Gravitational Lensing**: **Ray Traced**, on by default, follows every pixel's ray round the black hole, spinning (Kerr) or not, so
   the Einstein ring, the mirrored image inside it and the thin rings of light that circled the hole come from
   the physics, and **Einstein Radius** (in black hole radii, 0 = no lens) places the camera. Off, the stylized
   lens adds how far it reaches, its falloff, a twist of the sky and the limits near the hole

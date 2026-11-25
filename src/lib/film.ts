@@ -10,6 +10,7 @@ import { DEFAULT_PRESET, BUILT_IN_PRESETS, usePresetStore } from '../store/prese
 import { DEFAULT_TITLE_TEXT, type TitleText } from '../store/intro_debug_store'
 import { BUILT_IN_INTRO_PRESETS, useIntroPresetStore } from '../store/intro_preset_store'
 import { pickSimulationSettings, type SimulationSettings } from './simulation_presets'
+import { STYLIZED_LENS_KEYS } from './simulation_specs'
 import { DEFAULT_INTRO_PARAMS, INTRO_PARAM_SPECS, type IntroParamKey, type IntroParams } from './intro_params'
 import { CUE_LAYERS, INTRO_LAYERS, type CueLayer, type IntroLayer } from './intro_tracks'
 import { TITLE_FONTS, type TitleFontKey } from './title_sprite'
@@ -884,6 +885,16 @@ export function planFilm (source: unknown): FilmPlan {
   if (look.length > 0 && !raised('filmHold') && (introEnds === null || introEnds < duration)) {
     notes.push(`${look.join(', ')}: the film look lifts as the opening ends, so ${introEnds === null ? 'this film without the opening never shows it' : `it is gone after ${seconds(introEnds)} s`}; ` +
       'raise filmHold (0 to 1, in intro.params or on a track) to keep it')
+  }
+  // The lens is ray traced unless the film says otherwise, and then the stylized lens's settings do nothing;
+  // a film that sets or moves them while it never leaves the traced lens is told
+  const ownSettings = isObject(source.settings) ? source.settings : {}
+  const stylized = STYLIZED_LENS_KEYS.filter(key => key in ownSettings || tracks.some(track => track.key === key))
+  const tracedThroughout = settings.lensingTraced && !tracks.some(track => track.key === 'lensingTraced' && track.values.includes(0))
+  if (stylized.length > 0 && tracedThroughout) {
+    const many = stylized.length > 1
+    notes.push(`${stylized.join(', ')} ${many ? 'shape' : 'shapes'} only the stylized lens, and this film's lens is ray traced throughout, ` +
+      `so ${many ? 'they change' : 'it changes'} nothing; set lensingTraced false (in settings or on a track) to use ${many ? 'them' : 'it'}`)
   }
 
   // The camera pans inside the picture a zoom leaves out of the frame, so a film that pans and never zooms

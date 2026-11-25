@@ -34,6 +34,7 @@ const source = file => JSON.stringify(path.join(root, 'src', file).replaceAll(pa
 // What the page itself is built from, gathered into one module
 const ENTRY = `
 export { SLIDERS, TOGGLES, SETTING_KEYS, DEVICE_KEYS, ALL_SETTING_KEYS, INTRO_KEYS, parseSettings, parseIntroValue } from ${source('lib/agent_values.ts')}
+export { STYLIZED_LENS_KEYS } from ${source('lib/simulation_specs.ts')}
 export { INTRO_PARAM_SPECS, DEFAULT_INTRO_PARAMS } from ${source('lib/intro_params.ts')}
 export { INTRO_LAYERS, CUE_LAYERS, INTRO_LAYER_NOTES, INTRO_TRACKS } from ${source('lib/intro_tracks.ts')}
 export { TITLE_FONTS } from ${source('lib/title_sprite.ts')}
@@ -81,7 +82,8 @@ const {
   useParticleStore, BUILT_IN_PRESETS, DEFAULT_PRESET, BUILT_IN_INTRO_PRESETS, writeFilm, SCRIPT_WORDS, SCRIPT_GUIDE,
   writeFractal, FRACTAL_SCRIPT_WORDS, FRACTAL_SCRIPT_GUIDE, planFractal, fractalView, FRACTAL_GUIDE, FRACTAL_KEYS, FRACTAL_TRACK_KEYS,
   FRACTAL_NUMBERS, FRACTAL_CAPTION_PLACES, FRACTAL_HEAD_KEYS, FRACTAL_TARGETS, FRACTAL_PALETTES,
-  planReel, isReel, REEL_GUIDE, REEL_KEYS, CLIP_KEYS, CLIP_KINDS, TRANSITION_KEYS, REEL_TRANSITIONS, MAX_REEL_CLIPS
+  planReel, isReel, REEL_GUIDE, REEL_KEYS, CLIP_KEYS, CLIP_KINDS, TRANSITION_KEYS, REEL_TRANSITIONS, MAX_REEL_CLIPS,
+  STYLIZED_LENS_KEYS
 } = registries
 
 const state = useParticleStore.getState()
@@ -141,10 +143,22 @@ const settingTracks = {
   backgroundG: [[0, 0], [1, 255]],
   backgroundB: [[0, 0], [1, 255]]
 }
+// The stylized lens's keys are moved on the stylized lens, since under the traced one they do nothing
 for (const [key, keyframes] of Object.entries(settingTracks)) {
-  const plan = attempt(`film.tracks.${key}`, () => planFilm({ duration: 1, intro: false, settings: { cameraZoom: 2 }, tracks: { [key]: keyframes } }))
+  const settings = STYLIZED_LENS_KEYS.includes(key) ? { cameraZoom: 2, lensingTraced: false } : { cameraZoom: 2 }
+  const plan = attempt(`film.tracks.${key}`, () => planFilm({ duration: 1, intro: false, settings, tracks: { [key]: keyframes } }))
   if (plan && plan.notes.length > 0) problem(`film.tracks.${key}: ${plan.notes.join('; ')}`)
 }
+if (!defaults.lensingTraced) problem('the default lens is not ray traced, which the films and the docs say it is')
+for (const key of STYLIZED_LENS_KEYS) {
+  if (!(key in SLIDERS)) problem(`STYLIZED_LENS_KEYS names "${key}", which is no slider`)
+}
+const twisted = attempt('a twist under the traced lens', () => planFilm({ duration: 2, intro: false, tracks: { lensingRotation: [[0, 0], [2, 4]] } }))
+if (twisted && !twisted.notes.some(note => note.includes('lensingRotation'))) problem('a film that twists the sky under the traced lens is not told that the twist changes nothing')
+const turnedOff = attempt('a twist after the lens turns stylized', () => planFilm({
+  duration: 2, intro: false, tracks: { lensingTraced: [[0, true], [1, false]], lensingRotation: [[1, 0], [2, 4]] }
+}))
+if (turnedOff && turnedOff.notes.length > 0) problem(`a film that turns to the stylized lens and twists it is told: ${turnedOff.notes.join('; ')}`)
 
 // 5. The opening: every parameter is set in intro.params, every number and colour moves along a track.
 // A parameter that shares its name with a setting is shadowed in tracks, which is worth knowing about

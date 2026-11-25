@@ -12,6 +12,7 @@
     "starsBrightness": 2,
     "starDensity": 0.3,
     "blackHoleSize": 5,
+    "lensingTraced": false,
     "lensingReach": 1,
     "lensingRadius": 3,
     "lensingAbsorption": 0,

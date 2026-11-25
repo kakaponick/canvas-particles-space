@@ -5,6 +5,7 @@
   "seed": 7,
   "settings": {
     "blackHoleSize": 6.5,
+    "lensingTraced": false,
     "orbitSize": 5,
     "orbitEccentricity": 0.7,
     "gridDepth": 3,

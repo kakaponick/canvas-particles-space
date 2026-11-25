@@ -146,13 +146,15 @@ The lens bends the finished picture (particles, stars, grids), not the particles
 | Swirl of the sky | `lensingRotation`, `lensingTwistLimit` |
 | Dark zone around the shadow | `lensingAbsorption` |
 
-- `lensingTraced` true follows every pixel's ray round the hole, a Kerr one when it spins: the Einstein ring, the
-  mirrored image inside it and the thin rings of light that circled the hole come from the physics, with
-  nothing to tune but `lensingRadius` (where the camera stands) and `lensingAbsorption`. The other lens keys
-  shape only the stylized lens (`lensingTraced` false, the default) and do nothing while it is on.
-- The physically faithful setup is the `Schwarzschild` preset: `lensingTraced` true, capture at the
-  shadow's edge, no swirl of the particles; its stylized keys are a point mass (`lensingReach` 1,
-  `lensingFalloff` 2, no twist) for when the switch is turned off. `Default` is tuned for the look.
+- `lensingTraced` true, the default, follows every pixel's ray round the hole, a Kerr one when it spins:
+  the Einstein ring, the mirrored image inside it and the thin rings of light that circled the hole come
+  from the physics, with nothing to tune but `lensingRadius` (where the camera stands) and
+  `lensingAbsorption`. The other lens keys shape only the stylized lens (`lensingTraced` false) and do
+  nothing while it is on; a film that sets or moves them under the traced lens gets a note saying so.
+- The physically faithful setup is the `Schwarzschild` preset: no light taken from around the shadow,
+  capture at the shadow's edge, no swirl of the particles; its stylized keys are a point mass
+  (`lensingReach` 1, `lensingFalloff` 2, no twist) for when the switch is turned off. `Default` traces the
+  lens too and tunes the rest for the look.
 - For a real hole `lensingRadius` says how far the camera is: about the square root of twice the distance
   in Schwarzschild radii, divided by 2.6. Ray traced it places the camera exactly: 1.32 at 2 Schwarzschild
   radii (the nearest), 2.13 at 10, 2.86 at 21. A near camera sees a very wide field around a small hole.
