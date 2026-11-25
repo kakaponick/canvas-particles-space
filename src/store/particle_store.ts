@@ -100,6 +100,8 @@ export interface ParticleState {
   measuredFps: number
   // Lower the particle count automatically when the simulation overruns the frame
   adaptiveParticles: boolean
+  // Show the measured frame rate in the scene toolbar
+  fpsCounter: boolean
   // Particles actually simulated; below numParticles while the adaptive budget holds it back
   activeParticles: number
   introComplete: boolean
@@ -170,6 +172,7 @@ export interface ParticleState {
   setFrameRateCap: (fps: number) => void
   setMeasuredFps: (fps: number) => void
   toggleAdaptiveParticles: () => void
+  toggleFpsCounter: () => void
   setActiveParticles: (count: number) => void
   setIntroComplete: (complete: boolean) => void
 }
@@ -242,6 +245,7 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   frameRateCap: 0,
   measuredFps: 0,
   adaptiveParticles: true,
+  fpsCounter: false,
   activeParticles: 0,
   introComplete: false,
   // Star colors by temperature, from ~3500 K amber to ~12000 K blue-white
@@ -313,6 +317,7 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   setFrameRateCap: (fps) => set({ frameRateCap: fps }),
   setMeasuredFps: (fps) => set({ measuredFps: fps }),
   toggleAdaptiveParticles: () => set((state) => ({ adaptiveParticles: !state.adaptiveParticles })),
+  toggleFpsCounter: () => set((state) => ({ fpsCounter: !state.fpsCounter })),
   setActiveParticles: (count) => set({ activeParticles: count }),
   setIntroComplete: (complete) => set({ introComplete: complete }),
 

@@ -1,3 +1,4 @@
+import { cn } from '@/lib/utils'
 import { useParticleStore } from '../../store/particle_store'
 import { SettingsRow, SettingsSwitch } from './settings_section'
 import SliderControl from './slider_control'
@@ -11,12 +12,13 @@ const AUTO_POSITION = MAX_FRAME_RATE + 1
 const toPosition = (cap: number) => cap <= 0 ? AUTO_POSITION : Math.min(Math.max(cap, MIN_FRAME_RATE), MAX_FRAME_RATE)
 const formatPosition = (position: number) => position >= AUTO_POSITION ? 'AUTO' : `${position} FPS`
 
-// The frame rate the scene reaches, in the Playback header so it shows while the section is closed too.
-// Kept in a leaf of its own, so its updates every half second re-render nothing else
-export function MeasuredFps () {
+// The frame rate the scene reaches, in the Playback header so it shows while the section is closed too,
+// and in the scene toolbar while FPS Counter is on. Kept in a leaf of its own, so its updates every half
+// second re-render nothing else
+export function MeasuredFps ({ className = 'pr-3' }: { className?: string }) {
   const measuredFps = useParticleStore(state => state.measuredFps)
   return (
-    <span className="pr-3 font-mono text-xs tabular-nums text-text-light/70" title="Frames per second the scene reaches now">
+    <span className={cn('font-mono text-xs tabular-nums text-text-light/70', className)} title="Frames per second the scene reaches now">
       {measuredFps > 0 ? `${measuredFps} FPS` : '—'}
     </span>
   )
@@ -39,6 +41,17 @@ function FrameRateSlider () {
       resetValue={AUTO_POSITION}
       description="AUTO = display rate; lower saves power"
     />
+  )
+}
+
+function FpsCounterRow () {
+  const on = useParticleStore(state => state.fpsCounter)
+  const toggle = useParticleStore(state => state.toggleFpsCounter)
+
+  return (
+    <SettingsRow label="FPS Counter" help="Shows the frame rate at the top right">
+      {(describedBy) => <SettingsSwitch on={on} onToggle={toggle} label="FPS counter" describedBy={describedBy} />}
+    </SettingsRow>
   )
 }
 
@@ -76,6 +89,7 @@ function FrameRateControl () {
   return (
     <>
       <FrameRateSlider />
+      <FpsCounterRow />
       <ParticleBudgetRow />
     </>
   )

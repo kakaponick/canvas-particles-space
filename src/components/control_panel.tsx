@@ -13,6 +13,8 @@ import { ChartGantt, Settings, Maximize, Minimize } from 'lucide-react'
 import SettingsBody from './settings_body'
 import { cn, isTextEntry } from '@/lib/utils'
 import { useIntroDebugStore } from '../store/intro_debug_store'
+import { useParticleStore } from '../store/particle_store'
+import { MeasuredFps } from './controls/frame_rate_control'
 import { INTRO_DOCK_ID, closeIntroDebugger, isInDock, toggleIntroDebugger } from '../lib/intro_dock'
 import HintMenu from './controls/hint_menu'
 
@@ -48,6 +50,20 @@ function IntroDebuggerToggle () {
     >
       <ChartGantt aria-hidden="true" className="h-4 w-4" />
     </Button>
+  )
+}
+
+// The frame rate on the scene itself, while FPS Counter in Playback is on. A readout, not a button: no
+// border and no glow, only a dark backing so it reads over a bright scene, and a fixed width so the buttons
+// beside it do not move as the digits change. This leaf follows the switch and MeasuredFps the number, so
+// neither re-renders the toolbar
+function SceneFps () {
+  const shown = useParticleStore(state => state.fpsCounter)
+  if (!shown) return null
+  return (
+    <div className="flex h-9 min-w-[4.5rem] items-center justify-center bg-[rgba(10,10,15,0.8)] px-2">
+      <MeasuredFps className="text-text-light/90" />
+    </div>
   )
 }
 
@@ -118,6 +134,7 @@ function ControlPanel () {
           a wide screen; on a narrow one it sits over the Settings header's empty end. It never hides, and its
           order is the tab order */}
       <div role="group" aria-label="Scene controls" className="fixed right-3 top-3 z-[60] flex gap-2">
+        <SceneFps />
         <IntroDebuggerToggle />
         {/* The trigger toggles: it opens Settings and, pressed again, closes it */}
         <SheetTrigger asChild>

@@ -64,6 +64,7 @@ ripples the background stars, swallows the title and then drifts to your cursor.
 
 - **Particle Count**: Number of particles (1000-50000; 24000 by default, 12000 on phones)
 - **FPS Limit**: AUTO follows the display refresh rate; 30-144 caps it. Motion speed does not depend on the frame rate
+- **FPS Counter**: Shows the measured frame rate beside the buttons at the top right; off by default, kept per device
 - **Pulse Intensity**: Star twinkling effect (0-1)
 - **Base Speed**: Speed of the flight through space, also set by scrolling
 - **Black Hole Size**: Shadow radius as a share of the screen's short side

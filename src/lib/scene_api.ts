@@ -26,10 +26,13 @@ const TOGGLES: Record<string, string> = {
   ringEnabled: 'Photon ring around the shadow.',
   ringFeedEnabled: 'Matter falling in or skimming past brightens the photon ring.',
   lensingEnabled: 'Gravitational lensing around the black hole.',
-  adaptiveParticles: 'Particle budget: trims the particle count when the processor falls behind (per device, not in presets).'
+  adaptiveParticles: 'Particle budget: trims the particle count when the processor falls behind (per device, not in presets).',
+  fpsCounter: 'Shows the measured frame rate in the scene toolbar at the top right (per device, not in presets).'
 }
+// Defaults of the switches that are kept per device and so are not in the Default preset
+const DEVICE_TOGGLE_DEFAULTS: Record<string, boolean> = { adaptiveParticles: true, fpsCounter: false }
 const SETTING_KEYS: readonly string[] = SIMULATION_SETTING_KEYS
-const EXTRA_KEYS = ['frameRateCap', 'adaptiveParticles']
+const EXTRA_KEYS = ['frameRateCap', 'adaptiveParticles', 'fpsCounter']
 const ALL_SETTING_KEYS = [...SETTING_KEYS, ...EXTRA_KEYS]
 const INTRO_KEYS = Object.keys(DEFAULT_INTRO_PARAMS) as IntroParamKey[]
 
@@ -138,7 +141,7 @@ function describeSettings (filter?: string) {
     .map(([key, spec]) => ({ key, label: sliderName(spec), value: state[key], default: defaults[key], min: spec.min, max: spec.max, step: spec.step, description: spec.description }))
   const toggles = Object.entries(TOGGLES)
     .filter(([key, description]) => matches(filter, key, description))
-    .map(([key, description]) => ({ key, value: state[key], default: defaults[key] ?? true, description }))
+    .map(([key, description]) => ({ key, value: state[key], default: defaults[key] ?? DEVICE_TOGGLE_DEFAULTS[key], description }))
   const other = [
     { key: 'colorPalette', value: state.colorPalette, description: 'Star colours: array of { r, g, b (0-255), enabled, percent }.' },
     { key: 'backgroundR', value: state.backgroundR, description: 'Background red, 0-255 (also backgroundG, backgroundB).' },
