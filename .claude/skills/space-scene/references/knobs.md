@@ -143,11 +143,14 @@ it is recycled, and what it carried lights the photon ring (section 6).
 - Two holes that merge leave a spinning one about the axis of their orbit, which faces the camera, whatever
   `blackHoleSpin` says: the remnant's spin (0.69 for two equal holes) takes over as the shadows join.
 - The `Kerr` preset is Schwarzschild's setup spinning at 0.99, seen at 80°, with the ring's bright side
-  (`ringSide`) on the flat side, which turns toward the camera. `ringSide` and `ringDoppler` do not follow
-  the spin by themselves: the approaching side is at 180° plus `spinAxis` at every tilt (past 90° the hole
-  is seen turning the other way about the line of sight, but the same limb comes toward the camera), and
-  the contrast a real hole shows grows as the sine of `spinTilt`. A film drives both along the tilt (films.md,
-  section 10).
+  (`ringSide`) on the flat side, which turns toward the camera. The approaching side is at 180° plus
+  `spinAxis` at every tilt (past 90° the hole is seen turning the other way about the line of sight, but the
+  same limb comes toward the camera), and the contrast a real hole shows grows as the sine of `spinTilt`.
+  `ringSpinFollow` at 1 takes both from the spin as the camera sees it, with `ringDoppler` as the
+  contrast side-on: it follows the tilt, the axis, every move of the 3D camera and a merger's spin, so a
+  flight round the hole needs no track for the ring. At 0, the default, `ringSide` and `ringDoppler` are
+  what is set and a film drives them along the tilt (films.md, section 10); a hole without spin always
+  keeps them.
 
 ## 5. The lens: how light bends
 
@@ -190,7 +193,7 @@ The lens bends the finished picture (particles, stars, grids), not the particles
 | The line: brightness, soft light around it, added thickness | `ringBrightness`, `ringGlow`, `ringWidth` |
 | The line's width at no thickness, in screen pixels, how far off the shadow's edge it stands, in its widths, and how soft it is | `ringWidthMin`, `ringOffset`, `ringSoftness` |
 | The glow's shape: reach of its tight core and of its wide skirt, in radii, and the share of the glow in each | `ringGlowCore`, `ringGlowSkirt`, `ringGlowCoreShare`, `ringGlowSkirtShare` |
-| The approaching side brighter and bluer, and which side that is | `ringDoppler`, `ringSide` |
+| The approaching side brighter and bluer, which side that is, and how much of that the spin sets as the camera sees it | `ringDoppler`, `ringSide`, `ringSpinFollow` |
 | Its colour, and what the two sides turn toward | `ringColor`, `ringColorApproaching`, `ringColorReceding` |
 | Light with nothing falling in | `ringBase` |
 | Light from what falls in: on or off, how much, how long it lingers, how fast it travels round | `ringFeedEnabled`, `ringFeed`, `ringAfterglow`, `ringFlowSpeed` |
@@ -472,8 +475,8 @@ come, as around a real black hole.
 - The circle is where the camera starts; six keys take it anywhere from there, all in 3D only and all at
   0 the circle alone, number for number. `cameraRoll` turns the whole picture about the middle of the
   screen (positive anticlockwise), the sky, the sheet and the ring's bright side (`ringSide`) with it;
-  the circle and the head leave `ringSide` and `ringDoppler` where they are, so a film drives them. `cameraLookYaw` and `cameraLookPitch`
-  turn the camera's head without moving it: the hole slides off centre (to the edge at about 45°), so a
+  the circle and the head leave `ringSide` and `ringDoppler` where they are unless `ringSpinFollow` is
+  up. `cameraLookYaw` and `cameraLookPitch` turn the camera's head without moving it: the hole slides off centre (to the edge at about 45°), so a
   shot can open on empty space and swing onto the hole, or let the hole cross the frame. The sky slides
   with the head as it does with the circle. `cameraMoveRight`, `cameraMoveUp` and `cameraMoveIn` move the
   camera itself along its own axes, in radii of the hole at its full size: near particles slide past

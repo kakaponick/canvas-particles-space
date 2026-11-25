@@ -1236,9 +1236,22 @@ export function createScene (
     composite.ring = hidden.ring || !state.ringEnabled ? 0 : state.ringBrightness * ringPower
     composite.ringWidth = state.ringWidth
     composite.ringGlow = state.ringGlow
-    composite.ringDoppler = state.ringDoppler
     // A rolling 3D camera turns the bright side with the rest of the picture
+    composite.ringDoppler = state.ringDoppler
     composite.ringSide = roll === 0 ? state.ringSide : state.ringSide + roll
+    // Follow Spin takes the bright side from the spin as the camera sees it, the circle, the head, the roll
+    // and a merger's spin included: the limb coming toward the camera lies a half turn from the axis on the
+    // screen, and the contrast grows as the sine of the axis's angle to the line of sight, Doppler Contrast
+    // side-on. Between 0 and 1 the two sides are blended as arrows of their contrast
+    const follow = spin > 0 ? state.ringSpinFollow : 0
+    if (follow > 0) {
+      const seenSide = Math.PI + spinAxis
+      const seenDoppler = state.ringDoppler * Math.sin(spinTilt)
+      const x = (1 - follow) * composite.ringDoppler * Math.cos(composite.ringSide) + follow * seenDoppler * Math.cos(seenSide)
+      const y = (1 - follow) * composite.ringDoppler * Math.sin(composite.ringSide) + follow * seenDoppler * Math.sin(seenSide)
+      composite.ringDoppler = Math.hypot(x, y)
+      if (composite.ringDoppler > 0) composite.ringSide = Math.atan2(y, x)
+    }
     composite.ringPhase = ringEnergy.phase
     composite.ringBase = ringFed ? state.ringBase : 1
     composite.ringFeed = ringFed ? state.ringFeed : 0

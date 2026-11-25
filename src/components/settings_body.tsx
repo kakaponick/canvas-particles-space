@@ -279,6 +279,7 @@ function SettingsBody () {
         <SettingSlider field="ringWidth" />
         <SettingSlider field="ringDoppler" />
         <SettingSlider field="ringSide" />
+        <SettingSlider field="ringSpinFollow" />
         <InfallFeedRow />
         <SettingSlider field="ringBase" />
         <SettingSlider field="ringFeed" />

@@ -42,6 +42,9 @@ export interface ParticleState {
   ringWidth: number
   ringDoppler: number
   ringSide: number
+  // Share of the bright side and its contrast taken from the spin as the camera sees it, not from the two
+  // settings above
+  ringSpinFollow: number
   // Photon ring fed by the simulation: share of its light that always shines, share added by infalling
   // matter, seconds that light lingers, and radians per second the pattern turns
   ringBase: number
@@ -349,6 +352,7 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   ringWidth: 0,
   ringDoppler: 0.2,
   ringSide: 1.9,
+  ringSpinFollow: 0,
   ringBase: 0.8,
   ringFeed: 0.9,
   ringAfterglow: 0.6,

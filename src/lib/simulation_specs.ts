@@ -160,6 +160,8 @@ export const SIMULATION_SETTING_SPECS = {
     'How much brighter the approaching side of the ring is than the receding side. A mild contrast leaves the ring white; towards 1 the bright side also turns blue and the dim side red.'),
   ringSide: spec('Bright Side', 0, 6.28, 0.05, degrees, 'Bright side\'s direction; 0° = right',
     'Direction of the bright, approaching side around the ring.'),
+  ringSpinFollow: spoken(spec('Follow Spin', 0, 1, 0.01, percentOfOne, 'Bright side follows the spin as seen',
+    'How much of the bright side the spinning black hole sets for itself. At 100% the approaching limb is taken from the spin as the camera sees it, a half turn from the axis on the screen, and its contrast is Doppler Contrast times the sine of the axis\'s angle to the line of sight: strongest side-on, none down the axis. It follows Spin Tilt and Spin Axis, every move of the 3D camera (its circle, its head, its roll) and the spin a merger leaves, so a camera flying round the hole keeps the ring right with no track for it. 0 leaves Bright Side and Doppler Contrast as they are set; values between blend the two. A hole that does not spin keeps the settings.'), 'Ring Follow Spin'),
   ringBase: spec('Base Light', 0, 3, 0.01, fixed(2), 'Ring glow with nothing falling in',
     'How brightly the photon ring shines when nothing is falling into the black hole.'),
   ringFeed: spec('Infall Strength', 0, 10, 0.01, fixed(2), 'How brightly infall lights the ring',

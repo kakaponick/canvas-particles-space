@@ -16,7 +16,7 @@ export const SIMULATION_SETTING_KEYS = [
   'threeD', 'cameraYaw', 'cameraPitch', 'cameraSpin', 'cameraRoll', 'cameraLookYaw', 'cameraLookPitch',
   'cameraMoveRight', 'cameraMoveUp', 'cameraMoveIn', 'threeDEndFade', 'threeDEase', 'threeDNearest', 'cameraCutTurn',
   'companionSize', 'companionDistance', 'companionSpeed', 'companionWaves', 'companionClosest', 'companionSpin', 'companionOval', 'companionHandover',
-  'ringEnabled', 'ringFeedEnabled', 'ringBrightness', 'ringGlow', 'ringWidth', 'ringDoppler', 'ringSide', 'ringBase', 'ringFeed', 'ringAfterglow', 'ringFlowSpeed',
+  'ringEnabled', 'ringFeedEnabled', 'ringBrightness', 'ringGlow', 'ringWidth', 'ringDoppler', 'ringSide', 'ringSpinFollow', 'ringBase', 'ringFeed', 'ringAfterglow', 'ringFlowSpeed',
   'ringColor', 'ringColorApproaching', 'ringColorReceding', 'ringWidthMin', 'ringOffset', 'ringSoftness', 'ringGlowCore', 'ringGlowCoreShare', 'ringGlowSkirt', 'ringGlowSkirtShare',
   'ringFeedCapture', 'ringFeedSkim', 'ringFeedReach', 'ringStarFlare', 'ringStarSpread', 'ringStarSides',
   'lensingEnabled', 'lensingTraced', 'lensingRadius', 'lensingRotation', 'lensingFalloff', 'lensingPivot', 'lensingCore', 'lensingMaxBend', 'lensingReach', 'lensingTwistLimit', 'lensingAbsorption',

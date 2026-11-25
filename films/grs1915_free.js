@@ -2,7 +2,8 @@
 // opens looking away into the stream and swings its head onto the hole, pushes in with a slow roll, flies
 // past the shadow 3.2 radii to its side with its head turned to keep the hole in frame, drops under it,
 // comes back to Earth's view close to the flattened limb in slow motion, and pulls away. The hole is the
-// same: 12 solar masses, spin 0.98, seen at 66° with the jets along position angle 151°.
+// same: 12 solar masses, spin 0.98, seen at 66° with the jets along position angle 151°. The ring takes its
+// bright side from the spin as the camera sees it (ringSpinFollow), Doppler Contrast 0.9 side-on.
 //   node .claude/skills/space-scene/scripts/space.mjs preview films/grs1915_free.js out.jpg
 //   node .claude/skills/space-scene/scripts/space.mjs render films/grs1915_free.js films/grs1915_free.mp4
 /* global film, set, to, drive, wait, shot, caption, slow, meanwhile */
@@ -10,7 +11,7 @@ film({
   size: '1080p', fps: 60, seed: 1915, preset: 'Kerr', warmup: 5,
   settings: {
     blackHoleSize: 9, blackHoleSpin: 0.98, spinTilt: 66, spinAxis: 151, ringSide: 5.8,
-    ringDoppler: 0.6, ringBrightness: 1.5, ringGlow: 0.7, frameDrag: 6, gravityInertia: 0.85,
+    ringDoppler: 0.9, ringSpinFollow: 1, ringBrightness: 1.5, ringGlow: 0.7, frameDrag: 6, gravityInertia: 0.85,
     gravityStrength: 4, gravityDepth: 40, cameraZoom: 1.2, starsBrightness: 1.8,
     threeD: true, threeDEase: 0, cameraYaw: 0, cameraPitch: 8,
     cameraLookYaw: 60, cameraLookPitch: -8, cameraRoll: -12, cameraMoveIn: -6
@@ -60,14 +61,14 @@ shot('fly-by', () => {
 shot('under', () => {
   caption('Закрутка частиц усилена в 6 раз', 5, note)
   to({
-    cameraMoveIn: 3, cameraMoveRight: 0, cameraLookYaw: 0, cameraRoll: 0, cameraPitch: -35, cameraYaw: 70, ringDoppler: 0.25
+    cameraMoveIn: 3, cameraMoveRight: 0, cameraLookYaw: 0, cameraRoll: 0, cameraPitch: -35, cameraYaw: 70
   }, 10)
   wait(2)
 })
 
 shot('the limb', () => {
   caption('Край, летящий к нам, сплющен и ярче:\nсвет огибает дыру вслед за её вращением', 9, note)
-  to({ cameraYaw: 0, cameraPitch: 0, cameraMoveIn: 6, cameraMoveRight: 0.9, cameraMoveUp: -0.45, ringDoppler: 0.8 }, 5)
+  to({ cameraYaw: 0, cameraPitch: 0, cameraMoveIn: 6, cameraMoveRight: 0.9, cameraMoveUp: -0.45 }, 5)
   slow(0.25, () => { wait(4) })
 })
 
