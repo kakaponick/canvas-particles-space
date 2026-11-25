@@ -567,6 +567,14 @@ ${DENT_GLSL}
     return texture2D(u_image, 1.0 - abs(1.0 - mod(layerPx / u_resolution, 2.0))).rgb;
   }
 
+  // What is drawn at a point of the layers: the particles and, while there are any, the orbiting stars
+  // and the lattice, the brighter of the two
+  vec3 drawn (vec2 layerPx) {
+    vec3 color = scene(layerPx);
+    if (u_orbits > 0.0) color = max(color, texture2D(u_orbitTrails, 1.0 - abs(1.0 - mod(layerPx / u_resolution, 2.0))).rgb);
+    return color;
+  }
+
   // Carlson's symmetric elliptic integral R_F(x, y, z), by duplication: seven steps hold to float precision
   // even beside the photon sphere, where it runs off to infinity
   float carlsonRF (vec3 v) {
@@ -802,14 +810,14 @@ ${DENT_GLSL}
     }
 
     vec2 layerPx = layerPoint(samplePx);
-    vec3 color = scene(layerPx);
-    // The orbiting stars are read through the same bent ray, the brighter of them and the particles
-    if (u_orbits > 0.0) color = max(color, texture2D(u_orbitTrails, 1.0 - abs(1.0 - mod(layerPx / u_resolution, 2.0))).rgb);
+    // The orbiting stars are read through the same bent ray as the particles
+    vec3 color = drawn(layerPx);
     if (u_lensFringe > 0.0) {
-      // A simple lens bends red less and blue more, and more so away from the middle of the frame
+      // A simple lens bends red less and blue more, and more so away from the middle of the frame. Both
+      // layers go through it: red and blue taken from the particles alone would leave the orbits green
       vec2 split = (screen - 0.5 * u_resolution) / (0.5 * length(u_resolution)) * u_lensFringe;
-      color.r = scene(layerPx - split).r;
-      color.b = scene(layerPx + split).b;
+      color.r = drawn(layerPx - split).r;
+      color.b = drawn(layerPx + split).b;
     }
 
     // Seconds since the light front passed this point; negative before it arrives

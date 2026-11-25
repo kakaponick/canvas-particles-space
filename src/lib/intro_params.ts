@@ -339,7 +339,7 @@ export const INTRO_PARAM_SPECS = Object.fromEntries([
   p('cameraKick', 'Zoom Punch', 0, 0.5, 0.01, '×', 'Instant zoom-in at the blast; 0 = none', 'How far the explosion punches the zoom in for an instant, like the camera recoiling. 0 is none.'),
   p('shakeAmount', 'Shake', 0, 60, 0.5, 'px', 'Camera jolt from the blast; 0 = none', 'How far the explosion jolts the camera.'),
   p('shakeDecay', 'Shake Decay', 0.05, 3, 0.05, 's', 'Higher: the shake lasts longer', 'Time for the shake to die down to about a third.'),
-  p('lensFringe', 'Lens Fringe', 0, 20, 0.1, 'px', 'Red and blue edges toward the corners', 'Red and blue edges on the particles towards the corners of the frame, as a cheap lens gives. 0 removes them.'),
+  p('lensFringe', 'Lens Fringe', 0, 20, 0.1, 'px', 'Red and blue edges toward the corners', 'Red and blue edges on the particles, the orbiting stars and the lattice towards the corners of the frame, as a cheap lens gives. 0 removes them.'),
   p('vignette', 'Vignette', 0, 1, 0.01, '', 'How much the frame corners darken', 'How much the corners of the frame darken.'),
   spoken(p('filmGrain', 'Grain', 0, 0.5, 0.005, '', 'Flickering grain over the frame; 0 = none', 'Strength of the flickering grain over the whole frame.'), 'Film Grain'),
   p('letterbox', 'Letterbox', 0, 0.3, 0.005, 'share', 'Bar height top and bottom, % of screen', 'Height of the black bar at the top and at the bottom, as a share of the screen height. The bars open when the intro ends, unless Keep After Intro holds them.'),

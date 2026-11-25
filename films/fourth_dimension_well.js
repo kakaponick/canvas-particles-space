@@ -103,12 +103,13 @@ shot('the fourth dimension', () => {
       filmHold: 1
     }
   })
-  // The fringe of the anamorphic glass leaves with the opening: held, it would colour the lattice to come
+  // The fringe of the anamorphic glass leaves with the opening: the grid and the lattice to come are
+  // drawings, and their lines stay single to the frame's corners
   meanwhile(() => { to({ lensFringe: 0 }, 1.5) })
 })
 
 shot('a black hole', () => {
-  // The stars come once the fringe is gone: it colours their traces
+  // The stars come once the fringe is gone, so their traces are single lines from the first
   at(now() + 1.5, () => { set({ orbitCount: 7 }) })
   const end = holeSaid + (lines.hole ?? 8.8) + 0.8
   meanwhile(() => { to({ cameraZoom: 1.7 }, end - now()) })
