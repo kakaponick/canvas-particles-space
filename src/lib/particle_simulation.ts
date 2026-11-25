@@ -74,6 +74,12 @@ export interface StepSettings {
   holeY: number
   holeRadius: number
   captureRadius: number
+  // A second black hole on screen: its radius sets the strength of its gravity, and particles closer
+  // than its capture radius are recycled. A zero radius means there is none
+  companionX: number
+  companionY: number
+  companionRadius: number
+  companionCapture: number
   // Collects the light of matter falling in or skimming past; null leaves the photon ring unfed
   ringEnergy: RingEnergy | null
   gravityReach: number
@@ -308,6 +314,16 @@ export function stepParticles (
   // ones that light up, and the rest of the field goes dark
   const pullScale = gravityStrength * 0.6 * frameScale * holeRadiusSq
   const orbitScale = orbitalStrength * 0.02
+  // The second black hole pulls in proportion to its size and reaches as far in its own radii
+  const companionRadius = settings.companionRadius
+  const hasCompanion = hasHole && companionRadius > 0
+  const companionX = settings.companionX
+  const companionY = settings.companionY
+  const companionCapture = settings.companionCapture
+  const companionCaptureSq = companionCapture * companionCapture
+  const companionShare = hasCompanion ? companionRadius / holeRadius : 0
+  const companionReachSq = reachSq * companionShare * companionShare
+  const companionPullScale = pullScale * companionShare * companionShare
   const invFocal = 1 / focal
   const revealing = revealRadius < Infinity
   const revealX = settings.revealX
@@ -367,6 +383,37 @@ export function stepParticles (
           const pull = pullScale / clampedSq * depthWeight
           const orbit = pull * orbitScale
           const toWorld = pz * invFocal * invDistance
+
+          px += (dx * pull - dy * orbit) * toWorld
+          py += (dy * pull + dx * orbit) * toWorld
+          x[i] = px
+          y[i] = py
+
+          endX = px * endScale + vanishX
+          endY = py * endScale + vanishY
+        }
+      }
+    }
+
+    // The second black hole takes and pulls particles the same way; the light they leave is not tracked
+    if (hasCompanion) {
+      const dx = companionX - endX
+      const dy = companionY - endY
+      const distSq = dx * dx + dy * dy
+
+      if (distSq < companionReachSq) {
+        if (distSq < companionCaptureSq) {
+          respawnBeyondHorizon(field, i, spawn, companionX - vanishX, companionY - vanishY, companionCapture, spawnScale)
+          continue
+        }
+
+        if (pz > holeDepthNear && pz < holeDepthFar) {
+          const depthOffset = (pz - holeDepth) * invDepthBand
+          const bell = 1 - depthOffset * depthOffset * 0.25
+          const clampedSq = distSq > 1 ? distSq : 1
+          const pull = companionPullScale / clampedSq * bell * bell * bell
+          const orbit = pull * orbitScale
+          const toWorld = pz * invFocal / Math.sqrt(clampedSq)
 
           px += (dx * pull - dy * orbit) * toWorld
           py += (dy * pull + dx * orbit) * toWorld

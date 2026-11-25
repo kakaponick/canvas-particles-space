@@ -14,7 +14,7 @@ import {
   type StepSettings
 } from './particle_simulation'
 import { createParticleRenderer, type FrameInput, type ParticleRenderer } from './particle_renderer'
-import { createIntroFrame, getRingdownTiming, sampleIntro, type IntroFrame, type RingdownTiming } from './intro_timeline'
+import { createIntroFrame, getRingdownTiming, ringdownWobble, sampleIntro, type IntroFrame, type RingdownTiming } from './intro_timeline'
 import type { IntroLayer } from './intro_tracks'
 import type { IntroParams } from './intro_params'
 import type { SimulationSettings } from './simulation_presets'
@@ -22,7 +22,8 @@ import { stepSpring, type Spring2D } from './black_hole_motion'
 import { renderTitleSprite, waitForTitleFont, type TitleSprite, type TitleStyle } from './title_sprite'
 import { clearRingEnergy, createRingEnergy, stepRingEnergy } from './ring_energy'
 import { createGridSettings, placeGrid } from './space_grid'
-import { MAX_ORBITERS, createOrbiters, stepOrbiters } from './orbiters'
+import { LIGHT_SPEED, MAX_ORBITERS, createOrbiters, stepOrbiters } from './orbiters'
+import { createPair, stepPair } from './companion'
 import { createRandom, seedRandom } from './random'
 
 // The crumbling title follows the black hole's gravity: at these settings (the defaults) the dust
@@ -37,6 +38,8 @@ const TITLE_SAFE_MARGIN = 16
 const MIN_HOLE_OVAL = 1e-4
 // The gravitational wave is switched off this many wobble decay times after its front left the screen
 const GRAVITY_WAVE_FADES = 6
+// Two black holes becoming one ring this many times harder than one forming in the intro
+const MERGER_RING = 3
 
 // The centre of something `half` wide, moved as little as needed for it to lie between `inset` and
 // `size - inset`; centred when there is not enough room
@@ -137,6 +140,7 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
   let ringWasFed = true
   const field = createParticleField()
   const orbiters = createOrbiters(random)
+  const pair = createPair()
   const instances = createInstanceData()
   const spawn: SpawnSettings = {
     random,
@@ -160,6 +164,10 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     holeY: NaN,
     holeRadius: 0,
     captureRadius: 0,
+    companionX: 0,
+    companionY: 0,
+    companionRadius: 0,
+    companionCapture: 0,
     ringEnergy,
     gravityReach: 0,
     holeDepth: 0,
@@ -250,6 +258,17 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       gravityWaveFrequency: 1,
       gravityWaveDecay: 1,
       gravityWaveRadius: 1,
+      gravityWaveX: 0,
+      gravityWaveY: 0,
+      companionX: 0,
+      companionY: 0,
+      companionRadius: 0,
+      companionEinstein: 0,
+      pairX: 0,
+      pairY: 0,
+      pairWave: 0,
+      pairPhase: 0,
+      pairPitch: 0,
       backgroundStars: 0,
       starCell: 26,
       starDensity: 0,
@@ -402,7 +421,11 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     const explosionReach = Math.hypot(Math.max(originX, viewportWidth - originX), Math.max(originY, viewportHeight - originY)) * 1.15
     const lightSpeed = explosionReach / params.lightCrossTime
     // The horizon rings as a real black hole of its size would, scaled by the intro's multipliers
-    const shadowRadius = state.blackHoleSize / 100 * shortSide
+    // A second black hole turns with the main one around the place the black hole stands; the main one
+    // grows as it takes the companion in
+    const shadowShare = state.blackHoleSize / 100
+    stepPair(pair, state.companionSize, state.companionDistance, state.companionSpeed, state.companionWaves, shadowShare, dt, scene.time)
+    const shadowRadius = shadowShare * shortSide * pair.growth
     getRingdownTiming(params, shadowRadius, lightSpeed, ringTiming)
 
     sampleIntro(scene.introTime, reducedMotion, params, ringTiming, intro)
@@ -420,7 +443,9 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     if (hidden.remnant) intro.remnantGlow = 0
     if (hidden.title) intro.titleAlpha = 0
     // The photon ring flickers with the ringdown wobble; the RINGDOWN layer removes both
-    const ringdown = hidden.ringdown ? 0 : intro.ringdown
+    // Two black holes that have just become one ring as a newborn one does
+    const sinceMerger = pair.mergedAt >= 0 ? scene.time - pair.mergedAt : -1
+    const ringdown = hidden.ringdown ? 0 : intro.ringdown + ringdownWobble(sinceMerger, params.ringdownAmplitude * MERGER_RING, ringTiming)
     const ringPower = intro.ringFade * Math.max(1 + params.ringFlicker * ringdown, 0)
     scene.ringdown = ringdown
 
@@ -447,6 +472,11 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     } else {
       stepSpring(hole, pointer.x, pointer.y, dt, state.followFrequency)
     }
+    // The pair's lengths are in radii of the main hole before it grew; alone, the hole is its centre
+    const pairUnit = horizon / pair.growth
+    const holeX = hole.x + pair.mainX * pairUnit
+    const holeY = hole.y + pair.mainY * pairUnit
+    const companionRadius = pair.companion * pairUnit
 
     const speed = state.baseSpeed * intro.speedBoost
     scene.speed = speed
@@ -462,8 +492,12 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     settings.vanishY = centerY + (originY - centerY) * intro.vanishAtOrigin
     frame.vanishX = settings.vanishX
     frame.vanishY = settings.vanishY
-    settings.holeX = hole.x
-    settings.holeY = hole.y
+    settings.holeX = holeX
+    settings.holeY = holeY
+    settings.companionX = hole.x + pair.companionX * pairUnit
+    settings.companionY = hole.y + pair.companionY * pairUnit
+    settings.companionRadius = companionRadius
+    settings.companionCapture = companionRadius * state.horizonScale
     settings.holeRadius = horizon
     settings.captureRadius = captureRadius
     // With the feed off the simulation stops collecting light, and old light does not return later
@@ -502,7 +536,7 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       frame.orbitCount = state.orbitCount > 0
         ? stepOrbiters(
           orbiters, state.orbitCount, state.orbitSize, state.orbitEccentricity, state.orbitSpeed, dt,
-          hole.x, hole.y, shadowRadius, shadowRadius * state.horizonScale, shortSide,
+          holeX, holeY, shadowRadius, shadowRadius * state.horizonScale, shortSide,
           state.orbitStarSize, Math.min(holeGrowth, 1), spawn.palette, settings.ringEnergy, instances, frame.instanceCount
         )
         : 0
@@ -587,8 +621,8 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
 
     const composite = frame.composite
     composite.time = animationTime
-    composite.holeX = hole.x
-    composite.holeY = hole.y
+    composite.holeX = holeX
+    composite.holeY = holeY
     composite.horizon = horizon
     composite.einstein = state.lensingEnabled && !hidden.lens ? horizon * state.lensingRadius * intro.lensScale : 0
     composite.falloff = state.lensingFalloff
@@ -599,6 +633,15 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     composite.twistLimit = state.lensingTwistLimit
     composite.swirl = state.lensingRotation
     composite.absorption = state.lensingAbsorption
+    composite.companionX = settings.companionX
+    composite.companionY = settings.companionY
+    composite.companionRadius = companionRadius
+    composite.companionEinstein = companionRadius > 0 ? composite.einstein * pair.companion / pair.growth : 0
+    composite.pairX = hole.x
+    composite.pairY = hole.y
+    composite.pairWave = hidden.gravityWave ? 0 : pair.wave * pairUnit
+    composite.pairPhase = pair.phase
+    composite.pairPitch = pair.omega / (LIGHT_SPEED * shortSide)
     composite.ring = hidden.ring || !state.ringEnabled ? 0 : state.ringBrightness * ringPower
     composite.ringWidth = state.ringWidth
     composite.ringGlow = state.ringGlow
@@ -638,12 +681,16 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     composite.holeOval = horizon > 0 && Math.abs(ringdown) > MIN_HOLE_OVAL ? ringdown : 0
     // The gravitational wave is that wobble carried outward at the speed of light: every point shows the
     // wobble the horizon had when the wave left it. It is off once its last ripples are past the far corner
-    const waveTime = intro.ringdownTime
-    const waveOut = waveTime > params.lightCrossTime / 1.15 + ringTiming.decay * GRAVITY_WAVE_FADES
-    composite.gravityWaveAmplitude = hidden.gravityWave || waveTime <= 0 || waveOut
+    // A merger sends the same wave from where the two met, once the intro's own is gone
+    const waveLife = params.lightCrossTime / 1.15 + ringTiming.decay * GRAVITY_WAVE_FADES
+    const introWave = intro.ringdownTime > 0 && intro.ringdownTime <= waveLife
+    const mergerWave = !introWave && sinceMerger > 0 && sinceMerger <= waveLife
+    composite.gravityWaveAmplitude = hidden.gravityWave || !(introWave || mergerWave)
       ? 0
-      : params.gravityWaveGain * params.ringdownAmplitude * shadowRadius
-    composite.gravityWaveTime = waveTime
+      : params.gravityWaveGain * params.ringdownAmplitude * shadowRadius * (mergerWave ? MERGER_RING * state.companionWaves : 1)
+    composite.gravityWaveTime = mergerWave ? sinceMerger : intro.ringdownTime
+    composite.gravityWaveX = mergerWave ? hole.x : originX
+    composite.gravityWaveY = mergerWave ? hole.y : originY
     composite.gravityWaveFrequency = ringTiming.frequency
     composite.gravityWaveDecay = ringTiming.decay
     composite.gravityWaveRadius = shadowRadius
@@ -677,7 +724,10 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     composite.gridCell = gridCell
     frame.grid.brightness = state.gridSheet
     if (state.gridSheet > 0) {
-      placeGrid(frame.grid, state.gridTilt, state.gridDepth, gridCell, viewportWidth, viewportHeight, hole.x, hole.y, horizon)
+      placeGrid(
+        frame.grid, state.gridTilt, state.gridDepth, gridCell, viewportWidth, viewportHeight, holeX, holeY, horizon,
+        settings.companionX, settings.companionY, companionRadius, hole.x, hole.y
+      )
     }
 
     renderer.render(frame)

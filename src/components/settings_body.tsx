@@ -164,6 +164,13 @@ function SettingsBody () {
         <SettingSlider field="cameraZoom" setter="setCameraZoom" />
       </SettingsSection>
 
+      <SettingsSection id="companion" title="Second Black Hole">
+        <SettingSlider field="companionSize" setter="setCompanionSize" />
+        <SettingSlider field="companionDistance" setter="setCompanionDistance" />
+        <SettingSlider field="companionSpeed" setter="setCompanionSpeed" />
+        <SettingSlider field="companionWaves" setter="setCompanionWaves" />
+      </SettingsSection>
+
       <PhotonRingSection>
         <SettingSlider field="ringBrightness" setter="setRingBrightness" />
         <SettingSlider field="ringGlow" setter="setRingGlow" />

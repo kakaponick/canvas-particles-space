@@ -58,12 +58,17 @@ export function drawCaptions (ctx: CanvasRenderingContext2D, plan: FilmPlan, tim
     let y = height / 2
     ctx.textAlign = 'center'
 
-    if (caption.at === 'hole' || caption.at === 'einstein') {
+    if (caption.at === 'hole' || caption.at === 'einstein' || caption.at === 'companion') {
       // Where the composite pass put the black hole on the frame
       const zoom = composite.cameraZoom
-      const holeX = (composite.zoomX + (composite.holeX - composite.shakeX - composite.zoomX) * zoom) * pixel
-      const holeY = (composite.zoomY + (composite.holeY - composite.shakeY - composite.zoomY) * zoom) * pixel
-      const radius = (caption.at === 'einstein' && composite.einstein > 0 ? composite.einstein : composite.horizon) * zoom * pixel
+      const second = caption.at === 'companion' && composite.companionRadius > 0
+      const sceneX = second ? composite.companionX : composite.holeX
+      const sceneY = second ? composite.companionY : composite.holeY
+      const holeX = (composite.zoomX + (sceneX - composite.shakeX - composite.zoomX) * zoom) * pixel
+      const holeY = (composite.zoomY + (sceneY - composite.shakeY - composite.zoomY) * zoom) * pixel
+      const radius = (second
+        ? composite.companionRadius
+        : caption.at === 'einstein' && composite.einstein > 0 ? composite.einstein : composite.horizon) * zoom * pixel
       const angle = caption.angle * Math.PI / 180
       const dirX = Math.cos(angle)
       const dirY = -Math.sin(angle)

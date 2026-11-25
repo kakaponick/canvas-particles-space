@@ -39,7 +39,7 @@ const CAPTION_FADE = 0.35
 const EASES = ['ease', 'linear', 'in', 'out', 'hold'] as const
 type Ease = typeof EASES[number]
 
-export const CAPTION_PLACES = ['bottom', 'top', 'center', 'hole', 'einstein'] as const
+export const CAPTION_PLACES = ['bottom', 'top', 'center', 'hole', 'einstein', 'companion'] as const
 export type CaptionPlace = typeof CAPTION_PLACES[number]
 export type CaptionFont = TitleFontKey | 'system'
 
@@ -215,7 +215,7 @@ function readCaptions (source: unknown, duration: number): FilmCaption[] {
       if (!(CAPTION_PLACES as readonly string[]).includes(String(entry.at))) fail(`${where}.at takes one of ${CAPTION_PLACES.join(', ')} or [x, y]`)
       at = entry.at as CaptionPlace
     }
-    const pointing = at === 'hole' || at === 'einstein'
+    const pointing = at === 'hole' || at === 'einstein' || at === 'companion'
     const font = entry.font === undefined ? 'unbounded' : String(entry.font)
     if (font !== 'system' && !(font in TITLE_FONTS)) fail(`${where}.font takes one of: ${Object.keys(TITLE_FONTS).join(', ')}, system`)
     const color = entry.color === undefined ? '#ffffff' : String(entry.color)
@@ -385,9 +385,10 @@ export const FILM_GUIDE = `A film is one JSON object; the scene renders it to an
                              keyframes [seconds, value, ease?] for any numeric setting or intro parameter;
                              ease is how the value arrives: ease (default) | linear | in | out | hold
   "captions": [{ "text": "Event horizon", "from": 2, "to": 6, "at": "hole" }]
-                             at: bottom (default) | top | center | [x, y] shares of the frame | hole | einstein;
-                             hole and einstein point a line at the shadow's edge or the Einstein ring, from
-                             "angle" degrees (0 right, 90 up). Optional: size, color '#rrggbb', font, fade
+                             at: bottom (default) | top | center | [x, y] shares of the frame | hole | einstein |
+                             companion; the last three point a line at the shadow's edge, the Einstein ring
+                             or the second black hole, from "angle" degrees (0 right, 90 up).
+                             Optional: size, color '#rrggbb', font, fade
 }
 
 Everything but duration is optional. Start from describe to find setting keys; lengths around the black hole
@@ -400,6 +401,8 @@ Recipes
   Curved space sheet:      "settings": { "gridSheet": 0.6, "gridTilt": 65, "gridDepth": 3 }
   Lens made visible:       "settings": { "gridSky": 0.5 }
   Orbiting stars (S2):     "settings": { "orbitCount": 12, "orbitEccentricity": 0.7, "orbitTrail": 10 }
+  Two black holes merging: "settings": { "companionSize": 0.7, "gridSheet": 0.5 },
+                           "tracks": { "companionDistance": [[0, 9], [10, 0, "in"]] }
   Slow motion at a moment: "tracks": { "baseSpeed": [[0, 6], [4, 6], [5, 0.5], [8, 0.5], [9, 6]] }
   Vertical short:          "size": "vertical", "settings": { "blackHoleY": 0.42 }
 

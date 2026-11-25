@@ -15,9 +15,9 @@ import { INSTANCE_FLOATS, samplePaletteColor, type InstanceData, type PaletteSam
 export const MAX_ORBITERS = 64
 
 // Schwarzschild radii in the radius of the shadow, sqrt(27) / 2
-const SHADOW_RADII = 2.598
+export const SHADOW_RADII = 2.598
 // The speed of light on screen, in short screen sides per second
-const LIGHT_SPEED = 1.2
+export const LIGHT_SPEED = 1.2
 // Longest step of the integrator, in rs / c; a frame is split into as many as it takes, up to the cap
 const MAX_STEP = 0.12
 const MAX_STEPS = 24

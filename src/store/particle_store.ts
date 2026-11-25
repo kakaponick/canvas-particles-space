@@ -108,6 +108,13 @@ export interface ParticleState {
   orbitSpeed: number
   orbitTrail: number
   orbitStarSize: number
+  // A second black hole (companion.ts): its radius in main hole radii (0 = none), the gap between the
+  // two centres in main hole radii, the rate of the pair's time (its sign is its direction) and the
+  // strength of the gravitational waves the pair sends out
+  companionSize: number
+  companionDistance: number
+  companionSpeed: number
+  companionWaves: number
   // How much the camera magnifies the scene around the black hole; 1 is no zoom
   cameraZoom: number
   frameRateCap: number
@@ -185,6 +192,10 @@ export interface ParticleState {
   setGridDepth: (value: number) => void
   setGridSky: (value: number) => void
   setCameraZoom: (value: number) => void
+  setCompanionSize: (value: number) => void
+  setCompanionDistance: (value: number) => void
+  setCompanionSpeed: (value: number) => void
+  setCompanionWaves: (value: number) => void
   setOrbitCount: (value: number) => void
   setOrbitSize: (value: number) => void
   setOrbitEccentricity: (value: number) => void
@@ -266,6 +277,10 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   gridDepth: 2.5,
   gridSky: 0,
   cameraZoom: 1,
+  companionSize: 0,
+  companionDistance: 8,
+  companionSpeed: 1,
+  companionWaves: 1,
   orbitCount: 0,
   orbitSize: 4,
   orbitEccentricity: 0.5,
@@ -346,6 +361,10 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   setGridDepth: (value) => set({ gridDepth: value }),
   setGridSky: (value) => set({ gridSky: value }),
   setCameraZoom: (value) => set({ cameraZoom: value }),
+  setCompanionSize: (value) => set({ companionSize: value }),
+  setCompanionDistance: (value) => set({ companionDistance: value }),
+  setCompanionSpeed: (value) => set({ companionSpeed: value }),
+  setCompanionWaves: (value) => set({ companionWaves: value }),
   setOrbitCount: (value) => set({ orbitCount: value }),
   setOrbitSize: (value) => set({ orbitSize: value }),
   setOrbitEccentricity: (value) => set({ orbitEccentricity: value }),

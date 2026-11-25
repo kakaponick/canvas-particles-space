@@ -196,6 +196,10 @@ export const compositeFragmentShaderSource = `
   uniform float u_gravityWaveOmega;     // the wobble's angular frequency
   uniform float u_gravityWaveInvDecay;  // 1 / the wobble's decay time
   uniform float u_gravityWaveRadius;    // shadow radius; the wave weakens with distance beyond it
+  uniform vec2 u_gravityWaveCenter;     // where the wave left from
+  uniform vec4 u_companion;      // a second black hole: centre, shadow radius (0 = none), Einstein radius
+  uniform vec2 u_pair;           // the centre the two black holes turn around
+  uniform vec4 u_pairWave;       // their spiral gravitational wave: pixels of stretch (0 = off), the pair's angle, turn of its arms per pixel, radius beyond which it weakens
   uniform float u_backgroundStars;
   uniform float u_starCell;        // CSS pixels per background-star cell
   uniform float u_starDensity;     // share of cells holding a star
@@ -392,15 +396,29 @@ export const compositeFragmentShaderSource = `
     vec2 fromCenter = frag - u_center;
     float centerDist = length(fromCenter);
     if (u_gravityWaveAmplitude > 0.0) {
-      float emitted = u_gravityWaveTime - centerDist / u_lightSpeed;
+      vec2 fromWave = frag - u_gravityWaveCenter;
+      float waveDist = length(fromWave);
+      float emitted = u_gravityWaveTime - waveDist / u_lightSpeed;
       if (emitted > 0.0) {
         float wobble = exp(-emitted * u_gravityWaveInvDecay) * sin(u_gravityWaveOmega * emitted);
-        float spread = sqrt(u_gravityWaveRadius / max(centerDist, u_gravityWaveRadius));
-        float invDist = 1.0 / max(centerDist, 0.0001);
-        float axis = (fromCenter.x * fromCenter.x - fromCenter.y * fromCenter.y) * invDist * invDist;
+        float spread = sqrt(u_gravityWaveRadius / max(waveDist, u_gravityWaveRadius));
+        float invDist = 1.0 / max(waveDist, 0.0001);
+        float axis = (fromWave.x * fromWave.x - fromWave.y * fromWave.y) * invDist * invDist;
         // Reading the scene from closer in shows it pushed outward: a positive wobble stretches sideways
-        samplePx -= fromCenter * invDist * u_gravityWaveAmplitude * wobble * spread * axis;
+        samplePx -= fromWave * invDist * u_gravityWaveAmplitude * wobble * spread * axis;
       }
+    }
+
+    // Two black holes circling each other send out a wave of the same kind without end: its stretch
+    // points along the line between them as that line was when the wave left, so the arms wind into a
+    // two-armed spiral that turns with the pair. cos and sin of twice the angle come from x and y
+    if (u_pairWave.x > 0.0) {
+      vec2 fromPair = frag - u_pair;
+      float pairDist = length(fromPair);
+      float invDist = 1.0 / max(pairDist, 0.0001);
+      float turn = 2.0 * (u_pairWave.z * pairDist - u_pairWave.y);
+      float arms = ((fromPair.x * fromPair.x - fromPair.y * fromPair.y) * cos(turn) - 2.0 * fromPair.x * fromPair.y * sin(turn)) * invDist * invDist;
+      samplePx -= fromPair * invDist * u_pairWave.x * sqrt(u_pairWave.w / max(pairDist, u_pairWave.w)) * arms;
     }
 
     // The lens maps the background behind the hole into a ring of radius E, where the pull (E / r)^2
@@ -434,6 +452,17 @@ export const compositeFragmentShaderSource = `
         float c = cos(twist);
         float s = sin(twist);
         samplePx = u_hole + vec2(c * lensed.x - s * lensed.y, s * lensed.x + c * lensed.y);
+      }
+    }
+
+    // The second black hole bends the ray as a point mass does, on top of the first
+    float companionDist = 0.0;
+    if (u_companion.z > 0.0) {
+      vec2 fromCompanion = frag - u_companion.xy;
+      companionDist = length(fromCompanion);
+      if (u_companion.w > 0.0) {
+        float closest = 0.5 * u_companion.z;
+        samplePx -= fromCompanion * (u_companion.w * u_companion.w / max(companionDist * companionDist, closest * closest));
       }
     }
 
@@ -596,8 +625,29 @@ export const compositeFragmentShaderSource = `
     // zone opens around the shadow and grows with absorption, lens radius and falloff
     if (bend > 0.0 && u_absorption > 0.0) color = max(color - 0.5 * bend * u_absorption, 0.0);
 
+    // Each black hole's shadow also hides the part of the other's ring that lies behind it
+    float besideCompanion = 1.0;
+    if (u_companion.z > 0.0) {
+      besideCompanion = smoothstep(u_companion.z - 1.0, u_companion.z + 1.0, companionDist);
+      color *= besideCompanion;
+    }
+
     if (u_horizon > 0.0) {
-      color *= smoothstep(u_horizon - 1.0, u_horizon + 1.0, dist);
+      float besideHole = smoothstep(u_horizon - 1.0, u_horizon + 1.0, dist);
+      color *= besideHole;
+
+      // The second black hole's ring is a plain line: no matter is tracked falling into it
+      if (u_companion.z > 0.0 && u_ring > 0.0 && companionDist < u_companion.z * 1.6) {
+        float ringLine = max(u_ringWidth * u_companion.z, 1.5);
+        float fromLine = companionDist - u_companion.z - 0.7 * ringLine;
+        float inner = fromLine / (0.45 * ringLine);
+        float line = exp(-inner * inner);
+        if (u_ringGlow > 0.0) {
+          vec2 spread = fromLine / (u_companion.z * RING_GLOW_REACH);
+          line += u_ringGlow * dot(RING_GLOW_SHARE, exp(-spread * spread));
+        }
+        color += RING_COLOR * u_ring * u_ringBase * line * besideHole;
+      }
 
       // Photon ring: light that circled the hole before escaping, a hair-thin line hugging the shadow
       if (u_ring > 0.0 && dist < u_horizon * 1.6) {
@@ -625,7 +675,7 @@ export const compositeFragmentShaderSource = `
         // The colour follows the square of the contrast: a mild one only brightens and dims the sides of
         // a white ring, a strong one also turns them blue and red
         vec3 tint = mix(RING_COLOR, side > 0.0 ? RING_APPROACHING : RING_RECEDING, abs(side) * u_ringDoppler * u_ringDoppler);
-        color += tint * u_ring * boost * boost * boost * line;
+        color += tint * u_ring * boost * boost * boost * line * besideCompanion;
       }
     }
 
@@ -665,6 +715,9 @@ export const gridVertexShaderSource = `
   uniform vec2 u_view;        // the point the camera looks at
   uniform vec4 u_camera;      // its distance from the camera, sine and cosine of the tilt, line width
   uniform vec4 u_well;        // the black hole on the sheet relative to that point, the radius its well ends at, the well's depth
+  uniform vec4 u_well2;       // a second black hole's well, placed from the first: across, away, radius, depth; depth 0 = none
+  uniform vec4 u_pairWave;    // the pair's spiral wave: height (0 = off), the pair's angle on the sheet, turn of its arms per unit of distance, radius beyond which it weakens
+  uniform vec2 u_pairAt;      // the centre the two turn around, from the first well
   uniform vec2 u_lines;       // cell size, how far from the black hole the lines reach
   uniform vec4 u_wave;        // gravitational wave: height, seconds since it left the hole, angular frequency, 1 / decay time
   uniform vec2 u_waveSpread;  // radius beyond which the wave weakens, the speed of light per second
@@ -688,6 +741,16 @@ export const gridVertexShaderSource = `
     float depth = 0.0;
     // Depth follows gravitational time dilation: flat far away, vertical where the well ends
     if (u_well.w > 0.0) depth = u_well.w * (1.0 - sqrt(1.0 - u_well.z / max(r, u_well.z)));
+    // A second black hole dents the sheet the same way, and the dents add up
+    if (u_well2.w > 0.0) depth += u_well2.w * (1.0 - sqrt(1.0 - u_well2.z / max(length(fromHole - u_well2.xy), u_well2.z)));
+    // The pair's spiral wave lifts and lowers the sheet as it stretches the sky in the composite pass
+    if (u_pairWave.x > 0.0) {
+      vec2 fromPair = fromHole - u_pairAt;
+      float pairDist = length(fromPair);
+      float turn = 2.0 * (u_pairWave.z * pairDist - u_pairWave.y);
+      depth += u_pairWave.x * sqrt(u_pairWave.w / max(pairDist, u_pairWave.w)) *
+        ((fromPair.x * fromPair.x - fromPair.y * fromPair.y) * cos(turn) - 2.0 * fromPair.x * fromPair.y * sin(turn)) / max(pairDist * pairDist, 0.0001);
+    }
     // The gravitational wave lifts the sheet along one axis and lowers it along the other, as it
     // stretches and squeezes the sky in the composite pass
     if (u_wave.x > 0.0) {
@@ -758,6 +821,7 @@ export const gridFragmentShaderSource = `
 
   uniform vec4 u_color;   // rgb at the sheet's brightness
   uniform vec4 u_shadow;  // the black hole as the frame shows it: centre and shadow radius; radius 0 = none
+  uniform vec4 u_shadow2; // a second black hole, the same way
   uniform vec2 u_frame;   // height of the drawing buffer, height of each letterbox bar
 
   varying vec2 v_ends;
@@ -772,6 +836,7 @@ export const gridFragmentShaderSource = `
     vec2 screen = vec2(gl_FragCoord.x, u_frame.x - gl_FragCoord.y);
     // The black hole stands in front of the sheet: no line crosses its shadow or its ring
     if (u_shadow.z > 0.0) alpha *= smoothstep(u_shadow.z * 1.04 + 1.0, u_shadow.z * 1.2 + 2.0, length(screen - u_shadow.xy));
+    if (u_shadow2.z > 0.0) alpha *= smoothstep(u_shadow2.z * 1.04 + 1.0, u_shadow2.z * 1.2 + 2.0, length(screen - u_shadow2.xy));
     if (u_frame.y > 0.0) alpha *= smoothstep(u_frame.y - 1.0, u_frame.y + 1.0, min(screen.y, u_frame.x - screen.y));
     gl_FragColor = vec4(u_color.rgb * alpha, 1.0);
   }

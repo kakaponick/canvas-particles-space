@@ -46,6 +46,15 @@ export interface GridSettings {
   // Radius the well ends at and its depth there
   throat: number
   depth: number
+  // A second black hole's well, placed from the first one's; a depth of 0 is none
+  well2X: number
+  well2Z: number
+  throat2: number
+  depth2: number
+  // The centre the two turn around, from the first well, and the direction of the second from the first
+  pairX: number
+  pairZ: number
+  pairPhase: number
 }
 
 export function createGridSettings (): GridSettings {
@@ -62,7 +71,14 @@ export function createGridSettings (): GridSettings {
     wellX: 0,
     wellZ: 0,
     throat: 0,
-    depth: 0
+    depth: 0,
+    well2X: 0,
+    well2Z: 0,
+    throat2: 0,
+    depth2: 0,
+    pairX: 0,
+    pairZ: 0,
+    pairPhase: 0
   }
 }
 
@@ -85,9 +101,38 @@ export function createGridInstances (): Float32Array {
   return instances
 }
 
+// Where a well sits on the sheet, kept at module level so that laying the sheet out allocates nothing
+let wellAcross = 0
+let wellAway = 0
+let wellThroat = 0
+let wellDepth = 0
+
+// Puts a well where its bottom lands on a black hole standing at this place of the screen, measured
+// from the screen's centre, with its mouth as wide as the shadow there
+function settleWell (screenX: number, screenY: number, horizon: number, depthInRadii: number, distance: number, sin: number, cos: number) {
+  const nearest = distance * MIN_CAMERA_SHARE
+  // The well's size on the sheet depends on how far its bottom is from the camera, which depends on
+  // its size; two rounds settle it to well under a pixel
+  let throat = horizon
+  let depth = 0
+  let away = 0
+  let behind = distance
+  for (let round = 0; round < 3; round++) {
+    depth = depthInRadii * throat
+    away = (screenY * (distance + depth * cos) - distance * depth * sin) / Math.max(distance * cos + screenY * sin, nearest)
+    behind = Math.max(distance + depth * cos - away * sin, nearest)
+    if (round < 2) throat = horizon * behind / distance
+  }
+  wellAcross = screenX * behind / distance
+  wellAway = away
+  wellThroat = throat
+  wellDepth = depth
+}
+
 // Lays the sheet out for one frame: the camera looks at the screen centre from above, tilted, and the
-// well is put where its bottom lands on the black hole, with its mouth as wide as the shadow there.
-// The sheet stays where it is on screen while the black hole moves across it
+// well is put where its bottom lands on the black hole. The sheet stays where it is on screen while the
+// black hole moves across it. A second black hole (radius above 0) gets a well of its own; `pairX`,
+// `pairY` is the place on screen the two turn around
 export function placeGrid (
   grid: GridSettings,
   tiltDegrees: number,
@@ -97,39 +142,46 @@ export function placeGrid (
   height: number,
   holeX: number,
   holeY: number,
-  horizon: number
+  horizon: number,
+  companionX: number,
+  companionY: number,
+  companionRadius: number,
+  pairX: number,
+  pairY: number
 ) {
   const longSide = Math.max(width, height)
   const distance = CAMERA_DISTANCE * longSide
   const tilt = tiltDegrees * Math.PI / 180
   const sin = Math.sin(tilt)
   const cos = Math.cos(tilt)
-  const screenX = holeX - width / 2
-  const screenY = holeY - height / 2
-  const nearest = distance * MIN_CAMERA_SHARE
+  const centerX = width / 2
+  const centerY = height / 2
 
-  // The well's size on the sheet depends on how far its bottom is from the camera, which depends on
-  // its size; two rounds settle it to well under a pixel
-  let throat = horizon
-  let depth = 0
-  let wellZ = 0
-  let behind = distance
-  for (let round = 0; round < 3; round++) {
-    depth = depthInRadii * throat
-    wellZ = (screenY * (distance + depth * cos) - distance * depth * sin) / Math.max(distance * cos + screenY * sin, nearest)
-    behind = Math.max(distance + depth * cos - wellZ * sin, nearest)
-    if (round < 2) throat = horizon * behind / distance
-  }
-
+  settleWell(holeX - centerX, holeY - centerY, horizon, depthInRadii, distance, sin, cos)
   grid.cell = cell
   grid.span = Math.min(SHEET_SPAN * longSide, GRID_LINES_PER_SIDE * cell)
-  grid.viewX = width / 2
-  grid.viewY = height / 2
+  grid.viewX = centerX
+  grid.viewY = centerY
   grid.distance = distance
   grid.tiltSin = sin
   grid.tiltCos = cos
-  grid.wellX = screenX * behind / distance
-  grid.wellZ = wellZ
-  grid.throat = throat
-  grid.depth = depth
+  grid.wellX = wellAcross
+  grid.wellZ = wellAway
+  grid.throat = wellThroat
+  grid.depth = wellDepth
+
+  grid.throat2 = 0
+  grid.depth2 = 0
+  if (companionRadius > 0) {
+    settleWell(companionX - centerX, companionY - centerY, companionRadius, depthInRadii, distance, sin, cos)
+    grid.well2X = wellAcross - grid.wellX
+    grid.well2Z = wellAway - grid.wellZ
+    grid.throat2 = wellThroat
+    grid.depth2 = wellDepth
+    grid.pairPhase = Math.atan2(grid.well2Z, grid.well2X)
+    // The centre of the pair lies on the flat sheet
+    settleWell(pairX - centerX, pairY - centerY, 0, 0, distance, sin, cos)
+    grid.pairX = wellAcross - grid.wellX
+    grid.pairZ = wellAway - grid.wellZ
+  }
 }
