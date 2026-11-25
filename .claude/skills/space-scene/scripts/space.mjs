@@ -14,6 +14,9 @@
 // Several preview or render jobs may follow one another on one line, three or four words each; the
 // browser is then started once. A seconds list of "-" leaves the choice of frames to the film: a frame of
 // each shot, or nine spread over it.
+//
+// A zoom into the Mandelbrot set takes the same commands with "fractal-" before them (fractal-guide,
+// fractal-check, fractal-preview, fractal-render) and a fractal film, always a .json file.
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
@@ -28,7 +31,9 @@ const USAGE = [
   'node space.mjs check <film.json|film.js> [out.json]',
   'node space.mjs preview <film.json|film.js> <out.jpg> [seconds,seconds,...]',
   'node space.mjs render <film.json|film.js> <out.mp4> [medium|high|max] [audio file]',
-  'and --input <file.json> for what a script reads as input'
+  'and --input <file.json> for what a script reads as input',
+  'node space.mjs fractal-guide | fractal-check <fractal.json> | fractal-preview <fractal.json> <out.jpg> [seconds,...] |',
+  '  fractal-render <fractal.json> <out.mp4> [medium|high|max] [audio file]: a zoom into the Mandelbrot set'
 ].join('\n')
 
 function findRoot () {
@@ -57,6 +62,16 @@ function readFilm (file, input) {
 
 // One tool call for each job named on the command line
 function readJobs (command, given) {
+  if (command?.startsWith('fractal-')) {
+    // The same jobs on the fractal tools, which take a film as JSON only
+    const kind = command.slice('fractal-'.length)
+    if (!['guide', 'check', 'preview', 'render'].includes(kind)) throw new Error(USAGE)
+    return readJobs(kind, given).map(job => {
+      if (job.args.script !== undefined) throw new Error(`${job.name}: a fractal film is a .json file`)
+      // check writes no JSON for a fractal film: it is JSON already
+      return { ...job, tool: job.tool.replace(/^space_/, 'space_fractal_'), args: kind === 'check' ? { film: job.args.film } : job.args }
+    })
+  }
   const words = [...given]
   let input
   const flag = words.indexOf('--input')

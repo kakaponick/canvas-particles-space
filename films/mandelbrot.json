@@ -1,0 +1,9 @@
+{
+  "duration": 60,
+  "fps": 30,
+  "size": "1080p",
+  "target": "spiral",
+  "depth": 60,
+  "palette": "classic",
+  "hud": true
+}

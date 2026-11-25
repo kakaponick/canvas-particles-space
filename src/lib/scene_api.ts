@@ -20,6 +20,8 @@ import {
 import { FILM_GUIDE, planFilm } from './film'
 import { SCRIPT_GUIDE, writeFilm } from './film_script'
 import { cancelFilm, filmProgress, previewFilm, renderFilm, type PreviewOptions, type RenderOptions } from './film_render'
+import { FRACTAL_GUIDE } from './fractal'
+import { checkFractal, previewFractal, renderFractal } from './fractal_render'
 
 // Defaults of the switches that are kept per device and so are not in the Default preset
 const DEVICE_TOGGLE_DEFAULTS: Record<string, boolean> = { adaptiveParticles: true, fpsCounter: false }
@@ -46,6 +48,9 @@ const HELP = `window.space: the scene for agents. Every call returns plain JSON-
                            what a script reads as input goes beside the other options, or second into check
   film.script(source, input?)   the JSON a script writes, with the seconds it marked
   film.progress() / film.cancel()
+  fractal.guide() / fractal.check(film) / fractal.preview(film, { at?, frames? }) / fractal.render(film, { quality?, audio?, download? })
+                           a zoom into the Mandelbrot set as a video, as deep as asked: the film renderer forked for
+                           another picture, with the same progress and cancel
 Colours take '#rrggbb'; choices take an option index or its name.`
 
 // A film as it was given: the object itself, or what a script writes, with what the script had to adjust
@@ -335,6 +340,14 @@ export const sceneApi = {
       const { summary } = await renderFilm(read.film, options)
       return { ...summary, notes: [...read.notes, ...summary.notes] }
     },
+    progress: filmProgress,
+    cancel: cancelFilm
+  },
+  fractal: {
+    guide: () => FRACTAL_GUIDE,
+    check: (film: unknown) => checkFractal(film),
+    preview: async (film: unknown, options?: PreviewOptions) => previewFractal(film, options),
+    render: async (film: unknown, options?: RenderOptions) => (await renderFractal(film, options)).summary,
     progress: filmProgress,
     cancel: cancelFilm
   }

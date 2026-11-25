@@ -3,7 +3,9 @@
 // keeps one headless Chrome on it and gives an agent five tools: space_guide (how to write a film),
 // space_describe (what can be set), space_check (what a film will be, without drawing it), space_preview
 // (a contact sheet of frames) and space_render (the mp4). A film comes as its JSON or as a script that
-// writes it. The page does the work through window.space.film; this file only carries text in and files out.
+// writes it. Four more do the same for a zoom into the Mandelbrot set (space_fractal_guide, _check,
+// _preview, _render). The page does the work through window.space.film and window.space.fractal; this
+// file only carries text in and files out.
 // No dependencies: the protocol is JSON-RPC lines on stdio, the browser is driven over its DevTools socket.
 //
 //   node mcp/space_mcp.mjs          after `pnpm build`; .mcp.json starts it for Claude Code
@@ -34,7 +36,8 @@ const PROGRESS_EVERY_MS = 1000
 const INSTRUCTIONS = 'Makes 1-180 s videos of a black-hole particle scene from a "film": one JSON object, or a short ' +
   'script that plays the film forward. Call space_guide first for both and their recipes, space_describe to find ' +
   'setting names, space_check to read a film back as a timeline, space_preview to look at frames, then space_render ' +
-  'to write the mp4.'
+  'to write the mp4. The space_fractal_ tools make a zoom into the Mandelbrot set the same way, as deep as asked: ' +
+  'space_fractal_guide first.'
 
 // A film comes one of two ways, and every tool that takes a film takes either
 const FILM_INPUT = {
@@ -42,6 +45,8 @@ const FILM_INPUT = {
   script: { type: 'string', description: 'The film as a script instead: JavaScript that plays it forward, as space_guide describes it' },
   input: { type: 'object', description: 'What a script reads as "input": one script, several films', additionalProperties: true }
 }
+
+const FRACTAL_FILM = { type: 'object', description: 'The fractal film as JSON, as space_fractal_guide describes it', additionalProperties: true }
 
 const TOOLS = [
   {
@@ -97,6 +102,45 @@ const TOOLS = [
         audio: { type: 'string', description: 'Path of an audio file (mp3, wav, m4a, ogg) laid under the picture from its start' }
       },
       required: ['out']
+    }
+  },
+  {
+    name: 'space_fractal_guide',
+    description: 'How to write a fractal film: a zoom into the Mandelbrot set, to any depth, as one JSON object. Read it first.',
+    inputSchema: { type: 'object', properties: {} }
+  },
+  {
+    name: 'space_fractal_check',
+    description: 'Reads a fractal film without drawing it: the target found and its digits, the precision, the zoom over time, ' +
+      'the steps a pixel takes, what was adjusted, and every mistake at once.',
+    inputSchema: { type: 'object', properties: { film: FRACTAL_FILM }, required: ['film'] }
+  },
+  {
+    name: 'space_fractal_preview',
+    description: 'Draws frames of a fractal film side by side in one picture, each with its second, magnification and steps, ' +
+      'exactly as the render will make them, and the milliseconds a frame took.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        film: FRACTAL_FILM,
+        at: { type: 'array', items: { type: 'number' }, description: 'Seconds to show; evenly spread when left out' },
+        frames: { type: 'number', description: 'How many frames to spread evenly over the film when "at" is left out (default 9)' }
+      },
+      required: ['film']
+    }
+  },
+  {
+    name: 'space_fractal_render',
+    description: 'Renders a fractal film to an mp4 file (H.264) and reports its length, size, depth and anything it adjusted.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        film: FRACTAL_FILM,
+        out: { type: 'string', description: 'Path of the mp4 to write; relative paths start at the working directory' },
+        quality: { type: 'string', enum: ['medium', 'high', 'max'], description: 'Bitrate; high by default' },
+        audio: { type: 'string', description: 'Path of an audio file (mp3, wav, m4a, ogg) laid under the picture from its start' }
+      },
+      required: ['film', 'out']
     }
   }
 ]
@@ -311,6 +355,13 @@ function filmOf (args) {
   return script
 }
 
+function fractalOf (args) {
+  if (typeof args.film !== 'object' || args.film === null || Array.isArray(args.film)) {
+    throw new Error('Give the fractal film as "film", the JSON object space_fractal_guide describes')
+  }
+  return args.film
+}
+
 const round = (value) => typeof value === 'number' ? Number(value.toFixed(4)) : value
 
 function describeText (settings, intro, presets, introPresets, layerInfo, filter) {
@@ -426,16 +477,46 @@ async function runTool (name, args, report) {
     }
   }
 
-  if (name === 'space_render') {
+  if (name === 'space_fractal_guide') return text(await page.evaluate(inPage('fractal.guide')))
+
+  if (name === 'space_fractal_check') {
+    const checked = await page.evaluate(inPage('fractal.check', fractalOf(args)))
+    return text([
+      `The film: ${+checked.duration.toFixed(2)} s, ${checked.fps} fps, ${checked.width}x${checked.height}, ${checked.frames} frames.`,
+      ...(checked.notes.length > 0 ? [`Adjusted: ${checked.notes.join('; ')}`] : []),
+      ...checked.timeline
+    ].join('\n'))
+  }
+
+  if (name === 'space_fractal_preview') {
+    const options = {}
+    if (Array.isArray(args.at)) options.at = args.at
+    if (typeof args.frames === 'number') options.frames = args.frames
+    const sheet = await withProgress(page, report, () => page.evaluate(inPage('fractal.preview', fractalOf(args), options)))
+    const note = sheet.notes.length > 0 ? `\nAdjusted: ${sheet.notes.join('; ')}` : ''
+    return {
+      content: [
+        { type: 'image', data: sheet.image, mimeType: sheet.mimeType },
+        {
+          type: 'text',
+          text: `Frames at ${sheet.times.join(', ')} s, left to right, top to bottom, ${sheet.msPerTile} ms each at this size. ` +
+            `The film: ${sheet.film.duration} s, ${sheet.film.fps} fps, ${sheet.film.width}x${sheet.film.height}.${note}\n${sheet.timeline.join('\n')}`
+        }
+      ]
+    }
+  }
+
+  if (name === 'space_render' || name === 'space_fractal_render') {
     if (typeof args.out !== 'string' || args.out.trim() === '') throw new Error('out takes the path of the mp4 to write')
-    const film = filmOf(args)
+    const fractal = name === 'space_fractal_render'
+    const film = fractal ? fractalOf(args) : filmOf(args)
     let out = path.resolve(process.cwd(), args.out)
     if (path.extname(out).toLowerCase() !== '.mp4') out += '.mp4'
     fs.mkdirSync(path.dirname(out), { recursive: true })
 
     const options = { upload: '' }
     if (args.quality !== undefined) options.quality = args.quality
-    if (args.input !== undefined) options.input = args.input
+    if (args.input !== undefined && !fractal) options.input = args.input
     const tokens = []
     if (args.audio !== undefined) {
       const audio = path.resolve(process.cwd(), String(args.audio))
@@ -458,7 +539,7 @@ async function runTool (name, args, report) {
     options.upload = `${page.origin}/__film/upload/${token}`
 
     try {
-      const summary = await withProgress(page, report, () => page.evaluate(inPage('film.render', film, options)))
+      const summary = await withProgress(page, report, () => page.evaluate(inPage(fractal ? 'fractal.render' : 'film.render', film, options)))
       if (target.error || !target.written) throw target.error ?? new Error('The file did not arrive from the page')
       closeFile()
       fs.renameSync(target.path, out)

@@ -198,14 +198,14 @@ const CAPTION_KEYS = ['text', 'from', 'to', 'at', 'angle', 'size', 'color', 'fon
 // The switches a film can flip along its tracks; it has no cursor for the black hole to follow
 export const TRACK_SWITCHES = SETTING_KEYS.filter(key => key in TOGGLES && key !== 'blackHoleFollowing')
 
-function inRange (key: string, value: unknown, min: number, max: number, notes: string[]) {
+export function inRange (key: string, value: unknown, min: number, max: number, notes: string[]) {
   const number = asNumber(key, value)
   const kept = clamp(number, min, max)
   if (kept !== number) notes.push(`${key} ${number} is outside ${min}..${max}, used ${kept}`)
   return kept
 }
 
-function readFrame (film: Patch, notes: string[]) {
+export function readFrame (film: Patch, notes: string[]) {
   let width = 1920
   let height = 1080
   if (film.size !== undefined) {

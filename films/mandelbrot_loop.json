@@ -1,0 +1,9 @@
+{
+  "duration": 12,
+  "fps": 30,
+  "size": "1080p",
+  "target": "triple",
+  "loop": true,
+  "depth": 30,
+  "palette": "ice"
+}

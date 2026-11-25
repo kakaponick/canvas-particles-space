@@ -208,6 +208,18 @@ to({ fade: 1 }, 1.5)
   stays a line of a pixel and a half, cuts between 1×, 2×, 4× and 8×, travels with the black hole over the lensed
   grid at 4× and pulls back with the trails streaking behind the camera.
 
+### Mandelbrot zoom
+
+The film renderer has a fork that draws a zoom into the Mandelbrot set instead of the scene, as deep as asked:
+×10¹⁵, where ordinary doubles give out, ×10³⁰⁰ or ×10¹⁰⁰⁰. A fractal film is one JSON object (target, depth or
+pace, palette, frame); `window.space.fractal.guide()` and the `space_fractal_guide` tool give the format, and
+`space_fractal_preview` and `space_fractal_render` (or `space.mjs fractal-preview` and `fractal-render`) draw it.
+The camera falls into a Misiurewicz point, where the set has structure at every depth. That point is placed by
+Newton's method on BigInt to as many bits as the deepest frame needs. Every pixel is drawn on the graphics card
+as the offset of its orbit from that point's orbit (perturbation), with an exponent of its own so it never
+underflows, and rebased so the zoom has no glitches. `"loop": true` makes a clip that falls forever when played
+on repeat. `films/mandelbrot.json` falls for 60 s to ×10⁶⁰; `films/mandelbrot_loop.json` is a 12 s loop.
+
 ## Project Structure
 
 ```

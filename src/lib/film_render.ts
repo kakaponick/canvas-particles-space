@@ -37,8 +37,8 @@ const AVC_LEVELS = [
 ] as const
 // Longest side of a contact sheet, the most an agent's image reader keeps
 const SHEET_SIDE = 1536
-const DEFAULT_SHEET_FRAMES = 9
-const MAX_SHEET_FRAMES = 24
+export const DEFAULT_SHEET_FRAMES = 9
+export const MAX_SHEET_FRAMES = 24
 
 export interface FilmProgress {
   phase: 'idle' | 'preparing' | 'rendering' | 'finishing' | 'done' | 'failed' | 'cancelled'
@@ -46,7 +46,7 @@ export interface FilmProgress {
   frames: number
 }
 
-const progress: FilmProgress = { phase: 'idle', frame: 0, frames: 0 }
+export const progress: FilmProgress = { phase: 'idle', frame: 0, frames: 0 }
 let busy = false
 let cancelRequested = false
 
@@ -57,7 +57,7 @@ export function cancelFilm () {
   return { cancelling: busy }
 }
 
-const breathe = () => new Promise<void>(resolve => setTimeout(resolve, 0))
+export const breathe = () => new Promise<void>(resolve => setTimeout(resolve, 0))
 
 function titleStyle (plan: FilmPlan, words = plan.title, set: Partial<FilmPlan['params']> = {}): TitleStyle {
   const params = { ...plan.params, ...set }
@@ -184,8 +184,9 @@ async function createFilmPlayer (plan: FilmPlan, pixel: number) {
   return { canvas, drawFrame, dispose }
 }
 
-// One film at a time, with the page's own scene paused so the machine draws only the film
-async function exclusively<T> (frames: number, work: () => Promise<T>): Promise<T> {
+// One film at a time, with the page's own scene paused so the machine draws only the film. A fractal film
+// (fractal_render.ts) takes the same turn and reports through the same progress
+export async function exclusively<T> (frames: number, work: () => Promise<T>): Promise<T> {
   if (busy) fail('A film is already being drawn; wait for it or call film.cancel()')
   busy = true
   cancelRequested = false
@@ -207,7 +208,7 @@ async function exclusively<T> (frames: number, work: () => Promise<T>): Promise<
   }
 }
 
-function checkCancelled () {
+export function checkCancelled () {
   if (cancelRequested) fail('The film was cancelled')
 }
 
@@ -286,130 +287,205 @@ function createUploadSink (url: string) {
   return { writable, size: () => size }
 }
 
-// Draws the whole film into an mp4. Returns what was made. The file goes to `upload` piece by piece, or
-// is put together in the page for `download` and kept as `blob` for a caller there
-export async function renderFilm (source: unknown, options: RenderOptions = {}) {
-  const plan = planFilm(source)
+// What a renderer hands the encoder: the canvas its frames land on and a way to draw each of them
+export interface EncodeJob {
+  canvas: HTMLCanvasElement
+  fps: number
+  frames: number
+  duration: number
+  // Draws frame `index` onto the canvas. Frames come in order
+  draw: (index: number) => unknown
+}
+
+// The quality asked for, refused before anything is drawn
+export function readQuality (options: RenderOptions): FilmQuality {
   const quality = options.quality ?? 'high'
   if (!(quality in QUALITY_BITS)) fail(`quality takes one of: ${Object.keys(QUALITY_BITS).join(', ')}`)
+  return quality
+}
+
+// Encodes the frames a renderer draws into an mp4. The file goes to `upload` piece by piece, or is put
+// together in the page for `download` and kept as `blob` for a caller there. Called inside `exclusively`
+export async function encodeVideo (job: EncodeJob, options: RenderOptions, started: number) {
+  const quality = readQuality(options)
+  const media = await import('mediabunny')
+  const { canvas } = job
+  // The bits are counted for 60 frames a second at most. The browser's software H.264 encoder, the one
+  // that takes 4K and anything above 120 fps, gives every frame what a 60 fps frame gets whatever the
+  // rate, so the file grows with the rate by itself, and it refuses a budget above about 300 Mbit/s;
+  // a hardware encoder spreads the same budget over the faster frames
+  const bitrate = Math.round(canvas.width * canvas.height * Math.min(job.fps, BITRATE_FPS) * QUALITY_BITS[quality])
+
+  // Either way the index of the file is at its start, so it plays before it is all there. A file
+  // sent in pieces keeps room for the index and fills it in at the end; one held in the page is
+  // laid out once everything is known
+  const sink = options.upload && !options.download ? createUploadSink(options.upload) : null
+  const format = new media.Mp4OutputFormat({ fastStart: sink ? 'reserve' : 'in-memory' })
+  const codec = await media.getFirstEncodableVideoCodec(format.getSupportedVideoCodecs(), {
+    width: canvas.width, height: canvas.height, bitrate
+  })
+  if (!codec) fail(`This browser cannot encode ${canvas.width}x${canvas.height} video`)
+
+  const target = sink ? new media.StreamTarget(sink.writable, { chunked: true }) : new media.BufferTarget()
+  const output = new media.Output({ format, target })
+  // What the software encoder makes of the budget above 60 fps is what the level has to hold
+  const level = codec === 'avc'
+    ? avcLevel(canvas.width, canvas.height, job.fps, bitrate * Math.max(job.fps, BITRATE_FPS) / BITRATE_FPS)
+    : 0
+  const video = new media.CanvasSource(canvas, {
+    codec,
+    bitrate,
+    keyFrameInterval: KEY_FRAME_SECONDS,
+    onEncodedPacket: (_packet, meta) => {
+      if (level > 0 && meta?.decoderConfig) meta.decoderConfig = raiseAvcLevel(meta.decoderConfig, level)
+    }
+  })
+  output.addVideoTrack(video, { frameRate: job.fps, maximumPacketCount: job.frames })
+
+  let audio: { decoded: AudioBuffer, length: number } | null = null
+  let audioSource: InstanceType<typeof media.AudioBufferSource> | null = null
+  let audioCodec: string | null = null
+  if (options.audio) {
+    audio = await decodeAudio(options.audio, job.duration)
+    const found = await media.getFirstEncodableAudioCodec(format.getSupportedAudioCodecs(), {
+      numberOfChannels: audio.decoded.numberOfChannels, sampleRate: audio.decoded.sampleRate, bitrate: AUDIO_BITRATE
+    })
+    if (!found) fail('This browser cannot encode the audio track')
+    audioCodec = found
+    audioSource = new media.AudioBufferSource({ codec: found, bitrate: AUDIO_BITRATE })
+    output.addAudioTrack(audioSource, { maximumPacketCount: Math.ceil(audio.length / SHORTEST_AUDIO_PACKET * 1.4) + 64 })
+  }
+
+  await output.start()
+  progress.phase = 'rendering'
+  let audioSent = 0
+  try {
+    for (let index = 0; index < job.frames; index++) {
+      checkCancelled()
+      await job.draw(index)
+      await video.add(index / job.fps, 1 / job.fps)
+      // Sound goes in beside the picture, a second at a time, so neither track runs far ahead
+      if (audio && audioSource) {
+        const until = Math.min(audio.length, Math.round((index + 1) / job.fps * audio.decoded.sampleRate))
+        if (until - audioSent >= audio.decoded.sampleRate || (index === job.frames - 1 && until > audioSent)) {
+          await audioSource.add(sliceAudio(audio.decoded, audioSent, until))
+          audioSent = until
+        }
+      }
+      progress.frame = index + 1
+      if (index % FRAMES_PER_BREATH === 0) await breathe()
+    }
+    progress.phase = 'finishing'
+    await output.finalize()
+  } catch (error) {
+    await output.cancel().catch(() => undefined)
+    throw error
+  }
+
+  let blob: Blob | null = null
+  if (target instanceof media.BufferTarget) {
+    if (!target.buffer) fail('The encoder returned no file')
+    const held = new Blob([target.buffer], { type: 'video/mp4' })
+    blob = held
+    if (options.upload) {
+      const sent = await fetch(options.upload, { method: 'POST', body: held })
+      if (!sent.ok) fail(`The file could not be sent: ${sent.status} ${sent.statusText}`)
+    }
+    if (options.download) {
+      const link = document.createElement('a')
+      link.href = URL.createObjectURL(held)
+      link.download = options.download
+      link.click()
+      setTimeout(() => URL.revokeObjectURL(link.href), 60_000)
+    }
+  }
+  const bytes = blob ? blob.size : sink ? sink.size() : 0
+  return {
+    blob,
+    facts: {
+      frames: job.frames,
+      duration: job.frames / job.fps,
+      fps: job.fps,
+      width: canvas.width,
+      height: canvas.height,
+      codec,
+      audio: audioCodec,
+      megabytes: Number((bytes / 1e6).toFixed(2)),
+      megabitsPerSecond: Number((bytes * 8 / 1e6 / (job.frames / job.fps)).toFixed(1)),
+      renderSeconds: Number(((performance.now() - started) / 1000).toFixed(1))
+    }
+  }
+}
+
+// Draws the whole film into an mp4. Returns what was made: the file as `blob` when it was held in the page
+export async function renderFilm (source: unknown, options: RenderOptions = {}) {
+  const plan = planFilm(source)
+  readQuality(options)
 
   return exclusively(plan.frames, async () => {
     const started = performance.now()
-    const media = await import('mediabunny')
     const player = await createFilmPlayer(plan, plan.scale)
-    const { canvas } = player
-    // The bits are counted for 60 frames a second at most. The browser's software H.264 encoder, the one
-    // that takes 4K and anything above 120 fps, gives every frame what a 60 fps frame gets whatever the
-    // rate, so the file grows with the rate by itself, and it refuses a budget above about 300 Mbit/s;
-    // a hardware encoder spreads the same budget over the faster frames
-    const bitrate = Math.round(canvas.width * canvas.height * Math.min(plan.fps, BITRATE_FPS) * QUALITY_BITS[quality])
-
     try {
-      // Either way the index of the file is at its start, so it plays before it is all there. A file
-      // sent in pieces keeps room for the index and fills it in at the end; one held in the page is
-      // laid out once everything is known
-      const sink = options.upload && !options.download ? createUploadSink(options.upload) : null
-      const format = new media.Mp4OutputFormat({ fastStart: sink ? 'reserve' : 'in-memory' })
-      const codec = await media.getFirstEncodableVideoCodec(format.getSupportedVideoCodecs(), {
-        width: canvas.width, height: canvas.height, bitrate
-      })
-      if (!codec) fail(`This browser cannot encode ${canvas.width}x${canvas.height} video`)
-
-      const target = sink ? new media.StreamTarget(sink.writable, { chunked: true }) : new media.BufferTarget()
-      const output = new media.Output({ format, target })
-      // What the software encoder makes of the budget above 60 fps is what the level has to hold
-      const level = codec === 'avc'
-        ? avcLevel(canvas.width, canvas.height, plan.fps, bitrate * Math.max(plan.fps, BITRATE_FPS) / BITRATE_FPS)
-        : 0
-      const video = new media.CanvasSource(canvas, {
-        codec,
-        bitrate,
-        keyFrameInterval: KEY_FRAME_SECONDS,
-        onEncodedPacket: (_packet, meta) => {
-          if (level > 0 && meta?.decoderConfig) meta.decoderConfig = raiseAvcLevel(meta.decoderConfig, level)
-        }
-      })
-      output.addVideoTrack(video, { frameRate: plan.fps, maximumPacketCount: plan.frames })
-
-      let audio: { decoded: AudioBuffer, length: number } | null = null
-      let audioSource: InstanceType<typeof media.AudioBufferSource> | null = null
-      let audioCodec: string | null = null
-      if (options.audio) {
-        audio = await decodeAudio(options.audio, plan.duration)
-        const found = await media.getFirstEncodableAudioCodec(format.getSupportedAudioCodecs(), {
-          numberOfChannels: audio.decoded.numberOfChannels, sampleRate: audio.decoded.sampleRate, bitrate: AUDIO_BITRATE
-        })
-        if (!found) fail('This browser cannot encode the audio track')
-        audioCodec = found
-        audioSource = new media.AudioBufferSource({ codec: found, bitrate: AUDIO_BITRATE })
-        output.addAudioTrack(audioSource, { maximumPacketCount: Math.ceil(audio.length / SHORTEST_AUDIO_PACKET * 1.4) + 64 })
-      }
-
-      await output.start()
-      progress.phase = 'rendering'
-      let audioSent = 0
-      try {
-        for (let index = 0; index < plan.frames; index++) {
-          checkCancelled()
-          player.drawFrame(index)
-          await video.add(index / plan.fps, 1 / plan.fps)
-          // Sound goes in beside the picture, a second at a time, so neither track runs far ahead
-          if (audio && audioSource) {
-            const until = Math.min(audio.length, Math.round((index + 1) / plan.fps * audio.decoded.sampleRate))
-            if (until - audioSent >= audio.decoded.sampleRate || (index === plan.frames - 1 && until > audioSent)) {
-              await audioSource.add(sliceAudio(audio.decoded, audioSent, until))
-              audioSent = until
-            }
-          }
-          progress.frame = index + 1
-          if (index % FRAMES_PER_BREATH === 0) await breathe()
-        }
-        progress.phase = 'finishing'
-        await output.finalize()
-      } catch (error) {
-        await output.cancel().catch(() => undefined)
-        throw error
-      }
-
-      let blob: Blob | null = null
-      if (target instanceof media.BufferTarget) {
-        if (!target.buffer) fail('The encoder returned no file')
-        const held = new Blob([target.buffer], { type: 'video/mp4' })
-        blob = held
-        if (options.upload) {
-          const sent = await fetch(options.upload, { method: 'POST', body: held })
-          if (!sent.ok) fail(`The file could not be sent: ${sent.status} ${sent.statusText}`)
-        }
-        if (options.download) {
-          const link = document.createElement('a')
-          link.href = URL.createObjectURL(held)
-          link.download = options.download
-          link.click()
-          setTimeout(() => URL.revokeObjectURL(link.href), 60_000)
-        }
-      }
-      const bytes = blob ? blob.size : sink ? sink.size() : 0
-      return {
-        blob,
-        summary: {
-          frames: plan.frames,
-          duration: plan.frames / plan.fps,
-          fps: plan.fps,
-          width: canvas.width,
-          height: canvas.height,
-          codec,
-          audio: audioCodec,
-          megabytes: Number((bytes / 1e6).toFixed(2)),
-          megabitsPerSecond: Number((bytes * 8 / 1e6 / (plan.frames / plan.fps)).toFixed(1)),
-          renderSeconds: Number(((performance.now() - started) / 1000).toFixed(1)),
-          seed: plan.seed,
-          notes: plan.notes
-        }
-      }
+      const job = { canvas: player.canvas, fps: plan.fps, frames: plan.frames, duration: plan.duration, draw: player.drawFrame }
+      const { blob, facts } = await encodeVideo(job, options, started)
+      return { blob, summary: { ...facts, seed: plan.seed, notes: plan.notes } }
     } finally {
       player.dispose()
     }
   })
+}
+
+// The frames of a film nearest the seconds asked for, each once, in order
+export function framesAt (seconds: number[], fps: number, frames: number) {
+  if (seconds.some(time => !Number.isFinite(time))) fail('at takes seconds of the film, e.g. [1, 4.5, 9]')
+  return [...new Set(seconds.map(time => clamp(Math.round(time * fps), 0, frames - 1)))].sort((a, b) => a - b)
+}
+
+// The layout that shows the most of every frame within the sheet, preferring one with no empty places.
+// `fullWidth` is the width of the film's own frame, which a tile never exceeds
+export function sheetLayout (count: number, aspect: number, fullWidth: number) {
+  let columns = 1
+  let fit = 0
+  let best = -1
+  for (let candidate = 1; candidate <= count; candidate++) {
+    const rowCount = Math.ceil(count / candidate)
+    const width = Math.min(SHEET_SIDE / candidate, SHEET_SIDE / rowCount * aspect)
+    const score = width * (1 - 0.1 * (candidate * rowCount - count))
+    if (score > best) {
+      best = score
+      columns = candidate
+      fit = width
+    }
+  }
+  return { columns, rows: Math.ceil(count / columns), tileWidth: Math.floor(Math.min(fullWidth, fit)) }
+}
+
+// One picture of frames side by side, each with its label in the corner, read back as a JPEG
+export function createSheet (tileWidth: number, tileHeight: number, columns: number, rows: number) {
+  const sheet = document.createElement('canvas')
+  sheet.width = tileWidth * columns
+  sheet.height = tileHeight * rows
+  const ctx = sheet.getContext('2d', { alpha: false })
+  if (!ctx) fail('A 2D canvas is not available')
+  const labelSize = Math.max(11, Math.round(tileHeight * 0.055))
+  ctx.font = `600 ${labelSize}px system-ui, sans-serif`
+  ctx.textBaseline = 'top'
+  return {
+    place (slot: number, tile: CanvasImageSource, label: string) {
+      const x = (slot % columns) * tileWidth
+      const y = Math.floor(slot / columns) * tileHeight
+      ctx.drawImage(tile, x, y)
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.6)'
+      ctx.fillRect(x, y, ctx.measureText(label).width + labelSize * 0.8, labelSize * 1.5)
+      ctx.fillStyle = '#ffffff'
+      ctx.fillText(label, x + labelSize * 0.4, y + labelSize * 0.3)
+    },
+    finish () {
+      const jpeg = sheet.toDataURL('image/jpeg', 0.86)
+      // Base64 without the data URL's head
+      return { image: jpeg.slice(jpeg.indexOf(',') + 1), mimeType: 'image/jpeg', width: sheet.width, height: sheet.height }
+    }
+  }
 }
 
 export interface PreviewOptions {
@@ -432,40 +508,15 @@ export async function previewFilm (source: unknown, options: PreviewOptions = {}
     : board
       ? plan.shots.slice(0, MAX_SHEET_FRAMES).map(shot => (shot.from + shot.to) / 2)
       : Array.from({ length: count }, (_, index) => (index + 0.5) / count * plan.duration)
-  if (wanted.some(time => !Number.isFinite(time))) fail('at takes seconds of the film, e.g. [1, 4.5, 9]')
-  const indices = [...new Set(wanted.map(time => clamp(Math.round(time * plan.fps), 0, plan.frames - 1)))].sort((a, b) => a - b)
-
-  // The layout that shows the most of every frame within the sheet, preferring one with no empty places
-  const aspect = plan.width / plan.height
-  let columns = 1
-  let fit = 0
-  let best = -1
-  for (let candidate = 1; candidate <= indices.length; candidate++) {
-    const rowCount = Math.ceil(indices.length / candidate)
-    const width = Math.min(SHEET_SIDE / candidate, SHEET_SIDE / rowCount * aspect)
-    const score = width * (1 - 0.1 * (candidate * rowCount - indices.length))
-    if (score > best) {
-      best = score
-      columns = candidate
-      fit = width
-    }
-  }
-  const rows = Math.ceil(indices.length / columns)
-  const tileWidth = Math.floor(Math.min(plan.width * plan.scale, fit))
+  const indices = framesAt(wanted, plan.fps, plan.frames)
+  const { columns, rows, tileWidth } = sheetLayout(indices.length, plan.width / plan.height, plan.width * plan.scale)
   const last = indices[indices.length - 1]
 
   return exclusively(last + 1, async () => {
     const player = await createFilmPlayer(plan, tileWidth / plan.width)
     try {
       const tile = player.canvas
-      const sheet = document.createElement('canvas')
-      sheet.width = tile.width * columns
-      sheet.height = tile.height * rows
-      const ctx = sheet.getContext('2d', { alpha: false })
-      if (!ctx) fail('A 2D canvas is not available')
-      const labelSize = Math.max(11, Math.round(tile.height * 0.055))
-      ctx.font = `600 ${labelSize}px system-ui, sans-serif`
-      ctx.textBaseline = 'top'
+      const sheet = createSheet(tile.width, tile.height, columns, rows)
 
       progress.phase = 'rendering'
       let slot = 0
@@ -474,29 +525,16 @@ export async function previewFilm (source: unknown, options: PreviewOptions = {}
         const shown = index === indices[slot]
         player.drawFrame(index, shown)
         if (shown) {
-          const x = (slot % columns) * tile.width
-          const y = Math.floor(slot / columns) * tile.height
-          ctx.drawImage(tile, x, y)
           const second = index / plan.fps
           const shot = board ? plan.shots.find(entry => second >= entry.from && second <= entry.to) : undefined
-          const label = `${second.toFixed(1)}s${shot ? '  ' + shot.name : ''}`
-          ctx.fillStyle = 'rgba(0, 0, 0, 0.6)'
-          ctx.fillRect(x, y, ctx.measureText(label).width + labelSize * 0.8, labelSize * 1.5)
-          ctx.fillStyle = '#ffffff'
-          ctx.fillText(label, x + labelSize * 0.4, y + labelSize * 0.3)
-          slot++
+          sheet.place(slot++, tile, `${second.toFixed(1)}s${shot ? '  ' + shot.name : ''}`)
         }
         progress.frame = index + 1
         if (index % FRAMES_PER_BREATH === 0) await breathe()
       }
 
-      const jpeg = sheet.toDataURL('image/jpeg', 0.86)
       return {
-        // Base64 without the data URL's head
-        image: jpeg.slice(jpeg.indexOf(',') + 1),
-        mimeType: 'image/jpeg',
-        width: sheet.width,
-        height: sheet.height,
+        ...sheet.finish(),
         times: indices.map(index => Number((index / plan.fps).toFixed(2))),
         columns,
         film: { duration: plan.duration, fps: plan.fps, frames: plan.frames, width: plan.width * plan.scale, height: plan.height * plan.scale },
