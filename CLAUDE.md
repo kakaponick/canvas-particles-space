@@ -4,7 +4,7 @@ A WebGL particle flight through space, ending in a black hole. React only drives
 
 ## Devices
 
-Write for current browsers with WebGL2 on desktop-class hardware: one code path, defaults tuned for that hardware, and frame time judged by Measuring on the development machine. Legacy browsers and weak devices are not supported, and that is a hard rule: no fallback, polyfill, lighter mode, lowered default or feature turned off for them, and no change is held back or reshaped by what it would cost on them. Three paths that lighten the work on a slower machine are the exceptions and stay: the particle budget, 12 000 particles instead of 24 000 on screens narrower than 768 px, and the frame size of the Mandelbrot view. A capability check that ends in a message (no WebGL2, no video encoder) and a limit that holds on every machine (`PIXEL_BUDGET`, the film crew's count of cores) are not accommodations.
+Write for current browsers with WebGL2 on desktop-class hardware: one code path, defaults tuned for that hardware, and frame time judged by Measuring on the development machine. Legacy browsers and weak devices are not supported, and that is a hard rule: no fallback, polyfill, lighter mode, lowered default or feature turned off for them, and no change is held back or reshaped by what it would cost on them.
 
 ## UX
 
