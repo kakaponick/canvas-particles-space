@@ -16,16 +16,6 @@ export const GRID_INSTANCE_COUNT = 2 * (2 * GRID_LINES_PER_SIDE + 1) * GRID_SEGM
 // Colour of the lines of every grid at its default, which the Grid Color setting keeps exactly
 export const GRID_COLOR: readonly [number, number, number] = [0.5, 0.74, 1]
 
-// The gravitational wave lifts the sheet by this many times the stretch it gives the sky, so its ripple
-// reads on a surface seen at an angle
-export const GRID_WAVE_GAIN = 4
-
-// The camera stands this many long screen sides from the point it looks at: far enough for a mild
-// perspective, and for the horizon of the most tilted sheet to stay above the screen
-const CAMERA_DISTANCE = 2.5
-// The sheet reaches this many long screen sides from the black hole and fades out over the outer half
-const SHEET_SPAN = 2.2
-const LINE_WIDTH = 1.25
 // The well's bottom is never closer to the camera than this share of the camera's distance
 const MIN_CAMERA_SHARE = 0.05
 
@@ -34,9 +24,19 @@ export interface GridSettings {
   // Brightness of the lines; 0 draws nothing
   brightness: number
   cell: number
-  // How far from the black hole the lines reach
+  // How far from the black hole the lines reach, and the distance from it they begin to fade out at
   span: number
+  fadeFrom: number
+  // Width of a line where the camera looks, the most it widens near the camera, and the share of the
+  // camera's distance nearer than which the sheet is cut off
   lineWidth: number
+  lineScale: number
+  near: number
+  // The radii of a black hole's shadow inside which the lines are gone and beyond which they are whole
+  clearFrom: number
+  clearTo: number
+  // How many times the stretch a gravitational wave gives the sky lifts the sheet
+  waveLift: number
   // The point the camera looks at, and its distance from the camera
   viewX: number
   viewY: number
@@ -72,7 +72,13 @@ export function createGridSettings (): GridSettings {
     brightness: 0,
     cell: 64,
     span: 1,
-    lineWidth: LINE_WIDTH,
+    fadeFrom: 0.5,
+    lineWidth: 1.25,
+    lineScale: 3,
+    near: 0.2,
+    clearFrom: 1.04,
+    clearTo: 1.2,
+    waveLift: 4,
     viewX: 0,
     viewY: 0,
     distance: 1,
@@ -151,11 +157,13 @@ function settleWell (screenX: number, screenY: number, horizon: number, depthInR
   wellDepth = depth
 }
 
-// Lays the sheet out for one frame: the camera looks at the screen centre from above, tilted, and the
-// well is put where its bottom lands on the black hole. The sheet stays where it is on screen while the
-// black hole moves across it. A second black hole (radius above 0) gets a well of its own; `pairX`,
-// `pairY` is the place on screen the two turn around, and `ringAngle` the angle on screen of the line they
-// stood on as they became one
+// Lays the sheet out for one frame: the camera looks at the screen centre from above, tilted, from
+// `cameraSides` long screen sides away (2.5 is far enough for a mild perspective, and for the horizon of
+// the most tilted sheet to stay above the screen), and the well is put where its bottom lands on the black
+// hole. The sheet reaches `spanSides` long screen sides from the hole and fades out over the share `fade`
+// of that. It stays where it is on screen while the black hole moves across it. A second black hole (radius
+// above 0) gets a well of its own; `pairX`, `pairY` is the place on screen the two turn around, and
+// `ringAngle` the angle on screen of the line they stood on as they became one
 export function placeGrid (
   grid: GridSettings,
   tiltDegrees: number,
@@ -171,10 +179,13 @@ export function placeGrid (
   companionRadius: number,
   pairX: number,
   pairY: number,
-  ringAngle: number
+  ringAngle: number,
+  cameraSides: number,
+  spanSides: number,
+  fade: number
 ) {
   const longSide = Math.max(width, height)
-  const distance = CAMERA_DISTANCE * longSide
+  const distance = cameraSides * longSide
   const tilt = tiltDegrees * Math.PI / 180
   const sin = Math.sin(tilt)
   const cos = Math.cos(tilt)
@@ -183,7 +194,8 @@ export function placeGrid (
 
   settleWell(holeX - centerX, holeY - centerY, horizon, depthInRadii, distance, sin, cos)
   grid.cell = cell
-  grid.span = Math.min(SHEET_SPAN * longSide, GRID_LINES_PER_SIDE * cell)
+  grid.span = Math.min(spanSides * longSide, GRID_LINES_PER_SIDE * cell)
+  grid.fadeFrom = (1 - fade) * grid.span
   grid.viewX = centerX
   grid.viewY = centerY
   grid.distance = distance

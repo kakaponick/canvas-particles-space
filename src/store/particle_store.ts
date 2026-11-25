@@ -83,6 +83,15 @@ export interface ParticleState {
   nebula: number
   nebulaColor: string
   nebulaColorDeep: string
+  // A background star: its width in CSS pixels, the two colours its tint lies between, '#rrggbb', how much
+  // of its light the twinkle takes, the twinkle's rate as a multiple of its own, and the brightness of the
+  // faintest star as a share of the brightest
+  starsSize: number
+  starsColorWarm: string
+  starsColorCool: string
+  starsTwinkle: number
+  starsTwinkleSpeed: number
+  starsFaintest: number
   pulseIntensity: number
   blackHoleFollowing: boolean
   // Where the black hole rests when it does not follow the cursor, as shares of the viewport's width
@@ -155,11 +164,40 @@ export interface ParticleState {
   // How far the Lensed Grid is drawn in towards the hole (0 leaves it flat), and the colour of every grid
   gridSkyPull: number
   gridColor: string
+  // The sheet's look: its camera's distance and how far it reaches from the hole, in long screen sides, the
+  // share of that reach it fades out over, how many times the stretch a gravitational wave gives the sky
+  // lifts it, the width of its lines in CSS pixels and the most they widen near the camera, the share of
+  // the camera's distance nearer than which it is cut off, and the black hole radii its lines are gone
+  // inside and whole beyond
+  gridDistance: number
+  gridSpan: number
+  gridFade: number
+  gridWaveLift: number
+  gridLine: number
+  gridLineNear: number
+  gridNear: number
+  gridClearing: number
+  gridClearingEdge: number
+  // In 3D the most the sheet is seen tilted, degrees, and the degrees past that over which it fades out
+  gridTiltLimit: number
+  gridTiltFade: number
+  // Width of the lensed grid's lines, CSS pixels
+  gridSkyLine: number
   // The space lattice (space_lattice.ts): brightness (0 = off), its cell in black hole radii, and how
   // strongly its nodes are pulled in, in shadow radii of the slowing of time
   gridLattice: number
   gridLatticeCell: number
   gridLatticeWarp: number
+  // The lattice's look: the width of its lines in CSS pixels, how many times brighter than the grids'
+  // colour they are, how many cells from the hole it reaches and the share of that it fades out over, the
+  // share of the way to the point the camera circles nearer than which it fades, and the share of their
+  // light lines far behind that point keep
+  gridLatticeLine: number
+  gridLatticeGain: number
+  gridLatticeReach: number
+  gridLatticeFade: number
+  gridLatticeNear: number
+  gridLatticeFar: number
   // Stars in orbit around the black hole (orbiters.ts): how many (0 = none), the mean size of their
   // orbits in black hole radii, how stretched the orbits are, the rate of their time (its sign is their
   // direction), seconds an orbit's trace stays lit, and their width in CSS pixels
@@ -199,6 +237,11 @@ export interface ParticleState {
   cameraX: number
   cameraY: number
   cameraPair: number
+  // A camera that in one frame zooms by more than this share, moves the picture by more than this many CSS
+  // pixels or, in 3D, turns by more than this many radians has cut: the trails start afresh
+  cameraCutZoom: number
+  cameraCutShift: number
+  cameraCutTurn: number
   // The field as a volume in space (particle_simulation_3d.ts), with a camera that circles the black hole:
   // degrees around it, degrees above it, and degrees a second it turns on its own
   threeD: boolean
@@ -207,6 +250,10 @@ export interface ParticleState {
   cameraSpin: number
   // Share of Field Depth over which the 3D column of particles fades at both its ends, seen from the side
   threeDEndFade: number
+  // Seconds the 3D camera takes between the flat view and its place, and the nearest point it circles, as
+  // a share of Field Depth
+  threeDEase: number
+  threeDNearest: number
   frameRateCap: number
   measuredFps: number
   // Lower the particle count automatically when the simulation overruns the frame
@@ -297,6 +344,12 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   nebula: 0,
   nebulaColor: '#1c8c78',
   nebulaColorDeep: '#2a4fb0',
+  starsSize: 1.55,
+  starsColorWarm: '#ffd19e',
+  starsColorCool: '#bfd9ff',
+  starsTwinkle: 0.15,
+  starsTwinkleSpeed: 1,
+  starsFaintest: 0.25,
   pulseIntensity: 1,
   blackHoleFollowing: true,
   blackHoleX: 0.5,
@@ -348,6 +401,24 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   gridLattice: 0,
   gridLatticeCell: 1,
   gridLatticeWarp: 3,
+  gridDistance: 2.5,
+  gridSpan: 2.2,
+  gridFade: 0.5,
+  gridWaveLift: 4,
+  gridLine: 1.25,
+  gridLineNear: 3,
+  gridNear: 0.2,
+  gridClearing: 1.04,
+  gridClearingEdge: 1.2,
+  gridTiltLimit: 75,
+  gridTiltFade: 15,
+  gridSkyLine: 1.5,
+  gridLatticeLine: 1.5,
+  gridLatticeGain: 1.6,
+  gridLatticeReach: 6,
+  gridLatticeFade: 0.5,
+  gridLatticeNear: 0.5,
+  gridLatticeFar: 0.3,
   cameraZoom: 1,
   cameraX: 0,
   cameraY: 0,
@@ -357,6 +428,11 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   cameraPitch: 20,
   cameraSpin: 0,
   threeDEndFade: 0.12,
+  threeDEase: 1.2,
+  threeDNearest: 0.05,
+  cameraCutZoom: 0.08,
+  cameraCutShift: 80,
+  cameraCutTurn: 0.35,
   companionSize: 0,
   companionDistance: 8,
   companionSpeed: 1,

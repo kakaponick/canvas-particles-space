@@ -296,8 +296,14 @@ come, as around a real black hole.
 | Cell size, shared by the sheet and the lensed grid | `gridCell` |
 | The sheet: brightness (0 is off), viewing angle, depth of the well in radii | `gridSheet`, `gridTilt`, `gridDepth` |
 | The lattice in three dimensions: brightness (0 is off), its cell in radii, how hard it is drawn in | `gridLattice`, `gridLatticeCell`, `gridLatticeWarp` |
-| A flat grid on the sky read through the lens (0 is off), and how far it is drawn in towards the hole (0 is flat) | `gridSky`, `gridSkyPull` |
-| The colour of all three | `gridColor` |
+| A flat grid on the sky read through the lens (0 is off), how far it is drawn in towards the hole (0 is flat), and the width of its lines | `gridSky`, `gridSkyPull`, `gridSkyLine` |
+| The colour of all three, and how many times brighter the lattice draws it | `gridColor`, `gridLatticeGain` |
+| The sheet's lines: their width, the most they widen near its camera, and where they stop round a hole | `gridLine`, `gridLineNear`, `gridClearing`, `gridClearingEdge` |
+| The sheet's camera and extent: its distance, how near it the sheet is cut off, how far the sheet reaches and the share of that it fades over | `gridDistance`, `gridNear`, `gridSpan`, `gridFade` |
+| How high a gravitational wave lifts the sheet | `gridWaveLift` |
+| The sheet in 3D: the most it is tilted, and the degrees past that it fades over | `gridTiltLimit`, `gridTiltFade` |
+| The lattice's lines and extent: their width, its reach in cells and the share of that it fades over | `gridLatticeLine`, `gridLatticeReach`, `gridLatticeFade` |
+| The lattice in depth: where it fades near the camera, and what it keeps far behind the hole | `gridLatticeNear`, `gridLatticeFar` |
 
 - The sheet is a diagram: a surface dented where the hole sits, rippled by gravitational waves. It stays
   put while the hole moves across it. At a `gridTilt` of 60 and above the well's depth shows.
@@ -316,19 +322,52 @@ come, as around a real black hole.
   edges would lay lines over the shadow.
 - The lattice is the sheet's law in three dimensions: lines along the three axes of the scene, each node
   drawn in towards the hole by the same slowing of time, in shadow radii times `gridLatticeWarp`, taken so
-  that no node reaches the centre and no line folds over. It is a ball of 6 cells around the hole that
-  fades out over its outer half, so at the default `gridLatticeCell` of 1 the whole ball fits the frame of
-  the default camera; a larger cell reaches farther and passes the camera. It stands still while the
+  that no node reaches the centre and no line folds over. It is a ball of `gridLatticeReach` cells around
+  the hole, 6 by default and at most (all the lines it has), that fades out over the outer
+  `gridLatticeFade` of that, a half, so at the default `gridLatticeCell` of 1 the whole ball fits the frame
+  of the default camera; a larger cell reaches farther and passes the camera. It stands still while the
   hole moves through it and a second hole pulls it too.
 - The lattice is drawn into the layer of the orbits' traces and read through the lens: the lines behind
   the hole are bent into its Einstein ring even at `gridLatticeWarp` 0, and the shadow covers it. It is
   made for `threeD`, where the camera circles it; in the flat mode it is seen straight on, down the line
   of flight. Among a bright field lower `baseBrightness` or raise `gridLattice`.
+- A camera inside the ball would have lines across its face: they begin to fade nearer than
+  `gridLatticeNear` of the way to the point the camera circles and are gone at a quarter of that. Behind
+  that point a line dims with its distance, down to `gridLatticeFar` of its light. `gridLatticeNear` low
+  and `gridLatticeFar` 1 give a cage drawn alike near and far; `gridLatticeNear` above 1 leaves only the
+  far side.
+- `gridColor` is one colour for all three grids. The lattice draws it `gridLatticeGain` times brighter,
+  each channel stopping at full, so a high gain turns the lattice white while the sheet keeps the colour.
+- The sheet has a camera of its own, apart from the scene's: `gridDistance` long screen sides from the
+  middle of the screen. Nearer, the perspective steepens and the horizon of a tilted sheet comes into the
+  frame; far, the lines run parallel, as on a map. `gridNear` is the share of that distance nearer than
+  which the sheet is cut off: lower it with a near camera, or the foreground is gone.
+- `gridSpan` is how far the sheet reaches, and it fades over the outer `gridFade` of that. It has 112
+  lines each side of the hole, so at a small `gridCell` it ends there whatever the span. A small span with
+  a short fade is a disc of sheet around the hole.
+- `gridLine` is the width where the sheet's camera looks; nearer lines widen with the perspective up to
+  `gridLineNear` times. The lines stop at each hole: gone inside `gridClearing` shadow radii, whole beyond
+  `gridClearingEdge`, which is taken no smaller. Both at 0 let the sheet cross the shadow.
+- `gridWaveLift` is the height a wave gives the sheet for each pixel it stretches the sky, so it scales
+  every wave on the sheet at once (`companionWaves`, `gravityWaveGain`, a fired `gravityWave`) and leaves
+  the sky alone. 0 keeps the sheet still under a rippling sky; 20 makes steep hills of a merger.
 
 ## 10. Background stars and the sky
 
-`starsBrightness`, `starDensity`, `starCell`: fixed stars behind everything, bent by the lens and rippled
-by the waves. They keep their size at any zoom.
+| What | Keys |
+|---|---|
+| How bright, how many, how far apart | `starsBrightness`, `starDensity`, `starCell` |
+| One star: its width, and the faintest as a share of the brightest | `starsSize`, `starsFaintest` |
+| The two colours a star's tint lies between | `starsColorWarm`, `starsColorCool` |
+| The twinkle: the share of a star's light that swings, and how fast | `starsTwinkle`, `starsTwinkleSpeed` |
+
+- Fixed stars behind everything, bent by the lens and rippled by the waves. They keep their size at any
+  zoom.
+- A star lives in its own cell of the star grid, in the middle of it: a `starsSize` of more than a quarter
+  of `starCell` is cut off square at the cell's edge, so raise the two together.
+- `starsTwinkleSpeed` multiplies the stars' clock: moved along a track it shifts every swing at once, a
+  flicker. Set it at a cut, or with `starsTwinkle` at 0.
+- The same colour in `starsColorWarm` and `starsColorCool` gives a sky of one colour.
 
 `nebula`, `nebulaColor`, `nebulaColorDeep`: a nebula behind the stars, bent and rippled like them. It is the
 dust of the opening (section 13) glowing on its own, so its shape is the dust's: `dustScale` sizes the
@@ -352,6 +391,8 @@ camera looks back along the flight.
 | The field as a volume, seen from around the hole | `threeD` |
 | Where the 3D camera stands: around the hole, above or below it, and how fast it circles on its own | `cameraYaw`, `cameraPitch`, `cameraSpin` |
 | How much of the 3D column fades at each of its ends, as a share of `farZ` | `threeDEndFade` |
+| The 3D camera: seconds it takes into and out of 3D, and the nearest point it circles, as a share of `farZ` | `threeDEase`, `threeDNearest` |
+| What counts as a cut of the camera, where the trails start afresh: a zoom, a move of the picture and, in 3D, a turn, each in one frame | `cameraCutZoom`, `cameraCutShift`, `cameraCutTurn` |
 
 - Setting a position anchors the hole. A film has no cursor: the hole rests at its position and tracks
   move it, through the same spring, so a low `followFrequency` makes it heavy and late.
@@ -374,6 +415,10 @@ camera looks back along the flight.
   from -1 to 1 pans from one to the other. Labels and graphics that ride on the scene follow the camera.
 - A pan is a track like any other: ease it for a glide, give it the hold ease for a cut. A cut starts the trails
   afresh; a glide streaks them.
+- What counts as a cut is set: a zoom that changes by more than `cameraCutZoom` in one frame (8%), a
+  picture that moves more than `cameraCutShift` pixels (80) and, in 3D, a camera that turns more than
+  `cameraCutTurn` radians (0.35). Raised to their tops they never cut, and a jump smears every particle
+  across the frame, a whip pan; at 0 any move of the camera starts the trails afresh and nothing streaks.
 - `threeD` is another law of gravity, not only another view. The flat mode pulls a particle where it lands
   on the screen, in a layer of depth (`gravityDepth`), and the horizon takes whatever covers the hole at
   any depth. In 3D the hole is a point in space: gravity follows the true distance and ends at the sphere
@@ -382,9 +427,11 @@ camera looks back along the flight.
 - The 3D camera circles the point at `blackHoleDepth` on the line of flight: `cameraYaw` 0 looks along
   the flight and draws what the flat mode draws, 90 sees the column of particles flow past the hole from
   the side, 180 looks back up the stream. `cameraPitch` is degrees above (positive) or below. The two
-  only matter while `threeD` is on, and the camera eases between the flat view and its place in about a
-  second, so a film can flip `threeD` on a track and get a turn instead of a cut. For a full circle in a
-  film keyframe `cameraYaw` from -180 to 180, or set `cameraSpin` in degrees a second.
+  only matter while `threeD` is on, and the camera eases between the flat view and its place in
+  `threeDEase` seconds, 1.2 by default, so a film can flip `threeD` on a track and get a turn instead of a
+  cut; at 0 it cuts. For a full circle in a film keyframe `cameraYaw` from -180 to 180, or set
+  `cameraSpin` in degrees a second. The point it circles is never nearer than `threeDNearest` of `farZ`:
+  raised above `blackHoleDepth` it carries the hole, and the lattice with it, deeper into the column.
 - From the side the field is a column with two ends, where particles are born and where they leave.
   `threeDEndFade` fades both over that share of `farZ`: 0 cuts them hard, 0.5 fades the whole column
   toward its middle. Straight on it does nothing.
@@ -396,8 +443,10 @@ camera looks back along the flight.
   dragged round the axis in space. `gravityInertia` keeps their speed along all three axes.
 - The sheet of section 9 is a plane of the scene in 3D: `cameraYaw` spins its lines around the point the
   camera circles, and `cameraPitch` is taken from `gridTilt` (seen more from above as the camera rises).
-  Past 75° it fades, and it is gone by the time the camera is level with it, so it is never seen from
-  below. Its wells stay under the black holes wherever they are seen.
+  Past `gridTiltLimit`, 75°, it holds that tilt and fades over the next `gridTiltFade` degrees, 15, so it
+  is gone by the time the camera is level with it and is never seen from below; a longer fade keeps it,
+  dimmer, while the camera looks up from under it. Its wells stay under the black holes wherever they are
+  seen.
 
 ## 12. The page only
 
@@ -549,21 +598,15 @@ The cost of a knob, in the last column:
 
 | Fixed | File in src/lib | Cost |
 |---|---|---|
-| The Lensed Grid's line, 1.5 px wide | webgl_shaders.ts | frame |
-| The colour of the grids | space_grid.ts | has one: `gridColor` |
+| How deep the sheet lies at a distance: the slowing of time where light passing there comes nearest | webgl_shaders.ts | has one: `gridDepth` |
+| The sheet's 225 lines each way, in 192 pieces each, where `gridSpan` ends at a small `gridCell` | space_grid.ts | machine |
+| The lattice's 13 lines each way along each of the three axes, in 48 pieces each: the top of `gridLatticeReach` | space_lattice.ts | machine |
+| Where a lattice line near the camera is gone: a quarter of the distance `gridLatticeNear` begins its fade at | webgl_shaders.ts | frame: the hardness of that fade, no picture of its own |
+| The cell the lattice is measured in while there is no black hole: a shadow 0.08 of the short side | scene.ts | frame |
+| A star's own twinkle, 2 to 5 radians a second, the brighter the faster, and its brightness, the square of an even draw | webgl_shaders.ts | has one: `starsTwinkleSpeed`, `starsFaintest` |
+| One star at most in a cell, placed in its middle 0.6 and drawn inside that cell alone, which cuts a large `starsSize` off at its edge | webgl_shaders.ts | pixel |
 | How the Lensed Grid's pull is found: 8 halvings of the span the node can lie in, then a straight line across the last | webgl_shaders.ts | machine |
 | Where the pulled grid turns to haze: its cells under 6 device px start to merge into the light they share, wholly at 3 | webgl_shaders.ts | frame |
-| The sheet's camera, 2.5 long screen sides away, and its span of 2.2, fading over the outer half | space_grid.ts, webgl_shaders.ts | frame |
-| The wave's lift on the sheet, 4 times its stretch of the sky | space_grid.ts | frame |
-| The sheet's lines: 1.25 px, at most 3 times wider near the camera, cut off nearer than 0.2 of its distance, and cleared from 1.04 to 1.2 radii round each hole | space_grid.ts, webgl_shaders.ts | frame |
-| How deep the sheet lies at a distance: the slowing of time where light passing there comes nearest | webgl_shaders.ts | has one: `gridDepth` |
-| The sheet's 225 lines each way, in 192 pieces each | space_grid.ts | machine |
-| How far the sheet leans in 3D: the camera's elevation, up to 75°, past which it fades out before it is seen edge-on | scene.ts | frame |
-| The lattice's lines: 1.5 px wide, 1.6 times the sheet's colour, in a ball of 6 cells that fades over its outer half | space_lattice.ts, webgl_shaders.ts | frame |
-| How the lattice fades with depth: out nearer the camera than half the way to the point it circles, and down to 0.3 far behind that point | scene.ts, webgl_shaders.ts | frame |
-| The lattice's 13 lines each way along each of the three axes, in 48 pieces each | space_lattice.ts | machine |
-| A background star: a point of light about 1.5 px across, tinted between warm and cool, twinkling by 15% | webgl_shaders.ts | frame |
-| One star at most in a cell, placed in its middle 0.6 | webgl_shaders.ts | pixel |
 | The nebula's patches of its second colour, 3 Dust Scales across, turning over the middle 0.4 of a noise | webgl_shaders.ts | frame |
 
 ### The opening
@@ -599,6 +642,4 @@ The cost of a knob, in the last column:
 
 | Fixed | File in src/lib | Cost |
 |---|---|---|
-| A cut: a zoom of more than 8%, a move of more than 80 px or, in 3D, a turn of more than 0.35 radians in one frame starts the trails afresh | particle_renderer.ts, scene.ts | frame |
-| The 3D camera's 1.2 s ease between the flat view and its place, and the nearest point it circles, 0.05 of Field Depth | scene.ts | frame |
 | The picture is drawn into 4.5 million device pixels at most, 2 to a CSS pixel | particle_canvas.tsx | machine |

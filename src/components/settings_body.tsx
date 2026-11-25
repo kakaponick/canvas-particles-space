@@ -153,7 +153,11 @@ function SettingsBody () {
         <SettingSlider field="cameraPitch" />
         <SettingSlider field="cameraSpin" />
         <SettingsFine id="three-d">
+          {/* The column, then how the camera gets to its place and what counts as its cut */}
           <SettingSlider field="threeDEndFade" />
+          <SettingSlider field="threeDNearest" />
+          <SettingSlider field="threeDEase" />
+          <SettingSlider field="cameraCutTurn" />
         </SettingsFine>
       </ThreeDSection>
 
@@ -239,7 +243,12 @@ function SettingsBody () {
         <SettingSlider field="cameraY" />
         <SettingSlider field="cameraPair" />
         <SettingsFine id="black-hole">
+          {/* The spin's sweep, then what counts as a cut of the camera */}
           <SettingSlider field="frameDragSweep" />
+          <div className="mt-3 flex flex-col gap-1">
+            <SettingSlider field="cameraCutZoom" />
+            <SettingSlider field="cameraCutShift" />
+          </div>
         </SettingsFine>
       </SettingsSection>
 
@@ -359,12 +368,50 @@ function SettingsBody () {
         <div className="mt-3 flex flex-col gap-1">
           <SettingColor field="gridColor" />
         </div>
+        <SettingsFine id="space-grid">
+          {/* The sheet (its lines, its camera, its edges, the wave, 3D), the lattice and the grid behind the lens */}
+          <div className="flex flex-col gap-1">
+            <SettingSlider field="gridLine" />
+            <SettingSlider field="gridLineNear" />
+            <SettingSlider field="gridDistance" />
+            <SettingSlider field="gridNear" />
+            <SettingSlider field="gridSpan" />
+            <SettingSlider field="gridFade" />
+            <SettingSlider field="gridClearing" />
+            <SettingSlider field="gridClearingEdge" />
+            <SettingSlider field="gridWaveLift" />
+            <SettingSlider field="gridTiltLimit" />
+            <SettingSlider field="gridTiltFade" />
+          </div>
+          <div className="mt-3 flex flex-col gap-1">
+            <SettingSlider field="gridLatticeLine" />
+            <SettingSlider field="gridLatticeGain" />
+            <SettingSlider field="gridLatticeReach" />
+            <SettingSlider field="gridLatticeFade" />
+            <SettingSlider field="gridLatticeNear" />
+            <SettingSlider field="gridLatticeFar" />
+          </div>
+          <div className="mt-3 flex flex-col gap-1">
+            <SettingSlider field="gridSkyLine" />
+          </div>
+        </SettingsFine>
       </SettingsSection>
 
       <SettingsSection id="stars" title="Background Stars">
         <SettingSlider field="starsBrightness" />
         <SettingSlider field="starDensity" />
         <SettingSlider field="starCell" />
+        <SettingsFine id="stars">
+          {/* A star's tints, its size and spread of brightness, then its twinkle */}
+          <SettingColor field="starsColorWarm" />
+          <SettingColor field="starsColorCool" />
+          <div className="mt-3 flex flex-col gap-1">
+            <SettingSlider field="starsSize" />
+            <SettingSlider field="starsFaintest" />
+            <SettingSlider field="starsTwinkle" />
+            <SettingSlider field="starsTwinkleSpeed" />
+          </div>
+        </SettingsFine>
       </SettingsSection>
 
       <SettingsSection id="nebula" title="Nebula">

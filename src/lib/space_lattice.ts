@@ -16,18 +16,14 @@ export const LATTICE_INSTANCE_FLOATS = 4
 const LINES_ACROSS = 2 * LATTICE_LINES_PER_SIDE + 1
 export const LATTICE_INSTANCE_COUNT = 3 * LINES_ACROSS * LINES_ACROSS * LATTICE_SEGMENTS
 
-// Width of a line in CSS pixels, the same at any zoom, and how much brighter than the sheet's colour a line
-// is at full brightness: the lattice is read among the particles, not laid over them
-const LINE_WIDTH = 1.5
-export const LATTICE_GAIN = 1.6
-
 // Lengths in scene units unless said otherwise
 export interface LatticeSettings {
   // Brightness of the lines; 0 draws nothing
   brightness: number
   cell: number
-  // How far from the black hole the lines reach; they fade out over the outer half
+  // How far from the black hole the lines reach, and the distance from it they begin to fade out at
   reach: number
+  fadeFrom: number
   // How strongly the nodes are pulled in: the slowing of time in shadow radii, times this; 0 leaves the
   // lines straight
   warp: number
@@ -55,7 +51,12 @@ export interface LatticeSettings {
   vanishX: number
   vanishY: number
   near: number
+  // The share of their light lines far behind the point the camera circles keep
+  farthest: number
+  // Width of a line in CSS pixels, the same at any zoom, and how much brighter than the grids' colour a
+  // line is at full brightness: the lattice is read among the particles, not laid over them
   lineWidth: number
+  gain: number
 }
 
 export function createLatticeSettings (): LatticeSettings {
@@ -67,6 +68,7 @@ export function createLatticeSettings (): LatticeSettings {
     brightness: 0,
     cell: 1,
     reach: 1,
+    fadeFrom: 0.5,
     warp: 0,
     anchorX: 0,
     anchorY: 0,
@@ -85,7 +87,9 @@ export function createLatticeSettings (): LatticeSettings {
     vanishX: 0,
     vanishY: 0,
     near: 1,
-    lineWidth: LINE_WIDTH
+    farthest: 0.3,
+    lineWidth: 1.5,
+    gain: 1.6
   }
 }
 

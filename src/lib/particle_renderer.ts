@@ -20,8 +20,8 @@ import { MAX_ORBITERS, STRETCH_SECONDS } from './orbiters'
 import type { TitleSprite } from './title_sprite'
 import { RING_BINS } from './ring_energy'
 import { SHADOW_SAMPLES, type ShadowShape } from './kerr_shadow'
-import { GRID_INSTANCE_COUNT, GRID_INSTANCE_FLOATS, GRID_WAVE_GAIN, createGridInstances, type GridSettings } from './space_grid'
-import { LATTICE_GAIN, LATTICE_INSTANCE_COUNT, LATTICE_INSTANCE_FLOATS, createLatticeInstances, type LatticeSettings } from './space_lattice'
+import { GRID_INSTANCE_COUNT, GRID_INSTANCE_FLOATS, createGridInstances, type GridSettings } from './space_grid'
+import { LATTICE_INSTANCE_COUNT, LATTICE_INSTANCE_FLOATS, createLatticeInstances, type LatticeSettings } from './space_lattice'
 
 const INSTANCE_STRIDE = INSTANCE_FLOATS * 4
 const INSTANCED_ATTRIBUTES = [ATTRIBUTE_LOCATIONS.segment, ATTRIBUTE_LOCATIONS.style, ATTRIBUTE_LOCATIONS.color]
@@ -31,11 +31,6 @@ const TITLE_TEXTURE_UNIT = 1
 const RING_TEXTURE_UNIT = 2
 const ORBIT_TEXTURE_UNIT = 3
 const SHADOW_TEXTURE_UNIT = 4
-
-// A camera that zooms by more than this share in one frame, or moves the picture by more than this many CSS
-// pixels, has jumped: the particles' strokes then start afresh instead of crossing the screen
-const CAMERA_CUT_ZOOM = 1.08
-const CAMERA_CUT_SHIFT = 80
 
 // The longest trace a star may leave, seconds (the top of the Orbit Trail setting)
 const LONGEST_TRACE = 60
@@ -180,6 +175,15 @@ export interface CompositeSettings {
   nebulaShiftX: number
   nebulaShiftY: number
   nebulaWrap: number
+  // A background star: the two colours its tint lies between, the spread of its bell of light (the square
+  // of its radius, CSS pixels), the share of its light that twinkles and the rate of that as a multiple of
+  // its own, and the brightness of the faintest star as a share of the brightest
+  starWarm: SceneColor
+  starCool: SceneColor
+  starSpread: number
+  starTwinkle: number
+  starTwinkleSpeed: number
+  starFaintest: number
   dustScale: number
   dustThreshold: number
   lightDustContrast: number
@@ -195,6 +199,8 @@ export interface CompositeSettings {
   // How far that grid is drawn in towards the hole (0 leaves it flat), and the colour of every grid
   gridPull: number
   gridColor: SceneColor
+  // The width of that grid's lines in CSS pixels
+  skyGridLine: number
   // CSS pixels the 3D camera's turn slides the sky by: the background stars, then the lensed grid; zeros
   // in the flat mode
   starShiftX: number
@@ -311,6 +317,10 @@ export interface FrameInput {
   // Vanishing point of the particle field in CSS pixels, the centre of its doppler tint
   vanishX: number
   vanishY: number
+  // A camera that zooms by more than this ratio in one frame, or moves the picture by more than this many
+  // CSS pixels, has cut: the particles' strokes then start afresh instead of crossing the screen
+  cutZoom: number
+  cutShift: number
   // Photon ring energy around the circle, RING_BINS values
   ringTexels: Uint8Array
   // False while nothing feeds the ring: its energy is not read then, so it is not uploaded
@@ -445,20 +455,20 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     'lightRadius', 'lightWidth', 'lightPower', 'lightSpeed', 'echoPower', 'echoDecay',
     'waveRadius', 'waveStrength', 'waveWidth', 'remnantGlow', 'remnantRedshift', 'remnantRadius',
     'holeOval', 'gravityWaveAmplitude', 'gravityWaveTime', 'gravityWaveOmega', 'gravityWaveInvDecay', 'gravityWaveRadius', 'gravityWaveCenter', 'gravityWaveTurn', 'companion', 'pair', 'pairWave', 'pairFront', 'backgroundStars',
-    'starCell', 'starDensity', 'starFlare', 'dustScale', 'dustThreshold', 'lightDustContrast',
+    'starCell', 'starDensity', 'starFlare', 'starWarm', 'starCool', 'starLook', 'dustScale', 'dustThreshold', 'lightDustContrast',
     'titleCenter', 'titleHalfSize', 'titleAlpha', 'titleReveal', 'titleDissolve', 'titleDrift', 'titleGlow',
     'titleFlash', 'titleCooling', 'titleDust', 'titlePull', 'titleSwirl', 'titleReach', 'titleCapture', 'titleScale',
     'titleFringe', 'titleHalo', 'titleRedshift', 'titleGrain', 'titleBurn', 'titleFall', 'titleTidal', 'titleSpiral', 'titleSpread', 'titleStream', 'titleOrder', 'titleTrail', 'titleHeat', 'dustSweep', 'echoFloor', 'dustShock', 'dustBlow', 'dustDrift',
-    'skyGrid', 'gridCell', 'skyShift', 'orbits', 'nebula', 'nebulaColor', 'nebulaColorDeep', 'gridPull', 'gridColor',
+    'skyGrid', 'gridCell', 'skyGridLine', 'skyShift', 'orbits', 'nebula', 'nebulaColor', 'nebulaColorDeep', 'gridPull', 'gridColor',
     'colorFlash', 'colorLight', 'colorDust', 'colorTitle', 'colorEmber',
     'cameraZoom', 'zoomCenter', 'layerZoom', 'shake', 'lensFringe', 'vignette', 'filmGrain', 'letterbox'
   ] as const)
   const gridUniforms = getUniforms(gl, gridProgram, [
-    'resolution', 'pixelRatio', 'view', 'camera', 'well', 'lines', 'wave', 'waveSpread', 'waveTurn', 'lens', 'jolt', 'color', 'shadow', 'frame', 'well2', 'pairWave', 'pairAt', 'pairFront', 'shadow2', 'spin'
+    'resolution', 'pixelRatio', 'view', 'camera', 'well', 'lines', 'wave', 'waveSpread', 'waveTurn', 'lens', 'jolt', 'color', 'shadow', 'frame', 'well2', 'pairWave', 'pairAt', 'pairFront', 'shadow2', 'spin', 'sheet', 'clearing'
   ] as const)
 
   const latticeUniforms = getUniforms(gl, latticeProgram, [
-    'resolution', 'zoom', 'row0', 'row1', 'row2', 'vanish', 'hole', 'companion', 'lattice', 'anchor', 'color'
+    'resolution', 'zoom', 'row0', 'row1', 'row2', 'vanish', 'hole', 'companion', 'lattice', 'anchor', 'color', 'fade'
   ] as const)
 
   gl.useProgram(compositeProgram)
@@ -801,7 +811,8 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     setUniform4f(gl, u.companion, lattice.companionX, lattice.companionY, lattice.companionZ, lattice.companionEdge)
     setUniform4f(gl, u.lattice, lattice.cell, lattice.reach, lattice.warp, lattice.lineWidth * ratio)
     setUniform4f(gl, u.anchor, lattice.anchorX, lattice.anchorY, lattice.anchorZ, 0)
-    const light = lattice.brightness * LATTICE_GAIN
+    setUniform2f(gl, u.fade, lattice.fadeFrom, lattice.farthest)
+    const light = lattice.brightness * lattice.gain
     setUniform4f(gl, u.color, Math.min(color.r * light, 1), Math.min(color.g * light, 1), Math.min(color.b * light, 1), 1)
     gl.enableVertexAttribArray(ATTRIBUTE_LOCATIONS.latticeLine)
     gl.blendEquationSeparate(gl.MAX, gl.FUNC_ADD)
@@ -937,6 +948,13 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
       setUniform3f(gl, u.nebulaColor, settings.nebulaColor.r, settings.nebulaColor.g, settings.nebulaColor.b)
       setUniform3f(gl, u.nebulaColorDeep, settings.nebulaColorDeep.r, settings.nebulaColorDeep.g, settings.nebulaColorDeep.b)
     }
+    if (settings.backgroundStars > 0) {
+      const warm = settings.starWarm
+      const cool = settings.starCool
+      setUniform4f(gl, u.starWarm, warm.r, warm.g, warm.b, settings.starFaintest)
+      setUniform4f(gl, u.starCool, cool.r, cool.g, cool.b, 1 - settings.starFaintest)
+      setUniform4f(gl, u.starLook, settings.starSpread, 1 - settings.starTwinkle, settings.starTwinkle, settings.starTwinkleSpeed)
+    }
     setUniform1f(gl, u.dustScale, Math.max(settings.dustScale, 1))
     setUniform1f(gl, u.dustThreshold, Math.min(settings.dustThreshold, 0.99))
     setUniform1f(gl, u.lightDustContrast, settings.lightDustContrast)
@@ -951,6 +969,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
       setUniform1f(gl, u.gridCell, Math.max(settings.gridCell, 1))
       setUniform1f(gl, u.gridPull, settings.gridPull)
       setUniform3f(gl, u.gridColor, settings.gridColor.r, settings.gridColor.g, settings.gridColor.b)
+      setUniform1f(gl, u.skyGridLine, settings.skyGridLine * 0.5)
     }
     setUniform4f(gl, u.skyShift, settings.starShiftX, settings.starShiftY, settings.gridShiftX, settings.gridShiftY)
     gl.drawArrays(gl.TRIANGLES, 0, QUAD_VERTEX_COUNT)
@@ -967,8 +986,11 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     setUniform4f(gl, u.well, grid.wellX, grid.wellZ, grid.throat, grid.depth)
     setUniform4f(gl, u.spin, grid.spinCos, grid.spinSin, grid.spun, 0)
     setUniform2f(gl, u.lines, Math.max(grid.cell, 1), Math.max(grid.span, 1))
+    setUniform4f(gl, u.sheet, grid.near, grid.lineScale, grid.fadeFrom, 0)
+    // Whole no nearer than gone
+    setUniform2f(gl, u.clearing, grid.clearFrom, Math.max(grid.clearTo, grid.clearFrom))
     if (settings.gravityWaveAmplitude > 0) {
-      setUniform4f(gl, u.wave, settings.gravityWaveAmplitude * GRID_WAVE_GAIN, settings.gravityWaveTime,
+      setUniform4f(gl, u.wave, settings.gravityWaveAmplitude * grid.waveLift, settings.gravityWaveTime,
         2 * Math.PI * settings.gravityWaveFrequency, 1 / Math.max(settings.gravityWaveDecay, 0.001))
       setUniform2f(gl, u.waveSpread, Math.max(settings.gravityWaveRadius, 1), Math.max(settings.gravityWaveSpeed, 1))
       // The sheet looks at the scene from the other side of the screen's plane, so the oval turns the other way
@@ -979,7 +1001,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     setUniform4f(gl, u.well2, grid.well2X, grid.well2Z, grid.throat2, grid.depth2)
     // The sheet looks at the pair from the other side of the screen's plane, so its wave turns the other way
     if (settings.pairWave > 0 && grid.throat2 > 0) {
-      setUniform4f(gl, u.pairWave, settings.pairWave * GRID_WAVE_GAIN, grid.pairPhase, -settings.pairPitch, Math.max(settings.gravityWaveRadius, 1))
+      setUniform4f(gl, u.pairWave, settings.pairWave * grid.waveLift, grid.pairPhase, -settings.pairPitch, Math.max(settings.gravityWaveRadius, 1))
       setUniform2f(gl, u.pairAt, grid.pairX, grid.pairZ)
       setUniform4f(gl, u.pairFront, settings.pairFront, Math.max(settings.gravityWaveSpeed, 1), Math.max(settings.pairFrontSoft, 0.001), 0)
     } else {
@@ -1021,7 +1043,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
       layerZoomY = layerZoom > 1 ? frame.composite.zoomY : 0
       const turned = layerZoom / fromZoom
       const shifted = (Math.abs(layerZoomX - fromZoomX) + Math.abs(layerZoomY - fromZoomY)) * (Math.max(layerZoom, fromZoom) - 1)
-      if (turned > CAMERA_CUT_ZOOM || turned * CAMERA_CUT_ZOOM < 1 || shifted > CAMERA_CUT_SHIFT) {
+      if (turned > frame.cutZoom || turned * frame.cutZoom < 1 || shifted > frame.cutShift) {
         fromZoom = layerZoom
         fromZoomX = layerZoomX
         fromZoomY = layerZoomY

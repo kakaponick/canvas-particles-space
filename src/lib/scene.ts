@@ -63,24 +63,14 @@ const DEGREE = Math.PI / 180
 const SPIN_MAX = 0.998
 // 1 / the camera's distance in Schwarzschild radii with no lens to place it: far enough to be at infinity
 const FAR_CAMERA = 1e-3
-// 3D: seconds the camera takes to ease between the flat view and its place around the black hole
-const THREE_D_EASE = 1.2
-// The camera never circles a point nearer than this share of Field Depth, so a black hole at depth 0
-// still has room around it
-const MIN_PIVOT_SHARE = 0.05
-// A camera that turns more than this many radians in one frame has cut: strokes start afresh
-const CAMERA_CUT_TURN = 0.35
 // Nothing of a black hole is drawn nearer the camera than this, in scene units
 const NEAR_DEPTH = 1
-// The lattice fades out as it comes nearer the camera than this share of the distance to the point the
-// camera circles; with no black hole its cells are measured from a shadow this share of the short side
-const LATTICE_NEAR_SHARE = 0.5
+// With no black hole the lattice's cells are measured from a shadow this share of the short side
 const LATTICE_UNIT_SHARE = 0.08
-// In 3D the sheet is seen at its own tilt less the camera's elevation, up to the top of the Sheet Tilt
-// slider, where its horizon is still above the screen. Past that it fades, and it is gone by the time the
-// camera would see it edge-on, so it is never seen from below
-const MAX_SHEET_TILT = 75
-const SHEET_EDGE_ON = 90
+// A background star's light falls as exp(-d * d / spread), d in CSS pixels: at a Star Size of 1.55 the
+// spread is the 0.6 the shader held before the size was a setting
+const STAR_SIZE = 1.55
+const STAR_SPREAD = 0.6
 const FULL_TURN = Math.PI * 2
 // One bit for each layer, for the set of layers a fired effect plays
 const LAYER_BIT = Object.fromEntries(INTRO_LAYERS.map((layer, index) => [layer, 1 << index])) as Record<IntroLayer, number>
@@ -272,6 +262,8 @@ export function createScene (
     frameScale: 1,
     vanishX: 0,
     vanishY: 0,
+    cutZoom: 1.08,
+    cutShift: 80,
     ringTexels: ringEnergy.texels,
     ringFed: true,
     title: {
@@ -371,6 +363,12 @@ export function createScene (
       nebulaShiftX: 0,
       nebulaShiftY: 0,
       nebulaWrap: 0,
+      starWarm: createSceneColor(),
+      starCool: createSceneColor(),
+      starSpread: STAR_SPREAD,
+      starTwinkle: 0.15,
+      starTwinkleSpeed: 1,
+      starFaintest: 0.25,
       dustScale: 220,
       dustThreshold: 0.5,
       lightDustContrast: 1,
@@ -383,6 +381,7 @@ export function createScene (
       gridCell: 64,
       gridPull: 0,
       gridColor: createSceneColor(),
+      skyGridLine: 1.5,
       starShiftX: 0,
       starShiftY: 0,
       gridShiftX: 0,
@@ -730,7 +729,7 @@ export function createScene (
     // turns the view instead of cutting it; straight on, everything lands where the flat mode puts it
     const blendTarget = state.threeD ? 1 : 0
     if (view.blend !== blendTarget) {
-      const move = reducedMotion ? 1 : dt / THREE_D_EASE
+      const move = reducedMotion || !(state.threeDEase > 0) ? 1 : dt / state.threeDEase
       view.blend = blendTarget > view.blend ? Math.min(view.blend + move, 1) : Math.max(view.blend - move, 0)
     }
     const threeD = state.threeD || view.blend > 0
@@ -855,7 +854,9 @@ export function createScene (
     let viewPitch = 0
     const composite = frame.composite
     if (threeD) {
-      const pivot = Math.max(settings.holeDepth, state.farZ * MIN_PIVOT_SHARE)
+      // The camera never circles a point nearer than a share of Field Depth, so a black hole at depth 0
+      // still has room around it
+      const pivot = Math.max(settings.holeDepth, state.farZ * state.threeDNearest)
       const focal = settings.focal
       const worldPerPixel = pivot / focal
       // The pair's centre stands where the black hole is on the screen, as far away as the pivot; the two
@@ -891,7 +892,8 @@ export function createScene (
       // Strokes start where the particles were seen in the frame before, unless the camera jumped
       let turned = yaw - view.yaw
       turned -= FULL_TURN * Math.round(turned / FULL_TURN)
-      const cut = !view.stepped || Math.abs(turned) > CAMERA_CUT_TURN || Math.abs(pitch - view.pitch) > CAMERA_CUT_TURN
+      const cutTurn = state.cameraCutTurn
+      const cut = !view.stepped || Math.abs(turned) > cutTurn || Math.abs(pitch - view.pitch) > cutTurn
       settings.cameraYawFrom = cut ? yaw : view.yaw
       settings.cameraPitchFrom = cut ? pitch : view.pitch
       // The orbiting stars circle the main hole across the line of flight too: the renderer turns their
@@ -1197,6 +1199,13 @@ export function createScene (
     composite.nebula = intro.backgroundStars * state.nebula
     readSceneColor(composite.nebulaColor, state.nebulaColor)
     readSceneColor(composite.nebulaColorDeep, state.nebulaColorDeep)
+    const starSize = state.starsSize / STAR_SIZE
+    composite.starSpread = STAR_SPREAD * starSize * starSize
+    composite.starTwinkle = state.starsTwinkle
+    composite.starTwinkleSpeed = state.starsTwinkleSpeed
+    composite.starFaintest = state.starsFaintest
+    readSceneColor(composite.starWarm, state.starsColorWarm, SIMULATION_COLOR_SPECS.starsColorWarm.exact)
+    readSceneColor(composite.starCool, state.starsColorCool, SIMULATION_COLOR_SPECS.starsColorCool.exact)
     composite.colorFlash = params.colorFlash
     composite.colorLight = params.colorLight
     composite.colorDust = params.colorDust
@@ -1210,6 +1219,9 @@ export function createScene (
     composite.cameraZoom = cameraZoom
     composite.zoomX = zoomX
     composite.zoomY = zoomY
+    // A camera that jumps further than this in a frame has cut, and the trails start afresh
+    frame.cutZoom = 1 + state.cameraCutZoom
+    frame.cutShift = state.cameraCutShift
     composite.shakeX = shake * (Math.sin(animationTime * 83.1) + 0.6 * Math.sin(animationTime * 47.3)) / 1.6
     composite.shakeY = shake * (Math.sin(animationTime * 71.7 + 1.3) + 0.6 * Math.sin(animationTime * 39.9 + 0.4)) / 1.6
     composite.lensFringe = params.lensFringe * film
@@ -1224,20 +1236,33 @@ export function createScene (
     composite.gridPull = state.gridSkyPull
     readSceneColor(composite.gridColor, state.gridColor, SIMULATION_COLOR_SPECS.gridColor.exact)
     composite.gridCell = gridCell
-    frame.grid.brightness = state.gridSheet
+    composite.skyGridLine = state.gridSkyLine
+    const grid = frame.grid
+    grid.brightness = state.gridSheet
     if (state.gridSheet > 0) {
       // In 3D the sheet is a plane in the scene: the camera's elevation tilts it towards the camera and
-      // the camera's turn spins its lines around the point the camera circles
+      // the camera's turn spins its lines around the point the camera circles. It is seen at its own tilt
+      // less the camera's elevation, up to a limit (75 degrees, the top of the Sheet Tilt slider, keeps its
+      // horizon above the screen). Past that it fades, and at the default fade it is gone by the time the
+      // camera would see it edge-on, so it is never seen from below
       const seenTilt = threeD ? state.gridTilt - viewPitch / DEGREE : state.gridTilt
-      const sheetTilt = threeD ? Math.min(Math.max(seenTilt, -MAX_SHEET_TILT), MAX_SHEET_TILT) : seenTilt
-      if (seenTilt > MAX_SHEET_TILT) {
-        frame.grid.brightness *= Math.max(1 - (seenTilt - MAX_SHEET_TILT) / (SHEET_EDGE_ON - MAX_SHEET_TILT), 0)
+      const tiltLimit = state.gridTiltLimit
+      const sheetTilt = threeD ? Math.min(Math.max(seenTilt, -tiltLimit), tiltLimit) : seenTilt
+      if (threeD && seenTilt > tiltLimit) {
+        grid.brightness *= Math.max(1 - (seenTilt - tiltLimit) / state.gridTiltFade, 0)
       }
+      grid.lineWidth = state.gridLine
+      grid.lineScale = state.gridLineNear
+      grid.near = state.gridNear
+      grid.clearFrom = state.gridClearing
+      grid.clearTo = state.gridClearingEdge
+      grid.waveLift = state.gridWaveLift
       placeGrid(
-        frame.grid, sheetTilt, state.gridDepth, gridCell, viewportWidth, viewportHeight, holeX, holeY, horizon * holeScale,
-        settings.companionX, settings.companionY, companionRadius * companionScale, hole.x, hole.y, pair.mergedPhase
+        grid, sheetTilt, state.gridDepth, gridCell, viewportWidth, viewportHeight, holeX, holeY, horizon * holeScale,
+        settings.companionX, settings.companionY, companionRadius * companionScale, hole.x, hole.y, pair.mergedPhase,
+        state.gridDistance, state.gridSpan, state.gridFade
       )
-      turnGrid(frame.grid, viewYaw)
+      turnGrid(grid, viewYaw)
     }
 
     // The lattice stands in the scene around the black hole and is seen by the 3D camera, or straight on
@@ -1246,7 +1271,7 @@ export function createScene (
     const lattice = frame.lattice
     lattice.brightness = state.gridLattice
     if (state.gridLattice > 0) {
-      const pivot = Math.max(settings.holeDepth, state.farZ * MIN_PIVOT_SHARE)
+      const pivot = Math.max(settings.holeDepth, state.farZ * state.threeDNearest)
       const worldPerPixel = pivot / settings.focal
       const latticeTurn = lattice.turn
       if (threeD) {
@@ -1271,7 +1296,9 @@ export function createScene (
       }
       const unit = (shadowRadius > 0 ? shadowRadius : LATTICE_UNIT_SHARE * shortSide) * worldPerPixel
       lattice.cell = state.gridLatticeCell * unit
-      lattice.reach = LATTICE_LINES_PER_SIDE * lattice.cell
+      // No farther than its lines go
+      lattice.reach = Math.min(state.gridLatticeReach, LATTICE_LINES_PER_SIDE) * lattice.cell
+      lattice.fadeFrom = (1 - state.gridLatticeFade) * lattice.reach
       lattice.warp = state.gridLatticeWarp
       lattice.edge = horizon * worldPerPixel
       lattice.companionEdge = companionRadius * worldPerPixel
@@ -1282,7 +1309,11 @@ export function createScene (
       lattice.focal = settings.focal
       lattice.vanishX = settings.vanishX
       lattice.vanishY = settings.vanishY
-      lattice.near = pivot * LATTICE_NEAR_SHARE
+      // The lines fade out as they come nearer the camera than a share of the distance to that point
+      lattice.near = pivot * state.gridLatticeNear
+      lattice.farthest = state.gridLatticeFar
+      lattice.lineWidth = state.gridLatticeLine
+      lattice.gain = state.gridLatticeGain
     }
 
     renderer.render(frame)

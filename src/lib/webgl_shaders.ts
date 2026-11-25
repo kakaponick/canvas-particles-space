@@ -312,6 +312,9 @@ export const compositeFragmentShaderSource = `
   uniform float u_starCell;        // CSS pixels per background-star cell
   uniform float u_starDensity;     // share of cells holding a star
   uniform float u_starFlare;
+  uniform vec4 u_starWarm;         // a background star: the warmest tint, and the brightness of the faintest star
+  uniform vec4 u_starCool;         // the coolest tint, and what the brightest star adds to the faintest
+  uniform vec4 u_starLook;         // the square of the star's radius in CSS pixels, then its twinkle: the light it keeps, the light that swings, the rate as a multiple of its own
   uniform float u_dustScale;       // CSS pixels
   uniform float u_dustThreshold;
   uniform float u_lightDustContrast;
@@ -324,6 +327,7 @@ export const compositeFragmentShaderSource = `
   uniform float u_orbits;          // 1 while there are orbiting stars; 0 leaves their layer unread
   uniform float u_skyGrid;        // brightness of the flat grid on the sky behind the hole; 0 turns it off
   uniform float u_gridCell;        // CSS pixels per cell of that grid
+  uniform float u_skyGridLine;     // half the width of a line of that grid, CSS pixels
   uniform vec4 u_skyShift;         // CSS pixels the 3D camera's turn slides the stars (xy) and that grid (zw) by; zeros when flat
   uniform vec4 u_nebula;           // the nebula's brightness (0 turns it off), CSS pixels the 3D camera's turn slides it by (yz), CSS pixels of a full turn (0 when flat)
   uniform vec3 u_nebulaColor;
@@ -392,8 +396,6 @@ export const compositeFragmentShaderSource = `
   const float DUST_BLOW_SECONDS = 1.2;
   // Width of a patch of the nebula's second colour, in Dust Scales
   const float NEBULA_PATCH = 3.0;
-  // Half the width of a line of the flat grid, CSS pixels
-  const float GRID_HALF_LINE = 0.75;
   // Halvings that find the node the Lensed Grid's pull brings to a point; a straight line across the last
   // one leaves it well under a pixel off
   const int GRID_PULL_STEPS = 8;
@@ -470,9 +472,9 @@ ${DENT_GLSL}
     // A star is a point of light: the zoom moves the stars apart and leaves each the size it was
     float d = length(cssPx - position) * u_cameraZoom;
     float brightness = hash12(cell + 3.7);
-    float twinkle = 0.85 + 0.15 * sin(u_time * (2.0 + 3.0 * brightness) + presence * 400.0);
-    vec3 tint = mix(vec3(1.0, 0.82, 0.62), vec3(0.75, 0.85, 1.0), hash12(cell + 29.0));
-    return tint * exp(-d * d / 0.6) * (0.25 + 0.75 * brightness * brightness) * twinkle * (1.0 + flare);
+    float twinkle = u_starLook.y + u_starLook.z * sin(u_time * (u_starLook.w * (2.0 + 3.0 * brightness)) + presence * 400.0);
+    vec3 tint = mix(u_starWarm.rgb, u_starCool.rgb, hash12(cell + 29.0));
+    return tint * exp(-d * d / u_starLook.x) * (u_starWarm.a + u_starCool.a * brightness * brightness) * twinkle * (1.0 + flare);
   }
 
   // The title mask at a point of the title's own box, -1..1 on both axes; empty outside it
@@ -887,11 +889,11 @@ ${DENT_GLSL}
         squeeze = max(slope, node / seen);
       }
       vec2 fromLine = abs(fract((gridAt + u_skyShift.zw - 0.5 * u_resolution / u_pixelRatio) / u_gridCell - 0.5) - 0.5) * u_gridCell;
-      float line = clamp((GRID_HALF_LINE - min(fromLine.x, fromLine.y) * u_cameraZoom / squeeze) * u_pixelRatio + 0.5, 0.0, 1.0);
+      float line = clamp((u_skyGridLine - min(fromLine.x, fromLine.y) * u_cameraZoom / squeeze) * u_pixelRatio + 0.5, 0.0, 1.0);
       if (squeeze > 1.0) {
         // Where the cells shrink to a few pixels their lines merge into a haze of the light they share
         float cellPx = u_gridCell * u_cameraZoom * u_pixelRatio / squeeze;
-        line = mix(line, min(4.0 * GRID_HALF_LINE * u_pixelRatio / cellPx, 1.0), smoothstep(GRID_HAZE_CELL, 0.5 * GRID_HAZE_CELL, cellPx));
+        line = mix(line, min(4.0 * u_skyGridLine * u_pixelRatio / cellPx, 1.0), smoothstep(GRID_HAZE_CELL, 0.5 * GRID_HAZE_CELL, cellPx));
       }
       emitted += u_gridColor * u_skyGrid * line;
     }
@@ -1040,6 +1042,7 @@ export const gridVertexShaderSource = `
   uniform vec4 u_pairWave;    // the pair's spiral wave: height (0 = off), the pair's angle on the sheet, turn of its arms per unit of distance, radius beyond which it weakens
   uniform vec2 u_pairAt;      // the centre the two turn around, from the first well
   uniform vec2 u_lines;       // cell size, how far from the black hole the lines reach
+  uniform vec4 u_sheet;       // the share of the camera's distance nearer than which the sheet is cut off, the most a line widens near the camera, the distance from the black hole the lines begin to fade out at, unused
   uniform vec4 u_wave;        // gravitational wave: height, seconds since it left the hole, angular frequency, 1 / decay time
   uniform vec2 u_waveSpread;  // radius beyond which the wave weakens, how far it travels a second
   uniform vec4 u_waveTurn;    // cosine and sine of twice the angle on the sheet the oval's long axis had as the ringing began, the way it turns there (1, -1; 0 = it wobbles in place), unused
@@ -1052,11 +1055,6 @@ export const gridVertexShaderSource = `
   varying float v_across;     // signed distance from its axis
   varying float v_halfWidth;
   varying float v_alpha;
-
-  // The sheet is cut off this close to the camera, as a share of the camera's distance
-  const float NEAR = 0.2;
-  // Lines close to the camera are drawn at most this many times wider
-  const float MAX_SCALE = 3.0;
 
 ${DENT_GLSL}
   // How strong a gravitational wave is at a distance from where it left: it falls as 1 / r. Closer than
@@ -1111,8 +1109,8 @@ ${DENT_GLSL}
     vec2 point = u_view + vec2(place.x, place.y * u_camera.z + depth * u_camera.y) * scale;
     // The scene camera of the intro zooms and jolts the sheet with the rest of the frame
     point = u_lens.xy + (point - u_jolt - u_lens.xy) * u_lens.z;
-    float lit = 1.0 - smoothstep(0.5 * u_lines.y, u_lines.y, r);
-    return vec4(point, behind > NEAR * u_camera.x ? scale * u_lens.z : -1.0, lit);
+    float lit = 1.0 - smoothstep(u_sheet.z, u_lines.y, r);
+    return vec4(point, behind > u_sheet.x * u_camera.x ? scale * u_lens.z : -1.0, lit);
   }
 
   void main () {
@@ -1155,7 +1153,7 @@ ${DENT_GLSL}
 
     // Lines thinner than a pixel are drawn one pixel wide and dimmed by the area they would cover
     float end = a_position.x * 0.5 + 0.5;
-    float width = u_camera.w * u_pixelRatio * min(mix(first.z, last.z, end), MAX_SCALE);
+    float width = u_camera.w * u_pixelRatio * min(mix(first.z, last.z, end), u_sheet.y);
     float drawWidth = max(width, 1.0);
     float halfWidth = drawWidth * 0.5;
     float extent = halfWidth + 1.0;
@@ -1181,6 +1179,7 @@ export const gridFragmentShaderSource = `
   uniform vec4 u_shadow;  // the black hole as the frame shows it: centre and shadow radius; radius 0 = none
   uniform vec4 u_shadow2; // a second black hole, the same way
   uniform vec2 u_frame;   // height of the drawing buffer, height of each letterbox bar
+  uniform vec2 u_clearing; // the shadow radii inside which a line is gone and beyond which it is whole
 
   varying vec2 v_ends;
   varying float v_across;
@@ -1193,8 +1192,8 @@ export const gridFragmentShaderSource = `
     float alpha = v_alpha * clamp(v_halfWidth + 0.5 - length(vec2(beyondEnds, v_across)), 0.0, 1.0);
     vec2 screen = vec2(gl_FragCoord.x, u_frame.x - gl_FragCoord.y);
     // The black hole stands in front of the sheet: no line crosses its shadow or its ring
-    if (u_shadow.z > 0.0) alpha *= smoothstep(u_shadow.z * 1.04 + 1.0, u_shadow.z * 1.2 + 2.0, length(screen - u_shadow.xy));
-    if (u_shadow2.z > 0.0) alpha *= smoothstep(u_shadow2.z * 1.04 + 1.0, u_shadow2.z * 1.2 + 2.0, length(screen - u_shadow2.xy));
+    if (u_shadow.z > 0.0) alpha *= smoothstep(u_shadow.z * u_clearing.x + 1.0, u_shadow.z * u_clearing.y + 2.0, length(screen - u_shadow.xy));
+    if (u_shadow2.z > 0.0) alpha *= smoothstep(u_shadow2.z * u_clearing.x + 1.0, u_shadow2.z * u_clearing.y + 2.0, length(screen - u_shadow2.xy));
     if (u_frame.y > 0.0) alpha *= smoothstep(u_frame.y - 1.0, u_frame.y + 1.0, min(screen.y, u_frame.x - screen.y));
     gl_FragColor = vec4(u_color.rgb * alpha, 1.0);
   }
@@ -1272,6 +1271,7 @@ export const latticeVertexShaderSource = `
   uniform vec4 u_lattice;        // cell size, how far the lines reach, the pull, line width in device pixels
   uniform vec4 u_anchor;         // share of a cell the nearest lines lie past the black hole on each axis, unused
   uniform vec4 u_color;          // rgb at the lattice's brightness, unused
+  uniform vec2 u_fade;           // the distance from the black hole the lines begin to fade out at, and the share of their light lines far behind the point the camera circles keep
 
   varying vec2 v_ends;
   varying float v_across;
@@ -1280,8 +1280,6 @@ export const latticeVertexShaderSource = `
 
   const float PI = 3.14159265359;
   const float SEGMENTS = ${LATTICE_SEGMENTS}.0;
-  // Lines farther from the camera than the point it circles dim with distance, down to this share
-  const float FARTHEST = 0.3;
 
 ${DENT_GLSL}
   // The share of its distance a node at this distance from a black hole is pulled in by. The pull wished
@@ -1340,8 +1338,8 @@ ${DENT_GLSL}
     float stop = (a_latticeLine.z + 1.0) / SEGMENTS * 2.0 - 1.0;
     vec3 firstNode = lineNode(across, sign(start) * start * start * u_lattice.y);
     vec3 lastNode = lineNode(across, sign(stop) * stop * stop * u_lattice.y);
-    // The lattice is a ball around the hole: it fades out over the outer half of its reach
-    float lit = 1.0 - smoothstep(0.5 * u_lattice.y, u_lattice.y, length(0.5 * (firstNode + lastNode) - u_hole.xyz));
+    // The lattice is a ball around the hole: it fades out toward the end of its reach
+    float lit = 1.0 - smoothstep(u_fade.x, u_lattice.y, length(0.5 * (firstNode + lastNode) - u_hole.xyz));
     vec3 first = seen(bent(firstNode));
     vec3 last = seen(bent(lastNode));
     float nearest = min(first.z, last.z);
@@ -1367,8 +1365,8 @@ ${DENT_GLSL}
     float targetArea = len * width + PI * width * width * 0.25;
     float drawnArea = len * drawWidth + PI * (halfWidth * halfWidth + 1.0 / 12.0);
 
-    // Near the camera the lines fade out; far behind the point it circles they dim
-    float shown = lit * smoothstep(0.25 * u_row2.w, u_row2.w, nearest) * clamp(u_row1.w / nearest, FARTHEST, 1.0);
+    // Near the camera the lines fade out; far behind the point it circles they dim with distance
+    float shown = lit * smoothstep(0.25 * u_row2.w, u_row2.w, nearest) * clamp(u_row1.w / nearest, u_fade.y, 1.0);
     v_ends = vec2(along, len - along);
     v_across = acrossPiece;
     v_halfWidth = halfWidth;
