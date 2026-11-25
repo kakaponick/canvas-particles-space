@@ -303,7 +303,8 @@ come, as around a real black hole.
 | How high a gravitational wave lifts the sheet | `gridWaveLift` |
 | The sheet in 3D: the most it is tilted, and the degrees past that it fades over | `gridTiltLimit`, `gridTiltFade` |
 | The lattice's lines and extent: their width, its reach in cells and the share of that it fades over | `gridLatticeLine`, `gridLatticeReach`, `gridLatticeFade` |
-| The lattice in depth: where it fades near the camera, and what it keeps far behind the hole | `gridLatticeNear`, `gridLatticeFar` |
+| The lattice in depth: where it fades near the camera, the share of that where a line is gone, and what it keeps far behind the hole | `gridLatticeNear`, `gridLatticeNearEdge`, `gridLatticeFar` |
+| The shadow the lattice's cells are measured from while there is no black hole, as a share of the short side | `gridLatticeUnit` |
 
 - The sheet is a diagram: a surface dented where the hole sits, rippled by gravitational waves. It stays
   put while the hole moves across it. At a `gridTilt` of 60 and above the well's depth shows.
@@ -332,10 +333,12 @@ come, as around a real black hole.
   made for `threeD`, where the camera circles it; in the flat mode it is seen straight on, down the line
   of flight. Among a bright field lower `baseBrightness` or raise `gridLattice`.
 - A camera inside the ball would have lines across its face: they begin to fade nearer than
-  `gridLatticeNear` of the way to the point the camera circles and are gone at a quarter of that. Behind
-  that point a line dims with its distance, down to `gridLatticeFar` of its light. `gridLatticeNear` low
-  and `gridLatticeFar` 1 give a cage drawn alike near and far; `gridLatticeNear` above 1 leaves only the
-  far side.
+  `gridLatticeNear` of the way to the point the camera circles and are gone at `gridLatticeNearEdge` of
+  that, a quarter. Behind that point a line dims with its distance, down to `gridLatticeFar` of its
+  light. `gridLatticeNear` low and `gridLatticeFar` 1 give a cage drawn alike near and far;
+  `gridLatticeNear` above 1 leaves only the far side.
+- With `blackHoleSize` 0 the lattice is a plain cage of space: its cells are then multiples of
+  `gridLatticeUnit` of the short side, 8%, the default hole's shadow.
 - `gridColor` is one colour for all three grids. The lattice draws it `gridLatticeGain` times brighter,
   each channel stopping at full, so a high gain turns the lattice white while the sheet keeps the colour.
 - The sheet has a camera of its own, apart from the scene's: `gridDistance` long screen sides from the
@@ -614,8 +617,6 @@ The cost of a knob, in the last column:
 | How deep the sheet lies at a distance: the slowing of time where light passing there comes nearest | webgl_shaders.ts | has one: `gridDepth` |
 | The sheet's 225 lines each way, in 192 pieces each, where `gridSpan` ends at a small `gridCell` | space_grid.ts | machine |
 | The lattice's 13 lines each way along each of the three axes, in 48 pieces each: the top of `gridLatticeReach` | space_lattice.ts | machine |
-| Where a lattice line near the camera is gone: a quarter of the distance `gridLatticeNear` begins its fade at | webgl_shaders.ts | frame: the hardness of that fade, no picture of its own |
-| The cell the lattice is measured in while there is no black hole: a shadow 0.08 of the short side | scene.ts | frame |
 | A star's own twinkle, 2 to 5 radians a second, the brighter the faster, and its brightness, the square of an even draw | webgl_shaders.ts | has one: `starsTwinkleSpeed`, `starsFaintest` |
 | One star at most in a cell, placed in its middle 0.6 and drawn inside that cell alone, which cuts a large `starsSize` off at its edge | webgl_shaders.ts | pixel |
 | How the Lensed Grid's pull is found: 8 halvings of the span the node can lie in, then a straight line across the last | webgl_shaders.ts | machine |

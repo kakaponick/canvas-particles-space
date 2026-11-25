@@ -51,6 +51,8 @@ export interface LatticeSettings {
   vanishX: number
   vanishY: number
   near: number
+  // The distance from the camera a line is gone at: a share of `near`
+  gone: number
   // The share of their light lines far behind the point the camera circles keep
   farthest: number
   // Width of a line in CSS pixels, the same at any zoom, and how much brighter than the grids' colour a
@@ -87,6 +89,7 @@ export function createLatticeSettings (): LatticeSettings {
     vanishX: 0,
     vanishY: 0,
     near: 1,
+    gone: 0.25,
     farthest: 0.3,
     lineWidth: 1.5,
     gain: 1.6

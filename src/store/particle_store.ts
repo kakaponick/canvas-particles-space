@@ -208,13 +208,16 @@ export interface ParticleState {
   // The lattice's look: the width of its lines in CSS pixels, how many times brighter than the grids'
   // colour they are, how many cells from the hole it reaches and the share of that it fades out over, the
   // share of the way to the point the camera circles nearer than which it fades, and the share of their
-  // light lines far behind that point keep
+  // light lines far behind that point keep; the share of the near fade's distance a line is gone at, and
+  // the shadow its cells are measured from with no black hole, as a share of the short side
   gridLatticeLine: number
   gridLatticeGain: number
   gridLatticeReach: number
   gridLatticeFade: number
   gridLatticeNear: number
   gridLatticeFar: number
+  gridLatticeNearEdge: number
+  gridLatticeUnit: number
   // Stars in orbit around the black hole (orbiters.ts): how many (0 = none), the mean size of their
   // orbits in black hole radii, how stretched the orbits are, the rate of their time (its sign is their
   // direction), seconds an orbit's trace stays lit, and their width in CSS pixels
@@ -450,6 +453,8 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   gridLatticeFade: 0.5,
   gridLatticeNear: 0.5,
   gridLatticeFar: 0.3,
+  gridLatticeNearEdge: 0.25,
+  gridLatticeUnit: 0.08,
   cameraZoom: 1,
   cameraX: 0,
   cameraY: 0,

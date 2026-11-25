@@ -1290,7 +1290,7 @@ export const latticeVertexShaderSource = `
   uniform vec4 u_lattice;        // cell size, how far the lines reach, the pull, line width in device pixels
   uniform vec4 u_anchor;         // share of a cell the nearest lines lie past the black hole on each axis, unused
   uniform vec4 u_color;          // rgb at the lattice's brightness, unused
-  uniform vec2 u_fade;           // the distance from the black hole the lines begin to fade out at, and the share of their light lines far behind the point the camera circles keep
+  uniform vec3 u_fade;           // the distance from the black hole the lines begin to fade out at, the share of their light lines far behind the point the camera circles keep, and the distance from the camera a line is gone at
 
   varying vec2 v_ends;
   varying float v_across;
@@ -1362,7 +1362,7 @@ ${DENT_GLSL}
     vec3 first = seen(bent(firstNode));
     vec3 last = seen(bent(lastNode));
     float nearest = min(first.z, last.z);
-    if (lit <= 0.0 || nearest < 0.25 * u_row2.w) {
+    if (lit <= 0.0 || nearest < u_fade.z) {
       gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
       return;
     }
@@ -1385,7 +1385,7 @@ ${DENT_GLSL}
     float drawnArea = len * drawWidth + PI * (halfWidth * halfWidth + 1.0 / 12.0);
 
     // Near the camera the lines fade out; far behind the point it circles they dim with distance
-    float shown = lit * smoothstep(0.25 * u_row2.w, u_row2.w, nearest) * clamp(u_row1.w / nearest, u_fade.y, 1.0);
+    float shown = lit * smoothstep(u_fade.z, u_row2.w, nearest) * clamp(u_row1.w / nearest, u_fade.y, 1.0);
     v_ends = vec2(along, len - along);
     v_across = acrossPiece;
     v_halfWidth = halfWidth;

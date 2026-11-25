@@ -65,8 +65,6 @@ const SPIN_MAX = 0.998
 const FAR_CAMERA = 1e-3
 // Nothing of a black hole is drawn nearer the camera than this, in scene units
 const NEAR_DEPTH = 1
-// With no black hole the lattice's cells are measured from a shadow this share of the short side
-const LATTICE_UNIT_SHARE = 0.08
 // A background star's light falls as exp(-d * d / spread), d in CSS pixels: at a Star Size of 1.55 the
 // spread is the 0.6 the shader held before the size was a setting
 const STAR_SIZE = 1.55
@@ -1323,7 +1321,8 @@ export function createScene (
         lattice.companionY = (settings.companionY - settings.vanishY) * worldPerPixel
         lattice.companionZ = pivot
       }
-      const unit = (shadowRadius > 0 ? shadowRadius : LATTICE_UNIT_SHARE * shortSide) * worldPerPixel
+      // With no black hole the cells are measured from a shadow that is a share of the short side
+      const unit = (shadowRadius > 0 ? shadowRadius : state.gridLatticeUnit * shortSide) * worldPerPixel
       lattice.cell = state.gridLatticeCell * unit
       // No farther than its lines go
       lattice.reach = Math.min(state.gridLatticeReach, LATTICE_LINES_PER_SIDE) * lattice.cell
@@ -1340,6 +1339,7 @@ export function createScene (
       lattice.vanishY = settings.vanishY
       // The lines fade out as they come nearer the camera than a share of the distance to that point
       lattice.near = pivot * state.gridLatticeNear
+      lattice.gone = lattice.near * state.gridLatticeNearEdge
       lattice.farthest = state.gridLatticeFar
       lattice.lineWidth = state.gridLatticeLine
       lattice.gain = state.gridLatticeGain

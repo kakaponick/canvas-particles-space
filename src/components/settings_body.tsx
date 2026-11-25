@@ -390,6 +390,8 @@ function SettingsBody () {
             <SettingSlider field="gridLatticeFade" />
             <SettingSlider field="gridLatticeNear" />
             <SettingSlider field="gridLatticeFar" />
+            <SettingSlider field="gridLatticeNearEdge" />
+            <SettingSlider field="gridLatticeUnit" />
           </div>
           <div className="mt-3 flex flex-col gap-1">
             <SettingSlider field="gridSkyLine" />
