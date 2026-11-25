@@ -112,8 +112,7 @@ audio track. The same film is the same video on any machine.
   (square): orbiting stars whose precession weaves a rosette, until a growing horizon takes them. `graph_paper.json`:
   the lens travelling over the lensed grid, wound up by Twist, then two lenses. `rapid.json` (60 fps): the opening
   stretched until the light takes four seconds to cross the frame. `waltz.json` (vertical, 60 fps): two black
-  holes closing and parting over the sheet before they merge. `node films/sound.mjs` writes a soundtrack for each
-  from the film's own keyframes.
+  holes closing and parting over the sheet before they merge.
 
 ## Project Structure
 
