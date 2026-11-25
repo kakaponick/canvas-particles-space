@@ -7,6 +7,8 @@
 // _preview, _render). The page does the work through window.space.film and window.space.fractal; this
 // file only carries text in and files out.
 // No dependencies: the protocol is JSON-RPC lines on stdio, the browser is driven over its DevTools socket.
+// A preview or a render waits its turn with the measurements of scripts/bench.mjs (scripts/turn.mjs), so a
+// film is never drawn while a build is being measured on this machine.
 //
 //   node mcp/space_mcp.mjs          after `pnpm build`; .mcp.json starts it for Claude Code
 //   SPACE_DIST=path                 another build of the page
@@ -22,6 +24,7 @@ import crypto from 'node:crypto'
 import readline from 'node:readline'
 import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
+import { takeTurn } from '../scripts/turn.mjs'
 
 const SERVER = { name: 'space-film', version: '1.0.0' }
 const PROTOCOL_VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05']
@@ -746,6 +749,7 @@ async function withProgress (page, report, work) {
 const write = message => process.stdout.write(JSON.stringify(message) + '\n')
 // The page draws one film at a time, so calls wait their turn
 let queue = Promise.resolve()
+const DRAWS = /_(preview|render)$/
 
 async function handle (message) {
   const { id, method, params } = message
@@ -770,10 +774,15 @@ async function handle (message) {
       ? null
       : (progress, total, text) => write({ jsonrpc: '2.0', method: 'notifications/progress', params: { progressToken, progress, total, message: text } })
     queue = queue.then(async () => {
+      // The tools that draw take the machine's turn; the ones that only read the page answer at once
+      const draws = DRAWS.test(params?.name ?? '')
+      const release = draws ? await takeTurn(params.name, waiting => report?.(0, 1, waiting)) : null
       try {
         reply(await runTool(params?.name, params?.arguments ?? {}, report))
       } catch (error) {
         reply({ content: [{ type: 'text', text: error instanceof Error ? error.message : String(error) }], isError: true })
+      } finally {
+        release?.()
       }
     })
     return

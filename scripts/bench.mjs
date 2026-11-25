@@ -1,13 +1,31 @@
 #!/usr/bin/env node
-// Frame time, measured the way CLAUDE.md's Measuring asks. Needs Node 22+ and Chrome, Chromium or Edge.
+// The checks of a change, made the way CLAUDE.md's Checking asks: frame time, and the bytes of the films.
+// Needs Node 22+ and Chrome, Chromium or Edge.
 //
 //   node scripts/bench.mjs page [<dist> ...] [--against <commit>] [--runs 2] [--debug]
 //   node scripts/bench.mjs step [--against <commit>] [--runs 2] [--spin 0.99] [--inertia 0.9] [--3d]
+//   node scripts/bench.mjs films [<film> ...] [--against <commit>] [--at 1.5,4,8,12] [--crew]
 //
 // --against <commit> measures that commit beside this checkout: it is checked out into a temporary
-// worktree (pnpm install --offline there, then pnpm build for page) and removed afterwards; for page this
-// checkout is built too, so both builds are current. Without it page measures the dist folders it is given,
-// or this checkout's dist/ as it was last built.
+// worktree (pnpm install --offline there, then pnpm build for page and films) and removed afterwards; for
+// page and films this checkout is built too, so both builds are current. Without it page measures the dist
+// folders it is given, or this checkout's dist/ as it was last built, and films prints this build's hashes.
+//
+// Each command ends in a line that begins VERDICT, and that line is the check's answer. One command runs
+// at a time on this machine, in turn with the film server's previews and renders (turn.mjs): a
+// measurement taken beside another one measures the other.
+//
+// page and step with --against compare the two builds by their ranges. Ranges that touch are "within
+// noise". Ranges apart after the first runs get as many runs again, once, since two runs of each of two
+// equal builds come out apart one time in three, and four of each one time in thirty-five; the verdict then
+// says how far apart the means are.
+//
+// films draws a preview of each film on both builds and compares the pictures' hashes: the films named,
+// or every film of the scene in films/ (not the fractal ones, not the reels), at the seconds of --at.
+// --crew sends the isolation headers, so the particles are stepped by the crew and not the plain loop. A
+// film whose hashes differ is drawn once more on both builds, which tells three things apart: a first
+// draw that was off (the second pair agrees), a film that is not deterministic on the commit before the
+// change, and a picture the change moved.
 //
 // page serves each build in headless Chrome at 1920x1080, clicks CLICK TO START, waits 7 s for the opening
 // to end and counts rAF ticks over 4 s; main thread a frame is CDP's TaskDuration over that time divided by
@@ -24,9 +42,11 @@ import os from 'node:os'
 import path from 'node:path'
 import process from 'node:process'
 import { createServer } from 'node:http'
+import { createHash } from 'node:crypto'
 import { execFileSync, execSync, spawn } from 'node:child_process'
 import { createRequire } from 'node:module'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { takeTurn } from './turn.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const args = process.argv.slice(2)
@@ -40,12 +60,17 @@ const runs = Number(flag('--runs') ?? 2)
 const spin = Number(flag('--spin') ?? 0)
 const inertia = Number(flag('--inertia') ?? 0)
 const against = flag('--against')
-const threeD = args.includes('--3d') ? (args.splice(args.indexOf('--3d'), 1), true) : false
-const debug = args.includes('--debug') ? (args.splice(args.indexOf('--debug'), 1), true) : false
+// The seconds of a film whose frames are compared; a film that ends sooner gives its last frame
+const at = (flag('--at') ?? '1.5,4,8,12').split(',').map(Number)
+const taken = name => args.includes(name) ? (args.splice(args.indexOf(name), 1), true) : false
+const threeD = taken('--3d')
+const debug = taken('--debug')
+const crew = taken('--crew')
 const [command, ...rest] = args
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 const USAGE = 'node scripts/bench.mjs page [<dist> ...] [--against <commit>] [--runs 2] [--debug]\n' +
-  'node scripts/bench.mjs step [--against <commit>] [--runs 2] [--spin 0.99] [--inertia 0.9] [--3d]'
+  'node scripts/bench.mjs step [--against <commit>] [--runs 2] [--spin 0.99] [--inertia 0.9] [--3d]\n' +
+  'node scripts/bench.mjs films [<film> ...] [--against <commit>] [--at 1.5,4,8,12] [--crew]'
 
 // The temporary folder by its long name: git records a worktree's path as given, and Windows hands out
 // the short form (KAKAPO~1) that git then cannot match
@@ -114,15 +139,47 @@ function findBrowser () {
 
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.json': 'application/json', '.md': 'text/markdown', '.png': 'image/png' }
 
-function serve (dist) {
+// Serves a build. `pictures` is the folder a film's pictures are read from, as the film server reads them
+// from its checkout; `isolated` sends the headers that let a film step its particles with the crew
+function serve (dist, { pictures = null, isolated = false } = {}) {
+  const missing = file => !fs.existsSync(file) || fs.statSync(file).isDirectory()
+  const headers = isolated ? { 'cross-origin-opener-policy': 'same-origin', 'cross-origin-embedder-policy': 'require-corp' } : {}
   const server = createServer((request, response) => {
     const name = decodeURIComponent(new URL(request.url, 'http://x').pathname)
     let file = path.join(dist, name)
-    if (name === '/' || !fs.existsSync(file) || fs.statSync(file).isDirectory()) file = path.join(dist, 'index.html')
-    response.writeHead(200, { 'content-type': TYPES[path.extname(file)] ?? 'application/octet-stream' })
+    if (name !== '/' && missing(file) && pictures && !missing(path.join(pictures, name))) file = path.join(pictures, name)
+    if (name === '/' || missing(file)) file = path.join(dist, 'index.html')
+    response.writeHead(200, { 'content-type': TYPES[path.extname(file)] ?? 'application/octet-stream', ...headers })
     fs.createReadStream(file).pipe(response)
   })
   return new Promise(resolve => server.listen(0, '127.0.0.1', () => resolve(server)))
+}
+
+const lowest = values => Math.min(...values)
+const highest = values => Math.max(...values)
+const mean = values => values.reduce((sum, value) => sum + value, 0) / values.length
+
+// Measures each build in turn, `runs` times, with `once(index, run)` giving the number of one run, and says
+// what two builds' numbers come to. The builds take turns run by run, so a busy machine weighs on both
+// alike. Ranges apart after the first runs get as many runs again, once
+async function compare (labels, unit, digits, once) {
+  const values = labels.map(() => [])
+  const round = async from => {
+    for (let run = from; run < from + runs; run++) {
+      for (const index of labels.keys()) values[index].push(await once(index, run))
+    }
+  }
+  const apart = () => lowest(values[0]) > highest(values[1]) || lowest(values[1]) > highest(values[0])
+  await round(1)
+  if (labels.length !== 2) return
+  if (apart()) {
+    console.log(`the two ranges are apart after ${runs} runs of each: ${runs} more of each`)
+    await round(runs + 1)
+  }
+  const told = labels.map((label, index) => `${label} ${lowest(values[index]).toFixed(digits)}-${highest(values[index]).toFixed(digits)}`).join(', ')
+  if (!apart()) return console.log(`VERDICT within noise: ${told} ${unit}`)
+  const change = (mean(values[1]) / mean(values[0]) - 1) * 100
+  console.log(`VERDICT apart: ${labels[1]} is ${Math.abs(change).toFixed(0)}% ${change > 0 ? 'slower' : 'faster'} over ${values[0].length} runs of each (${told} ${unit})`)
 }
 
 async function openBrowser () {
@@ -179,20 +236,20 @@ async function page (builds) {
   const taskDuration = async () => (await send('Performance.getMetrics')).result.metrics.find(metric => metric.name === 'TaskDuration').value
   const evaluate = async expression => (await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true })).result.result.value
   try {
-    for (let run = 1; run <= runs; run++) {
-      for (const [index, { label }] of builds.entries()) {
-        await send('Page.navigate', { url: `http://127.0.0.1:${servers[index].address().port}/${debug ? '?debug' : ''}` })
-        await sleep(2500)
-        for (const type of ['mousePressed', 'mouseReleased']) {
-          await send('Input.dispatchMouseEvent', { type, x: 960, y: 540, button: 'left', clickCount: 1 })
-        }
-        await sleep(7000)
-        const before = await taskDuration()
-        const frames = await evaluate('new Promise(resolve => { let n = 0; const start = performance.now(); const tick = () => { n++; if (performance.now() - start < 4000) requestAnimationFrame(tick); else resolve(n) }; requestAnimationFrame(tick) })')
-        const after = await taskDuration()
-        console.log(`${label}  run ${run}: ${(frames / 4).toFixed(0)} fps, ${((after - before) * 1000 / frames).toFixed(2)} ms/frame main thread`)
+    await compare(builds.map(({ label }) => label), 'ms/frame main thread', 2, async (index, run) => {
+      await send('Page.navigate', { url: `http://127.0.0.1:${servers[index].address().port}/${debug ? '?debug' : ''}` })
+      await sleep(2500)
+      for (const type of ['mousePressed', 'mouseReleased']) {
+        await send('Input.dispatchMouseEvent', { type, x: 960, y: 540, button: 'left', clickCount: 1 })
       }
-    }
+      await sleep(7000)
+      const before = await taskDuration()
+      const frames = await evaluate('new Promise(resolve => { let n = 0; const start = performance.now(); const tick = () => { n++; if (performance.now() - start < 4000) requestAnimationFrame(tick); else resolve(n) }; requestAnimationFrame(tick) })')
+      const after = await taskDuration()
+      const perFrame = (after - before) * 1000 / frames
+      console.log(`${builds[index].label}  run ${run}: ${(frames / 4).toFixed(0)} fps, ${perFrame.toFixed(2)} ms/frame main thread`)
+      return perFrame
+    })
   } finally {
     await close()
     for (const server of servers) server.close()
@@ -244,31 +301,139 @@ async function bundleStep (tree) {
 // trees: [{ label, tree }]
 async function step (trees) {
   const loops = await Promise.all(trees.map(({ tree }) => bundleStep(tree)))
-  for (let round = 1; round <= runs; round++) {
-    for (const [index, { label }] of trees.entries()) {
-      const run = loops[index]
-      console.log(`${label}  run ${round}: 24000 with the hole ${run(24000, true, spin, inertia).toFixed(3)} ms/step · 24000 without ${run(24000, false, 0, 0).toFixed(3)} ms · 10000 without ${run(10000, false, 0, 0).toFixed(3)} ms`)
+  // The verdict is on the first number, the full field with the hole, which every law of the loop takes part in
+  await compare(trees.map(({ label }) => label), 'ms/step for 24000 with the hole', 3, async (index, round) => {
+    const run = loops[index]
+    const withHole = run(24000, true, spin, inertia)
+    console.log(`${trees[index].label}  run ${round}: 24000 with the hole ${withHole.toFixed(3)} ms/step · 24000 without ${run(24000, false, 0, 0).toFixed(3)} ms · 10000 without ${run(10000, false, 0, 0).toFixed(3)} ms`)
+    return withHole
+  })
+}
+
+// The films compared when none is named: every film of the scene in films/, which leaves out the zooms
+// into the Mandelbrot set and the reels
+const SCENE_FILM = /\.(json|js)$/
+const OTHER_FILM = /mandelbrot|reel/
+
+function readFilms (files) {
+  const folder = path.join(root, 'films')
+  const named = files.length > 0
+    ? files.map(file => path.resolve(file))
+    : fs.readdirSync(folder).filter(name => SCENE_FILM.test(name) && !OTHER_FILM.test(name)).map(name => path.join(folder, name))
+  return named.map(file => {
+    const text = fs.readFileSync(file, 'utf8')
+    return { name: path.relative(root, file).replaceAll(path.sep, '/'), film: file.endsWith('.json') ? JSON.parse(text) : text }
+  })
+}
+
+// builds: [{ label, dist }], the commit before the change first when there are two
+async function films (builds, files) {
+  for (const { dist } of builds) {
+    if (!fs.existsSync(path.join(dist, 'index.html'))) throw new Error(`${dist} has no index.html; run pnpm build`)
+  }
+  const list = readFilms(files)
+  const servers = await Promise.all(builds.map(({ dist }) => serve(dist, { pictures: root, isolated: crew })))
+  const { send, close } = await openBrowser()
+  const evaluate = async expression => {
+    const reply = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true })
+    if (reply.result?.exceptionDetails) throw new Error(reply.result.exceptionDetails.exception?.description ?? 'the page threw')
+    return reply.result?.result?.value
+  }
+  // The hash of each film's preview on one build, or the first line of why it could not be drawn
+  const draw = async (index, wanted) => {
+    await send('Page.navigate', { url: `http://127.0.0.1:${servers[index].address().port}/?agent` })
+    for (let i = 0; i < 300 && !(await evaluate('typeof window.space === "object"').catch(() => false)); i++) await sleep(100)
+    await evaluate('document.fonts.ready.then(() => true)')
+    const drawn = new Map()
+    for (const { name, film } of wanted) {
+      try {
+        const image = await evaluate(`window.space.film.preview(${JSON.stringify(film)}, ${JSON.stringify({ at })}).then(sheet => sheet.image)`)
+        drawn.set(name, { hash: createHash('sha256').update(image).digest('hex').slice(0, 16) })
+      } catch (error) {
+        drawn.set(name, { error: String(error.message ?? error).split('\n')[0].slice(0, 160) })
+      }
     }
+    return drawn
+  }
+  try {
+    await send('Page.enable')
+    await send('Emulation.setDeviceMetricsOverride', { width: 1920, height: 1080, deviceScaleFactor: 1, mobile: false })
+    if (builds.length === 1) {
+      const drawn = await draw(0, list)
+      for (const [name, { hash, error }] of drawn) console.log(`${name}  ${hash ?? 'cannot be drawn: ' + error}`)
+      const failed = [...drawn.values()].filter(entry => entry.error).length
+      if (failed > 0) process.exitCode = 1
+      return console.log(`VERDICT ${failed > 0 ? `${failed} of ${list.length} cannot be drawn` : `hashed: ${list.length} films, nothing to compare them with (--against <commit>)`}`)
+    }
+    const [base, here] = builds.map(({ label }) => label)
+    const before = await draw(0, list)
+    const after = await draw(1, list)
+    const same = name => before.get(name).hash !== undefined && before.get(name).hash === after.get(name).hash
+    // A film the commit before cannot play uses what the change brings: there is nothing to compare it with
+    const fresh = list.filter(({ name }) => before.get(name).error && !after.get(name).error)
+    const broken = list.filter(({ name }) => after.get(name).error)
+    const doubted = list.filter(({ name }) => !same(name) && !before.get(name).error && !after.get(name).error)
+    const again = doubted.length > 0 ? [await draw(0, doubted), await draw(1, doubted)] : null
+    const moved = []
+    const unstable = []
+    for (const { name } of list) {
+      const [first, second] = [before.get(name), after.get(name)]
+      if (same(name)) {
+        console.log(`${name}  same ${first.hash}`)
+      } else if (second.error) {
+        console.log(`${name}  cannot be drawn on ${here}: ${second.error}`)
+      } else if (first.error) {
+        console.log(`${name}  new: ${base} cannot play it (${first.error})`)
+      } else {
+        const [baseAgain, hereAgain] = again.map(drawn => drawn.get(name).hash)
+        if (baseAgain === hereAgain) {
+          console.log(`${name}  same ${baseAgain} (a first draw was off: ${first.hash} and ${second.hash})`)
+        } else if (baseAgain !== first.hash) {
+          unstable.push(name)
+          console.log(`${name}  not deterministic on ${base}: it drew ${first.hash}, then ${baseAgain}`)
+        } else if (hereAgain !== second.hash) {
+          moved.push(name)
+          console.log(`${name}  DIFFERS, and ${here} draws it two ways: ${second.hash}, then ${hereAgain} (${base} ${first.hash} both times)`)
+        } else {
+          moved.push(name)
+          console.log(`${name}  DIFFERS: ${base} ${first.hash}, ${here} ${second.hash}, both twice`)
+        }
+      }
+    }
+    const kept = list.length - moved.length - unstable.length - fresh.length - broken.length
+    const also = [
+      unstable.length > 0 ? `${unstable.length} not deterministic before the change, so no finding of it (${unstable.join(', ')})` : '',
+      fresh.length > 0 ? `${fresh.length} new` : '',
+      broken.length > 0 ? `${broken.length} cannot be drawn (${broken.map(({ name }) => name).join(', ')})` : ''
+    ].filter(Boolean).join('; ')
+    if (moved.length > 0 || broken.length > 0) process.exitCode = 1
+    console.log(`VERDICT ${moved.length > 0 ? `the change moved ${moved.length} of ${list.length}: ${moved.join(', ')}` : `same bytes: ${kept} of ${list.length}`}${also ? '; ' + also : ''}`)
+  } finally {
+    await close()
+    for (const server of servers) server.close()
   }
 }
 
 const here = { label: 'this checkout', tree: root, dist: path.join(root, 'dist') }
-if (command === 'page' || command === 'step') {
-  const base = against ? checkout(against) : null
+if (command === 'page' || command === 'step' || command === 'films') {
+  const release = await takeTurn(`bench.mjs ${command}`)
+  let base = null
   try {
-    if (command === 'page') {
+    base = against ? checkout(against) : null
+    if (command === 'step') {
+      await step(base ? [{ label: base.label, tree: base.tree }, here] : [here])
+    } else {
       if (base) {
         build(base.tree)
         build(root)
-        await page([{ label: base.label, dist: path.join(base.tree, 'dist') }, here])
-      } else {
-        await page(rest.length > 0 ? rest.map(dist => ({ label: dist, dist })) : [here])
       }
-    } else {
-      await step(base ? [{ label: base.label, tree: base.tree }, here] : [here])
+      const both = base ? [{ label: base.label, dist: path.join(base.tree, 'dist') }, here] : null
+      if (command === 'films') await films(both ?? [here], rest)
+      else await page(both ?? (rest.length > 0 ? rest.map(dist => ({ label: dist, dist })) : [here]))
     }
   } finally {
     base?.remove()
+    release()
   }
 } else {
   console.log(USAGE)
