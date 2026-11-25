@@ -125,12 +125,26 @@ export interface CompositeSettings {
   lightSpeed: number
   echoPower: number
   echoDecay: number
+  // How long thin haze and the thickest cloud hold the light, in multiples of echoDecay; how long the glow
+  // takes to swell, as a multiple of echoDecay and the seconds added to it; and the distance at which the
+  // glow is half as bright, as a share of the frame's width
+  echoHoldThin: number
+  echoHoldThick: number
+  echoSwell: number
+  echoSwellMin: number
+  echoReach: number
   waveRadius: number
   waveStrength: number
   waveWidth: number
   remnantGlow: number
   remnantRedshift: number
   remnantRadius: number
+  // The core's colours: the share of the redshift at which it is the ember, how much of the flash colour
+  // the ember keeps, the brightness of the deep colour it ends at and how much it has dimmed by then
+  remnantEmberAt: number
+  remnantWhiteness: number
+  remnantDeep: number
+  remnantDim: number
   // Oval wobble of the ringing horizon: a share of its radius, times the cosine and the sine of twice the
   // angle of its long axis; zeros leave it round
   holeOvalX: number
@@ -206,6 +220,8 @@ export interface CompositeSettings {
   starTwinkle: number
   starTwinkleSpeed: number
   starFaintest: number
+  // Seconds a star stays flared after the light front passes it
+  starFlareDecay: number
   dustScale: number
   dustThreshold: number
   lightDustContrast: number
@@ -215,6 +231,15 @@ export interface CompositeSettings {
   // CSS pixels, and CSS pixels per second
   dustBlow: number
   dustDrift: number
+  // Seconds the blast takes to push the dust most of its way, and the way the dust is read from as it drifts
+  dustBlowTime: number
+  dustDriftX: number
+  dustDriftY: number
+  // The flare where the matter front strikes the dust: how far outside the front's middle it stands, in
+  // the front's widths, how thin it is, and its colour between the dust's (0) and the light's (1)
+  dustShockOffset: number
+  dustShockSharpness: number
+  dustShockTint: number
   // Brightness of the flat grid on the sky behind the black hole (0 turns it off) and its cell size
   skyGrid: number
   gridCell: number
@@ -251,6 +276,11 @@ export interface CompositeSettings {
   filmGrain: number
   // Height of each black bar
   letterbox: number
+  // Where the vignette starts and where it is darkest, in half sizes of the frame from its middle
+  vignetteStart: number
+  vignetteEnd: number
+  // Brightness above which highlights are rolled off
+  filmKnee: number
 }
 
 export interface TitleSettings {
@@ -293,6 +323,24 @@ export interface TitleSettings {
   order: number
   trail: number
   heat: number
+  // The specks: their size and the width of the currents they share, CSS pixels; the speed of dust beyond
+  // gravity's reach as a share; the share of the fall a speck takes to wink out
+  speckSize: number
+  currentSize: number
+  beyondSpeed: number
+  wink: number
+  // The winding at spiral 1: the distance that turns as set, a share of the frame's height, and the least
+  // and the most any part winds round
+  spiralRadius: number
+  spiralMin: number
+  spiralMax: number
+  // The burning: its ragged edge's two grains, CSS pixels; how much it eats in from the ends; its rim's
+  // brightness in ember colours and width
+  burnGrain: number
+  burnFine: number
+  burnEnds: number
+  burnRim: number
+  burnRimWidth: number
 }
 
 export interface FrameInput {
@@ -382,6 +430,15 @@ export function getRenderingContext (canvas: HTMLCanvasElement): WebGL2Rendering
 function getUniform (gl: WebGL2RenderingContext, program: WebGLProgram, name: string): CachedUniform {
   return { location: gl.getUniformLocation(program, name), x: NaN, y: NaN, z: NaN, w: NaN }
 }
+
+// e^(x * factor) for the composite shader, which takes it as 2^(x * rate). The shader's compiler turns
+// exp(x) into 2^(x * log2 e) and, where the factor is a number written in the shader, folds the two into
+// one constant in single precision. A uniform cannot be folded, so the same fold is done here: the number
+// the code held gives the bytes it gave
+const LOG2_E = Math.fround(Math.LOG2E)
+const expRate = (factor: number) => Math.fround(Math.fround(factor) * LOG2_E)
+// The same for e^(-x / seconds), a fall to about a third in that time
+const decayRate = (seconds: number) => -Math.fround(Math.fround(1 / Math.fround(seconds)) * LOG2_E)
 
 // Uniform setters skip the GL call when the value has not changed since the last frame
 function setUniform1f (gl: WebGL2RenderingContext, uniform: CachedUniform, x: number) {
@@ -485,6 +542,8 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     'titleCenter', 'titleHalfSize', 'titleAlpha', 'titleReveal', 'titleDissolve', 'titleDrift', 'titleGlow',
     'titleFlash', 'titleCooling', 'titleDust', 'titlePull', 'titleSwirl', 'titleReach', 'titleCapture', 'titleScale',
     'titleFringe', 'titleHalo', 'titleRedshift', 'titleGrain', 'titleBurn', 'titleFall', 'titleTidal', 'titleSpiral', 'titleSpread', 'titleStream', 'titleOrder', 'titleTrail', 'titleHeat', 'dustSweep', 'echoFloor', 'dustShock', 'dustBlow', 'dustDrift',
+    'titleSpeck', 'titleWinkRest', 'titleWind', 'titleBurnShape', 'titleBurnRimWidth',
+    'echoShape', 'echoSwell', 'dustMotion', 'dustFlare', 'starFlareRate', 'remnantShape', 'vignetteSpan', 'knee',
     'skyGrid', 'gridCell', 'skyGridLine', 'skyShift', 'orbits', 'nebula', 'nebulaColor', 'nebulaColorDeep', 'nebulaColorCore', 'nebulaShape', 'nebulaLook', 'nebulaPatch', 'nebulaDrift', 'gridPull', 'gridColor', 'gridHaze',
     'colorFlash', 'colorLight', 'colorDust', 'colorTitle', 'colorEmber',
     'cameraZoom', 'zoomCenter', 'layerZoom', 'shake', 'lensFringe', 'vignette', 'filmGrain', 'letterbox'
@@ -881,6 +940,11 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
       setUniform1f(gl, u.titleOrder, title.order)
       setUniform1f(gl, u.titleTrail, title.trail)
       setUniform1f(gl, u.titleHeat, title.heat)
+      setUniform4f(gl, u.titleSpeck, 1 / Math.max(title.speckSize, 0.1), 1 / Math.max(title.currentSize, 0.1), title.beyondSpeed, Math.max(title.wink, 0.001))
+      setUniform1f(gl, u.titleWinkRest, 1 - title.wink)
+      setUniform3f(gl, u.titleWind, title.spiralRadius, title.spiralMin, Math.max(title.spiralMax, title.spiralMin))
+      setUniform4f(gl, u.titleBurnShape, Math.max(title.burnGrain, 0.1), Math.max(title.burnFine, 0.1), title.burnEnds, title.burnRim)
+      setUniform1f(gl, u.titleBurnRimWidth, Math.max(title.burnRimWidth, 0.001))
     }
     setUniformColor(gl, u.colorFlash, settings.colorFlash)
     setUniformColor(gl, u.colorLight, settings.colorLight)
@@ -895,6 +959,10 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     setUniform1f(gl, u.vignette, settings.vignette)
     setUniform1f(gl, u.filmGrain, settings.filmGrain)
     setUniform1f(gl, u.letterbox, settings.letterbox * ratio)
+    setUniform2f(gl, u.vignetteSpan, settings.vignetteStart, Math.max(settings.vignetteEnd, settings.vignetteStart + 0.001))
+    // The knee and the room above it, which the roll-off fills
+    const knee = Math.min(settings.filmKnee, 0.999)
+    setUniform3f(gl, u.knee, knee, 1 - knee, decayRate(1 - knee))
     setUniform1f(gl, u.time, settings.time)
     setUniform2f(gl, u.hole, settings.holeX * ratio, settings.holeY * ratio)
     setUniform1f(gl, u.horizon, settings.horizon * ratio)
@@ -941,12 +1009,16 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     setUniform1f(gl, u.lightSpeed, settings.lightSpeed * ratio)
     setUniform1f(gl, u.echoPower, settings.echoPower)
     setUniform1f(gl, u.echoDecay, Math.max(settings.echoDecay, 0.01))
+    setUniform4f(gl, u.echoShape, Math.max(settings.echoHoldThin, 0.001), Math.max(settings.echoHoldThick, 0.001),
+      Math.max(settings.echoHoldThin, settings.echoHoldThick, 0.001), Math.max(settings.echoReach, 0.001))
+    setUniform2f(gl, u.echoSwell, settings.echoSwell, Math.max(settings.echoSwellMin, 0.001))
     setUniform1f(gl, u.waveRadius, settings.waveRadius * ratio)
     setUniform1f(gl, u.waveStrength, settings.waveStrength * ratio)
     setUniform1f(gl, u.waveWidth, Math.max(settings.waveWidth * ratio, 1))
     setUniform1f(gl, u.remnantGlow, settings.remnantGlow)
     setUniform1f(gl, u.remnantRedshift, settings.remnantRedshift)
     setUniform1f(gl, u.remnantRadius, Math.max(settings.remnantRadius * ratio, 0.5))
+    setUniform4f(gl, u.remnantShape, Math.min(Math.max(settings.remnantEmberAt, 0.001), 0.999), settings.remnantWhiteness, settings.remnantDeep, settings.remnantDim)
     setUniform1f(gl, u.gravityWaveAmplitude, settings.gravityWaveAmplitude * ratio)
     if (settings.gravityWaveAmplitude > 0) {
       setUniform1f(gl, u.gravityWaveTime, settings.gravityWaveTime)
@@ -992,6 +1064,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
       setUniform4f(gl, u.starCool, cool.r, cool.g, cool.b, 1 - settings.starFaintest)
       setUniform4f(gl, u.starLook, settings.starSpread, 1 - settings.starTwinkle, settings.starTwinkle, settings.starTwinkleSpeed)
     }
+    setUniform1f(gl, u.starFlareRate, decayRate(Math.max(settings.starFlareDecay, 0.001)))
     setUniform1f(gl, u.dustScale, Math.max(settings.dustScale, 1))
     setUniform1f(gl, u.dustThreshold, Math.min(settings.dustThreshold, 0.99))
     setUniform1f(gl, u.lightDustContrast, settings.lightDustContrast)
@@ -1000,6 +1073,8 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     setUniform1f(gl, u.dustShock, settings.dustShock)
     setUniform1f(gl, u.dustBlow, settings.dustBlow)
     setUniform1f(gl, u.dustDrift, settings.dustDrift)
+    setUniform3f(gl, u.dustMotion, settings.dustDriftX, settings.dustDriftY, decayRate(Math.max(settings.dustBlowTime, 0.001)))
+    setUniform3f(gl, u.dustFlare, settings.dustShockOffset, expRate(-settings.dustShockSharpness), settings.dustShockTint)
     setUniform1f(gl, u.orbits, orbitsShown ? 1 : 0)
     setUniform1f(gl, u.skyGrid, settings.skyGrid)
     if (settings.skyGrid > 0) {

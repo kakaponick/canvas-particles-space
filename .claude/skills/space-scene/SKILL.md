@@ -165,7 +165,11 @@ knob is described once and everything else follows from that description:
   `parseSettings` (`src/lib/agent_values.ts`), and in `readTracks` (`src/lib/film.ts`) if a film should
   move it.
 - An intro parameter: its default in `DEFAULT_INTRO_PARAMS`, its spec in `INTRO_PARAM_SPECS`
-  (`src/lib/intro_params.ts`), its place on a track in `INTRO_TRACKS` (`src/lib/intro_tracks.ts`).
+  (`src/lib/intro_params.ts`), its place on a track in `INTRO_TRACKS` (`src/lib/intro_tracks.ts`): in the
+  track's `params`, and in its `fine` list too (`FINE`, in the same file) if it is a number that shapes the
+  effect and was a constant of the code, which the intro debugger keeps in the track's Fine Tuning group.
+  One the title's words are drawn from also goes into `TITLE_DRAWN_KEYS` and into the two places that read
+  the title's style (`docs/films.md`).
 - A length around the hole is in black hole radii, like the rest.
 - Add the key to [references/knobs.md](references/knobs.md), in the section of its law, with what it does
   to its neighbours.

@@ -67,6 +67,8 @@ function titleStyle (plan: FilmPlan, words = plan.title, set: Partial<FilmPlan['
     weight: params.titleWeight,
     tracking: params.titleTracking,
     size: params.titleSize,
+    maxWidth: params.titleMaxWidth,
+    lineHeight: params.titleLineHeight,
     haloRadius: params.titleHalo > 0 ? params.titleHaloRadius : 0,
     haloStreak: params.titleStreak
   }

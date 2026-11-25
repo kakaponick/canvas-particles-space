@@ -104,6 +104,12 @@ function progress (t: number, start: number, duration: number) {
 
 const easeOutCubic = (x: number) => 1 - Math.pow(1 - x, 3)
 const smoothstep = (x: number) => x * x * (3 - 2 * x)
+// x to a power that is a parameter. The whole powers the timeline was written with are still worked out as
+// the products they were, which differ from Math.pow in the last bit, so an opening that leaves the power
+// alone is drawn as it was
+const power = (x: number, n: number) => n === 2 ? x * x : n === 3 ? x * x * x : n === 4 ? x * x * x * x : Math.pow(x, n)
+// Fast at first and settling, the harder the higher the power; 1 is an even pace
+const easeOut = (x: number, n: number) => 1 - Math.pow(1 - x, n)
 
 export function createIntroFrame (): IntroFrame {
   return {
@@ -149,23 +155,14 @@ export function createIntroFrame (): IntroFrame {
 // When the matter front, and with it the newborn particle field, reaches the farthest screen corner
 export const matterOut = (p: IntroParams) => p.collapseAt + p.lightCrossTime / p.matterSpeed
 
-// How much a title flying past the camera has grown when it is gone
-const FLY_PAST_GROWTH = 9
-// How much too large a fading title starts, and how much it grows as it fades away
-const FADE_IN_OVERSIZE = 0.12
-const FADE_OUT_OVERSIZE = 0.06
-// Seconds for the blast's punch of zoom to drop to about a third
-const CAMERA_KICK_DECAY = 0.16
-
-const easeOutQuart = (x: number) => 1 - Math.pow(1 - x, 4)
-
 function sampleFullIntro (t: number, p: IntroParams, ring: RingdownTiming, frame: IntroFrame) {
   const sinceCollapse = Math.max(t - p.collapseAt, 0)
   const exploded = t >= p.collapseAt
 
   // The progenitor brightens, then is gone the instant it explodes
   const charge = progress(t, p.starChargeStart, p.collapseAt - p.starChargeStart)
-  frame.starGlow = exploded ? 0 : p.starPeakGlow * charge * charge
+  // At the power it was written with, the product in the order it was written in
+  frame.starGlow = exploded ? 0 : p.starChargeEase === 2 ? p.starPeakGlow * charge * charge : p.starPeakGlow * Math.pow(charge, p.starChargeEase)
   frame.starRadius = p.starRadiusStart + p.starRadiusGrowth * charge
 
   // Light curve of the point source: a near-instant rise and a fast decline. It is gone before the
@@ -197,7 +194,7 @@ function sampleFullIntro (t: number, p: IntroParams, ring: RingdownTiming, frame
   // The horizon grows without overshoot, then rings down like a struck bell. A round collapse sends out
   // no gravitational wave; the oval wobble does
   const ringdownAt = p.horizonAt + p.horizonGrowth
-  frame.holeScale = easeOutCubic(progress(t, p.horizonAt, p.horizonGrowth))
+  frame.holeScale = easeOut(progress(t, p.horizonAt, p.horizonGrowth), p.horizonEase)
   frame.ringdownTime = t - ringdownAt
   frame.ringdown = ringdownWobble(frame.ringdownTime, p.ringdownAmplitude, ring)
   frame.ringFade = smoothstep(progress(t, p.horizonAt + p.ringDelay, p.ringFadeIn))
@@ -220,13 +217,13 @@ function sampleFullIntro (t: number, p: IntroParams, ring: RingdownTiming, frame
   // Nothing here moves at a constant rate: arrivals rush in and settle, departures hang and then go
   if (entrance === 1) {
     // Fading in, the title also settles back from slightly too large
-    const settled = easeOutQuart(arrived)
+    const settled = easeOut(arrived, p.titleInEase)
     alpha = settled
-    frame.titleFly = 1 + FADE_IN_OVERSIZE * (1 - settled)
+    frame.titleFly = 1 + p.titleInOversize * (1 - settled)
   } else if (entrance >= 2 && arrived < 1) {
     // The fall into the hole played backwards: fast out of it, slow into place
     frame.titleDissolve = 1 - arrived
-    frame.titleFall = Math.pow(1 - arrived, 3)
+    frame.titleFall = Math.pow(1 - arrived, p.titleRiseEase)
     frame.titleGrain = entrance === 2 ? 1 : 0
     alpha = easeOutCubic(Math.min(arrived * 2.5, 1))
   }
@@ -238,30 +235,31 @@ function sampleFullIntro (t: number, p: IntroParams, ring: RingdownTiming, frame
       frame.titleGrain = p.titleGrain
       alpha *= 1 - smoothstep(progress(leaving, 0.6, 0.4))
     } else if (exit === 1) {
-      const rush = leaving * leaving * leaving * leaving
-      frame.titleFly = 1 + FLY_PAST_GROWTH * rush
+      const rush = power(leaving, p.titleFlyEase)
+      frame.titleFly = 1 + p.titleFlyGrowth * rush
       alpha *= 1 - smoothstep(progress(leaving, 0.55, 0.45))
     } else if (exit === 2) {
       frame.titleBurn = leaving * leaving * (3 - 2 * leaving)
       if (leaving >= 1) alpha = 0
     } else {
       // Fading out, it drifts a little towards the camera
-      const gone = leaving * leaving * leaving
+      const gone = power(leaving, p.titleOutEase)
       alpha *= 1 - gone
-      frame.titleFly = 1 + FADE_OUT_OVERSIZE * gone
+      frame.titleFly = 1 + p.titleOutGrowth * gone
     }
   }
   frame.titleAlpha = alpha
   const titleStart = entrance === 0 ? p.collapseAt : p.titleInAt
   // The push-in is quickest when the title is lit and eases off
   const age = progress(t, titleStart, p.dissolveAt + p.dissolveDuration - titleStart)
-  frame.titleAge = 1 - (1 - age) * (1 - age)
+  frame.titleAge = 1 - power(1 - age, p.titlePushEase)
 
   // The camera creeps while it is dark, then the blast throws it: most of the zoom is gone at once
   // and the rest settles slowly. The blast also punches the zoom in for an instant and jolts the
   // camera; the film effects lift as the intro ends
-  const zoomDone = 0.1 * progress(t, 0, p.collapseAt) + 0.9 * easeOutQuart(progress(t, p.collapseAt, p.cameraSettle))
-  const kick = exploded ? p.cameraKick * Math.exp(-sinceCollapse / CAMERA_KICK_DECAY) : 0
+  const zoomDone = p.cameraCreep * progress(t, 0, p.collapseAt) +
+    (1 - p.cameraCreep) * easeOut(progress(t, p.collapseAt, p.cameraSettle), p.cameraSettleEase)
+  const kick = exploded ? p.cameraKick * Math.exp(-sinceCollapse / p.cameraKickDecay) : 0
   frame.cameraZoom = (1 + (p.cameraZoom - 1) * (1 - zoomDone)) * (1 + kick)
   frame.cameraKick = kick
   frame.shake = exploded ? p.shakeAmount * Math.exp(-sinceCollapse / p.shakeDecay) : 0

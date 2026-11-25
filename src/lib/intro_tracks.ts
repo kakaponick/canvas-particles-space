@@ -65,7 +65,11 @@ export interface IntroTrack {
   layer?: IntroLayer
   // The track also edits the title's text, font and case
   editsText?: boolean
+  // Every parameter of the track
   params: IntroParamKey[]
+  // Those of them that shape the track's effect rather than set it, which were constants of the code: the
+  // debugger keeps them in the track's Fine Tuning group, closed until asked for
+  fine?: IntroParamKey[]
   // `name` says what the number is, for its tooltip and for screen readers; `short` is the one word shown
   // before it. The value is multiplied by `scale` (100 shows a 0..1 share as a percentage)
   // and `unit` follows the number
@@ -86,19 +90,39 @@ const full = (reduced: boolean, spans: IntroSpan[]) => reduced ? [] : spans
 // Reduced motion fades the field and the black hole in over the same stretch
 const REDUCED_FADE: IntroSpan = { start: 0.2, end: 1.4, holds: true }
 
+// The parameters each track keeps in its Fine Tuning group
+const FINE = {
+  stars: ['starFlareDecay'],
+  star: ['starChargeEase'],
+  light: ['lightReach'],
+  echo: ['echoHoldThin', 'echoHoldThick', 'echoSwell', 'echoSwellMin', 'echoReach', 'dustBlowTime', 'dustDriftAngle', 'dustShockOffset', 'dustShockSharpness', 'dustShockTint'],
+  remnant: ['remnantEmberAt', 'remnantWhiteness', 'remnantDeep', 'remnantDim'],
+  hole: ['horizonEase'],
+  title: [
+    'titleLineHeight', 'titleMaxWidth', 'titleMargin', 'titlePushEase',
+    'titleInOversize', 'titleInEase', 'titleRiseEase', 'titleFlyGrowth', 'titleFlyEase', 'titleOutGrowth', 'titleOutEase',
+    'titlePullLimit', 'titleSpeckSize', 'titleCurrentSize', 'titleBeyondSpeed', 'titleWink',
+    'titleSpiralRadius', 'titleSpiralMin', 'titleSpiralMax',
+    'titleBurnGrain', 'titleBurnFine', 'titleBurnEnds', 'titleBurnRim', 'titleBurnRimWidth'
+  ],
+  camera: ['cameraCreep', 'cameraSettleEase', 'cameraKickDecay', 'shakeRate', 'vignetteStart', 'vignetteEnd', 'filmKnee']
+} satisfies Record<string, IntroParamKey[]>
+
 export const INTRO_TRACKS: IntroTrack[] = [
   {
     key: 'stars',
     label: 'Background Stars',
     layer: 'stars',
-    params: ['starsInitial', 'starsFadeIn', 'starFlare'],
+    params: ['starsInitial', 'starsFadeIn', 'starFlare', ...FINE.stars],
+    fine: FINE.stars,
     spans: (p, reduced) => [{ start: 0, end: reduced ? 1.2 : p.starsFadeIn, holds: true }]
   },
   {
     key: 'star',
     label: 'Progenitor Star',
     layer: 'star',
-    params: ['starChargeStart', 'collapseAt', 'starPeakGlow', 'starRadiusStart', 'starRadiusGrowth', 'colorFlash'],
+    params: ['starChargeStart', 'collapseAt', 'starPeakGlow', 'starRadiusStart', 'starRadiusGrowth', 'colorFlash', ...FINE.star],
+    fine: FINE.star,
     spans: (p, reduced) => full(reduced, [{ start: p.starChargeStart, end: p.collapseAt }]),
     markers: (p, reduced) => reduced
       ? []
@@ -116,7 +140,8 @@ export const INTRO_TRACKS: IntroTrack[] = [
     key: 'light',
     label: 'Light Front',
     layer: 'light',
-    params: ['lightCrossTime', 'lightPower', 'lightPowerDecay', 'lightWidth', 'lightDustContrast', 'colorLight'],
+    params: ['lightCrossTime', 'lightPower', 'lightPowerDecay', 'lightWidth', 'lightDustContrast', 'colorLight', ...FINE.light],
+    fine: FINE.light,
     readout: { key: 'lightFront', digits: 0, short: 'reach', scale: 100, unit: '%', name: 'Light front reach, % of farthest corner' },
     spans: (p, reduced) => full(reduced, [{ start: p.collapseAt, end: p.collapseAt + p.lightCrossTime }]),
     markers: (p, reduced) => reduced ? [] : [{ time: p.collapseAt + p.lightCrossTime, label: 'light off-screen', param: 'lightCrossTime', base: p.collapseAt }]
@@ -125,7 +150,8 @@ export const INTRO_TRACKS: IntroTrack[] = [
     key: 'echo',
     label: 'Dust Echo',
     layer: 'echo',
-    params: ['echoPower', 'echoPowerDecay', 'echoDecay', 'echoFloor', 'dustShock', 'dustScale', 'dustThreshold', 'dustBlow', 'dustDrift', 'dustSweep', 'colorDust'],
+    params: ['echoPower', 'echoPowerDecay', 'echoDecay', 'echoFloor', 'dustShock', 'dustScale', 'dustThreshold', 'dustBlow', 'dustDrift', 'dustSweep', 'colorDust', ...FINE.echo],
+    fine: FINE.echo,
     spans: (p, reduced) => full(reduced, [{ start: p.collapseAt, end: p.collapseAt + p.echoPowerDecay * FADED }])
   },
   {
@@ -155,7 +181,8 @@ export const INTRO_TRACKS: IntroTrack[] = [
     key: 'remnant',
     label: 'Collapsing Core',
     layer: 'remnant',
-    params: ['remnantAt', 'remnantDecay', 'redshiftDuration', 'remnantRadius', 'colorEmber'],
+    params: ['remnantAt', 'remnantDecay', 'redshiftDuration', 'remnantRadius', 'colorEmber', ...FINE.remnant],
+    fine: FINE.remnant,
     readout: { key: 'remnantRedshift', digits: 2, short: 'red', name: 'Core redshift: 0 = white-hot · 1 = deep red' },
     spans: (p, reduced) => full(reduced, [{ start: p.collapseAt, end: p.remnantAt + p.remnantDecay * FADED }]),
     markers: (p, reduced) => reduced ? [] : [{ time: p.remnantAt, label: 'core fades', param: 'remnantAt' }]
@@ -171,7 +198,8 @@ export const INTRO_TRACKS: IntroTrack[] = [
     key: 'hole',
     label: 'Shadow',
     layer: 'hole',
-    params: ['horizonAt', 'horizonGrowth'],
+    params: ['horizonAt', 'horizonGrowth', ...FINE.hole],
+    fine: FINE.hole,
     readout: { key: 'holeScale', digits: 2, short: 'size', unit: '×', name: 'Shadow size, 1× = full size' },
     spans: (p, reduced) => [reduced ? REDUCED_FADE : { start: p.horizonAt, end: ringdownAt(p), holds: true }],
     markers: (p, reduced) => reduced ? [] : [{ time: p.horizonAt, label: 'shadow', param: 'horizonAt' }]
@@ -198,8 +226,8 @@ export const INTRO_TRACKS: IntroTrack[] = [
     layer: 'gravityWave',
     params: ['gravityWaveGain'],
     // The wobble leaves the hole as the ringdown starts; its last ripples pass the farthest corner,
-    // one light crossing away, after the wobble has faded
-    spans: (p, reduced, ring) => full(reduced, [{ start: ringdownAt(p), end: ringdownAt(p) + p.lightCrossTime / 1.15 + ring.decay * FADED }])
+    // one light crossing away (the fronts run lightReach times that far), after the wobble has faded
+    spans: (p, reduced, ring) => full(reduced, [{ start: ringdownAt(p), end: ringdownAt(p) + p.lightCrossTime / p.lightReach + ring.decay * FADED }])
   },
   {
     key: 'title',
@@ -211,8 +239,10 @@ export const INTRO_TRACKS: IntroTrack[] = [
       'titleDust', 'titlePush', 'titleHalo', 'titleHaloRadius', 'titleStreak', 'titleFringe',
       'titleEntrance', 'titleInAt', 'titleInDuration',
       'titleExit', 'dissolveAt', 'dissolveDuration', 'titleGrain', 'titleFallEase', 'titleDrift', 'titleTidal', 'titleSwirl', 'titleSpiral',
-      'titleSpread', 'titleStream', 'titleOrder', 'titleTrail', 'titleHeat', 'titleRedshift'
+      'titleSpread', 'titleStream', 'titleOrder', 'titleTrail', 'titleHeat', 'titleRedshift',
+      ...FINE.title
     ],
+    fine: FINE.title,
     readout: { key: 'titleAlpha', digits: 0, short: 'opacity', scale: 100, unit: '%', name: 'Title opacity' },
     spans: (p, reduced) => [reduced ? { start: 0.6, end: 2.5 } : { start: titleStart(p), end: p.dissolveAt + p.dissolveDuration }],
     markers: (p, reduced) => reduced
@@ -225,7 +255,8 @@ export const INTRO_TRACKS: IntroTrack[] = [
     key: 'camera',
     label: 'Camera and Film',
     layer: 'camera',
-    params: ['cameraZoom', 'cameraSettle', 'cameraKick', 'shakeAmount', 'shakeDecay', 'lensFringe', 'vignette', 'filmGrain', 'letterbox', 'filmHold'],
+    params: ['cameraZoom', 'cameraSettle', 'cameraKick', 'shakeAmount', 'shakeDecay', 'lensFringe', 'vignette', 'filmGrain', 'letterbox', 'filmHold', ...FINE.camera],
+    fine: FINE.camera,
     spans: (p, reduced) => full(reduced, [{ start: 0, end: p.introEnd }])
   },
   {

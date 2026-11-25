@@ -39,9 +39,10 @@ import type { ParticleCrew } from './particle_crew'
 const TITLE_REFERENCE_GRAVITY = 2.5
 const TITLE_REFERENCE_ORBIT = 40
 const TITLE_SWIRL_RADIANS = 0.35
-const TITLE_PULL_LIMIT = 4
-// CSS pixels the title's words keep from the screen's edges and from the letterbox bars
-const TITLE_SAFE_MARGIN = 16
+// The camera's shake: two sines a side, the second weaker, at these radians a second at Shake Rate 1
+const SHAKE_X = [83.1, 47.3] as const
+const SHAKE_Y = [71.7, 39.9] as const
+const SHAKE_SECOND = 0.6
 // A ringdown wobble smaller than this share of the radius no longer shows, so the oval is switched off
 const MIN_HOLE_OVAL = 1e-4
 // The gravitational wave is switched off this many wobble decay times after its front left the screen
@@ -194,6 +195,8 @@ export function createScene (
   let originY = 0
 
   let fadeBacklog = 0
+  // Seconds the shake's clock is ahead of the scene's
+  let shakeLead = 0
 
   const intro = createIntroFrame()
   const ringTiming: RingdownTiming = { frequency: 1, decay: 1 }
@@ -267,7 +270,9 @@ export function createScene (
     title: {
       alpha: 0, x: 0, y: 0, reveal: 1, dissolve: 0, drift: 0, glow: 0, flash: 0, cooling: 1, dust: 0,
       pull: 0, swirl: 0, reach: 0, capture: 0, scale: 1, fringe: 0, halo: 0, redshift: 0, grain: 1, burn: 0, fall: 0,
-      tidal: 2, spiral: 1, spread: 0.75, stream: 0.5, order: 0.3, trail: 0.8, heat: 1.6
+      tidal: 2, spiral: 1, spread: 0.75, stream: 0.5, order: 0.3, trail: 0.8, heat: 1.6,
+      speckSize: 2, currentSize: 11, beyondSpeed: 0.15, wink: 0.15, spiralRadius: 0.3, spiralMin: 0.4, spiralMax: 3,
+      burnGrain: 18, burnFine: 5, burnEnds: 0.45, burnRim: 2.5, burnRimWidth: 0.1
     },
     composite: {
       time: 0,
@@ -322,12 +327,21 @@ export function createScene (
       lightSpeed: 1,
       echoPower: 0,
       echoDecay: 0.5,
+      echoHoldThin: 0.4,
+      echoHoldThick: 1.8,
+      echoSwell: 0.15,
+      echoSwellMin: 0.02,
+      echoReach: 0.5,
       waveRadius: 0,
       waveStrength: 0,
       waveWidth: 1,
       remnantGlow: 0,
       remnantRedshift: 0,
       remnantRadius: 1,
+      remnantEmberAt: 0.5,
+      remnantWhiteness: 0.25,
+      remnantDeep: 0.6,
+      remnantDim: 0.7,
       holeOvalX: 0,
       holeOvalY: 0,
       gravityWaveAmplitude: 0,
@@ -381,6 +395,7 @@ export function createScene (
       starTwinkle: 0.15,
       starTwinkleSpeed: 1,
       starFaintest: 0.25,
+      starFlareDecay: 0.18,
       dustScale: 220,
       dustThreshold: 0.5,
       lightDustContrast: 1,
@@ -389,6 +404,12 @@ export function createScene (
       dustShock: 0,
       dustBlow: 0,
       dustDrift: 0,
+      dustBlowTime: 1.2,
+      dustDriftX: 0.8,
+      dustDriftY: -0.6,
+      dustShockOffset: 0.6,
+      dustShockSharpness: 3,
+      dustShockTint: 0.5,
       skyGrid: 0,
       gridCell: 64,
       gridPull: 0,
@@ -413,7 +434,10 @@ export function createScene (
       lensFringe: 0,
       vignette: 0,
       filmGrain: 0,
-      letterbox: 0
+      letterbox: 0,
+      vignetteStart: 0.45,
+      vignetteEnd: 1.45,
+      filmKnee: 0.8
     },
     grid: createGridSettings(),
     lattice: createLatticeSettings()
@@ -505,6 +529,7 @@ export function createScene (
     cue.ringLayers = 0
     cue.title = false
     fadeBacklog = 0
+    shakeLead = 0
     view.spin = 0
     field.count = 0
     clearOrbiters(orbiters)
@@ -592,8 +617,8 @@ export function createScene (
     // The explosion and the black hole's resting place, and how fast light crosses from one to the far corner
     const shortSide = Math.min(viewportWidth, viewportHeight)
     locateHole(state, params)
-    // Every front is measured to the corner farthest from the explosion
-    const explosionReach = Math.hypot(Math.max(originX, viewportWidth - originX), Math.max(originY, viewportHeight - originY)) * 1.15
+    // Every front is measured to the corner farthest from the explosion, and a little past it
+    const explosionReach = Math.hypot(Math.max(originX, viewportWidth - originX), Math.max(originY, viewportHeight - originY)) * params.lightReach
     const lightSpeed = explosionReach / params.lightCrossTime
     // The horizon rings as a real black hole of its size would, scaled by the intro's multipliers
     // A second black hole turns with the main one around the place the black hole stands; the main one
@@ -1048,13 +1073,13 @@ export function createScene (
     let titleX = centerX
     let titleY = centerY + params.titleOffset * shortSide
     if (titleSprite && titleSprite.textWidth > 0) {
-      const widest = Math.max(viewportWidth - 2 * TITLE_SAFE_MARGIN, 1) / (titleSprite.textWidth * cameraZoom)
+      const widest = Math.max(viewportWidth - 2 * params.titleMargin, 1) / (titleSprite.textWidth * cameraZoom)
       titleScale = Math.min(titleScale, widest)
       const bar = hidden.camera ? 0 : params.letterbox * viewportHeight
       const halfWidth = titleSprite.textWidth * 0.5 * titleScale * cameraZoom
       const halfHeight = titleSprite.textHeight * 0.5 * titleScale * cameraZoom
-      titleX = zoomX + (keepInside(zoomX + (titleX - zoomX) * cameraZoom, halfWidth, TITLE_SAFE_MARGIN, viewportWidth) - zoomX) / cameraZoom
-      titleY = zoomY + (keepInside(zoomY + (titleY - zoomY) * cameraZoom, halfHeight, bar + TITLE_SAFE_MARGIN, viewportHeight) - zoomY) / cameraZoom
+      titleX = zoomX + (keepInside(zoomX + (titleX - zoomX) * cameraZoom, halfWidth, params.titleMargin, viewportWidth) - zoomX) / cameraZoom
+      titleY = zoomY + (keepInside(zoomY + (titleY - zoomY) * cameraZoom, halfHeight, bar + params.titleMargin, viewportHeight) - zoomY) / cameraZoom
     }
     title.x = titleX
     title.y = titleY
@@ -1066,8 +1091,9 @@ export function createScene (
     title.cooling = params.titleCooling
     title.dust = params.titleDust
     // The crumbling dust follows the black hole's own settings: no hole, no pull
-    title.pull = horizon > 0 ? Math.min(Math.max(settings.gravityStrength / TITLE_REFERENCE_GRAVITY, -TITLE_PULL_LIMIT), TITLE_PULL_LIMIT) : 0
-    title.swirl = title.pull * Math.min(Math.max(settings.orbitalStrength / TITLE_REFERENCE_ORBIT, -TITLE_PULL_LIMIT), TITLE_PULL_LIMIT) *
+    const pullLimit = params.titlePullLimit
+    title.pull = horizon > 0 ? Math.min(Math.max(settings.gravityStrength / TITLE_REFERENCE_GRAVITY, -pullLimit), pullLimit) : 0
+    title.swirl = title.pull * Math.min(Math.max(settings.orbitalStrength / TITLE_REFERENCE_ORBIT, -pullLimit), pullLimit) *
       TITLE_SWIRL_RADIANS * params.titleSwirl
     title.reach = settings.gravityReach * holeScale
     title.capture = captureRadius * holeScale
@@ -1085,6 +1111,18 @@ export function createScene (
     title.order = params.titleOrder
     title.trail = params.titleTrail
     title.heat = params.titleHeat
+    title.speckSize = params.titleSpeckSize
+    title.currentSize = params.titleCurrentSize
+    title.beyondSpeed = params.titleBeyondSpeed
+    title.wink = params.titleWink
+    title.spiralRadius = params.titleSpiralRadius
+    title.spiralMin = params.titleSpiralMin
+    title.spiralMax = params.titleSpiralMax
+    title.burnGrain = params.titleBurnGrain
+    title.burnFine = params.titleBurnFine
+    title.burnEnds = params.titleBurnEnds
+    title.burnRim = params.titleBurnRim
+    title.burnRimWidth = params.titleBurnRimWidth
 
     composite.time = animationTime
     composite.holeX = holeX
@@ -1160,6 +1198,11 @@ export function createScene (
     composite.lightDustContrast = params.lightDustContrast
     composite.echoPower = intro.echoPower
     composite.echoDecay = params.echoDecay
+    composite.echoHoldThin = params.echoHoldThin
+    composite.echoHoldThick = params.echoHoldThick
+    composite.echoSwell = params.echoSwell
+    composite.echoSwellMin = params.echoSwellMin
+    composite.echoReach = params.echoReach
     composite.dustScale = params.dustScale
     composite.dustThreshold = params.dustThreshold
     composite.dustSweep = params.dustSweep
@@ -1167,19 +1210,32 @@ export function createScene (
     composite.dustShock = hidden.echo ? 0 : intro.dustShock
     composite.dustBlow = params.dustBlow
     composite.dustDrift = reducedMotion ? 0 : params.dustDrift
+    composite.dustBlowTime = params.dustBlowTime
+    // The dust is read from where it was, so its picture moves the other way: the way the angle points,
+    // on a screen whose y runs down
+    const driftAngle = params.dustDriftAngle * Math.PI / 180
+    composite.dustDriftX = -Math.cos(driftAngle)
+    composite.dustDriftY = Math.sin(driftAngle)
+    composite.dustShockOffset = params.dustShockOffset
+    composite.dustShockSharpness = params.dustShockSharpness
+    composite.dustShockTint = params.dustShockTint
     composite.waveRadius = intro.matterFront * explosionReach
     composite.waveStrength = intro.waveStrength * params.waveRefraction
     composite.waveWidth = params.waveWidth * shortSide
     composite.remnantGlow = intro.remnantGlow
     composite.remnantRedshift = intro.remnantRedshift
     composite.remnantRadius = params.remnantRadius * shortSide
+    composite.remnantEmberAt = params.remnantEmberAt
+    composite.remnantWhiteness = params.remnantWhiteness
+    composite.remnantDeep = params.remnantDeep
+    composite.remnantDim = params.remnantDim
     // The ringing horizon is an oval, long along the axis the two numbers turn it to
     const oval = horizon > 0 && Math.abs(ovalX) + Math.abs(ovalY) > MIN_HOLE_OVAL
     composite.holeOvalX = oval ? ovalX : 0
     composite.holeOvalY = oval ? ovalY : 0
     // The gravitational wave is that wobble carried outward at the speed of light: every point shows the
     // wobble the horizon had when the wave left it. It is off once its last ripples are past the far corner
-    const waveLife = params.lightCrossTime / 1.15 + ringTiming.decay * GRAVITY_WAVE_FADES
+    const waveLife = params.lightCrossTime / params.lightReach + ringTiming.decay * GRAVITY_WAVE_FADES
     const introWave = intro.ringdownTime > 0 && intro.ringdownTime <= waveLife
     // Two that became one send the ringing of the hole they leave, from where they met and at the pair's
     // own speed of light, once the intro's wave is gone. It starts as strong as the pair's spiral had
@@ -1235,6 +1291,7 @@ export function createScene (
     composite.starFaintest = state.starsFaintest
     readSceneColor(composite.starWarm, state.starsColorWarm, SIMULATION_COLOR_SPECS.starsColorWarm.exact)
     readSceneColor(composite.starCool, state.starsColorCool, SIMULATION_COLOR_SPECS.starsColorCool.exact)
+    composite.starFlareDecay = params.starFlareDecay
     composite.colorFlash = params.colorFlash
     composite.colorLight = params.colorLight
     composite.colorDust = params.colorDust
@@ -1251,12 +1308,19 @@ export function createScene (
     // A camera that jumps further than this in a frame has cut, and the trails start afresh
     frame.cutZoom = 1 + state.cameraCutZoom
     frame.cutShift = state.cameraCutShift
-    composite.shakeX = shake * (Math.sin(animationTime * 83.1) + 0.6 * Math.sin(animationTime * 47.3)) / 1.6
-    composite.shakeY = shake * (Math.sin(animationTime * 71.7 + 1.3) + 0.6 * Math.sin(animationTime * 39.9 + 0.4)) / 1.6
+    // The shake's own clock runs at Shake Rate; kept as its lead over the scene's, which is none at rate 1,
+    // so the rate can move along a film without the tremor jumping
+    shakeLead += dt * (params.shakeRate - 1)
+    const shakeTime = animationTime + shakeLead
+    composite.shakeX = shake * (Math.sin(shakeTime * SHAKE_X[0]) + SHAKE_SECOND * Math.sin(shakeTime * SHAKE_X[1])) / (1 + SHAKE_SECOND)
+    composite.shakeY = shake * (Math.sin(shakeTime * SHAKE_Y[0] + 1.3) + SHAKE_SECOND * Math.sin(shakeTime * SHAKE_Y[1] + 0.4)) / (1 + SHAKE_SECOND)
     composite.lensFringe = params.lensFringe * film
     composite.vignette = params.vignette * film
     composite.filmGrain = params.filmGrain * film
     composite.letterbox = params.letterbox * viewportHeight * film
+    composite.vignetteStart = params.vignetteStart
+    composite.vignetteEnd = params.vignetteEnd
+    composite.filmKnee = params.filmKnee
 
     // The space grid: the flat one is read through the lens in the composite pass, the sheet is laid
     // over the frame with its well under the black hole

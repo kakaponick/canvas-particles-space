@@ -11,7 +11,7 @@ import { DEFAULT_TITLE_TEXT, type TitleText } from '../store/intro_debug_store'
 import { BUILT_IN_INTRO_PRESETS, useIntroPresetStore } from '../store/intro_preset_store'
 import { pickSimulationSettings, type SimulationSettings } from './simulation_presets'
 import { STYLIZED_LENS_KEYS } from './simulation_specs'
-import { DEFAULT_INTRO_PARAMS, INTRO_PARAM_SPECS, colorToCss, cssToColor, type IntroParamKey, type IntroParams } from './intro_params'
+import { DEFAULT_INTRO_PARAMS, INTRO_PARAM_SPECS, TITLE_DRAWN_KEYS, colorToCss, cssToColor, type IntroParamKey, type IntroParams } from './intro_params'
 import { CUE_LAYERS, INTRO_LAYERS, type CueLayer, type IntroLayer } from './intro_tracks'
 import { TITLE_FONTS, type TitleFontKey } from './title_sprite'
 import { captionKeys, captionLetters, parseCaption, strangeLetters, type CaptionRun } from './caption_text'
@@ -889,6 +889,13 @@ export function planFilm (source: unknown): FilmPlan {
   if (look.length > 0 && !raised('filmHold') && (introEnds === null || introEnds < duration)) {
     notes.push(`${look.join(', ')}: the film look lifts as the opening ends, so ${introEnds === null ? 'this film without the opening never shows it' : `it is gone after ${seconds(introEnds)} s`}; ` +
       'raise filmHold (0 to 1, in intro.params or on a track) to keep it')
+  }
+  // The title's words are drawn before the first frame, and a cue's when the film is made ready, so a track
+  // on what they are drawn from moves nothing
+  const drawn = TITLE_DRAWN_KEYS.filter(key => tracks.some(track => track.key === key))
+  if (drawn.length > 0) {
+    notes.push(`${drawn.join(', ')}: the title's words are drawn once, from the values the film starts with or a cue's own, so a track on ` +
+      `${drawn.length > 1 ? 'these' : 'this one'} changes nothing; set ${drawn.length > 1 ? 'them' : 'it'} in intro.params or in the cue's params`)
   }
   // The lens is ray traced unless the film says otherwise, and then the stylized lens's settings do nothing;
   // a film that sets or moves them while it never leaves the traced lens is told

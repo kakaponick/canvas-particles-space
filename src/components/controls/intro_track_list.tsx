@@ -977,7 +977,7 @@ const TrackRow = memo(function TrackRow ({ track, duration, hidden, expanded, te
           <div className="bg-neon-cyan/[0.03] pb-2 pl-[52px] pr-3 pt-1">
             {track.editsText && <TitleTextEditor />}
             <div className="intro-param-grid grid gap-1">
-              {track.params.map(key => <IntroParamControl key={key} paramKey={key} />)}
+              {track.params.map(key => track.fine?.includes(key) ? null : <IntroParamControl key={key} paramKey={key} />)}
               {changedCount > 0 && (
                 <button
                   type="button"
@@ -994,6 +994,7 @@ const TrackRow = memo(function TrackRow ({ track, duration, hidden, expanded, te
                 </button>
               )}
             </div>
+            {track.fine && <TrackFine track={track} fine={track.fine} changed={changed} />}
           </div>
         </div>
       )}
@@ -1006,6 +1007,39 @@ const TrackRow = memo(function TrackRow ({ track, duration, hidden, expanded, te
 const trackName = 'truncate max-sm:whitespace-normal max-sm:line-clamp-2 max-sm:text-[11px] max-sm:leading-[1.15]'
 // The layer switch, or the room it would take: a phone narrows it to give the name its line
 const eyeColumn = 'w-7 shrink-0 max-sm:w-6'
+
+// The parameters of a track that are rarely moved, one click further in: the numbers that shape its effect
+// rather than set it. Closed, the track's parameters read as they do without them, and the mark on its name
+// says when one of them is off its default
+function TrackFine ({ track, fine, changed }: { track: IntroTrack, fine: IntroParamKey[], changed: IntroParamKey[] }) {
+  const [open, setOpen] = useState(false)
+  const panelId = `intro-track-${track.key}-fine`
+  const changedCount = changed.filter(key => fine.includes(key)).length
+  return (
+    <div className="mt-1">
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={panelId}
+        onClick={() => setOpen(!open)}
+        className="flex h-7 items-center gap-1 text-left text-text-light/70 transition-colors duration-150 hover:text-neon-cyan
+          focus-visible:outline focus-visible:outline-1 focus-visible:outline-neon-cyan"
+      >
+        <ChevronRight
+          aria-hidden="true"
+          className={cn('h-3 w-3 shrink-0 transition-transform duration-150 motion-reduce:transition-none', open ? 'rotate-90 text-neon-cyan' : 'text-text-light/50')}
+        />
+        Fine Tuning
+        {changedCount > 0 && <ChangedBadge count={changedCount} />}
+      </button>
+      {open && (
+        <div id={panelId} role="group" aria-label={`${track.label} fine tuning`} className="intro-param-grid grid gap-1 pt-1">
+          {fine.map(key => <IntroParamControl key={key} paramKey={key} />)}
+        </div>
+      )}
+    </div>
+  )
+}
 
 function ChangedBadge ({ count }: { count: number }) {
   return (

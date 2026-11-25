@@ -2,6 +2,10 @@
 // Times are seconds from page load unless a label says otherwise; sizes marked "share" are
 // fractions of the viewport's short side.
 
+// The dust drifts down and to the left along a 3-4-5 triangle, as it did before its direction was a
+// parameter: this angle's cosine and sine are the -0.8 and -0.6 the shader held
+const DUST_DRIFT_DEGREES = Math.atan2(-0.6, -0.8) * 180 / Math.PI + 360
+
 export const DEFAULT_INTRO_PARAMS = {
   // Progenitor star
   starChargeStart: 0.1,
@@ -9,6 +13,7 @@ export const DEFAULT_INTRO_PARAMS = {
   starPeakGlow: 1.4,
   starRadiusStart: 0.004,
   starRadiusGrowth: 0.01,
+  starChargeEase: 2,
   // Glare of the explosion in the camera
   glareRise: 0.04,
   glarePeak: 6,
@@ -21,6 +26,7 @@ export const DEFAULT_INTRO_PARAMS = {
   lightPowerDecay: 1.2,
   lightWidth: 0.008,
   lightDustContrast: 0.94,
+  lightReach: 1.15,
   // Dust lit by the light front
   echoPower: 0.9,
   echoPowerDecay: 3.5,
@@ -32,6 +38,17 @@ export const DEFAULT_INTRO_PARAMS = {
   dustSweep: 1,
   dustBlow: 90,
   dustDrift: 10,
+  // How the dust holds, gains and loses that light, and how it moves
+  echoHoldThin: 0.4,
+  echoHoldThick: 1.8,
+  echoSwell: 0.15,
+  echoSwellMin: 0.02,
+  echoReach: 0.5,
+  dustBlowTime: 1.2,
+  dustDriftAngle: DUST_DRIFT_DEGREES,
+  dustShockOffset: 0.6,
+  dustShockSharpness: 3,
+  dustShockTint: 0.5,
   // Ejected matter, which births the particle field
   matterSpeed: 0.4,
   waveRefraction: 24,
@@ -43,14 +60,21 @@ export const DEFAULT_INTRO_PARAMS = {
   starsInitial: 0.35,
   starsFadeIn: 1.5,
   starFlare: 3,
+  starFlareDecay: 0.18,
   // Collapsing core
   remnantAt: 1,
   remnantDecay: 0.35,
   redshiftDuration: 0.7,
   remnantRadius: 0.012,
+  // The colours it passes through as it reddens
+  remnantEmberAt: 0.5,
+  remnantWhiteness: 0.25,
+  remnantDeep: 0.6,
+  remnantDim: 0.7,
   // Shadow of the newborn black hole
   horizonAt: 1.3,
   horizonGrowth: 0.45,
+  horizonEase: 3,
   lensDuration: 0.95,
   ringDelay: 0.1,
   ringFadeIn: 0.5,
@@ -96,6 +120,33 @@ export const DEFAULT_INTRO_PARAMS = {
   titleInAt: 0.6,
   titleInDuration: 1,
   titleExit: 0,
+  // The title's setting, read when its words are drawn
+  titleLineHeight: 1.3,
+  titleMaxWidth: 1400,
+  titleMargin: 16,
+  // The shape of each way it arrives and leaves
+  titlePushEase: 2,
+  titleInOversize: 0.12,
+  titleInEase: 4,
+  titleRiseEase: 3,
+  titleFlyGrowth: 9,
+  titleFlyEase: 4,
+  titleOutGrowth: 0.06,
+  titleOutEase: 3,
+  // Its dust as it falls, its winding round the hole and its burning
+  titlePullLimit: 4,
+  titleSpeckSize: 2,
+  titleCurrentSize: 11,
+  titleBeyondSpeed: 0.15,
+  titleWink: 0.15,
+  titleSpiralRadius: 0.3,
+  titleSpiralMin: 0.4,
+  titleSpiralMax: 3,
+  titleBurnGrain: 18,
+  titleBurnFine: 5,
+  titleBurnEnds: 0.45,
+  titleBurnRim: 2.5,
+  titleBurnRimWidth: 0.1,
   // Black hole motion and the end of the intro
   releaseAt: 5.4,
   introEnd: 5.8,
@@ -117,7 +168,15 @@ export const DEFAULT_INTRO_PARAMS = {
   vignette: 0,
   filmGrain: 0,
   letterbox: 0,
-  filmHold: 0
+  filmHold: 0,
+  // The shape of the camera's moves and of the film look
+  cameraCreep: 0.1,
+  cameraSettleEase: 4,
+  cameraKickDecay: 0.16,
+  shakeRate: 1,
+  vignetteStart: 0.45,
+  vignetteEnd: 1.45,
+  filmKnee: 0.8
 }
 
 export const TITLE_ENTRANCES = ['Lit by the light front', 'Fades in', 'Gathers from dust', 'Comes out of the black hole'] as const
@@ -126,8 +185,14 @@ export const TITLE_EXITS = ['Falls into the black hole', 'Flies past the camera'
 export type IntroParams = typeof DEFAULT_INTRO_PARAMS
 export type IntroParamKey = keyof IntroParams
 
+// What the title's words are drawn from: read when they are drawn, before the first frame of a film or for
+// a cue, so a track on one of them moves nothing
+export const TITLE_DRAWN_KEYS: readonly IntroParamKey[] = [
+  'titleSize', 'titleMaxWidth', 'titleLineHeight', 'titleWeight', 'titleTracking', 'titleHaloRadius', 'titleStreak'
+]
+
 // 'share' is shown as a percentage; 'em' is a multiple of the title's font size
-export type ParamUnit = 's' | 'Hz' | 'rad/s' | 'px' | 'px/s' | 'em' | '×' | 'share' | 'rad' | 'c' | ''
+export type ParamUnit = 's' | 'Hz' | 'rad/s' | 'px' | 'px/s' | 'em' | '×' | 'share' | 'rad' | '°' | 'c' | ''
 
 export interface IntroParamSpec {
   key: IntroParamKey
@@ -264,7 +329,58 @@ export const INTRO_PARAM_SPECS = Object.fromEntries([
   p('vignette', 'Vignette', 0, 1, 0.01, '', 'How much the frame corners darken', 'How much the corners of the frame darken.'),
   spoken(p('filmGrain', 'Grain', 0, 0.5, 0.005, '', 'Flickering grain over the frame; 0 = none', 'Strength of the flickering grain over the whole frame.'), 'Film Grain'),
   p('letterbox', 'Letterbox', 0, 0.3, 0.005, 'share', 'Bar height top and bottom, % of screen', 'Height of the black bar at the top and at the bottom, as a share of the screen height. The bars open when the intro ends, unless Keep After Intro holds them.'),
-  p('filmHold', 'Keep After Intro', 0, 1, 0.01, 'share', 'Film look kept after the intro; 0 = none', 'How much of the film look (lens fringe, vignette, grain, letterbox) stays once the intro is over: 0 lifts it all as the intro ends, 1 keeps it for good. A film without the intro shows these four only while this is above 0, and a track on it fades the look in and out.')
+  p('filmHold', 'Keep After Intro', 0, 1, 0.01, 'share', 'Film look kept after the intro; 0 = none', 'How much of the film look (lens fringe, vignette, grain, letterbox) stays once the intro is over: 0 lifts it all as the intro ends, 1 keeps it for good. A film without the intro shows these four only while this is above 0, and a track on it fades the look in and out.'),
+  // The numbers that shape an effect rather than set it: each track's Fine Tuning group. Every default is
+  // the constant the code held before, so an opening that leaves them alone is drawn as it was
+  spoken(p('starChargeEase', 'Brightening Curve', 0.2, 6, 0.1, '', 'Higher: dim for longer, then flares up', 'How the star brightens between Appears and Explosion. 1 brightens at an even pace; higher values stay dim for longer and rise sharply at the end.'), 'Star Brightening Curve'),
+  spoken(p('lightReach', 'Reach', 0.5, 3, 0.01, '×', 'Fronts\' run, × the farthest corner', 'How far the fronts run in Crossing, as a multiple of the distance from the explosion to the farthest corner of the screen. Above 1 the light front, its width with it, is past the corner when its time is up. The matter front, the birth of the particles and the gravitational wave are measured by the same reach, so a higher value speeds all of them.'), 'Front Reach'),
+  spoken(p('echoHoldThin', 'Thin Haze Hold', 0.05, 3, 0.05, '×', 'Thin haze holds light this × Afterglow', 'How long the thinnest haze keeps the light of the front, as a multiple of Afterglow. Lower: the haze lets go of the flash sooner, so the dust goes out more patch by patch.'), 'Echo Thin Haze Hold'),
+  spoken(p('echoHoldThick', 'Thick Cloud Hold', 0.05, 6, 0.05, '×', 'Thick cloud holds light this × Afterglow', 'How long the thickest cloud keeps the light of the front, as a multiple of Afterglow. Dust in between holds it for a time in between.'), 'Echo Thick Cloud Hold'),
+  spoken(p('echoSwell', 'Swell', 0, 2, 0.01, '×', 'Time the glow takes to rise, × Afterglow', 'How long the dust\'s glow takes to swell once the front has passed, as a multiple of Afterglow, instead of switching on. Least Swell is added to it.'), 'Echo Swell'),
+  spoken(p('echoSwellMin', 'Least Swell', 0.005, 0.5, 0.005, 's', 'Shortest time the glow takes to rise', 'The time the dust\'s glow takes to swell whatever Afterglow is; Swell adds to it.'), 'Echo Least Swell'),
+  spoken(p('echoReach', 'Dims Over', 0.05, 4, 0.05, 'share', 'Half as bright this far out, % of width', 'Distance from the explosion at which the dust\'s glow is half as bright, as a share of the screen width. Higher: the echo stays bright farther out.'), 'Echo Dims Over'),
+  spoken(p('dustBlowTime', 'Push Time', 0.05, 6, 0.05, 's', 'Higher: the blast pushes the dust longer', 'Seconds the blast takes to push the dust about two thirds of the way Blast Pushes Dust sets; it eases off after that.'), 'Dust Push Time'),
+  spoken(p('dustDriftAngle', 'Drift Direction', 0, 360, 1, '°', '0° = right · 90° = up · 180° = left', 'The direction the dust drifts on its own at Drift Speed, in degrees anticlockwise from the right of the screen. The default, about 217°, is down and to the left.'), 'Dust Drift Direction'),
+  spoken(p('dustShockOffset', 'Flare Place', -2, 3, 0.05, '×', 'Flare ahead of the front, in its widths', 'Where the flare of Matter Lights Dust stands, in widths of the matter front outside the front\'s middle, where the dust is not yet swept away. Negative values put it behind the front, where Matter Clears Dust has thinned the dust.'), 'Matter Flare Place'),
+  spoken(p('dustShockSharpness', 'Flare Sharpness', 0.2, 20, 0.1, '', 'Higher: a thinner flare at the front', 'How thin the flare of Matter Lights Dust is. Higher values draw a thin bright line along the matter front; lower values a broad band.'), 'Matter Flare Sharpness'),
+  spoken(p('dustShockTint', 'Flare Tint', 0, 1, 0.01, '', '0 = dust color · 1 = light front color', 'The colour of the flare of Matter Lights Dust, between the dust\'s colour (0) and the light front\'s (1).'), 'Matter Flare Tint'),
+  spoken(p('starFlareDecay', 'Flare Decay', 0.02, 3, 0.01, 's', 'Higher: stars stay flared longer', 'Seconds for a background star to fall back to about a third of its flare after the light front has passed it.'), 'Stars Flare Decay'),
+  spoken(p('remnantEmberAt', 'Ember At', 0.05, 0.95, 0.01, 'share', 'Share of the redshift it is the ember at', 'How far through Redshift Duration the core is the ember colour: before that it cools from the flash colour, after it sinks to the deep colour.'), 'Core Ember At'),
+  spoken(p('remnantWhiteness', 'Ember Whiteness', 0, 1, 0.01, '', 'Flash color left in the ember', 'How much of the flash colour is left in the core when it is the ember: 0 is the pure Ember Color, higher values a hotter, whiter ember.'), 'Core Ember Whiteness'),
+  spoken(p('remnantDeep', 'Deep Red', 0, 2, 0.01, '×', 'Brightness of the last, deep color', 'Brightness of the colour the core ends at, which is the Ember Color deepened (multiplied by itself). 0 ends in black.'), 'Core Deep Red'),
+  spoken(p('remnantDim', 'Dims By', 0, 1, 0.01, 'share', 'Glow lost by the end of the redshift', 'How much of its brightness the core has lost by the end of the redshift, on top of its fade. 0 keeps it as bright while it reddens.'), 'Core Dims By'),
+  spoken(p('horizonEase', 'Growth Curve', 1, 8, 0.1, '', 'Higher: grows fast, then settles longer', 'How the shadow grows over Growth. 1 grows at an even pace; higher values grow most of the way at once and take the rest of the time to settle.'), 'Shadow Growth Curve'),
+  p('titleLineHeight', 'Line Spacing', 0.8, 3, 0.05, 'em', 'Distance between the lines of the title', 'Distance from one line of the title to the next, in multiples of the font size. Read when the words are drawn, so it is set, not moved along a track.'),
+  p('titleMaxWidth', 'Widest Line', 200, 4000, 10, 'px', 'Cap on the longest line\'s width', 'The most the longest line may measure, whatever Size asks for on a wide screen. Read when the words are drawn, so it is set, not moved along a track.'),
+  p('titleMargin', 'Edge Margin', 0, 200, 1, 'px', 'Room kept from screen edges and bars', 'Room the words keep from the screen\'s edges and from the letterbox bars, whatever their position, size and the camera\'s zoom.'),
+  p('titlePushEase', 'Push-In Curve', 1, 6, 0.1, '', 'Higher: more of the push right at first', 'How Camera Push-In is spread over the title\'s life. 1 grows at an even pace; higher values grow most when the title is lit and ease off.'),
+  p('titleInOversize', 'Fade-In Oversize', 0, 1, 0.01, 'share', 'Extra size it settles from; Fades in', 'How much too large the title starts when it fades in, settling to its size as it appears. 0 fades it in where it stands.'),
+  p('titleInEase', 'Fade-In Curve', 1, 8, 0.1, '', 'Higher: appears fast, settles longer', 'How the title appears over Arrival Duration when it fades in. 1 is an even pace; higher values show most of it at once and settle slowly.'),
+  p('titleRiseEase', 'Gathering Curve', 1, 8, 0.1, '', 'Higher: rushes in, then eases; dust, hole', 'How the title comes into place when it gathers from dust or comes out of the black hole, which is the fall played backwards. 1 is an even pace; higher values rush in and ease into place.'),
+  p('titleFlyGrowth', 'Fly-Past Growth', 0, 40, 0.5, '×', 'Sizes it gains by the end; Flies past', 'How many times its size the title has gained by the time it is gone, when it flies past the camera.'),
+  p('titleFlyEase', 'Fly-Past Curve', 1, 8, 0.1, '', 'Higher: hangs, then rushes; Flies past', 'How the flight past the camera gathers speed over Leaving Duration. 1 is an even pace; higher values hang for longer and rush at the end.'),
+  p('titleOutGrowth', 'Fade-Out Growth', 0, 1, 0.01, 'share', 'Size it gains as it goes; Fades out', 'How much the title grows towards the camera as it fades out. 0 dims it where it stands.'),
+  p('titleOutEase', 'Fade-Out Curve', 1, 8, 0.1, '', 'Higher: holds, then goes; Fades out', 'How the title dims over Leaving Duration when it fades out. 1 is an even pace; higher values hold it for longer and let it go at the end.'),
+  p('titlePullLimit', 'Strongest Hole', 1, 20, 0.5, '×', 'Most a stronger hole counts, × default', 'The falling dust follows the Gravity and Orbital Force settings as multiples of their defaults; this is the most either counts for. Higher values let an extreme hole tear the title away; lower values keep the fall as Dust Pull and Dust Swirl set it.'),
+  p('titleSpeckSize', 'Speck Size', 0.5, 12, 0.5, 'px', 'Size of a grain of the title\'s dust', 'Size of the specks the title is made of: the grains of Dust Texture and the specks that fall and wink out one by one.'),
+  p('titleCurrentSize', 'Stream Width', 2, 80, 1, 'px', 'Width of the currents specks move in', 'Width of the currents the falling specks share at Speck Streams above 0. Higher: broad patches move together; lower: fine threads.'),
+  p('titleBeyondSpeed', 'Far Dust Speed', 0, 1, 0.01, '', 'Fall speed of dust beyond Gravity Reach', 'How fast the dust beyond the Gravity Reach setting falls, as a share of the speed of the dust inside it. 0 leaves it where it stands; 1 takes the whole title alike.'),
+  p('titleWink', 'Wink Out', 0.01, 1, 0.01, 'share', 'Share of the fall a speck takes to vanish', 'How long a speck takes to wink out, as a share of Leaving Duration. Lower: each speck is gone in an instant; higher: the whole title dims together.'),
+  p('titleSpiralRadius', 'Spiral Pivot', 0.05, 1, 0.01, 'share', 'Distance that turns as set, % of height', 'The distance from the black hole at which Spiral Tightness leaves the turn as Dust Swirl sets it, as a share of the screen height. Nearer dust winds further round, farther dust less.'),
+  p('titleSpiralMin', 'Spiral Outer Turn', 0, 1, 0.05, '×', 'Least the far part winds round', 'The least the far part of the title winds round the hole at Spiral Tightness 1, as a multiple of the turn Dust Swirl sets. It holds only for dust farther from the hole than Spiral Pivot divided by it, which at the defaults is three quarters of the screen height: a title far from the hole, or a smaller Spiral Pivot.'),
+  p('titleSpiralMax', 'Spiral Inner Turn', 1, 12, 0.1, '×', 'Most the near part winds round', 'The most the part of the title nearest the hole winds round it at Spiral Tightness 1, as a multiple of the turn Dust Swirl sets.'),
+  p('titleBurnGrain', 'Burn Tongues', 2, 120, 1, 'px', 'Size of the fire edge\'s large tongues', 'Size of the large tongues of the ragged edge the fire eats along, when the title burns away.'),
+  p('titleBurnFine', 'Burn Teeth', 1, 40, 0.5, 'px', 'Size of the fire edge\'s small teeth', 'Size of the small teeth of the ragged edge the fire eats along, when the title burns away.'),
+  p('titleBurnEnds', 'Burn From Ends', 0, 1, 0.01, '', '0 = all over at once · 1 = ends inward', 'How much the fire starts at the ends of the title and eats inwards. 0 burns holes all over it at once; 1 burns in from both ends along a clean line.'),
+  p('titleBurnRim', 'Burn Rim', 0, 8, 0.1, '×', 'Glow of the burning edge, × Ember Color', 'Brightness of the glowing edge of the fire, as a multiple of the Ember Color.'),
+  p('titleBurnRimWidth', 'Burn Rim Width', 0.01, 0.5, 0.01, '', 'Higher: a wider glowing edge', 'How far ahead of the fire the letters already glow. Higher values light a wide band before it burns; lower values a thin line.'),
+  p('cameraCreep', 'Creep Before Blast', 0, 1, 0.01, 'share', 'Share of the zoom done before the blast', 'How much of the way from Zoom at Start to 1 the camera creeps before the explosion; the explosion throws it the rest.'),
+  p('cameraSettleEase', 'Settle Curve', 1, 8, 0.1, '', 'Higher: more thrown at once, slower end', 'How the zoom settles over Zoom Settles after the explosion. 1 is an even pace; higher values throw most of it at once and take the rest of the time over the last of it.'),
+  p('cameraKickDecay', 'Punch Decay', 0.02, 2, 0.01, 's', 'Higher: the zoom punch lasts longer', 'Seconds for Zoom Punch to drop to about a third.'),
+  p('shakeRate', 'Shake Rate', 0.1, 4, 0.05, '×', 'Higher: a faster, finer tremor', 'How fast the camera shakes, as a multiple of its own tremor of about 6 to 13 jolts a second. Lower: a slow sway; higher: a buzz.'),
+  p('vignetteStart', 'Vignette Start', 0, 2, 0.01, '×', 'Darkening starts here; 1 = frame edge', 'Where the vignette starts to darken, as a distance from the middle of the frame in half sizes of the frame: 1 is the middle of an edge, 1.41 a corner.'),
+  p('vignetteEnd', 'Vignette End', 0.1, 3, 0.01, '×', 'Darkest here; 1.41 = frame corner', 'Where the vignette is at its darkest, in the same measure as Vignette Start. Past 1.41 the corners never reach the full Vignette.'),
+  p('filmKnee', 'Highlight Knee', 0.3, 0.99, 0.01, '', 'Highlights roll off above this level', 'Brightness above which highlights are rolled off towards white instead of clipping. It shapes the whole picture for as long as it is drawn, not only the opening and whatever Keep After Intro is. Lower: a softer, flatter top; near 1: hard clipping.')
 ].map(spec => [spec.key, spec])) as Record<IntroParamKey, IntroParamSpec>
 
 // A real black hole's strongest ringdown tone (the l = 2 mode of a non-spinning hole): with its shadow
@@ -318,6 +434,7 @@ export function formatParam (value: number, spec: IntroParamSpec) {
   case '': return number
   case 'share': return `${(value * 100).toFixed(Math.max(decimals - 2, 1))}%`
   case '×': return `${number}×`
+  case '°': return `${number}°`
   // A no-break space, so a wrapped description never leaves the unit alone on a line
   default: return `${number}\u00a0${spec.unit}`
   }

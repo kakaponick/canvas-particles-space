@@ -291,12 +291,15 @@ export const compositeFragmentShaderSource = `
   uniform float u_lightSpeed;    // pixels per second
   uniform float u_echoPower;     // dust lit up behind the light front
   uniform float u_echoDecay;     // seconds
+  uniform vec4 u_echoShape;      // afterglows thin haze and the thickest cloud hold their light, the longer of the two, the share of the frame's width at which the glow is half as bright
+  uniform vec2 u_echoSwell;      // the glow's swell: a share of the afterglow, and seconds added to it
   uniform float u_waveRadius;    // matter front
   uniform float u_waveStrength;  // refraction at the matter front, pixels
   uniform float u_waveWidth;
   uniform float u_remnantGlow;   // the collapsing core
   uniform float u_remnantRedshift;
   uniform float u_remnantRadius;
+  uniform vec4 u_remnantShape;   // the share of the redshift at which the core is the ember, the flash colour left in the ember, the brightness of the deep colour it ends at, how much it has dimmed by then
   uniform float u_gravityWaveAmplitude; // pixels of stretch at the shadow's edge; 0 turns the wave off
   uniform float u_gravityWaveTime;      // seconds since the wave left the hole, with the ringdown
   uniform float u_gravityWaveOmega;     // the wobble's angular frequency
@@ -315,6 +318,7 @@ export const compositeFragmentShaderSource = `
   uniform vec4 u_starWarm;         // a background star: the warmest tint, and the brightness of the faintest star
   uniform vec4 u_starCool;         // the coolest tint, and what the brightest star adds to the faintest
   uniform vec4 u_starLook;         // the square of the star's radius in CSS pixels, then its twinkle: the light it keeps, the light that swings, the rate as a multiple of its own
+  uniform float u_starFlareRate;   // how fast a star's flare falls once the light front has passed it: a rate for exp2 (see softKnee)
   uniform float u_dustScale;       // CSS pixels
   uniform float u_dustThreshold;
   uniform float u_lightDustContrast;
@@ -323,6 +327,8 @@ export const compositeFragmentShaderSource = `
   uniform float u_dustShock;       // brightness of the dust where the matter front strikes it
   uniform float u_dustBlow;        // CSS pixels the blast pushes the dust outward
   uniform float u_dustDrift;       // CSS pixels per second the dust drifts on its own
+  uniform vec3 u_dustMotion;       // the way the dust is read from as it drifts, how fast the blast's push eases off (a rate for exp2)
+  uniform vec3 u_dustFlare;        // the flare at the matter front: widths of the front outside its middle, its thinness (a rate for exp2), the share of the light's colour in it
   uniform sampler2D u_orbitTrails; // the orbiting stars and the traces they leave
   uniform float u_orbits;          // 1 while there are orbiting stars; 0 leaves their layer unread
   uniform float u_skyGrid;        // brightness of the flat grid on the sky behind the hole; 0 turns it off
@@ -369,6 +375,11 @@ export const compositeFragmentShaderSource = `
   uniform float u_titleOrder;    // 0 specks wink out at random, 1 the ones nearest the hole first
   uniform float u_titleTrail;    // brightness of the streak behind the moving letters
   uniform float u_titleHeat;     // how much the falling title brightens midway
+  uniform vec4 u_titleSpeck;     // specks and currents the specks share per CSS pixel, the speed of dust beyond gravity's reach, the share of the fall a speck takes to wink out
+  uniform float u_titleWinkRest; // the rest of the fall, 1 - that share
+  uniform vec3 u_titleWind;      // the winding at u_titleSpiral 1: the share of the frame's height at which the turn is as set, the least and the most any part winds
+  uniform vec4 u_titleBurnShape; // CSS pixels across the two grains of the fire's ragged edge, how much it eats in from the ends, its rim in ember colours
+  uniform float u_titleBurnRimWidth; // how far ahead of the fire the letters glow
 
   // Colours of the intro
   uniform vec3 u_colorFlash;     // the star, the glare and the white-hot core
@@ -386,6 +397,8 @@ export const compositeFragmentShaderSource = `
   uniform float u_vignette;      // darkening of the corners
   uniform float u_filmGrain;
   uniform float u_letterbox;     // height of each black bar, pixels
+  uniform vec2 u_vignetteSpan;   // where the corners start to darken and where they are darkest, in half sizes of the frame
+  uniform vec3 u_knee;           // brightness above which highlights roll off, the room above it, how fast they fill it (a rate for exp2)
 
   const float PI = 3.14159265359;
   // A blur spreads the letters' light thin; this brings the glow back to a visible level
@@ -393,13 +406,6 @@ export const compositeFragmentShaderSource = `
   // Dust Pull is the distance a letter standing that far from the hole would be drawn; this turns
   // it into the pull that draws the whole title in
   const float TITLE_FALL_GAIN = 2.5;
-  // Seconds a background star stays flared after the light front passes it
-  const float STAR_FLARE_DECAY = 0.18;
-  // How long dust holds its light, in multiples of the afterglow: thin haze and the thickest cloud
-  const float DUST_HOLD_MIN = 0.4;
-  const float DUST_HOLD_MAX = 1.8;
-  // Seconds for the blast to push the dust most of its way
-  const float DUST_BLOW_SECONDS = 1.2;
   // Halvings that find the node the Lensed Grid's pull brings to a point; a straight line across the last
   // one leaves it well under a pixel off
   const int GRID_PULL_STEPS = 8;
@@ -517,16 +523,19 @@ ${DENT_GLSL}
     // higher values leave the far end standing while the near end is already drawn out
     float pulled = pow(holeDist, u_titleTidal) + sign(reach) * pow(abs(reach), u_titleTidal);
     float stretch = pow(max(pulled, 0.0), 1.0 / u_titleTidal) / holeDist;
-    float turn = u_titleSwirl * fall * mix(1.0, clamp(0.3 * u_resolution.y / holeDist, 0.4, 3.0), u_titleSpiral);
+    float turn = u_titleSwirl * fall * mix(1.0, clamp(u_titleWind.x * u_resolution.y / holeDist, u_titleWind.y, u_titleWind.z), u_titleSpiral);
     float c = cos(turn);
     float s = sin(turn);
     return u_hole + vec2(c * fromHole.x - s * fromHole.y, s * fromHole.x + c * fromHole.y) * stretch;
   }
 
-  // Leaves everything below 0.8 untouched and rolls highlights off smoothly instead of clipping
+  // Leaves everything below the knee untouched and rolls highlights off smoothly instead of clipping.
+  // The fall-offs whose time or strength is a uniform are written as 2^(x * rate), with the rate worked
+  // out by the renderer (expRate): exp(-x / 0.2) with the number written here compiles to that very form,
+  // its constant folded in, and only the same form with the same constant draws the same bytes
   vec3 softKnee (vec3 x) {
-    vec3 over = max(x - 0.8, 0.0);
-    return min(x, 0.8) + 0.2 * (1.0 - exp(-over / 0.2));
+    vec3 over = max(x - u_knee.x, 0.0);
+    return min(x, u_knee.x) + u_knee.y * (1.0 - exp2(over * u_knee.z));
   }
 
   // Where a point of the scene lies in the layers the particles and the orbits are drawn into, which
@@ -803,8 +812,8 @@ ${DENT_GLSL}
       float infall = 0.0;
       // The streak the moving letters leave behind them
       float trail = 0.0;
-      // Each grain of dust is a cell of about two CSS pixels with its own speed and lifetime
-      vec2 grainCell = floor(cssPx / 2.0);
+      // Each grain of dust is a cell of a few CSS pixels with its own speed and lifetime
+      vec2 grainCell = floor(cssPx * u_titleSpeck.x);
       if (u_titleDissolve > 0.0) {
         // The title obeys the black hole it falls into. Its gravity sets how far the letters are
         // drawn (and pushes them away when negative), the orbital force winds them around the hole,
@@ -815,9 +824,9 @@ ${DENT_GLSL}
         float beyondReach = u_titleReach > 0.0 ? smoothstep(u_titleReach, 2.0 * u_titleReach, holeDist) : 1.0;
         // Every speck has its own speed, and neighbours share a current, so the specks travel in
         // streams rather than each on its own
-        float current = clamp((valueNoise(cssPx / 11.0 + 41.0) - 0.5) * 1.8 + 0.5, 0.0, 1.0);
+        float current = clamp((valueNoise(cssPx * u_titleSpeck.y + 41.0) - 0.5) * 1.8 + 0.5, 0.0, 1.0);
         float speed = mix(0.5, mix(hash12(grainCell + 41.0), current, u_titleStream), u_titleGrain);
-        float fall = u_titleFall * max(1.0 + 2.0 * u_titleSpread * (speed - 0.5), 0.0) * mix(1.0, 0.15, beyondReach);
+        float fall = u_titleFall * max(1.0 + 2.0 * u_titleSpread * (speed - 0.5), 0.0) * mix(1.0, u_titleSpeck.z, beyondReach);
         local = (titleSource(fromHole, holeDist, fall) - u_titleCenter) / titleSpan;
         // Where the letters were a moment ago still shows, fainter, so their motion reads as a streak
         for (int i = 1; i <= 3; i++) {
@@ -829,7 +838,7 @@ ${DENT_GLSL}
         // letters stay whole until the hole has them
         float nearness = clamp(holeDist / (0.6 * u_resolution.y), 0.0, 1.0);
         float lifetime = mix(1.0, mix(hash12(grainCell + 73.0), nearness, u_titleOrder), u_titleGrain);
-        keep = smoothstep(u_titleDissolve - 0.15, u_titleDissolve, lifetime * 0.85);
+        keep = smoothstep(u_titleDissolve - u_titleSpeck.w, u_titleDissolve, lifetime * u_titleWinkRest);
         if (u_titleCapture > 0.0) keep *= smoothstep(u_titleCapture, u_titleCapture * 1.25 + 1.0, holeDist);
         infall = min(fall, 1.0);
       }
@@ -842,10 +851,10 @@ ${DENT_GLSL}
         // Fire eats the letters from the ends of the title inwards along a ragged edge, which glows
         float burnRim = 0.0;
         if (u_titleBurn > 0.0) {
-          float fuel = mix(0.6 * valueNoise(cssPx / 18.0) + 0.4 * valueNoise(cssPx / 5.0), 1.0 - abs(local.x), 0.45);
+          float fuel = mix(0.6 * valueNoise(cssPx / u_titleBurnShape.x) + 0.4 * valueNoise(cssPx / u_titleBurnShape.y), 1.0 - abs(local.x), u_titleBurnShape.z);
           float burnt = u_titleBurn * 1.15;
           keep *= smoothstep(burnt - 0.06, burnt, fuel);
-          burnRim = 1.0 - smoothstep(burnt, burnt + 0.1, fuel);
+          burnRim = 1.0 - smoothstep(burnt, burnt + u_titleBurnRimWidth, fuel);
         }
         vec3 density = mask * keep * mix(1.0, smoothstep(0.15, 0.8, grain), u_titleDust);
         // Glow around the letters, drawn out sideways like the flare of an anamorphic lens
@@ -859,13 +868,13 @@ ${DENT_GLSL}
         vec3 warm = mix(u_colorTitle, u_colorEmber, u_titleRedshift * infall) * (1.0 - 0.5 * u_titleRedshift * infall) *
           (1.0 + u_titleHeat * infall * (1.0 - infall));
         vec3 light = warm * u_titleGlow * shown + u_colorLight * u_titleFlash * flash;
-        light = mix(light, u_colorEmber * 2.5, burnRim);
+        light = mix(light, u_colorEmber * u_titleBurnShape.w, burnRim);
         emitted += u_titleAlpha * (density + halo * (1.0 - u_titleBurn)) * light;
       }
     }
     if (u_backgroundStars > 0.0) {
       // The flare belongs to the light front, not to the dust echo, so hiding the echo keeps it
-      float flare = u_lightPower > 0.0 && lit >= 0.0 ? u_starFlare * exp(-lit / STAR_FLARE_DECAY) : 0.0;
+      float flare = u_lightPower > 0.0 && lit >= 0.0 ? u_starFlare * exp2(lit * u_starFlareRate) : 0.0;
       emitted += backgroundStar(cssPx + u_skyShift.xy, flare) * u_backgroundStars;
     }
     if (u_nebula.x > 0.0) {
@@ -922,16 +931,16 @@ ${DENT_GLSL}
     // dust does not fade out where it stands: part of its glow stays until the matter front reaches
     // it, and that front, the same one the particles are born behind, lights the dust it strikes
     float swept = mix(1.0, smoothstep(u_waveRadius - u_waveWidth, u_waveRadius + u_waveWidth, sourceDist), u_dustSweep);
-    float rim = (sourceDist - u_waveRadius) / u_waveWidth - 0.6;
-    float shock = u_dustShock > 0.0 ? u_dustShock * exp(-3.0 * rim * rim) : 0.0;
-    // The thickest cloud holds its light DUST_HOLD_MAX times longer than the afterglow setting
+    float rim = (sourceDist - u_waveRadius) / u_waveWidth - u_dustFlare.x;
+    float shock = u_dustShock > 0.0 ? u_dustShock * exp2(u_dustFlare.y * rim * rim) : 0.0;
+    // The echo is over once the dust that holds its light longest has let go of it
     bool echoing = u_echoPower > 0.0 && lit >= 0.0 && swept > 0.001 &&
-      (u_echoFloor > 0.0 || exp(-lit / (DUST_HOLD_MAX * u_echoDecay)) > 0.001);
+      (u_echoFloor > 0.0 || exp(-lit / (u_echoShape.z * u_echoDecay)) > 0.001);
     if (front > 0.001 || echoing || shock > 0.001) {
       // The dust is never still: it drifts slowly all the time, and the blast pushes it outward once
       // the front has passed, quickly at first and then easing off
-      vec2 dustAt = dustPx + u_dustDrift * u_time * vec2(0.8, -0.6);
-      if (lit > 0.0) dustAt -= sourceOffset / max(sourceDist, 0.0001) * u_dustBlow * (1.0 - exp(-lit / DUST_BLOW_SECONDS));
+      vec2 dustAt = dustPx + u_dustDrift * u_time * u_dustMotion.xy;
+      if (lit > 0.0) dustAt -= sourceOffset / max(sourceDist, 0.0001) * u_dustBlow * (1.0 - exp2(lit * u_dustMotion.z));
       float cloud = dust(dustAt);
       float density = cloud * swept;
       emitted += u_colorLight * u_lightPower * front * (1.0 - u_lightDustContrast + u_lightDustContrast * density);
@@ -940,20 +949,20 @@ ${DENT_GLSL}
       float fresh = 0.0;
       float glow = 0.0;
       if (u_echoPower > 0.0 && lit >= 0.0) {
-        float swell = 1.0 - exp(-lit / (0.15 * u_echoDecay + 0.02));
-        fresh = swell * exp(-lit / (u_echoDecay * mix(DUST_HOLD_MIN, DUST_HOLD_MAX, density)));
+        float swell = 1.0 - exp(-lit / (u_echoSwell.x * u_echoDecay + u_echoSwell.y));
+        fresh = swell * exp(-lit / (u_echoDecay * mix(u_echoShape.x, u_echoShape.y, density)));
         glow = mix(fresh, swell, u_echoFloor);
       }
       // Dust the front has just struck still shines with the front's colour and cools to its own
       vec3 echoColor = mix(u_colorDust, u_colorLight, fresh * fresh);
-      emitted += echoColor * u_echoPower * glow * density / (1.0 + sourceDist / (0.5 * u_resolution.x));
-      emitted += mix(u_colorDust, u_colorLight, 0.5) * shock * cloud;
+      emitted += echoColor * u_echoPower * glow * density / (1.0 + sourceDist / (u_echoShape.w * u_resolution.x));
+      emitted += mix(u_colorDust, u_colorLight, u_dustFlare.z) * shock * cloud;
     }
     if (u_remnantGlow > 0.0) {
       // White-hot, then the ember colour, then the same colour deep and dark
-      vec3 remnantColor = mix(mix(u_colorFlash, mix(u_colorEmber, u_colorFlash, 0.25), smoothstep(0.0, 0.5, u_remnantRedshift)),
-        0.6 * u_colorEmber * u_colorEmber, smoothstep(0.5, 1.0, u_remnantRedshift));
-      emitted += remnantColor * u_remnantGlow * (1.0 - 0.7 * u_remnantRedshift) * exp(-(centerDist * centerDist) / (2.0 * u_remnantRadius * u_remnantRadius));
+      vec3 remnantColor = mix(mix(u_colorFlash, mix(u_colorEmber, u_colorFlash, u_remnantShape.y), smoothstep(0.0, u_remnantShape.x, u_remnantRedshift)),
+        u_remnantShape.z * u_colorEmber * u_colorEmber, smoothstep(u_remnantShape.x, 1.0, u_remnantRedshift));
+      emitted += remnantColor * u_remnantGlow * (1.0 - u_remnantShape.w * u_remnantRedshift) * exp(-(centerDist * centerDist) / (2.0 * u_remnantRadius * u_remnantRadius));
     }
     color = (color + emitted) * u_exposure;
 
@@ -1029,7 +1038,7 @@ ${DENT_GLSL}
 
     // The film: dark corners, grain that changes every frame, and bars at the top and the bottom
     if (u_vignette > 0.0) {
-      color *= 1.0 - u_vignette * smoothstep(0.45, 1.45, length(screen / u_resolution * 2.0 - 1.0));
+      color *= 1.0 - u_vignette * smoothstep(u_vignetteSpan.x, u_vignetteSpan.y, length(screen / u_resolution * 2.0 - 1.0));
     }
     if (u_filmGrain > 0.0) {
       color = max(color + (hash12(screen + fract(u_time) * vec2(917.0, 613.0)) - 0.5) * u_filmGrain, 0.0);

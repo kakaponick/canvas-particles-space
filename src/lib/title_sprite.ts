@@ -19,8 +19,11 @@ export interface TitleStyle {
   weight: number
   // Letter spacing in em
   tracking: number
-  // Width of the widest line as a share of the viewport width
+  // Width of the widest line as a share of the viewport width, and the most it may be, CSS pixels
   size: number
+  maxWidth: number
+  // Distance from one line to the next, in em
+  lineHeight: number
   // How far the glow reaches from the letters, CSS pixels; 0 draws none
   haloRadius: number
   // How much wider than tall the glow is
@@ -37,8 +40,6 @@ export interface TitleSprite {
   textHeight: number
 }
 
-const LINE_HEIGHT_EM = 1.3
-const MAX_LINE_WIDTH = 1400
 // Every WebGL device takes a texture this large; a wide glow lowers the bitmap's resolution instead
 // of growing past it
 const MAX_BITMAP_SIZE = 4096
@@ -78,10 +79,10 @@ export function renderTitleSprite (style: TitleStyle, viewportWidth: number, pix
   const probeSize = 100
   setFont(ctx, style, probeSize)
   const widest = Math.max(...lines.map(line => ctx.measureText(line).width))
-  const targetWidth = Math.min(viewportWidth * style.size, MAX_LINE_WIDTH)
+  const targetWidth = Math.min(viewportWidth * style.size, style.maxWidth)
   const fontSize = probeSize * targetWidth / Math.max(widest, 1)
 
-  const lineHeight = fontSize * LINE_HEIGHT_EM
+  const lineHeight = fontSize * style.lineHeight
   const haloRadius = Math.max(style.haloRadius, 0)
   const haloStreak = Math.max(style.haloStreak, 1)
   // The box leaves room for the glow on every side

@@ -148,6 +148,8 @@ function ParticleCanvas () {
         weight: params.titleWeight,
         tracking: params.titleTracking,
         size: params.titleSize,
+        maxWidth: params.titleMaxWidth,
+        lineHeight: params.titleLineHeight,
         // No glow, no blur to draw
         haloRadius: params.titleHalo > 0 ? params.titleHaloRadius : 0,
         haloStreak: params.titleStreak

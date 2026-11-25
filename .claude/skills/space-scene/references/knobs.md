@@ -515,6 +515,66 @@ seconds from its start; everything after the explosion counts from `collapseAt`.
 - The title's words, face and case are not parameters: the title command on the page, or the intro's title,
   font and uppercase in a film, or a cue's own when a film fires another title.
 
+### Fine tuning: the numbers that shape each event
+
+These were constants of the code. Each one's default is the constant it replaced, so an opening that leaves
+them alone is drawn as it was; the intro debugger keeps them in the Fine Tuning group of their track.
+
+| Track | Fine tuning |
+|---|---|
+| Progenitor star | `starChargeEase` |
+| Light front | `lightReach` |
+| Dust echo | `echoHoldThin`, `echoHoldThick`, `echoSwell`, `echoSwellMin`, `echoReach`, `dustBlowTime`, `dustDriftAngle`, `dustShockOffset`, `dustShockSharpness`, `dustShockTint` |
+| Background stars | `starFlareDecay` |
+| Collapsing core | `remnantEmberAt`, `remnantWhiteness`, `remnantDeep`, `remnantDim` |
+| Shadow, lens, ring | `horizonEase` |
+| Title: type | `titleLineHeight`, `titleMaxWidth`, `titleMargin` |
+| Title: arriving | `titleInOversize`, `titleInEase`, `titleRiseEase`, `titlePushEase` |
+| Title: leaving | `titleFlyGrowth`, `titleFlyEase`, `titleOutGrowth`, `titleOutEase`, `titlePullLimit`, `titleSpeckSize`, `titleCurrentSize`, `titleBeyondSpeed`, `titleWink`, `titleSpiralRadius`, `titleSpiralMin`, `titleSpiralMax`, `titleBurnGrain`, `titleBurnFine`, `titleBurnEnds`, `titleBurnRim`, `titleBurnRimWidth` |
+| Camera and film stock | `cameraCreep`, `cameraSettleEase`, `cameraKickDecay`, `shakeRate`, `vignetteStart`, `vignetteEnd`, `filmKnee` |
+
+- `lightReach` is how far past the farthest corner the fronts run in `lightCrossTime`, so it multiplies the
+  on-screen speed of light: the matter front, the birth of the particles and the gravitational wave quicken
+  with it, and the ringdown, which follows that speed, rings higher and shorter.
+- The dust holds the light for a multiple of `echoDecay`: `echoHoldThin` in the thinnest haze,
+  `echoHoldThick` in the thickest cloud. Its glow swells over `echoSwell` of `echoDecay` plus
+  `echoSwellMin` seconds, and is half as bright `echoReach` of the screen's width from the explosion.
+- `dustBlow` is covered over `dustBlowTime`; `dustDrift` goes the way `dustDriftAngle` points, in degrees
+  anticlockwise from the right.
+- The flare of `dustShock` stands `dustShockOffset` widths of the matter front (`waveWidth`) outside its
+  middle, is as thin as `dustShockSharpness` and is coloured `dustShockTint` of the way from `colorDust`
+  to `colorLight`. Behind the front `dustSweep` has cleared the dust, so a negative offset shows little.
+- A star's `starFlare` lasts `starFlareDecay`.
+- Over `redshiftDuration` the core cools from `colorFlash` to `colorEmber`, which it is at
+  `remnantEmberAt` of the way with `remnantWhiteness` of the flash still in it, then sinks to that colour
+  deepened, `remnantDeep` bright, having lost `remnantDim` of its glow.
+- A key that ends in Ease is the power of a curve, 1 being an even pace: `starChargeEase` (the star's
+  brightening), `horizonEase` (over `horizonGrowth`), `cameraSettleEase` (over `cameraSettle`),
+  `titlePushEase` (`titlePush` over the title's life), and one for each way a title moves:
+  `titleInEase` with Fades in, `titleRiseEase` with Gathers from dust and Comes out of the black hole,
+  `titleFlyEase` with Flies past the camera, `titleOutEase` with Fades out. Falling in has `titleFallEase`.
+- The sizes of those moves: a title fading in settles from `titleInOversize` too large, one flying past
+  gains `titleFlyGrowth` sizes, one fading out `titleOutGrowth`.
+- `titleLineHeight` and `titleMaxWidth` are read when the words are drawn, as `titleSize`, `titleWeight`,
+  `titleTracking`, `titleHaloRadius` and `titleStreak` are: set them in the intro's params or a cue's own.
+  A track on one moves nothing, and the film is told so. `titleMargin` is read every frame.
+- The falling dust follows `gravityStrength` and `orbitalStrength` as multiples of 2.5 and 40, and
+  `titlePullLimit` is the most either counts for. `titleSpeckSize` sizes the specks, and the grain of
+  `titleDust` with them; `titleCurrentSize` is the width of the currents of `titleStream`;
+  `titleBeyondSpeed` is the speed of dust beyond `gravityReach`; a speck takes `titleWink` of the fall to
+  go out, in the order `titleOrder` sets.
+- At `titleSpiral` 1 the dust `titleSpiralRadius` of the screen's height from the hole turns as
+  `titleSwirl` sets, nearer dust up to `titleSpiralMax` times that and farther dust down to
+  `titleSpiralMin`.
+- The five keys that begin titleBurn shape the Burns away exit alone: the two grains of the fire's ragged
+  edge (`titleBurnGrain`, `titleBurnFine`), how much it eats in from the ends (`titleBurnEnds`), and its
+  glowing rim, `titleBurnRim` times `colorEmber` and `titleBurnRimWidth` wide.
+- `cameraZoom` creeps `cameraCreep` of its way before `collapseAt`; `cameraKick` drops over
+  `cameraKickDecay`; `shakeAmount` trembles at `shakeRate` times its own rate. `vignette` darkens from
+  `vignetteStart` to `vignetteEnd`, in half sizes of the frame from its middle.
+- `filmKnee` is not the opening's alone: it rolls off the highlights of every frame, whatever `filmHold`
+  is and in a film without the opening too.
+
 ## 14. Layers of the opening
 
 Each can be hidden on its own to see what it contributes, or to leave it out of a film: `star`, `glare`,
@@ -632,29 +692,24 @@ The cost of a knob, in the last column:
 | Fixed | File in src/lib | Cost |
 |---|---|---|
 | The dust's clouds: three layers of noise, each 2.1 times finer, bent by a slower one; `dustScale` and `dustThreshold` size and thin them | webgl_shaders.ts | pixel |
-| How long dust holds the light: 0.4 of `echoDecay` in thin haze to 1.8 in the thickest cloud, swelling over 0.15 of it, and dimming with distance over half a screen width | webgl_shaders.ts | frame |
-| The dust's motion: the direction it drifts, and the 1.2 s the blast takes to push it `dustBlow` | webgl_shaders.ts | frame |
-| Where the matter front lights the dust: 0.6 of its width behind the front | webgl_shaders.ts | frame |
-| The 0.18 s a background star stays flared by the light front | webgl_shaders.ts | frame |
-| The remnant's colours as it reddens: from the flash to the ember, then dark, 0.7 dimmer at the end | webgl_shaders.ts | frame |
-| How far the blast reaches: 1.15 times the farthest corner of the screen | scene.ts | frame |
-| The camera's shake, two sines a side at 40 to 83 radians a second, and the 0.16 s its kick takes to drop to a third | scene.ts, intro_timeline.ts | frame |
-| The camera's zoom: a tenth of the way before the collapse and the rest eased out until `cameraSettle` | intro_timeline.ts | frame |
-| The eases of the timeline: how each fade and growth starts and settles between its two moments | intro_timeline.ts | frame |
-| The film look: the vignette from 0.45 to 1.45 of the frame's half size, highlights rolled off above 0.8, `lensFringe` growing to the corners | webgl_shaders.ts | frame |
+| The colour of dust the front has just struck: the light front's, fading to the dust's own as the square of how fresh its glow is | webgl_shaders.ts | frame: a curve, not a number |
+| The pattern of the camera's shake: two sines a side, the second 0.6 as strong and a little over half as fast, at 40 to 83 radians a second | scene.ts | frame: a pattern, not a number; `shakeRate` speeds all of it |
+| The fades that are a smooth step between their two moments: the stars' fade-in, the lens, the ring, the film look lifting, the field turning to the screen's centre | intro_timeline.ts | frame: a shape with no number in it; each one's length is a knob, and the curves that are a power have theirs |
+| When a title dims within its leaving: from 0.6 of the fall, from 0.55 of the flight past; and that one gathering from dust is fully lit 0.4 of the way in | intro_timeline.ts | frame: moments inside a fade whose length is a knob; three more keys for the title |
+| How `lensFringe` grows: evenly from the middle of the frame to its corners | webgl_shaders.ts | frame: a shape, not a number |
 | The opening for reduced motion: 2.6 s, its fades fixed | intro_timeline.ts | machine |
 
 ### The title
 
 | Fixed | File in src/lib | Cost |
 |---|---|---|
-| The hole the title's fall is measured against: at `gravityStrength` 2.5 and `orbitalStrength` 40 the dust travels `titleDrift` and turns 0.35 of a radian at `titleSwirl` 1; a stronger hole counts up to 4 times | scene.ts, webgl_shaders.ts | frame |
-| Its dust: specks 2 CSS px across in currents 11 px wide, dust beyond gravity's reach falling at 0.15 of the speed, each speck winking out over 0.15 of the fall | webgl_shaders.ts | frame |
+| The hole the title's fall is measured against: at `gravityStrength` 2.5 and `orbitalStrength` 40 the dust travels `titleDrift`, the whole title drawn in by 2.5 times that, and turns 0.35 of a radian at `titleSwirl` 1 | scene.ts, webgl_shaders.ts | has one: `titleDrift`, `titleSwirl` |
+| The falling dust's finer shape: a current's contrast of 1.8, the order of vanishing measured over 0.6 of the screen's height, the horizon's edge a quarter of its radius wide, gravity's reach fading over as far again | webgl_shaders.ts | frame |
+| The grain of the letters at `titleDust`: noise 2.4 px across mixed 0.55 to 0.45 with the specks, cut between 0.15 and 0.8 | webgl_shaders.ts | frame |
 | The streak behind the falling letters: three fainter copies, each 13% behind the last; `titleTrail` scales them | webgl_shaders.ts | pixel |
-| The burning: the ragged edge's two grains, 18 and 5 px, eating in from the ends, with a rim 2.5 times the ember | webgl_shaders.ts | frame |
-| How much the inner part winds further round at `titleSpiral` 1: 0.4 to 3 times | webgl_shaders.ts | frame |
-| How a title arrives and leaves: 9 times larger as it flies past the camera, 12% too large fading in, 6% growing as it fades out | intro_timeline.ts | frame |
-| Its setting: lines 1.3 em apart and 1400 px wide at most, 16 px clear of the screen's edges, the halo brought up 1.5 times | title_sprite.ts, scene.ts, webgl_shaders.ts | birth |
+| The fire's edge: its two grains mixed 0.6 to 0.4, an edge 0.06 of the fuel wide | webgl_shaders.ts | frame |
+| The halo brought up 1.5 times, since a blur spreads the letters' light thin | webgl_shaders.ts | has one: `titleHalo` |
+| The room round the words for their glow, and a bitmap of 4096 px at most | title_sprite.ts | machine |
 
 ### The camera of the scene
 
