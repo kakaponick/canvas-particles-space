@@ -22,7 +22,7 @@ import { stepSpring, type Spring2D } from './black_hole_motion'
 import { renderTitleSprite, waitForTitleFont, type TitleSprite, type TitleStyle } from './title_sprite'
 import { clearRingEnergy, createRingEnergy, stepRingEnergy } from './ring_energy'
 import { createGridSettings, placeGrid } from './space_grid'
-import { LIGHT_SPEED, MAX_ORBITERS, createOrbiters, stepOrbiters } from './orbiters'
+import { LIGHT_SPEED, SHADOW_RADII, clearOrbiters, createOrbiters, stepOrbiters } from './orbiters'
 import { createPair, stepPair } from './companion'
 import { createRandom, seedRandom } from './random'
 
@@ -129,8 +129,6 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
   let originY = 0
 
   let fadeBacklog = 0
-  // Levels of brightness the orbiting stars' traces still owe; they are taken off in whole levels
-  let orbitFadeBacklog = 0
 
   const intro = createIntroFrame()
   const ringTiming: RingdownTiming = { frequency: 1, decay: 1 }
@@ -198,7 +196,13 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     instances: instances.floats,
     instanceCount: 0,
     orbitCount: 0,
-    orbitFade: 0,
+    orbitRow: orbiters.row,
+    orbitRowNew: true,
+    orbitDimmed: 0,
+    orbitX: 0,
+    orbitY: 0,
+    orbitUnit: 1,
+    orbitWidth: 1,
     doppler: 0,
     speedGlow: 1,
     frameScale: 1,
@@ -340,9 +344,8 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
   function restart (from: SceneInput, introTime = 0) {
     scene.introTime = introTime
     fadeBacklog = 0
-    orbitFadeBacklog = 0
     field.count = 0
-    orbiters.count = 0
+    clearOrbiters(orbiters)
     clearRingEnergy(ringEnergy)
     syncSpawn(from.settings)
     setParticleCount(field, from.particleCount, spawn)
@@ -451,8 +454,7 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
 
     syncSpawn(state)
     if (from.particleCount !== field.count) setParticleCount(field, from.particleCount, spawn)
-    // Room for every particle and, after them, the orbiting stars
-    ensureInstanceCapacity(instances, field.capacity + MAX_ORBITERS)
+    ensureInstanceCapacity(instances, field.capacity)
 
     // The black hole: born where the intro happens, then pulled toward its target on a spring.
     // An anchored hole rests at its saved position, which a slider or a preset may have just moved
@@ -531,18 +533,19 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     if (frame.updateScene) {
       const simStart = performance.now()
       frame.instanceCount = stepParticles(field, settings, spawn, instances)
-      // The orbiting stars circle the hole at its full size and light up as it forms; their segments
-      // follow the particles'. Their traces fade by a level of brightness at a time
-      frame.orbitCount = state.orbitCount > 0
-        ? stepOrbiters(
-          orbiters, state.orbitCount, state.orbitSize, state.orbitEccentricity, state.orbitSpeed, dt,
-          holeX, holeY, shadowRadius, shadowRadius * state.horizonScale, shortSide,
-          state.orbitStarSize, Math.min(holeGrowth, 1), spawn.palette, settings.ringEnergy, instances, frame.instanceCount
-        )
-        : 0
-      orbitFadeBacklog += dt * 255 / Math.max(state.orbitTrail, 1 / 255)
-      frame.orbitFade = Math.floor(orbitFadeBacklog)
-      orbitFadeBacklog -= frame.orbitFade
+      // The orbiting stars circle the hole at its full size and light up as it forms. The renderer keeps
+      // the stretches they fly and draws the traces from them, around the hole as it is this frame
+      frame.orbitCount = stepOrbiters(
+        orbiters, state.orbitCount, state.orbitSize, state.orbitEccentricity, state.orbitSpeed, dt,
+        shadowRadius, shadowRadius * state.horizonScale, shortSide,
+        Math.min(holeGrowth, 1), state.orbitTrail, spawn.palette, settings.ringEnergy
+      )
+      frame.orbitRowNew = orbiters.rowNew
+      frame.orbitDimmed = orbiters.dimmed
+      frame.orbitX = holeX
+      frame.orbitY = holeY
+      frame.orbitUnit = shadowRadius / SHADOW_RADII
+      frame.orbitWidth = state.orbitStarSize
       if (ringFed) stepRingEnergy(ringEnergy, dt, state.ringAfterglow, reducedMotion ? 0 : state.ringFlowSpeed)
       frame.instances = instances.floats
       scene.simulationMs = performance.now() - simStart

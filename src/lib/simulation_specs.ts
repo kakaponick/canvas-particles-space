@@ -133,7 +133,7 @@ export const SIMULATION_SETTING_SPECS = {
   companionWaves: spoken(spec('Waves', 0, 3, 0.05, fixed(2, '×'), 'Strength of the gravitational waves',
     'Strength of the gravitational waves of the pair: a two-armed spiral that turns with it, stretches the sky and the sheet, grows as the two close in, and ends in the ringdown wave of the merged black hole. 0 = none.'), 'Gravitational Wave Strength'),
   cameraZoom: spoken(spec('Zoom', 1, 8, 0.05, fixed(2, '×'), 'Magnifies the view around the black hole',
-    'How much the camera magnifies the scene. The black hole stays where it is on the screen and everything else moves away from it, so a film can push in on the shadow and its ring. 1 is no zoom.'), 'Camera Zoom'),
+    'How much the camera magnifies the scene. The black hole stays where it is on the screen and everything else moves away from it, so a film can push in on the shadow and its ring. The scene is drawn anew at the zoom, so it stays sharp; while the zoom changes, the particles\' trails streak. 1 is no zoom.'), 'Camera Zoom'),
   gridCell: spoken(spec('Spacing', 3, 25, 0.5, fixed(1, '%'), 'Cell size, % of short side',
     'Size of one cell of the space grid as a share of the screen\'s short side. Both grids, the sheet and the lensed grid, use it.'), 'Grid Spacing'),
   gridSheet: spoken(spec('Sheet', 0, 1, 0.01, percentOfOne, 'Curved sheet under the hole; 0 = off',

@@ -57,6 +57,8 @@ export const particleVertexShaderSource = `
   uniform float u_doppler;    // 0 at rest, 1 near the speed of light
   uniform float u_speedGlow;  // how strongly brightness follows speed; 0 lights every moving particle in full
   uniform float u_frameScale; // length of this frame in 60 Hz reference frames
+  uniform vec4 u_zoom;        // the camera: the point its zoom leaves in place (device pixels), the zoom
+  uniform vec4 u_zoomFrom;    // the camera of the frame before, the same way
 
   varying vec2 v_ends;        // distance along the segment from its start and from its end
   varying float v_across;     // signed distance from the segment axis
@@ -70,14 +72,18 @@ export const particleVertexShaderSource = `
   const vec3 REDSHIFT = vec3(1.0, 0.58, 0.42);
 
   void main () {
-    vec2 start = a_segment.xy * u_pixelRatio;
-    vec2 delta = a_segment.zw * u_pixelRatio - start;
+    // The camera's zoom is applied to the segment itself, not to the finished picture, so a magnified
+    // particle is drawn anew at its larger size and keeps a sharp edge. The stroke starts where the
+    // particle stood in the last frame's picture, through that frame's camera, so its trail stays one
+    // unbroken line while the camera zooms or follows the black hole
+    vec2 start = u_zoomFrom.xy + (a_segment.xy * u_pixelRatio - u_zoomFrom.xy) * u_zoomFrom.z;
+    vec2 delta = u_zoom.xy + (a_segment.zw * u_pixelRatio - u_zoom.xy) * u_zoom.z - start;
     float len = length(delta);
     vec2 direction = len > 0.0001 ? delta / len : vec2(1.0, 0.0);
     vec2 normal = vec2(-direction.y, direction.x);
 
     // Lines thinner than a pixel are drawn one pixel wide and dimmed by the area they would cover
-    float width = a_style.x * u_pixelRatio;
+    float width = a_style.x * u_pixelRatio * u_zoom.z;
     float drawWidth = max(width, 1.0);
     float halfWidth = drawWidth * 0.5;
     float extent = halfWidth + 1.0;
@@ -94,7 +100,8 @@ export const particleVertexShaderSource = `
     // Brightness is set by speed directly: the capsule is stamped with the brighter-of-two blend, so
     // overlapping stamps of a slow particle do not add up and its edge stays sharp. The speed is taken
     // per 60 Hz frame, so the result is the same at any refresh rate, and u_speedGlow bends the link
-    float referenceSpeed = len / max(u_frameScale * u_pixelRatio, 0.0001);
+    // The speed is the particle's own, whatever the camera does
+    float referenceSpeed = length(a_segment.zw - a_segment.xy) / max(u_frameScale, 0.0001);
     float glow = pow(max(referenceSpeed / (referenceSpeed + SPEED_KNEE), 0.000001), u_speedGlow);
 
     // Relativistic aberration, stylised: light ahead shifts blue, light at the edges shifts red
@@ -109,6 +116,63 @@ export const particleVertexShaderSource = `
     v_color = vec4(mix(a_color.rgb, tint, min(abs(shift), 0.8)), min(a_style.y * glow * targetArea / drawnArea, 1.0));
 
     // Rows stay top-down in the scene texture, which is the layout the composite pass samples
+    gl_Position = vec4(pixel / u_resolution * 2.0 - 1.0, 0.0, 1.0);
+  }
+`
+
+// The traces of the orbiting stars (orbiters.ts): every stretch a star has flown is kept as a line and
+// all of them are drawn anew each frame, at the camera's zoom and around the black hole as it is now
+export const orbitVertexShaderSource = `
+  attribute vec2 a_position;  // quad corner: x picks the end of the stretch, y the side
+  attribute vec4 a_segment;   // its start and end, in Schwarzschild radii from the black hole
+  attribute vec2 a_style;     // how far the traces had dimmed when it was last flown, its brightness then
+  attribute vec4 a_color;     // rgb as normalized bytes
+
+  uniform vec2 u_resolution;  // drawing buffer size in device pixels
+  uniform vec4 u_zoom;        // the camera: the point its zoom leaves in place (device pixels), the zoom
+  uniform vec4 u_orbit;       // the black hole (device pixels), device pixels in a Schwarzschild radius, line width in device pixels
+  uniform float u_dimmed;     // brightness every trace has lost since the traces began
+
+  varying vec2 v_ends;
+  varying float v_across;
+  varying float v_halfWidth;
+  varying vec4 v_color;
+
+  const float PI = 3.14159265359;
+
+  void main () {
+    v_ends = vec2(0.0);
+    v_across = 0.0;
+    v_halfWidth = 0.0;
+    v_color = vec4(0.0);
+    // A trace loses brightness evenly, so every one of them reaches black
+    float brightness = a_style.y - (u_dimmed - a_style.x);
+    if (brightness <= 0.0) {
+      gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+      return;
+    }
+
+    vec2 start = u_zoom.xy + (u_orbit.xy + a_segment.xy * u_orbit.z - u_zoom.xy) * u_zoom.z;
+    vec2 delta = (a_segment.zw - a_segment.xy) * u_orbit.z * u_zoom.z;
+    float len = length(delta);
+    vec2 direction = len > 0.0001 ? delta / len : vec2(1.0, 0.0);
+    vec2 normal = vec2(-direction.y, direction.x);
+
+    float width = u_orbit.w * u_zoom.z;
+    float drawWidth = max(width, 1.0);
+    float halfWidth = drawWidth * 0.5;
+    float extent = halfWidth + 1.0;
+    float along = mix(-extent, len + extent, a_position.x * 0.5 + 0.5);
+    float across = a_position.y * extent;
+    vec2 pixel = start + direction * along + normal * across;
+
+    float targetArea = len * width + PI * width * width * 0.25;
+    float drawnArea = len * drawWidth + PI * (halfWidth * halfWidth + 1.0 / 12.0);
+
+    v_ends = vec2(along, len - along);
+    v_across = across;
+    v_halfWidth = halfWidth;
+    v_color = vec4(a_color.rgb, min(brightness * targetArea / drawnArea, 1.0));
     gl_Position = vec4(pixel / u_resolution * 2.0 - 1.0, 0.0, 1.0);
   }
 `
@@ -256,6 +320,7 @@ export const compositeFragmentShaderSource = `
   // Camera and film
   uniform float u_cameraZoom;    // zoom of the whole frame around u_zoomCenter; 1 is none
   uniform vec2 u_zoomCenter;     // the point of the frame the zoom leaves where it is, pixels
+  uniform vec4 u_layerZoom;      // the zoom the particles and the orbits were drawn at: its fixed point, pixels, and the zoom
   uniform vec2 u_shake;          // jolt of the camera, pixels
   uniform float u_lensFringe;    // colour fringing of the scene at the frame's corners, pixels
   uniform float u_vignette;      // darkening of the corners
@@ -331,7 +396,8 @@ export const compositeFragmentShaderSource = `
     float presence = hash12(cell);
     if (presence > u_starDensity) return vec3(0.0);
     vec2 position = (cell + 0.2 + 0.6 * vec2(hash12(cell + 7.3), hash12(cell + 13.1))) * u_starCell;
-    float d = length(cssPx - position);
+    // A star is a point of light: the zoom moves the stars apart and leaves each the size it was
+    float d = length(cssPx - position) * u_cameraZoom;
     float brightness = hash12(cell + 3.7);
     float twinkle = 0.85 + 0.15 * sin(u_time * (2.0 + 3.0 * brightness) + presence * 400.0);
     vec3 tint = mix(vec3(1.0, 0.82, 0.62), vec3(0.75, 0.85, 1.0), hash12(cell + 29.0));
@@ -373,15 +439,25 @@ export const compositeFragmentShaderSource = `
     return min(x, 0.8) + 0.2 * (1.0 - exp(-over / 0.2));
   }
 
-  // The particle scene; rays that leave the screen reflect off its edge instead of smearing the edge pixels
-  vec3 scene (vec2 px) {
-    return texture2D(u_image, 1.0 - abs(1.0 - mod(px / u_resolution, 2.0))).rgb;
+  // Where a point of the scene lies in the layers the particles and the orbits are drawn into, which
+  // hold the scene already magnified
+  vec2 layerPoint (vec2 px) {
+    return u_layerZoom.xy + (px - u_layerZoom.xy) * u_layerZoom.z;
+  }
+
+  // The particle scene at a point of its layer; rays that leave the screen reflect off its edge instead
+  // of smearing the edge pixels
+  vec3 scene (vec2 layerPx) {
+    return texture2D(u_image, 1.0 - abs(1.0 - mod(layerPx / u_resolution, 2.0))).rgb;
   }
 
   void main () {
     // Where this pixel is on the screen, and where the zoomed and jolted camera looks through it
     vec2 screen = vec2(gl_FragCoord.x, u_resolution.y - gl_FragCoord.y);
     vec2 frag = u_zoomCenter + (screen - u_zoomCenter) / u_cameraZoom + u_shake;
+    // Pixels of the scene under one pixel of the screen: edges and hairlines are measured in it, so the
+    // zoom leaves them as sharp and as thin as they were
+    float px = 1.0 / u_cameraZoom;
     vec2 offset = frag - u_hole;
     float dist = length(offset);
     // A ringing horizon is an oval, stretched sideways and squeezed vertically while the wobble is
@@ -479,14 +555,15 @@ export const compositeFragmentShaderSource = `
       samplePx -= sourceOffset / max(sourceDist, 0.0001) * u_waveStrength * front * exp(-front * front);
     }
 
-    vec3 color = scene(samplePx);
+    vec2 layerPx = layerPoint(samplePx);
+    vec3 color = scene(layerPx);
     // The orbiting stars are read through the same bent ray, the brighter of them and the particles
-    if (u_orbits > 0.0) color = max(color, texture2D(u_orbitTrails, 1.0 - abs(1.0 - mod(samplePx / u_resolution, 2.0))).rgb);
+    if (u_orbits > 0.0) color = max(color, texture2D(u_orbitTrails, 1.0 - abs(1.0 - mod(layerPx / u_resolution, 2.0))).rgb);
     if (u_lensFringe > 0.0) {
       // A simple lens bends red less and blue more, and more so away from the middle of the frame
       vec2 split = (screen - 0.5 * u_resolution) / (0.5 * length(u_resolution)) * u_lensFringe;
-      color.r = scene(samplePx - split).r;
-      color.b = scene(samplePx + split).b;
+      color.r = scene(layerPx - split).r;
+      color.b = scene(layerPx + split).b;
     }
 
     // Seconds since the light front passed this point; negative before it arrives
@@ -576,7 +653,7 @@ export const compositeFragmentShaderSource = `
       // bent ray comes from, so the lens, the gravitational wave and the matter front bend it like the
       // stars, and it widens where the lens magnifies
       vec2 fromLine = abs(fract((cssPx - 0.5 * u_resolution / u_pixelRatio) / u_gridCell - 0.5) - 0.5) * u_gridCell;
-      emitted += GRID_COLOR * u_skyGrid * clamp((GRID_HALF_LINE - min(fromLine.x, fromLine.y)) * u_pixelRatio + 0.5, 0.0, 1.0);
+      emitted += GRID_COLOR * u_skyGrid * clamp((GRID_HALF_LINE - min(fromLine.x, fromLine.y) * u_cameraZoom) * u_pixelRatio + 0.5, 0.0, 1.0);
     }
     // Light is invisible in empty space: the front shows where it strikes dust, and the dust
     // keeps glowing for a moment after it passes (the light echo)
@@ -628,17 +705,17 @@ export const compositeFragmentShaderSource = `
     // Each black hole's shadow also hides the part of the other's ring that lies behind it
     float besideCompanion = 1.0;
     if (u_companion.z > 0.0) {
-      besideCompanion = smoothstep(u_companion.z - 1.0, u_companion.z + 1.0, companionDist);
+      besideCompanion = smoothstep(u_companion.z - px, u_companion.z + px, companionDist);
       color *= besideCompanion;
     }
 
     if (u_horizon > 0.0) {
-      float besideHole = smoothstep(u_horizon - 1.0, u_horizon + 1.0, dist);
+      float besideHole = smoothstep(u_horizon - px, u_horizon + px, dist);
       color *= besideHole;
 
       // The second black hole's ring is a plain line: no matter is tracked falling into it
       if (u_companion.z > 0.0 && u_ring > 0.0 && companionDist < u_companion.z * 1.6) {
-        float ringLine = 1.5 + u_ringWidth * u_companion.z;
+        float ringLine = 1.5 * px + u_ringWidth * u_companion.z;
         float fromLine = companionDist - u_companion.z - 0.7 * ringLine;
         float inner = fromLine / (0.45 * ringLine);
         float line = exp(-inner * inner);
@@ -652,7 +729,7 @@ export const compositeFragmentShaderSource = `
       // Photon ring: light that circled the hole before escaping, a hair-thin line hugging the shadow
       if (u_ring > 0.0 && dist < u_horizon * 1.6) {
         // Added to a floor rather than clamped to it, so every step of Thickness shows
-        float ringLine = 1.5 + u_ringWidth * u_horizon;
+        float ringLine = 1.5 * px + u_ringWidth * u_horizon;
         float fromLine = dist - u_horizon - 0.7 * ringLine;
         float inner = fromLine / (0.45 * ringLine);
         float line = exp(-inner * inner);

@@ -5,14 +5,26 @@
 // Schwarzschild radius cut out, which puts the last stable orbit and the plunge where relativity does.
 //
 // The state is kept in Schwarzschild radii and units of the speed of light, relative to the black hole, so
-// the orbits scale with the hole and move with it. They lie in the plane of the screen. A star writes one
-// segment per frame into the particle instance array; the renderer stamps those into a layer of their own
-// that fades slowly, which is the trace of the orbit.
+// the orbits scale with the hole and move with it. They lie in the plane of the screen.
+//
+// The trace of an orbit is kept as lines, not as a picture: a star hands the renderer the stretch it is
+// flying, from where the stretch began to where the star is now, in the same Schwarzschild radii. The
+// renderer keeps every stretch and draws them all anew each frame, so the traces follow the hole, grow
+// with it and stay sharp at any zoom.
 import { nextRandom, type Random } from './random'
 import { depositRingEnergy, type RingEnergy } from './ring_energy'
-import { INSTANCE_FLOATS, samplePaletteColor, type InstanceData, type PaletteSampler } from './particle_simulation'
+import { INSTANCE_FLOATS, samplePaletteColor, type PaletteSampler } from './particle_simulation'
 
 export const MAX_ORBITERS = 64
+// A stretch has the layout of a particle's record: its start and end, how far the traces had dimmed when
+// it was last flown, its brightness, its colour
+export const STRETCH_FLOATS = INSTANCE_FLOATS
+// A trace never loses its brightness faster than over this many seconds, so a trail of 0 still shows the star
+const SHORTEST_TRACE = 0.05
+// Seconds a stretch is flown before the next one begins, whatever the frame rate, so the longest trace
+// of a star is a known number of them. A hair under one sixtieth: a 60 Hz frame that ran a moment short
+// still closes its stretch
+export const STRETCH_SECONDS = 0.016
 
 // Schwarzschild radii in the radius of the shadow, sqrt(27) / 2
 export const SHADOW_RADII = 2.598
@@ -46,6 +58,20 @@ export interface Orbiters {
   // Where the star was drawn last; NaN before it has been drawn
   drawnX: Float64Array
   drawnY: Float64Array
+  // Where the stretch the star is flying began
+  fromX: Float64Array
+  fromY: Float64Array
+  // The stretches the stars are flying, one record each, and the same bytes for their colours
+  row: Float32Array
+  rowColors: Uint32Array
+  // True on the frame a new row of stretches begins; false while the stars go on with the last one
+  rowNew: boolean
+  rowCount: number
+  rowSeconds: number
+  // Brightness every trace has lost since the traces began, the measure a stretch's age is kept in: it
+  // grows by 1 over the seconds a trace stays lit, so a trail that changes length dims what is already
+  // there at the new rate from then on. 0 again once the last star is gone
+  dimmed: number
   // Seconds since the star appeared
   age: Float32Array
   color: Uint32Array
@@ -57,9 +83,18 @@ export interface Orbiters {
 }
 
 export function createOrbiters (random: Random): Orbiters {
+  const row = new Float32Array(MAX_ORBITERS * STRETCH_FLOATS)
   return {
     random,
     count: 0,
+    fromX: new Float64Array(MAX_ORBITERS),
+    fromY: new Float64Array(MAX_ORBITERS),
+    row,
+    rowColors: new Uint32Array(row.buffer),
+    rowNew: true,
+    rowCount: 0,
+    rowSeconds: 0,
+    dimmed: 0,
     x: new Float64Array(MAX_ORBITERS),
     y: new Float64Array(MAX_ORBITERS),
     vx: new Float64Array(MAX_ORBITERS),
@@ -113,10 +148,18 @@ function spawnOrbiter (orbiters: Orbiters, i: number, size: number, eccentricity
   orbiters.color[i] = samplePaletteColor(palette, random)
 }
 
+// Forgets the stars and the traces they left
+export function clearOrbiters (orbiters: Orbiters) {
+  orbiters.count = 0
+  orbiters.rowCount = 0
+  orbiters.rowSeconds = 0
+  orbiters.dimmed = 0
+}
+
 /**
- * Advances the stars by `dt` seconds and writes one segment for each into `out`, starting at the record
- * `offset`. Lengths are CSS pixels; `speed` is the rate of their time, and its sign their direction.
- * Returns the number of segments written.
+ * Advances the stars by `dt` seconds and writes the stretch each is flying into `orbiters.row`. Lengths
+ * are CSS pixels; `speed` is the rate of their time, and its sign their direction; `trail` is the
+ * seconds a trace stays lit. Returns the number of stars.
  */
 export function stepOrbiters (
   orbiters: Orbiters,
@@ -125,21 +168,17 @@ export function stepOrbiters (
   eccentricity: number,
   speed: number,
   dt: number,
-  holeX: number,
-  holeY: number,
   shadowRadius: number,
   captureRadius: number,
   shortSide: number,
-  width: number,
   opacity: number,
+  trail: number,
   palette: PaletteSampler,
-  ringEnergy: RingEnergy | null,
-  out: InstanceData,
-  offset: number
+  ringEnergy: RingEnergy | null
 ): number {
   const count = Math.min(Math.max(Math.floor(requested), 0), MAX_ORBITERS)
   if (count === 0 || shadowRadius <= 0) {
-    orbiters.count = 0
+    clearOrbiters(orbiters)
     return 0
   }
 
@@ -150,8 +189,16 @@ export function stepOrbiters (
   for (let i = remade ? 0 : orbiters.count; i < count; i++) spawnOrbiter(orbiters, i, size, eccentricity, palette)
   orbiters.count = count
 
-  const { x, y, vx, vy, drawnX, drawnY, age, color } = orbiters
-  const { floats, colors } = out
+  // The stars go on with the stretch they are flying until it is long enough; a change in their number
+  // begins a new row of them
+  const fresh = orbiters.rowCount !== count || orbiters.rowSeconds >= STRETCH_SECONDS
+  orbiters.rowNew = fresh
+  orbiters.rowCount = count
+  orbiters.rowSeconds = fresh ? dt : orbiters.rowSeconds + dt
+  orbiters.dimmed += dt / Math.max(trail, SHORTEST_TRACE)
+  const dimmed = orbiters.dimmed
+
+  const { x, y, vx, vy, drawnX, drawnY, fromX, fromY, age, color, row, rowColors } = orbiters
   const radius = shadowRadius / SHADOW_RADII
   const capture = captureRadius / radius
   const elapsed = dt * speed * LIGHT_SPEED * shortSide / radius
@@ -200,20 +247,22 @@ export function stepOrbiters (
       age[i] += dt
     }
 
-    // The segment runs from where the star was drawn last; both ends are placed from where the black
-    // hole is now, so a moving hole carries its stars without smearing them
-    const fromX = drawnX[i] === drawnX[i] ? drawnX[i] : px
-    const fromY = drawnY[i] === drawnY[i] ? drawnY[i] : py
+    // A new stretch begins where the star was drawn last; a star that has just appeared begins at itself
+    const drawn = drawnX[i] === drawnX[i]
+    if (fresh || !drawn) {
+      fromX[i] = drawn ? drawnX[i] : px
+      fromY[i] = drawn ? drawnY[i] : py
+    }
     drawnX[i] = px
     drawnY[i] = py
-    const o = (offset + i) * INSTANCE_FLOATS
-    floats[o] = holeX + fromX * radius
-    floats[o + 1] = holeY + fromY * radius
-    floats[o + 2] = holeX + px * radius
-    floats[o + 3] = holeY + py * radius
-    floats[o + 4] = width
-    floats[o + 5] = opacity * (age[i] < FADE_IN ? age[i] / FADE_IN : 1)
-    colors[o + 6] = color[i]
+    const o = i * STRETCH_FLOATS
+    row[o] = fromX[i]
+    row[o + 1] = fromY[i]
+    row[o + 2] = px
+    row[o + 3] = py
+    row[o + 4] = dimmed
+    row[o + 5] = opacity * (age[i] < FADE_IN ? age[i] / FADE_IN : 1)
+    rowColors[o + 6] = color[i]
   }
 
   return count

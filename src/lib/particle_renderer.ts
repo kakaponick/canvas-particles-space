@@ -7,12 +7,14 @@ import {
   fadeFragmentShaderSource,
   particleVertexShaderSource,
   particleFragmentShaderSource,
+  orbitVertexShaderSource,
   compositeVertexShaderSource,
   compositeFragmentShaderSource,
   gridVertexShaderSource,
   gridFragmentShaderSource
 } from './webgl_shaders'
 import { INSTANCE_FLOATS } from './particle_simulation'
+import { MAX_ORBITERS, STRETCH_SECONDS } from './orbiters'
 import type { TitleSprite } from './title_sprite'
 import { RING_BINS } from './ring_energy'
 import { GRID_COLOR, GRID_INSTANCE_COUNT, GRID_INSTANCE_FLOATS, GRID_WAVE_GAIN, createGridInstances, type GridSettings } from './space_grid'
@@ -24,6 +26,18 @@ const SCENE_TEXTURE_UNIT = 0
 const TITLE_TEXTURE_UNIT = 1
 const RING_TEXTURE_UNIT = 2
 const ORBIT_TEXTURE_UNIT = 3
+
+// A camera that zooms by more than this share in one frame, or moves the picture by more than this many CSS
+// pixels, has jumped: the particles' strokes then start afresh instead of crossing the screen
+const CAMERA_CUT_ZOOM = 1.08
+const CAMERA_CUT_SHIFT = 80
+
+// The longest trace a star may leave, seconds (the top of the Orbit Trail setting)
+const LONGEST_TRACE = 60
+// Rows of stretches the longest traces take, and one more for the row being flown
+const TRACE_ROWS = Math.ceil(LONGEST_TRACE / STRETCH_SECONDS) + 1
+// Room for every star's longest trace
+const TRACE_CAPACITY = TRACE_ROWS * MAX_ORBITERS
 
 // The output is opaque and fully redrawn every frame, so the context skips alpha, depth and MSAA
 const CONTEXT_ATTRIBUTES: WebGLContextAttributes = {
@@ -196,10 +210,20 @@ export interface FrameInput {
   fadeAlpha: number
   instances: Float32Array
   instanceCount: number
-  // Stars in orbit: their segments follow the particles' in `instances`. They are stamped into a layer
-  // of their own, which loses `orbitFade` of its 255 levels of brightness this frame
+  // Stars in orbit: `orbitRow` holds the stretch each of the `orbitCount` stars is flying, in
+  // Schwarzschild radii from the black hole. The renderer keeps the stretches and draws the traces from them
   orbitCount: number
-  orbitFade: number
+  orbitRow: Float32Array
+  // True when the row is a new one, kept beside the earlier rows; false when it redraws the last row
+  orbitRowNew: boolean
+  // Brightness every trace has lost since the traces began; a stretch is dark once this has grown by 1
+  // since it was flown
+  orbitDimmed: number
+  // The black hole the orbits circle, CSS pixels in a Schwarzschild radius, and the width of a trace
+  orbitX: number
+  orbitY: number
+  orbitUnit: number
+  orbitWidth: number
   doppler: number
   // How strongly brightness follows speed, and the frame length in 60 Hz reference frames it is judged by
   speedGlow: number
@@ -281,7 +305,8 @@ function getUniforms<T extends string> (gl: WebGL2RenderingContext, program: Web
  * Draws the particle field with WebGL:
  * 1. fades the persistent scene texture toward the background (the motion trail),
  * 2. stamps every particle segment as one instanced, anti-aliased round-capped quad, keeping the
- *    brighter of the particle and the scene,
+ *    brighter of the particle and the scene, and draws the traces of the orbiting stars into their layer,
+ *    both already at the camera's zoom,
  * 3. composites the scene to the screen through the black hole shader, which also lays the
  *    intro title behind the lens so it bends like starlight,
  * 4. while the space sheet is on, draws its lines over the frame, keeping the brighter of the two.
@@ -296,14 +321,20 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     a_style: ATTRIBUTE_LOCATIONS.style,
     a_color: ATTRIBUTE_LOCATIONS.color
   })
+  const orbitProgram = createProgram(gl, orbitVertexShaderSource, particleFragmentShaderSource, {
+    ...position,
+    a_segment: ATTRIBUTE_LOCATIONS.segment,
+    a_style: ATTRIBUTE_LOCATIONS.style,
+    a_color: ATTRIBUTE_LOCATIONS.color
+  })
   const compositeProgram = createProgram(gl, compositeVertexShaderSource, compositeFragmentShaderSource, position)
   const gridProgram = createProgram(gl, gridVertexShaderSource, gridFragmentShaderSource, {
     ...position,
     a_gridLine: ATTRIBUTE_LOCATIONS.gridLine
   })
-  const programs = [fadeProgram, particleProgram, compositeProgram, gridProgram]
+  const programs = [fadeProgram, particleProgram, orbitProgram, compositeProgram, gridProgram]
 
-  if (!fadeProgram || !particleProgram || !compositeProgram || !gridProgram) {
+  if (!fadeProgram || !particleProgram || !orbitProgram || !compositeProgram || !gridProgram) {
     for (const program of programs) {
       if (program) gl.deleteProgram(program)
     }
@@ -311,7 +342,8 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   }
 
   const fadeUniforms = getUniforms(gl, fadeProgram, ['color'] as const)
-  const particleUniforms = getUniforms(gl, particleProgram, ['resolution', 'pixelRatio', 'center', 'doppler', 'speedGlow', 'frameScale'] as const)
+  const particleUniforms = getUniforms(gl, particleProgram, ['resolution', 'pixelRatio', 'center', 'doppler', 'speedGlow', 'frameScale', 'zoom', 'zoomFrom'] as const)
+  const orbitUniforms = getUniforms(gl, orbitProgram, ['resolution', 'zoom', 'orbit', 'dimmed'] as const)
   const compositeUniforms = getUniforms(gl, compositeProgram, [
     'resolution', 'pixelRatio', 'time', 'hole', 'horizon', 'einstein', 'falloff', 'falloffPivot', 'lensCore', 'maxBend', 'lensReach', 'twistLimit', 'swirl', 'absorption', 'ring',
     'ringWidth', 'ringGlow', 'ringDoppler', 'ringSide', 'ringPhase', 'ringBase', 'ringFeed',
@@ -325,7 +357,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     'titleFringe', 'titleHalo', 'titleRedshift', 'titleGrain', 'titleBurn', 'titleFall', 'titleTidal', 'titleSpiral', 'titleSpread', 'titleStream', 'titleOrder', 'titleTrail', 'titleHeat', 'dustSweep', 'echoFloor', 'dustShock', 'dustBlow', 'dustDrift',
     'skyGrid', 'gridCell', 'orbits',
     'colorFlash', 'colorLight', 'colorDust', 'colorTitle', 'colorEmber',
-    'cameraZoom', 'zoomCenter', 'shake', 'lensFringe', 'vignette', 'filmGrain', 'letterbox'
+    'cameraZoom', 'zoomCenter', 'layerZoom', 'shake', 'lensFringe', 'vignette', 'filmGrain', 'letterbox'
   ] as const)
   const gridUniforms = getUniforms(gl, gridProgram, [
     'resolution', 'pixelRatio', 'view', 'camera', 'well', 'lines', 'wave', 'waveSpread', 'lens', 'jolt', 'color', 'shadow', 'frame', 'well2', 'pairWave', 'pairAt', 'shadow2'
@@ -386,8 +418,8 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   let titleWidth = 0
   let titleHeight = 0
 
-  // The traces of the orbiting stars, a layer of its own so they can outlast the particles' trails. It
-  // gets its full size only when the first star is drawn, and again after a resize
+  // The traces of the orbiting stars, a layer of its own that the composite pass reads through the lens.
+  // It gets its full size only when the first star is drawn, and again after a resize
   const orbitTexture = createLinearTexture(ORBIT_TEXTURE_UNIT)
   const orbitFramebuffer = gl.createFramebuffer()
   gl.bindFramebuffer(gl.FRAMEBUFFER, orbitFramebuffer)
@@ -396,6 +428,28 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   // Whether the layer may hold light, and whether the composite pass reads it this frame
   let orbitLit = false
   let orbitsShown = false
+
+  // The stretches the stars have flown, a ring of records the layer is drawn from every frame. Rows of
+  // them are written one after another and start again at the front when the end is reached, over the
+  // oldest; the ring gets its room when the first star is drawn
+  const traceBuffer = gl.createBuffer()
+  let traceSized = false
+  // Where each kept row begins, how many stretches it holds and how far the traces had dimmed when it was last flown, oldest first
+  const rowStart = new Int32Array(TRACE_ROWS)
+  const rowSize = new Uint8Array(TRACE_ROWS)
+  const rowFlown = new Float64Array(TRACE_ROWS)
+  let oldestRow = 0
+  let rowCount = 0
+  let traceDimmed = 0
+
+  // The zoom the particles and the orbits were last drawn at: its fixed point in CSS pixels and the zoom
+  let layerZoomX = 0
+  let layerZoomY = 0
+  let layerZoom = 1
+  // The same for the frame before, which is where the particles' strokes start
+  let fromZoomX = 0
+  let fromZoomY = 0
+  let fromZoom = 1
 
   // Persistent scene texture: the trail lives here between frames
   const sceneTexture = createLinearTexture(SCENE_TEXTURE_UNIT)
@@ -425,11 +479,14 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     gl.viewport(0, 0, width, height)
     orbitSized = false
     orbitLit = false
-    clearScene(background)
+    // The picture is drawn again at the new size; the orbits' traces are lines and outlast it
+    wipeScene(background)
 
     gl.useProgram(particleProgram)
     setUniform2f(gl, particleUniforms.resolution, width, height)
     setUniform1f(gl, particleUniforms.pixelRatio, ratio)
+    gl.useProgram(orbitProgram)
+    setUniform2f(gl, orbitUniforms.resolution, width, height)
     gl.useProgram(compositeProgram)
     setUniform2f(gl, compositeUniforms.resolution, width, height)
     setUniform1f(gl, compositeUniforms.pixelRatio, ratio)
@@ -438,12 +495,18 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     setUniform1f(gl, gridUniforms.pixelRatio, ratio)
   }
 
-  function clearScene (background: readonly [number, number, number]) {
+  function wipeScene (background: readonly [number, number, number]) {
     gl.bindFramebuffer(gl.FRAMEBUFFER, sceneFramebuffer)
     gl.clearColor(background[0] / 255, background[1] / 255, background[2] / 255, 1)
     gl.clear(gl.COLOR_BUFFER_BIT)
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
     clearOrbits()
+  }
+
+  // A scene that starts over: the trails and the orbits' traces both go
+  function clearScene (background: readonly [number, number, number]) {
+    wipeScene(background)
+    dropTraces()
   }
 
   function clearOrbits () {
@@ -463,9 +526,9 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     gl.activeTexture(gl.TEXTURE0 + SCENE_TEXTURE_UNIT)
   }
 
-  // One upload for the frame: the particles' segments, then the orbiting stars'
+  // One upload for the frame's particles
   function uploadInstances (frame: FrameInput) {
-    const count = frame.instanceCount + frame.orbitCount
+    const count = frame.instanceCount
     if (count === 0) return
 
     gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuffer)
@@ -494,42 +557,92 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     setUniform1f(gl, particleUniforms.speedGlow, frame.speedGlow)
     setUniform1f(gl, particleUniforms.frameScale, frame.frameScale)
     setUniform2f(gl, particleUniforms.center, frame.vanishX, frame.vanishY)
+    setUniform4f(gl, particleUniforms.zoom, layerZoomX * ratio, layerZoomY * ratio, layerZoom, 0)
+    setUniform4f(gl, particleUniforms.zoomFrom, fromZoomX * ratio, fromZoomY * ratio, fromZoom, 0)
     stampSegments(frame.instanceCount)
   }
 
-  // The orbiting stars' layer: what is there dims by whole levels of brightness, a straight fade that
-  // reaches black (a share of what is left would stall in 8 bits and leave a haze), then every star
-  // stamps the stretch it moved this frame
+  // Forgets every trace
+  function dropTraces () {
+    oldestRow = 0
+    rowCount = 0
+  }
+
+  // Takes the row of stretches the stars are flying into the ring: over the last row while they go on
+  // with it, after it when a new one begins
+  function keepRow (frame: FrameInput) {
+    // The measure going back means the stars were made anew: their old traces are gone
+    if (frame.orbitDimmed < traceDimmed) dropTraces()
+    traceDimmed = frame.orbitDimmed
+
+    const count = frame.orbitCount
+    let newest = (oldestRow + rowCount - 1) % TRACE_ROWS
+    if (rowCount === 0 || frame.orbitRowNew || rowSize[newest] !== count) {
+      let start = rowCount === 0 ? 0 : rowStart[newest] + rowSize[newest]
+      if (start + count > TRACE_CAPACITY) start = 0
+      // The oldest rows give way where the new one lands, and when there is no row left to name it
+      while (rowCount > 0 && (rowCount === TRACE_ROWS ||
+        (rowStart[oldestRow] < start + count && rowStart[oldestRow] + rowSize[oldestRow] > start))) {
+        oldestRow = (oldestRow + 1) % TRACE_ROWS
+        rowCount--
+      }
+      newest = (oldestRow + rowCount) % TRACE_ROWS
+      rowStart[newest] = start
+      rowSize[newest] = count
+      rowCount++
+    }
+    rowFlown[newest] = frame.orbitDimmed
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, traceBuffer)
+    if (!traceSized) {
+      traceSized = true
+      gl.bufferData(gl.ARRAY_BUFFER, TRACE_CAPACITY * INSTANCE_STRIDE, gl.DYNAMIC_DRAW)
+    }
+    gl.bufferSubData(gl.ARRAY_BUFFER, rowStart[newest] * INSTANCE_STRIDE, frame.orbitRow, 0, count * INSTANCE_FLOATS)
+
+    // Rows that have gone dark are let go, oldest first
+    while (rowCount > 1 && frame.orbitDimmed - rowFlown[oldestRow] > 1) {
+      oldestRow = (oldestRow + 1) % TRACE_ROWS
+      rowCount--
+    }
+  }
+
+  // The orbiting stars' layer is drawn anew every frame from the stretches kept: each is a line placed
+  // around the black hole as it is now and at the camera's zoom, dimmed by its age in the vertex shader,
+  // so the traces are sharp at any zoom, follow the hole and all reach black
   function drawOrbits (frame: FrameInput) {
+    keepRow(frame)
     if (!orbitSized) {
       orbitSized = true
       gl.activeTexture(gl.TEXTURE0 + ORBIT_TEXTURE_UNIT)
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
       gl.activeTexture(gl.TEXTURE0 + SCENE_TEXTURE_UNIT)
-      orbitLit = true
-      clearOrbits()
     }
     gl.bindFramebuffer(gl.FRAMEBUFFER, orbitFramebuffer)
-    if (frame.orbitFade > 0 && orbitLit) {
-      const level = Math.min(frame.orbitFade, 255) / 255
-      gl.useProgram(fadeProgram)
-      setUniform4f(gl, fadeUniforms.color, level, level, level, 0)
-      gl.blendEquation(gl.FUNC_REVERSE_SUBTRACT)
-      gl.blendFunc(gl.ONE, gl.ONE)
-      gl.drawArrays(gl.TRIANGLES, 0, QUAD_VERTEX_COUNT)
-      gl.blendEquation(gl.FUNC_ADD)
-      gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
-    }
+    gl.clearColor(0, 0, 0, 1)
+    gl.clear(gl.COLOR_BUFFER_BIT)
     orbitLit = true
 
-    // The stars' records follow the particles'. A star is lit in full whatever its speed, with no tint
+    gl.useProgram(orbitProgram)
+    setUniform4f(gl, orbitUniforms.zoom, layerZoomX * ratio, layerZoomY * ratio, layerZoom, 0)
+    setUniform4f(gl, orbitUniforms.orbit, frame.orbitX * ratio, frame.orbitY * ratio, frame.orbitUnit * ratio, frame.orbitWidth * ratio)
+    setUniform1f(gl, orbitUniforms.dimmed, frame.orbitDimmed)
+
+    // The kept rows lie in one run of the ring, or in two when they pass its end
+    const newest = (oldestRow + rowCount - 1) % TRACE_ROWS
+    const from = rowStart[oldestRow]
+    const to = rowStart[newest] + rowSize[newest]
+    gl.bindBuffer(gl.ARRAY_BUFFER, traceBuffer)
+    if (from < to) {
+      pointInstances(from * INSTANCE_STRIDE)
+      stampSegments(to - from)
+    } else {
+      pointInstances(from * INSTANCE_STRIDE)
+      stampSegments(TRACE_CAPACITY - from)
+      pointInstances(0)
+      stampSegments(to)
+    }
     gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuffer)
-    pointInstances(frame.instanceCount * INSTANCE_STRIDE)
-    gl.useProgram(particleProgram)
-    setUniform1f(gl, particleUniforms.doppler, 0)
-    setUniform1f(gl, particleUniforms.speedGlow, 0)
-    setUniform1f(gl, particleUniforms.frameScale, frame.frameScale)
-    stampSegments(frame.orbitCount)
     pointInstances(0)
   }
 
@@ -574,6 +687,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     setUniformColor(gl, u.colorEmber, settings.colorEmber)
     setUniform1f(gl, u.cameraZoom, Math.max(settings.cameraZoom, 0.05))
     setUniform2f(gl, u.zoomCenter, settings.zoomX * ratio, settings.zoomY * ratio)
+    setUniform4f(gl, u.layerZoom, layerZoomX * ratio, layerZoomY * ratio, layerZoom, 0)
     setUniform2f(gl, u.shake, settings.shakeX * ratio, settings.shakeY * ratio)
     setUniform1f(gl, u.lensFringe, settings.lensFringe * ratio)
     setUniform1f(gl, u.vignette, settings.vignette)
@@ -702,6 +816,21 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     const [r, g, b] = frame.background
 
     if (frame.updateScene) {
+      // The particles and the orbits are drawn magnified, so a zoom shows them sharp. A camera that
+      // pulls back (a zoom below 1) is left to the composite pass, which then reads a wider view
+      fromZoom = layerZoom
+      fromZoomX = layerZoomX
+      fromZoomY = layerZoomY
+      layerZoom = Math.max(frame.composite.cameraZoom, 1)
+      layerZoomX = layerZoom > 1 ? frame.composite.zoomX : 0
+      layerZoomY = layerZoom > 1 ? frame.composite.zoomY : 0
+      const turned = layerZoom / fromZoom
+      const shifted = (Math.abs(layerZoomX - fromZoomX) + Math.abs(layerZoomY - fromZoomY)) * (Math.max(layerZoom, fromZoom) - 1)
+      if (turned > CAMERA_CUT_ZOOM || turned * CAMERA_CUT_ZOOM < 1 || shifted > CAMERA_CUT_SHIFT) {
+        fromZoom = layerZoom
+        fromZoomX = layerZoomX
+        fromZoomY = layerZoomY
+      }
       gl.bindFramebuffer(gl.FRAMEBUFFER, sceneFramebuffer)
       if (frame.fadeAlpha > 0) {
         gl.useProgram(fadeProgram)
@@ -713,7 +842,10 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
       if (frame.orbitCount > 0) drawOrbits(frame)
       gl.bindFramebuffer(gl.FRAMEBUFFER, null)
       // The last star gone, its traces go with it
-      if (frame.orbitCount === 0) clearOrbits()
+      if (frame.orbitCount === 0) {
+        clearOrbits()
+        dropTraces()
+      }
       orbitsShown = frame.orbitCount > 0
 
       if (frame.ringFed) {
@@ -740,6 +872,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     gl.deleteTexture(ringTexture)
     gl.deleteBuffer(quadBuffer)
     gl.deleteBuffer(instanceBuffer)
+    gl.deleteBuffer(traceBuffer)
     gl.deleteBuffer(gridBuffer)
     for (const program of programs) gl.deleteProgram(program)
   }
