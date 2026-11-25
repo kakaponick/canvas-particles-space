@@ -19,18 +19,20 @@ const defaultSettings: SimulationSettings = pickSimulationSettings(useParticleSt
 export const DEFAULT_PRESET: Readonly<SimulationPreset> = { id: DEFAULT_PRESET_ID, name: DEFAULT_PRESET_NAME, settings: defaultSettings }
 
 // A black hole as general relativity has it, as far as the scene can show one, where Default is tuned for
-// the look. The lens is a point mass: the whole sky is pulled, with one mirrored image inside the Einstein
-// ring, no twist (the hole does not rotate) and no light taken away outside the shadow. The Einstein ring
-// is as wide as a camera about 20 Schwarzschild radii away sees it. What reaches the edge of the shadow is
-// captured, and nothing swirls the particles around the hole
+// the look. The lens is ray traced: every pixel follows the exact path of light past a hole that does not
+// rotate, with no light taken away outside the shadow, and an Einstein ring of 2.5 shadow radii places the
+// camera about 15 Schwarzschild radii away. Turned to the stylized lens it stays a point mass: the whole sky
+// pulled, one mirrored image inside the ring, no twist. What reaches the edge of the shadow is captured, and
+// nothing swirls the particles around the hole
 export const SCHWARZSCHILD_PRESET: Readonly<SimulationPreset> = {
   id: 'schwarzschild',
   name: 'Schwarzschild',
-  description: 'A real non-rotating black hole: point-mass lens, no twist',
+  description: 'A real non-rotating black hole: ray-traced lens',
   settings: {
     ...pickSimulationSettings(defaultSettings),
     horizonScale: 1,
     orbitalStrength: 0,
+    lensingTraced: true,
     lensingRadius: 2.5,
     lensingReach: 1,
     lensingFalloff: 2,

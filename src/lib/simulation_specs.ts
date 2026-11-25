@@ -107,7 +107,7 @@ export const SIMULATION_SETTING_SPECS = {
   ringFlowSpeed: spec('Flow Speed', -30, 30, 0.1, fixed(2, ' rad/s'), 'Bright patches\' speed; sign sets direction',
     'How fast the bright patches travel around the ring. Negative values turn them the other way.'),
   lensingRadius: spec('Einstein Radius', 0, 8, 0.05, fixed(2, '×'), 'Lens ring size, in hole radii; 0 = no lens',
-    'Radius of the Einstein ring, in black hole radii: light from behind the hole is bent into a ring this size. For a real black hole it tells how far the camera is: about the square root of twice that distance in Schwarzschild radii, divided by 2.6, so 1.7 at 10 and 3 at 30. 0 turns the lens off.'),
+    'Radius of the Einstein ring, in black hole radii: light from behind the hole is bent into a ring this size. For a real black hole it tells how far the camera is: about the square root of twice that distance in Schwarzschild radii, divided by 2.6, so 1.7 at 10 and 3 at 30. With Ray Traced on it places the camera exactly, the ring a little wider in the stereographic view: 1.32 at 2 Schwarzschild radii (the nearest, and the smallest ring), 2.13 at 10, 2.86 at 21. 0 turns the lens off.'),
   lensingReach: spoken(spec('Reach', 0, 1, 0.05, fixed(2), '0 = compact bubble · 1 = whole sky bends',
     'How far the lens is felt outside its ring, and what it shows inside. 0 = a compact bubble: the rest of the sky stays put, and inside the ring the sky folds into nested rings. 1 = a point mass (realistic): the whole sky is pulled, weaker with distance, and inside the ring there is one mirrored image of the sky from the other side.'), 'Lens Reach'),
   lensingRotation: spec('Twist', -10, 10, 0.05, fixed(2), 'Swirl of the sky; sign sets direction',

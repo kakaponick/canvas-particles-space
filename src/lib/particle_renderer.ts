@@ -66,6 +66,12 @@ export interface CompositeSettings {
   twistLimit: number
   swirl: number
   absorption: number
+  // The Ray Traced lens: 1 / the camera's distance in Schwarzschild radii (0 = the stylized lens), the
+  // stereographic scale (a direction theta from the hole lies traceScale * tan(theta / 2) from it) and the
+  // share of the bend shown
+  traceU: number
+  traceScale: number
+  traceShare: number
   ring: number
   // In black hole radii
   ringWidth: number
@@ -360,7 +366,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   const particleUniforms = getUniforms(gl, particleProgram, ['resolution', 'pixelRatio', 'center', 'doppler', 'speedGlow', 'frameScale', 'zoom', 'zoomFrom'] as const)
   const orbitUniforms = getUniforms(gl, orbitProgram, ['resolution', 'zoom', 'orbit', 'dimmed'] as const)
   const compositeUniforms = getUniforms(gl, compositeProgram, [
-    'resolution', 'pixelRatio', 'time', 'hole', 'horizon', 'einstein', 'falloff', 'falloffPivot', 'lensCore', 'maxBend', 'lensReach', 'twistLimit', 'swirl', 'absorption', 'ring',
+    'resolution', 'pixelRatio', 'time', 'hole', 'horizon', 'einstein', 'falloff', 'falloffPivot', 'lensCore', 'maxBend', 'lensReach', 'twistLimit', 'swirl', 'absorption', 'trace', 'ring',
     'ringWidth', 'ringGlow', 'ringDoppler', 'ringSide', 'ringPhase', 'ringBase', 'ringFeed',
     'center', 'starGlow', 'starRadius', 'sourcePower', 'glareRadius', 'exposure',
     'lightRadius', 'lightWidth', 'lightPower', 'lightSpeed', 'echoPower', 'echoDecay',
@@ -733,6 +739,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     setUniform1f(gl, u.twistLimit, settings.twistLimit)
     setUniform1f(gl, u.swirl, settings.swirl)
     setUniform1f(gl, u.absorption, settings.absorption)
+    setUniform4f(gl, u.trace, settings.traceU, settings.traceScale * ratio, settings.traceShare, 0)
     setUniform1f(gl, u.ring, settings.ring)
     setUniform1f(gl, u.ringWidth, settings.ringWidth)
     setUniform1f(gl, u.ringGlow, settings.ringGlow)

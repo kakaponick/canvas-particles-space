@@ -25,6 +25,7 @@ import { clearRingEnergy, createRingEnergy, stepRingEnergy } from './ring_energy
 import { createGridSettings, placeGrid } from './space_grid'
 import { LIGHT_SPEED, SHADOW_RADII, clearOrbiters, createOrbiters, stepOrbiters } from './orbiters'
 import { createPair, stepPair } from './companion'
+import { CLOSEST_CAMERA, cameraFor, shadowAngle } from './lens_trace'
 import { createRandom, seedRandom } from './random'
 import type { ParticleCrew } from './particle_crew'
 
@@ -271,6 +272,9 @@ export function createScene (
       twistLimit: 3,
       swirl: 0,
       absorption: 0,
+      traceU: 0,
+      traceScale: 1,
+      traceShare: 1,
       ring: 0,
       ringWidth: 0,
       ringGlow: 0,
@@ -810,6 +814,17 @@ export function createScene (
     composite.holeY = holeY
     composite.horizon = horizon
     composite.einstein = state.lensingEnabled && !hidden.lens ? horizon * state.lensingRadius * intro.lensScale : 0
+    // Ray Traced: the Einstein Radius places the camera. A hole that is still growing, or has taken in a
+    // companion, is a lighter or heavier hole seen from the same place, so the camera stands farther or
+    // nearer in its radii; the scale keeps the traced shadow the size the shadow is drawn
+    if (state.lensingTraced && composite.einstein > 0) {
+      const u = Math.min(cameraFor(state.lensingRadius) * horizon / (shadowShare * shortSide), 1 / CLOSEST_CAMERA)
+      composite.traceU = u
+      composite.traceScale = horizon / Math.tan(0.5 * shadowAngle(u))
+      composite.traceShare = intro.lensScale
+    } else {
+      composite.traceU = 0
+    }
     composite.falloff = state.lensingFalloff
     composite.falloffPivot = state.lensingPivot / 100 * shortSide
     composite.lensCore = state.lensingCore

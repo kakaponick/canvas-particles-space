@@ -57,6 +57,8 @@ export interface ParticleState {
   // Einstein ring radius, in multiples of the black hole radius
   lensingRadius: number
   lensingEnabled: boolean
+  // The exact light paths of a black hole that does not spin (lens_trace.ts) in place of the stylized lens
+  lensingTraced: boolean
   farZ: number
   baseBrightness: number
   depthFade: number
@@ -163,6 +165,7 @@ export interface ParticleState {
   setBackgroundColor: (r: number, g: number, b: number) => void
   setLensingRadius: (radius: number) => void
   toggleLensing: () => void
+  toggleLensingTraced: () => void
   setFarZ: (farZ: number) => void
   setBaseBrightness: (brightness: number) => void
   setDepthFade: (fade: number) => void
@@ -248,6 +251,7 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   backgroundB: 0,
   lensingRadius: 1.7,
   lensingEnabled: true,
+  lensingTraced: false,
   farZ: 5000,
   baseBrightness: 1.0,
   depthFade: 1.0,
@@ -332,6 +336,7 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   anchorBlackHoleAt: (x, y) => set({ blackHoleX: toShare(x), blackHoleY: toShare(y), blackHoleFollowing: false }),
   setLensingRadius: (radius) => set({ lensingRadius: radius }),
   toggleLensing: () => set((state) => ({ lensingEnabled: !state.lensingEnabled })),
+  toggleLensingTraced: () => set((state) => ({ lensingTraced: !state.lensingTraced })),
   setFarZ: (farZ) => set({ farZ }),
   setBaseBrightness: (brightness) => set({ baseBrightness: brightness }),
   setDepthFade: (fade) => set({ depthFade: fade }),

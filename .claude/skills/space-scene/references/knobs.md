@@ -97,6 +97,7 @@ The lens bends the finished picture (particles, stars, grids), not the particles
 | What | Keys |
 |---|---|
 | On or off | `lensingEnabled` |
+| Exact light paths (ray traced) or the stylized lens | `lensingTraced` |
 | Size of the Einstein ring, in radii | `lensingRadius` |
 | Shape outside the ring: 0 a compact bubble, 1 a point mass | `lensingReach` |
 | How the pull changes with distance, and where that changes nothing | `lensingFalloff`, `lensingPivot` |
@@ -104,10 +105,16 @@ The lens bends the finished picture (particles, stars, grids), not the particles
 | Swirl of the sky | `lensingRotation`, `lensingTwistLimit` |
 | Dark zone around the shadow | `lensingAbsorption` |
 
-- The physically faithful setup is the `Schwarzschild` preset: `lensingReach` 1, `lensingFalloff` 2, no
-  twist, one mirrored image inside the ring, capture at the shadow's edge. `Default` is tuned for the look.
+- `lensingTraced` true follows every pixel's ray round a hole that does not spin: the Einstein ring, the
+  mirrored image inside it and the thin rings of light that circled the hole come from the physics, with
+  nothing to tune but `lensingRadius` (where the camera stands) and `lensingAbsorption`. The other lens keys
+  shape only the stylized lens (`lensingTraced` false, the default) and do nothing while it is on.
+- The physically faithful setup is the `Schwarzschild` preset: `lensingTraced` true, capture at the
+  shadow's edge, no swirl of the particles; its stylized keys are a point mass (`lensingReach` 1,
+  `lensingFalloff` 2, no twist) for when the switch is turned off. `Default` is tuned for the look.
 - For a real hole `lensingRadius` says how far the camera is: about the square root of twice the distance
-  in Schwarzschild radii, divided by 2.6.
+  in Schwarzschild radii, divided by 2.6. Ray traced it places the camera exactly: 1.32 at 2 Schwarzschild
+  radii (the nearest), 2.13 at 10, 2.86 at 21. A near camera sees a very wide field around a small hole.
 - `lensingRadius` 0 turns the lens off just as `lensingEnabled` false does, so a film can fade the lens in
   with a number or cut it with the switch.
 - The lens is hard to see on a dark sky. `gridSky` above 0 (section 9) shows exactly what it does.

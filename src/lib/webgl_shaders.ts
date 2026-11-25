@@ -226,6 +226,7 @@ export const compositeFragmentShaderSource = `
   uniform float u_lensReach;     // 0: the compact bubble of the original canvas; 1: a point mass, felt across the screen
   uniform float u_twistLimit;    // cap on the pull the twist follows, so a wide lens does not wind up the scene
   uniform float u_absorption;    // light the lens's pull removes around the shadow
+  uniform vec4 u_trace;          // Ray Traced lens: 1 / the camera's distance in Schwarzschild radii (0 = the stylized lens), pixels of 2 tan(angle / 2) from the hole, share of the bend shown, unused
   uniform float u_ring;          // photon ring brightness
   uniform float u_ringWidth;     // thickness of the line beyond its 1.5 px floor, in black hole radii
   uniform float u_ringGlow;      // strength of the soft light around the line; 0 leaves the bare line
@@ -352,6 +353,11 @@ export const compositeFragmentShaderSource = `
   const vec3 GRID_COLOR = ${GRID_COLOR_GLSL};
   // Half the width of a line of the flat grid, CSS pixels
   const float GRID_HALF_LINE = 0.75;
+  // Impact parameter of the photon sphere, Schwarzschild radii: a ray aimed closer falls in
+  const float CRITICAL_IMPACT = 2.5980762;
+  // Farthest a traced ray reads the scene, in units of the projection: near the direction straight behind
+  // the camera the stereographic plane runs off to infinity
+  const float TRACE_FAR = 64.0;
 
   // Hash without sine (Dave Hoskins), stable across GPUs
   float hash12 (vec2 p) {
@@ -453,6 +459,56 @@ export const compositeFragmentShaderSource = `
     return texture2D(u_image, 1.0 - abs(1.0 - mod(layerPx / u_resolution, 2.0))).rgb;
   }
 
+  // Carlson's symmetric elliptic integral R_F(x, y, z), by duplication: seven steps hold to float precision
+  // even beside the photon sphere, where it runs off to infinity
+  float carlsonRF (vec3 v) {
+    for (int i = 0; i < 7; i++) {
+      vec3 root = sqrt(v);
+      v = 0.25 * (v + root.x * (root.y + root.z) + root.y * root.z);
+    }
+    float mean = (v.x + v.y + v.z) / 3.0;
+    vec3 d = 1.0 - v / mean;
+    float e2 = d.x * d.y - d.z * d.z;
+    float e3 = d.x * d.y * d.z;
+    return (1.0 + (e2 / 24.0 - 0.1 - 3.0 * e3 / 44.0) * e2 + e3 / 14.0) / sqrt(mean);
+  }
+
+  // dphi/du of a ray climbing out through 1 / v
+  float traceClimb (float b, float v) {
+    return b / sqrt(1.0 - b * b * v * v * (1.0 - v));
+  }
+
+  // Radians a ray travels round a black hole that does not spin, from the camera at 1 / u Schwarzschild radii
+  // until it is off to infinity, for a ray that leaves the camera theta from the direction of the hole. Its
+  // orbit obeys (du/dphi)^2 = 1/b^2 - u^2 + u^3; the roots u1 < 0 < u2 <= u3 are written so that none is the
+  // small difference of two large numbers, and u2 is the closest the ray comes. The same sweep, explained, is
+  // traceSweep in lens_trace.ts. A ray aimed inside the photon sphere is taken just outside it: the shadow
+  // covers it
+  float traceSweep (float theta, float u) {
+    float b = sin(theta) / (u * sqrt(1.0 - u));
+    bool inward = theta < 0.5 * PI;
+    if (inward) b = max(b, CRITICAL_IMPACT * 1.00001);
+    if (b > CRITICAL_IMPACT) {
+      float angle = 2.0 * asin(CRITICAL_IMPACT / b);
+      float sixth = sin(angle / 6.0);
+      float u1 = -4.0 / 3.0 * sin(PI / 3.0 - angle / 6.0) * sixth;
+      float u2 = 4.0 / 3.0 * sin(PI / 3.0 + angle / 6.0) * sixth;
+      float gap = 1.1547005 * sin(PI / 3.0 - angle / 3.0);
+      float spread = u2 - u1;
+      float away = 2.0 * sqrt(u2) * carlsonRF(vec3(-u1 * gap, spread * gap, (gap + u2) * spread));
+      // How far the ray still has to fall, u2 - u, from the orbit's equation at the camera rather than as a
+      // difference: a ray leaving square to the hole is at its closest already, and the difference is lost
+      // there in the error of asin and sin
+      float cotangent = cos(theta) / sin(theta);
+      float left = u * u * (1.0 - u) * cotangent * cotangent / ((u - u1) * (u2 + gap - u));
+      float near = 2.0 * sqrt(left) * carlsonRF(vec3((u - u1) * gap, spread * gap, (gap + left) * spread));
+      return away + (inward ? near : -near);
+    }
+    // Facing away from the hole below the photon sphere's b, the ray only climbs out: four Gauss-Legendre points
+    return 0.5 * u * (0.3478548 * (traceClimb(b, u * 0.0694318) + traceClimb(b, u * 0.9305682)) +
+      0.6521452 * (traceClimb(b, u * 0.3300095) + traceClimb(b, u * 0.6699905)));
+  }
+
   // How strong a gravitational wave is at a distance from where it left: its strain falls as 1 / r, since
   // the same energy crosses an ever larger sphere. Closer than the edge there is no wave yet, only the
   // field of the source itself, which fades to nothing at the centre
@@ -534,7 +590,19 @@ export const compositeFragmentShaderSource = `
     // u_falloffPivot: closer than that a higher power pulls harder. With the pivot a screen away the
     // lens and its dark zone grow with falloff; with the pivot at the ring only their shape changes
     float bend = 0.0;
-    if (u_einstein > 0.0) {
+    if (u_einstein > 0.0 && u_trace.x > 0.0) {
+      // Ray Traced: the ray through this pixel is followed round a black hole that does not spin, and the
+      // scene is read from the direction it comes from, in the same stereographic projection. Inside the
+      // shadow every ray falls in and the shadow covers it. The Einstein ring, the mirrored image inside it
+      // and the thinner rings of light that went round the hole once or more all come out of the sweep
+      float ratio = u_einstein / max(dist, 0.0001);
+      bend = ratio * ratio;
+      if (dist > u_horizon) {
+        float theta = 2.0 * atan(dist / u_trace.y);
+        float source = clamp(tan(0.5 * (PI - traceSweep(theta, u_trace.x))), -TRACE_FAR, TRACE_FAR);
+        samplePx += (samplePx - u_hole) * (u_trace.y * source / dist - 1.0) * u_trace.z;
+      }
+    } else if (u_einstein > 0.0) {
       float ratio = u_einstein / max(dist, 0.0001);
       bend = ratio * ratio;
       if (u_falloff != 2.0) bend *= pow(u_falloffPivot / max(dist, 0.0001), u_falloff - 2.0);

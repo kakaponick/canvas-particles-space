@@ -88,8 +88,7 @@ The Settings panel is built from `src/lib/simulation_specs.ts`, which holds ever
 and meaning; `window.space.describe()` reads the same text. The groups:
 
 - **Presets**: **Default** is tuned for the look; **Schwarzschild** is a real non-rotating black hole as far as
-  the scene shows one: a point-mass lens with one mirrored image inside the Einstein ring, no twist, and capture
-  at the edge of the shadow. Save your own setups under a name; they stay in this browser. Every length around
+  the scene shows one: a ray-traced lens and capture at the edge of the shadow. Save your own setups under a name; they stay in this browser. Every length around
   the hole is in black hole radii, so Black Hole Size alone scales it
 - **Playback**: Scene Motion (freeze the scene), **FPS Limit** (AUTO follows the display, or a cap of 30-240;
   motion speed does not depend on the frame rate), FPS Counter, and **Particle Budget**, which lowers the particle
@@ -113,8 +112,10 @@ and meaning; `window.space.describe()` reads the same text. The groups:
   ones do
 - **Photon Ring**: brightness, glow, thickness, the Doppler contrast between its approaching and receding sides,
   and the light that infalling particles leave on it
-- **Gravitational Lensing**: **Einstein Radius** (in black hole radii, 0 = no lens), how far the lens reaches,
-  its falloff, a twist of the sky, and the limits near the hole
+- **Gravitational Lensing**: **Ray Traced** follows every pixel's ray round a black hole that does not spin, so
+  the Einstein ring, the mirrored image inside it and the thin rings of light that circled the hole come from
+  the physics, and **Einstein Radius** (in black hole radii, 0 = no lens) places the camera. Off, the stylized
+  lens adds how far it reaches, its falloff, a twist of the sky and the limits near the hole
 - **Orbiting Stars**: stars with real orbits around the black hole (**Count**, 0 = none): ellipses that precess,
   faster the closer they come, with a trace that stays lit for **Trail** seconds. The traces are lines kept
   around the black hole, so they move and grow with it. **Orbit Size**, **Eccentricity** and **Orbit Speed**

@@ -16,6 +16,7 @@ export const TOGGLES: Record<string, string> = {
   ringEnabled: 'Photon ring around the shadow.',
   ringFeedEnabled: 'Matter falling in or skimming past brightens the photon ring.',
   lensingEnabled: 'Gravitational lensing around the black hole.',
+  lensingTraced: 'Ray Traced lens: every pixel follows the exact path of light past a black hole that does not spin, so the Einstein ring, the mirrored image inside it and the thin rings of light that circled the hole come from the physics. lensingRadius then sets how far the camera stands (1.32 at 2 Schwarzschild radii, the nearest; 2.13 at 10; 2.86 at 21; 8 at about 200), lensingAbsorption still darkens, and lensingReach, lensingFalloff, lensingPivot, lensingRotation, lensingTwistLimit, lensingMaxBend and lensingCore do nothing. false = the stylized lens.',
   adaptiveParticles: 'Particle budget: trims the particle count when the processor falls behind (per device, not in presets).',
   fpsCounter: 'Shows the measured frame rate in the scene toolbar at the top right (per device, not in presets).'
 }

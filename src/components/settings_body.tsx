@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useId, type ReactNode } from 'react'
 import { useParticleStore } from '../store/particle_store'
 import { hexToRgb, rgbToHex } from '../lib/utils'
 import ColorPalette from './controls/color_palette'
@@ -85,6 +85,30 @@ function LensingSection ({ children }: { children: ReactNode }) {
     <SettingsSection id="lensing" title="Gravitational Lensing" dimmed={!on} action={<SettingsSwitch on={on} onToggle={toggle} label="Gravitational lensing" />}>
       {children}
     </SettingsSection>
+  )
+}
+
+function RayTracedRow () {
+  const on = useParticleStore(state => state.lensingTraced)
+  const toggle = useParticleStore(state => state.toggleLensingTraced)
+
+  return (
+    <SettingsRow label="Ray Traced" help="Exact light paths of a still black hole">
+      {(describedBy) => <SettingsSwitch on={on} onToggle={toggle} label="Ray traced lens" describedBy={describedBy} />}
+    </SettingsRow>
+  )
+}
+
+// The settings only the stylized lens reads. Under Ray Traced they say so in words, as a switched-off
+// section does, and stay editable for when it is turned off
+function StylizedLens ({ children }: { children: ReactNode }) {
+  const traced = useParticleStore(state => state.lensingTraced)
+  const noteId = useId()
+  return (
+    <div role="group" aria-label="Stylized lens" aria-describedby={traced ? noteId : undefined} className="mt-3 flex flex-col gap-1">
+      {traced && <p id={noteId} className="pl-3 font-mono text-[11px] leading-5 text-text-light/80">STYLIZED ONLY · Ray Traced ignores these</p>}
+      {children}
+    </div>
   )
 }
 
@@ -185,22 +209,26 @@ function SettingsBody () {
       </PhotonRingSection>
 
       <LensingSection>
-        {/* Size and reach, the falloff, the twist, then the limits near the hole */}
+        {/* The mode, what both modes read, then what only the stylized lens reads: reach, the falloff,
+            the twist and the limits near the hole */}
+        <RayTracedRow />
         <SettingSlider field="lensingRadius" setter="setLensingRadius" />
-        <SettingSlider field="lensingReach" setter="setLensingReach" />
-        <div className="mt-3 flex flex-col gap-1">
-          <SettingSlider field="lensingFalloff" setter="setLensingFalloff" />
-          <SettingSlider field="lensingPivot" setter="setLensingPivot" />
-        </div>
-        <div className="mt-3 flex flex-col gap-1">
-          <SettingSlider field="lensingRotation" setter="setLensingRotation" />
-          <SettingSlider field="lensingTwistLimit" setter="setLensingTwistLimit" />
-        </div>
-        <div className="mt-3 flex flex-col gap-1">
-          <SettingSlider field="lensingMaxBend" setter="setLensingMaxBend" />
-          <SettingSlider field="lensingCore" setter="setLensingCore" />
-          <SettingSlider field="lensingAbsorption" setter="setLensingAbsorption" />
-        </div>
+        <SettingSlider field="lensingAbsorption" setter="setLensingAbsorption" />
+        <StylizedLens>
+          <SettingSlider field="lensingReach" setter="setLensingReach" />
+          <div className="mt-3 flex flex-col gap-1">
+            <SettingSlider field="lensingFalloff" setter="setLensingFalloff" />
+            <SettingSlider field="lensingPivot" setter="setLensingPivot" />
+          </div>
+          <div className="mt-3 flex flex-col gap-1">
+            <SettingSlider field="lensingRotation" setter="setLensingRotation" />
+            <SettingSlider field="lensingTwistLimit" setter="setLensingTwistLimit" />
+          </div>
+          <div className="mt-3 flex flex-col gap-1">
+            <SettingSlider field="lensingMaxBend" setter="setLensingMaxBend" />
+            <SettingSlider field="lensingCore" setter="setLensingCore" />
+          </div>
+        </StylizedLens>
       </LensingSection>
 
       <SettingsSection id="orbiting-stars" title="Orbiting Stars">
