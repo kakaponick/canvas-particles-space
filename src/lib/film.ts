@@ -84,6 +84,8 @@ export interface FilmCue {
   layers: CueLayer[]
   // Intro parameters set at that second, which shape what is fired
   params: Partial<IntroParams>
+  // Words of its own for a fired title; null keeps the words that are there
+  title: TitleText | null
 }
 
 export interface FilmPlan {
@@ -120,14 +122,36 @@ export interface FilmPlan {
 
 const isObject = (value: unknown): value is Patch => typeof value === 'object' && value !== null && !Array.isArray(value)
 
-function takeKnown (source: Patch, known: readonly string[], where: string) {
+// A part of a film that cannot be read is written down and the reading goes on with `fallback`, so
+// everything wrong with a film is told at once instead of one thing a try
+type Attempt = <T>(work: () => T, fallback: T) => T
+
+function takeKnown (source: Patch, known: readonly string[], where: string, attempt: Attempt) {
   for (const key of Object.keys(source)) {
-    if (!known.includes(key)) unknownKey(`${where}${key}`, known)
+    if (!known.includes(key)) attempt(() => unknownKey(`${where}${key}`, known), undefined)
   }
 }
 
+// What the bundled faces can draw: the Latin file all three have, and the Cyrillic one only Unbounded has
+const LATIN_LETTERS = /^[\u0304\u0308\u0329\n\u0020-\u00ff\u0131\u0152\u0153\u02bb\u02bc\u02c6\u02da\u02dc\u2000-\u206f\u20ac\u2122\u2191\u2193\u2212\u2215]*$/
+const CYRILLIC_LETTERS = /[\u0301\u0400-\u045f\u0490\u0491\u04b0\u04b1\u2116]/g
+
+// The face these words are drawn in. A face that lacks their letters would hand them to whatever the
+// machine has, and the same film would no longer be the same video: Cyrillic goes to the one face that
+// holds it, and letters no bundled face holds are named
+function faceFor<Face extends string> (text: string, face: Face, where: string, notes: string[]): Face | 'unbounded' {
+  if (face === 'system') return face
+  const withoutCyrillic = text.replace(CYRILLIC_LETTERS, '')
+  if (!LATIN_LETTERS.test(withoutCyrillic)) {
+    notes.push(`${where} has letters that none of the bundled faces hold; they are drawn in the machine's own face, which differs between machines`)
+  }
+  if (withoutCyrillic.length === text.length || face === 'unbounded') return face
+  notes.push(`${where}: ${face} has no Cyrillic letters, so it is drawn in unbounded, the face that has them`)
+  return 'unbounded'
+}
+
 const FILM_KEYS = ['duration', 'fps', 'size', 'width', 'height', 'scale', 'seed', 'preset', 'settings', 'intro', 'warmup', 'speed', 'tracks', 'layers', 'cues', 'captions']
-const CUE_KEYS = ['at', 'play', 'params']
+const CUE_KEYS = ['at', 'play', 'params', 'title', 'font', 'uppercase']
 const INTRO_FILM_KEYS = ['at', 'preset', 'params', 'title', 'font', 'uppercase', 'hide']
 const CAPTION_KEYS = ['text', 'from', 'to', 'at', 'angle', 'size', 'color', 'font', 'fade']
 // The switches a film can flip along its tracks; it has no cursor for the black hole to follow
@@ -171,17 +195,17 @@ function readFrame (film: Patch, notes: string[]) {
   return { width, height, scale }
 }
 
-function readTitle (intro: Patch, title: TitleText): TitleText {
+function readTitle (intro: Patch, title: TitleText, where = 'intro.'): TitleText {
   const next = { ...title }
   if (intro.title !== undefined && intro.title !== false) {
-    if (typeof intro.title !== 'string') fail('intro.title takes a string (\\n starts a new line) or false for no title')
+    if (typeof intro.title !== 'string') fail(`${where}title takes a string (\\n starts a new line)${where === 'intro.' ? ' or false for no title' : ''}`)
     next.text = intro.title
   }
   if (intro.font !== undefined) {
-    if (!(String(intro.font) in TITLE_FONTS)) fail(`intro.font takes one of: ${Object.keys(TITLE_FONTS).join(', ')}`)
+    if (!(String(intro.font) in TITLE_FONTS)) fail(`${where}font takes one of: ${Object.keys(TITLE_FONTS).join(', ')}`)
     next.font = intro.font as TitleFontKey
   }
-  if (intro.uppercase !== undefined) next.uppercase = asBoolean('intro.uppercase', intro.uppercase)
+  if (intro.uppercase !== undefined) next.uppercase = asBoolean(`${where}uppercase`, intro.uppercase)
   return next
 }
 
@@ -196,11 +220,11 @@ function readKeyframes (where: string, source: unknown, duration: number, read: 
   return { times: keys.map(entry => entry.time), values: keys.map(entry => entry.value), eases: keys.map(entry => entry.ease) }
 }
 
-function readTracks (source: unknown, duration: number, notes: string[]): FilmTrack[] {
+function readTracks (source: unknown, duration: number, notes: string[], attempt: Attempt): FilmTrack[] {
   if (source === undefined) return []
   if (!isObject(source)) fail('tracks take an object: { settingKey: [[seconds, value], ...] }')
   const known = [...Object.keys(SLIDERS), ...TRACK_SWITCHES, 'backgroundR', 'backgroundG', 'backgroundB', ...INTRO_KEYS]
-  return Object.entries(source).map(([key, keyframes]) => {
+  const readTrack = (key: string, keyframes: unknown): FilmTrack => {
     const slider = SLIDERS[key]
     if (slider) {
       const read = (value: unknown) => inRange(`tracks.${key}`, value, slider.min, slider.max, notes)
@@ -224,17 +248,18 @@ function readTracks (source: unknown, duration: number, notes: string[]): FilmTr
       toggle: false,
       ...readKeyframes(`tracks.${key}`, keyframes, duration, value => parseIntroValue(key as IntroParamKey, value))
     }
-  })
+  }
+  return Object.entries(source).flatMap(([key, keyframes]) => attempt<FilmTrack[]>(() => [readTrack(key, keyframes)], []))
 }
 
 // The scene's layers switched along the film: true shows the layer from that second on
-function readLayers (source: unknown, duration: number): FilmTrack[] {
+function readLayers (source: unknown, duration: number, attempt: Attempt): FilmTrack[] {
   if (source === undefined) return []
   if (!isObject(source)) fail('layers take an object: { layer: [[seconds, true or false], ...] }')
-  return Object.entries(source).map(([key, keyframes]) => {
+  return Object.entries(source).flatMap(([key, keyframes]) => attempt<FilmTrack[]>(() => {
     if (!(INTRO_LAYERS as readonly string[]).includes(key)) unknownKey(key, INTRO_LAYERS)
-    return { key, target: 'layers' as const, color: false, toggle: true, ...readKeyframes(`layers.${key}`, keyframes, duration, value => asBoolean(`layers.${key}`, value) ? 1 : 0) }
-  })
+    return [{ key, target: 'layers' as const, color: false, toggle: true, ...readKeyframes(`layers.${key}`, keyframes, duration, value => asBoolean(`layers.${key}`, value) ? 1 : 0) }]
+  }, []))
 }
 
 // How fast the scene's time runs: one number for the whole film, or keyframes. Real time throughout is no track
@@ -246,14 +271,17 @@ function readSpeed (source: unknown, duration: number, notes: string[]): FilmTra
   return { key: 'speed', target: 'speed', color: false, toggle: false, ...keys }
 }
 
-function readCues (source: unknown, duration: number): FilmCue[] {
+function readCues (source: unknown, duration: number, title: TitleText, notes: string[], attempt: Attempt): FilmCue[] {
   if (source === undefined) return []
   if (!Array.isArray(source)) fail('cues take an array: [{ at: seconds, play: [layers] }]')
-  return source.map((entry, index) => {
+  return source.flatMap((entry, index) => attempt<FilmCue[]>(() => {
     const where = `cues[${index}]`
     if (!isObject(entry)) fail(`${where} is not an object`)
-    takeKnown(entry, CUE_KEYS, `${where}.`)
-    const named = Array.isArray(entry.play) ? entry.play : entry.play === undefined ? [] : [entry.play]
+    takeKnown(entry, CUE_KEYS, `${where}.`, attempt)
+    // Words of its own make a cue a title, whether it says so or not
+    const worded = entry.title !== undefined || entry.font !== undefined || entry.uppercase !== undefined
+    const named = Array.isArray(entry.play) ? [...entry.play] : entry.play === undefined ? [] : [entry.play]
+    if (worded && !named.includes('title')) named.push('title')
     if (named.length === 0) fail(`${where}.play takes the events to fire: ${CUE_LAYERS.join(', ')}`)
     const layers = named.map(name => {
       const layer = String(name)
@@ -265,21 +293,29 @@ function readCues (source: unknown, duration: number): FilmCue[] {
     if (entry.params !== undefined) {
       if (!isObject(entry.params)) fail(`${where}.params takes an object of intro parameters`)
       for (const [key, value] of Object.entries(entry.params)) {
-        if (!(key in DEFAULT_INTRO_PARAMS)) unknownKey(key, INTRO_KEYS)
-        params[key] = parseIntroValue(key as IntroParamKey, value)
+        attempt(() => {
+          if (!(key in DEFAULT_INTRO_PARAMS)) unknownKey(key, INTRO_KEYS)
+          params[key] = parseIntroValue(key as IntroParamKey, value)
+        }, undefined)
       }
     }
-    return { at: clamp(asNumber(`${where}.at`, entry.at ?? 0), 0, duration), layers, params: params as Partial<IntroParams> }
-  }).sort((a, b) => a.at - b.at)
+    let words: TitleText | null = null
+    if (worded) {
+      if (entry.title === false) fail(`${where}.title takes the words of the title`)
+      words = readTitle(entry, title, `${where}.`)
+      words.font = faceFor(words.text, words.font, `${where}.title`, notes)
+    }
+    return [{ at: clamp(asNumber(`${where}.at`, entry.at ?? 0), 0, duration), layers, params: params as Partial<IntroParams>, title: words }]
+  }, [])).sort((a, b) => a.at - b.at)
 }
 
-function readCaptions (source: unknown, duration: number): FilmCaption[] {
+function readCaptions (source: unknown, duration: number, notes: string[], attempt: Attempt): FilmCaption[] {
   if (source === undefined) return []
   if (!Array.isArray(source)) fail('captions take an array: [{ text, from, to, at }]')
-  return source.map((entry, index) => {
+  return source.flatMap((entry, index) => attempt<FilmCaption[]>(() => {
     const where = `captions[${index}]`
     if (!isObject(entry)) fail(`${where} is not an object`)
-    takeKnown(entry, CAPTION_KEYS, `${where}.`)
+    takeKnown(entry, CAPTION_KEYS, `${where}.`, attempt)
     if (typeof entry.text !== 'string' || entry.text.trim() === '') fail(`${where}.text takes the words to show`)
     const from = clamp(asNumber(`${where}.from`, entry.from ?? 0), 0, duration)
     const to = clamp(asNumber(`${where}.to`, entry.to ?? duration), 0, duration)
@@ -298,7 +334,7 @@ function readCaptions (source: unknown, duration: number): FilmCaption[] {
     if (font !== 'system' && !(font in TITLE_FONTS)) fail(`${where}.font takes one of: ${Object.keys(TITLE_FONTS).join(', ')}, system`)
     const color = entry.color === undefined ? '#ffffff' : String(entry.color)
     if (!/^#[0-9a-f]{6}$/i.test(color)) fail(`${where}.color takes '#rrggbb'`)
-    return {
+    return [{
       text: entry.text,
       from,
       to,
@@ -306,23 +342,35 @@ function readCaptions (source: unknown, duration: number): FilmCaption[] {
       angle: entry.angle === undefined ? 35 : asNumber(`${where}.angle`, entry.angle),
       size: clamp(entry.size === undefined ? (pointing ? 0.03 : 0.04) : asNumber(`${where}.size`, entry.size), 0.01, 0.2),
       color,
-      font: font as CaptionFont,
+      font: faceFor(entry.text, font as CaptionFont, where, notes),
       fade: clamp(entry.fade === undefined ? CAPTION_FADE : asNumber(`${where}.fade`, entry.fade), 0, (to - from) / 2)
-    }
-  })
+    }]
+  }, []))
 }
 
-// Checks a film and turns it into the plan the renderer plays. Throws with the reason on the first thing
-// it cannot read
+// The parameters of the film look, which lifts as the intro ends unless filmHold keeps it
+const FILM_LOOK = ['lensFringe', 'vignette', 'filmGrain', 'letterbox'] as const
+
+// Checks a film and turns it into the plan the renderer plays. Everything it cannot read is told in one
+// error, each thing with its reason, so a film is put right in one go
 export function planFilm (source: unknown): FilmPlan {
   if (!isObject(source)) fail('A film is an object: { duration, fps, size, settings, intro, tracks, captions }. See film.guide()')
-  takeKnown(source, FILM_KEYS, '')
+  const problems: string[] = []
+  const attempt: Attempt = (work, fallback) => {
+    try {
+      return work()
+    } catch (error) {
+      problems.push(error instanceof Error ? error.message : String(error))
+      return fallback
+    }
+  }
+  takeKnown(source, FILM_KEYS, '', attempt)
   const notes: string[] = []
 
-  const duration = inRange('duration', source.duration ?? 10, MIN_DURATION, MAX_DURATION, notes)
-  const fps = Math.round(inRange('fps', source.fps ?? 30, MIN_FPS, MAX_FPS, notes))
-  const { width, height, scale } = readFrame(source, notes)
-  const seed = source.seed === undefined ? 1 : Math.round(asNumber('seed', source.seed))
+  const duration = attempt(() => inRange('duration', source.duration ?? 10, MIN_DURATION, MAX_DURATION, notes), 10)
+  const fps = attempt(() => Math.round(inRange('fps', source.fps ?? 30, MIN_FPS, MAX_FPS, notes)), 30)
+  const { width, height, scale } = attempt(() => readFrame(source, notes), { width: 1920, height: 1080, scale: 1 })
+  const seed = attempt(() => source.seed === undefined ? 1 : Math.round(asNumber('seed', source.seed)), 1)
 
   // The scene's settings: the defaults, then what an intro preset carries, a preset, and the film's own
   let settings = pickSimulationSettings(DEFAULT_PRESET.settings)
@@ -335,53 +383,71 @@ export function planFilm (source: unknown): FilmPlan {
     introAt = null
   } else if (source.intro !== undefined && source.intro !== true) {
     const intro = source.intro
-    if (!isObject(intro)) fail('intro takes false (leave it out) or an object: { at, preset, params, title, hide }')
-    takeKnown(intro, INTRO_FILM_KEYS, 'intro.')
-    if (intro.preset !== undefined) {
-      const preset = findPreset([...BUILT_IN_INTRO_PRESETS, ...useIntroPresetStore.getState().presets], String(intro.preset))
-      params = { ...preset.params }
-      // A look that sets only the face keeps the words
-      title = preset.keepsText ? { ...preset.title, text: title.text } : { ...preset.title }
-      for (const layer of preset.hidden) hidden[layer] = true
-      if (preset.scene) settings = pickSimulationSettings(preset.scene)
-    }
-    if (intro.params !== undefined) {
-      if (!isObject(intro.params)) fail('intro.params takes an object of intro parameters')
-      for (const [key, value] of Object.entries(intro.params)) {
-        if (!(key in DEFAULT_INTRO_PARAMS)) unknownKey(key, INTRO_KEYS)
-        params[key as IntroParamKey] = parseIntroValue(key as IntroParamKey, value)
+    if (!isObject(intro)) {
+      attempt(() => fail('intro takes false (leave it out) or an object: { at, preset, params, title, hide }'), undefined)
+    } else {
+      takeKnown(intro, INTRO_FILM_KEYS, 'intro.', attempt)
+      attempt(() => {
+        if (intro.preset === undefined) return
+        const preset = findPreset([...BUILT_IN_INTRO_PRESETS, ...useIntroPresetStore.getState().presets], String(intro.preset))
+        params = { ...preset.params }
+        // A look that sets only the face keeps the words
+        title = preset.keepsText ? { ...preset.title, text: title.text } : { ...preset.title }
+        for (const layer of preset.hidden) hidden[layer] = true
+        if (preset.scene) settings = pickSimulationSettings(preset.scene)
+      }, undefined)
+      if (intro.params !== undefined) {
+        if (!isObject(intro.params)) {
+          attempt(() => fail('intro.params takes an object of intro parameters'), undefined)
+        } else {
+          for (const [key, value] of Object.entries(intro.params)) {
+            attempt(() => {
+              if (!(key in DEFAULT_INTRO_PARAMS)) unknownKey(key, INTRO_KEYS)
+              params[key as IntroParamKey] = parseIntroValue(key as IntroParamKey, value)
+            }, undefined)
+          }
+        }
       }
-    }
-    title = readTitle(intro, title)
-    if (intro.title === false) hidden.title = true
-    if (intro.hide !== undefined) {
-      if (!Array.isArray(intro.hide)) fail(`intro.hide takes an array of layers: ${INTRO_LAYERS.join(', ')}`)
-      for (const layer of intro.hide) {
-        if (!(INTRO_LAYERS as readonly string[]).includes(String(layer))) unknownKey(String(layer), INTRO_LAYERS)
-        hidden[layer as IntroLayer] = true
+      title = attempt(() => readTitle(intro, title), title)
+      if (intro.title === false) hidden.title = true
+      if (intro.hide !== undefined) {
+        const hide = intro.hide
+        if (!Array.isArray(hide)) {
+          attempt(() => fail(`intro.hide takes an array of layers: ${INTRO_LAYERS.join(', ')}`), undefined)
+        } else {
+          for (const layer of hide) {
+            attempt(() => {
+              if (!(INTRO_LAYERS as readonly string[]).includes(String(layer))) unknownKey(String(layer), INTRO_LAYERS)
+              hidden[layer as IntroLayer] = true
+            }, undefined)
+          }
+        }
       }
+      if (intro.at !== undefined) introAt = attempt(() => inRange('intro.at', intro.at, -params.introEnd, duration, notes), 0)
     }
-    if (intro.at !== undefined) introAt = inRange('intro.at', intro.at, -params.introEnd, duration, notes)
   }
+  title.font = faceFor(title.text, title.font, 'intro.title', notes)
 
-  if (source.preset !== undefined) {
+  attempt(() => {
+    if (source.preset === undefined) return
     const preset = findPreset([...BUILT_IN_PRESETS, ...usePresetStore.getState().presets], String(source.preset))
     settings = pickSimulationSettings(preset.settings)
-  }
-  if (source.settings !== undefined) {
+  }, undefined)
+  attempt(() => {
+    if (source.settings === undefined) return
     const { next, clamped } = parseSettings(source.settings, SETTING_KEYS)
     Object.assign(settings, next)
     for (const [key, value] of Object.entries(clamped)) notes.push(`settings.${key} was moved onto its slider: ${String(value)}`)
-  }
+  }, undefined)
   // A film has no cursor to follow: the black hole rests at blackHoleX, blackHoleY, which tracks can move
   settings.blackHoleFollowing = false
 
   const warmup = introAt === null
-    ? inRange('warmup', source.warmup ?? DEFAULT_WARMUP, 0, MAX_WARMUP, notes)
+    ? attempt(() => inRange('warmup', source.warmup ?? DEFAULT_WARMUP, 0, MAX_WARMUP, notes), DEFAULT_WARMUP)
     : 0
 
   const frames = Math.max(1, Math.round(duration * fps))
-  const speed = readSpeed(source.speed, duration, notes)
+  const speed = attempt(() => readSpeed(source.speed, duration, notes), null)
   // The intro runs on the scene's clock, which a speed track bends: "at" stays a second of the film
   let introTime = 0
   let introEnds: number | null = null
@@ -398,12 +464,32 @@ export function planFilm (source: unknown): FilmPlan {
     }
   }
 
-  const cues = readCues(source.cues, duration)
+  const cues = attempt(() => readCues(source.cues, duration, title, notes, attempt), [])
   for (const cue of cues) {
     if (introEnds !== null && cue.at < introEnds) {
-      fail(`cues: ${cue.layers.join(', ')} at ${seconds(cue.at)} s falls inside the opening, which ${introEnds === Infinity ? 'outlasts the film' : `is over at ${seconds(introEnds)} s`}; ` +
-        'an event is fired again only after it, or in a film with "intro": false')
+      const ends = introEnds
+      attempt(() => fail(`cues: ${cue.layers.join(', ')} at ${seconds(cue.at)} s falls inside the opening, which ${ends === Infinity ? 'outlasts the film' : `is over at ${seconds(ends)} s`}; ` +
+        'an event is fired again only after it, or in a film with "intro": false'), undefined)
     }
+  }
+  const tracks = [
+    ...attempt(() => readTracks(source.tracks, duration, notes, attempt), []),
+    ...attempt(() => readLayers(source.layers, duration, attempt), [])
+  ]
+  const captions = attempt(() => readCaptions(source.captions, duration, notes, attempt), [])
+
+  if (problems.length === 1) fail(problems[0])
+  if (problems.length > 1) fail(`${problems.length} things in this film cannot be read:\n${problems.map((problem, index) => `${index + 1}. ${problem}`).join('\n')}`)
+
+  // The film look shows only while the intro runs unless filmHold keeps it; a film that sets it and never
+  // holds it is told, since nothing else would show that the frame stayed as it was
+  const raised = (key: string) => (params as unknown as Record<string, number>)[key] > 0 ||
+    tracks.some(track => track.key === key && track.values.some(value => value > 0)) ||
+    cues.some(cue => ((cue.params as Record<string, number>)[key] ?? 0) > 0)
+  const look = FILM_LOOK.filter(raised)
+  if (look.length > 0 && !raised('filmHold') && (introEnds === null || introEnds < duration)) {
+    notes.push(`${look.join(', ')}: the film look lifts as the opening ends, so ${introEnds === null ? 'this film without the opening never shows it' : `it is gone after ${seconds(introEnds)} s`}; ` +
+      'raise filmHold (0 to 1, in intro.params or on a track) to keep it')
   }
 
   const plan: FilmPlan = {
@@ -423,9 +509,9 @@ export function planFilm (source: unknown): FilmPlan {
     params,
     hidden,
     title,
-    tracks: [...readTracks(source.tracks, duration, notes), ...readLayers(source.layers, duration)],
+    tracks,
     cues,
-    captions: readCaptions(source.captions, duration),
+    captions,
     timeline: [],
     notes
   }
@@ -477,7 +563,8 @@ function describeTimeline (plan: FilmPlan) {
   }
   for (const cue of plan.cues) {
     const set = Object.keys(cue.params)
-    entries.push({ at: cue.at, text: `${span(cue.at, cue.at)}  fires ${cue.layers.join(', ')}${set.length > 0 ? ` with ${set.join(', ')}` : ''}` })
+    const words = cue.title ? ` "${cue.title.text.replace(/\s+/g, ' ')}"` : ''
+    entries.push({ at: cue.at, text: `${span(cue.at, cue.at)}  fires ${cue.layers.join(', ')}${words}${set.length > 0 ? ` with ${set.join(', ')}` : ''}` })
   }
   for (const caption of plan.captions) {
     const words = caption.text.replace(/\s+/g, ' ')
@@ -570,12 +657,16 @@ opening is a clip (intro), its events can be fired again (cues), and the scene's
                              Several in one cue keep the opening's own order (the star brightens, then the
                              blast, then the ringing); one blast and one ringing at a time, a new one takes
                              over. Their look is the intro parameters: "params" sets some at that second,
-                             and tracks can move them
+                             and tracks can move them. A title is an event too, with words of its own:
+                             { "at": 20, "title": "ACT TWO", "params": { "titleEntrance": "Fades in" } };
+                             it lives from titleInAt (the default entrance: from collapseAt, lit by the light
+                             front, so fire "light" with it) to dissolveAt + dissolveDuration
   "captions": [{ "text": "Event horizon", "from": 2, "to": 6, "at": "hole" }]
                              at: bottom (default) | top | center | [x, y] shares of the frame | hole | einstein |
                              companion; the last three point a line at the shadow's edge, the Einstein ring
                              or the second black hole, from "angle" degrees (0 right, 90 up).
-                             Optional: size, color '#rrggbb', font, fade
+                             Optional: size, color '#rrggbb', font, fade. A line too long for the frame is
+                             broken at its spaces; Cyrillic is drawn in unbounded, the face that holds it
 }
 
 Everything but duration is optional. Start from describe to find setting keys; lengths around the black hole
@@ -596,6 +687,10 @@ Recipes
                            "cues": [{ "at": 4, "play": ["ringdown", "gravityWave"] }]
   A second explosion:      "cues": [{ "at": 14, "play": ["star", "glare", "light", "echo", "shockwave", "camera"] }]
   Gravity cut off and back: "layers": { "gravity": [[0, true], [5, false], [9, true]] }
+  Letterbox for a whole film: "tracks": { "letterbox": [[0, 0.12]], "filmHold": [[0, 1]] }
+  The camera pulls back:   "tracks": { "cameraZoom": [[0, 1], [6, 0.5]] }
+  A chapter title:         "cues": [{ "at": 12, "title": "ACT TWO",
+                             "params": { "titleEntrance": "Fades in", "titleExit": "Fades out", "titleInAt": 0, "dissolveAt": 3 } }]
   Vertical short:          "size": "vertical", "settings": { "blackHoleY": 0.42 }
 
 Check with preview (a contact sheet of frames) before render; both take the same film.`

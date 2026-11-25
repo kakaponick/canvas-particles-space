@@ -67,6 +67,9 @@ stay as long as it takes to read twice.
   them.
 - At a high zoom keep the hole away from the frame's edge: where the lens reads from outside the frame a
   thin mirrored band can appear.
+- Below 1 the camera pulls back, to 0.5 at most. The frame then shows the scene smaller with its mirror
+  images around it, which reads as a tunnel or a kaleidoscope, not as a wider sky. Use it as a figure of
+  its own (an ending that falls away, a beat before a push-in), and keep the hole in the middle.
 - The zoom's centre is the black hole. To frame something else, move the hole.
 - Vertical frame: put the hole a little above the middle (`blackHoleY` near 0.42) and leave the lower third
   for captions.
@@ -82,8 +85,22 @@ stay as long as it takes to read twice.
 - In a vertical frame a label pointing sideways is pushed back from the edge; point it from above or
   below (`angle` 90 or 270).
 - A caption the request did not ask for is named in the reply, with how to drop it.
+- A long caption is broken at its spaces to fit the frame; its letters shrink only when one word is
+  wider than the frame. Write a line break yourself (`\n`) where the break carries meaning.
+- Russian and other Cyrillic text is drawn in `unbounded`, the one bundled face that holds those letters,
+  whatever face was asked for; the plan says so in a note. Letters no bundled face holds (Greek, Chinese,
+  emoji) are drawn in the machine's own face, which differs between machines: the note names that too.
 - The opening's title is the intro's own (`title`, `font`, `uppercase`); a new line is `\n`.
   `"title": false` drops it.
+- A title after the opening is a cue with words: `{ "at": 12, "title": "ACT TWO" }`. It is lensed and lit
+  like the opening's and lives by the same parameters: how it arrives (`titleEntrance`, `titleInAt`,
+  `titleInDuration`), how it leaves (`titleExit`, `dissolveAt`, `dissolveDuration`), counted from the
+  cue. With the defaults the light front lights it at once, it starts to fall into the hole a little over
+  two seconds later and is gone by the fifth; for a chapter card set `"Fades in"`, `"Fades out"`, `titleInAt` 0 and `dissolveAt` to the seconds it
+  stays. One title is on screen at a time: a new one replaces the one still showing.
+- The film stock of the opening (`letterbox`, `vignette`, `filmGrain`, `lensFringe`) leaves with the
+  opening. For bars or grain over a whole film set `filmHold` to 1 beside them; without it the plan
+  notes that they will not show.
 
 ## 6. Sound
 
@@ -208,4 +225,5 @@ Events:
 - What an event looks like is the intro parameters. A cue's own parameters are set at its second and stay;
   a track on the same parameter wins. A stronger wave: `gravityWaveGain` and `ringdownAmplitude` in the
   cue. A wave shows on the sheet and the lensed grid, and barely on the particles alone.
-- A fired event leaves nothing behind: once it has faded, the frames are the film's without it.
+- A fired event leaves nothing behind: once it has faded, the frames are the film's without it. Only a
+  fired title's words stay: they are the title until another cue gives new ones.

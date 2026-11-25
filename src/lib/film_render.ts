@@ -9,7 +9,7 @@ import { createScene, type SceneInput } from './scene'
 import { createParticleCrew } from './particle_crew'
 import { SIMULATION_SETTING_SPECS } from './simulation_specs'
 import { getIntroDuration } from './intro_timeline'
-import type { TitleStyle } from './title_sprite'
+import type { TitleSprite, TitleStyle } from './title_sprite'
 import type { StreamTargetChunk } from 'mediabunny'
 import { applyTracks, filmSpeed, planFilm, type FilmPlan } from './film'
 import { drawCaptions, loadCaptionFonts } from './film_captions'
@@ -59,10 +59,10 @@ export function cancelFilm () {
 
 const breathe = () => new Promise<void>(resolve => setTimeout(resolve, 0))
 
-function titleStyle (plan: FilmPlan): TitleStyle {
-  const { params } = plan
+function titleStyle (plan: FilmPlan, words = plan.title, set: Partial<FilmPlan['params']> = {}): TitleStyle {
+  const params = { ...plan.params, ...set }
   return {
-    ...plan.title,
+    ...words,
     weight: params.titleWeight,
     tracking: params.titleTracking,
     size: params.titleSize,
@@ -109,8 +109,11 @@ async function createFilmPlayer (plan: FilmPlan, pixel: number) {
     fail('A 2D canvas is not available')
   }
 
+  // A cue that brings words of its own has them drawn now: at its second there is no waiting for a face
+  let cueTitles: (TitleSprite | null)[] = []
   try {
     await Promise.all([scene.setTitle(titleStyle(plan), FONT_WAIT_MS), loadCaptionFonts(plan)])
+    cueTitles = await Promise.all(plan.cues.map(cue => cue.title ? scene.makeTitle(titleStyle(plan, cue.title, cue.params), FONT_WAIT_MS) : null))
   } catch (error) {
     dispose()
     throw error
@@ -147,7 +150,9 @@ async function createFilmPlayer (plan: FilmPlan, pixel: number) {
     input.particleCount = plan.settings.numParticles
     while (nextCue < plan.cues.length && plan.cues[nextCue].at <= time) {
       // A cue's parameters stay as it set them, unless a track moves the same one
+      const words = cueTitles[nextCue]
       const cue = plan.cues[nextCue++]
+      if (words) scene.useTitle(words)
       Object.assign(plan.params, cue.params)
       scene.fire(cue.layers, input)
     }

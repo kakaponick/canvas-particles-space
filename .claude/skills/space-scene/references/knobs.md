@@ -200,9 +200,11 @@ by the waves. They keep their size at any zoom.
 
 - Setting a position anchors the hole. A film has no cursor: the hole rests at its position and tracks
   move it, through the same spring, so a low `followFrequency` makes it heavy and late.
-- `cameraZoom` is both a setting (1 to 8, any time) and an intro parameter of the same name (the camera
+- `cameraZoom` is both a setting (0.5 to 8, any time) and an intro parameter of the same name (the camera
   the opening starts with, which always settles back to 1). The two multiply. In a film's tracks the name
   means the setting; the opening's own goes in the intro's parameters.
+- Below 1 the camera pulls back. The scene is not drawn wider than its frame, so the picture is shown
+  smaller and repeats, mirrored, beyond its own edges: a tunnel of the scene, not more of the sky.
 - The zoom redraws the scene, it does not enlarge the picture: particles, traces, the ring and the grids
   stay sharp. While the zoom changes, trails streak, as a moving camera's would. The title and the
   opening's dust are the two things that still soften.
@@ -234,7 +236,7 @@ seconds from its start; everything after the explosion counts from `collapseAt`.
 | Title: light | `titleGlow`, `titleFlash`, `titleCooling`, `titleDust`, `titlePush`, `titleHalo`, `titleHaloRadius`, `titleStreak`, `titleFringe` |
 | Title: arriving | `titleEntrance`, `titleInAt`, `titleInDuration` |
 | Title: leaving | `titleExit`, `dissolveAt`, `dissolveDuration`, `titleFallEase`, `titleGrain`, `titleTidal`, `titleSpiral`, `titleSpread`, `titleStream`, `titleOrder`, `titleTrail`, `titleHeat`, `titleDrift`, `titleSwirl`, `titleRedshift` |
-| Camera and film stock | `cameraSettle`, `cameraKick`, `shakeAmount`, `shakeDecay`, `lensFringe`, `vignette`, `filmGrain`, `letterbox` |
+| Camera and film stock | `cameraSettle`, `cameraKick`, `shakeAmount`, `shakeDecay`, `lensFringe`, `vignette`, `filmGrain`, `letterbox`, `filmHold` |
 | The hole's motion and the end | `releaseAt`, `introEnd`, `centerHoldFrequency`, `originAtHole` |
 
 - `lightCrossTime` is the speed of light on screen. The matter front moves at `matterSpeed` of it, and the
@@ -246,8 +248,11 @@ seconds from its start; everything after the explosion counts from `collapseAt`.
   follow `gravityStrength` and `orbitalStrength`.
 - The five colours take a hex string and can be keyframed; they move channel by channel.
 - With `originAtHole` 1 the whole opening happens where the hole is placed.
+- The film stock (`lensFringe`, `vignette`, `filmGrain`, `letterbox`) belongs to the opening and leaves
+  with it. `filmHold` is the share of it that stays: 1 keeps the bars, the grain and the rest for a whole
+  film, and in a film without the opening it is what shows them at all.
 - The title's words, face and case are not parameters: the title command on the page, or the intro's title,
-  font and uppercase in a film.
+  font and uppercase in a film, or a cue's own when a film fires another title.
 
 ## 14. Layers of the opening
 
@@ -261,9 +266,10 @@ particles straight through; hiding `camera` leaves the opening's zoom, shake and
 A layer is one of two kinds, and the list of layers from the page says which, with a line on each:
 
 - An event happens once: `star`, `glare`, `light`, `echo`, `shockwave`, `burst`, `remnant`, `ringdown`,
-  `gravityWave`, `camera`. A film fires it again with a cue, at the black hole, after the opening is over.
-  Fired, `camera` is the jolt and shake of the blast alone.
-- A state is there or not: `stars`, `reveal`, `title`, `hole`, `lens`, `ring`, `gravity`, `doppler`.
+  `gravityWave`, `title`, `camera`. A film fires it again with a cue, at the black hole, after the opening
+  is over. Fired, `camera` is the jolt and shake of the blast alone, and `title` is a title that arrives
+  and leaves again, with words of its own if the cue gives them.
+- A state is there or not: `stars`, `reveal`, `hole`, `lens`, `ring`, `gravity`, `doppler`.
 
 Every layer of either kind can be switched on and off along a film. What an event looks like when it is
 fired is its parameters in the table of section 13.

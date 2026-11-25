@@ -18,6 +18,41 @@ function captionFont (caption: FilmCaption, size: number) {
   return `500 ${size}px ${family}, system-ui, sans-serif`
 }
 
+// A caption as it fits the frame, kept from one frame to the next: its lines and the height of its letters
+const fitted = new WeakMap<FilmCaption, { room: number, size: number, lines: string[] }>()
+
+// Breaks a line that is wider than the room at its spaces. Letters shrink only when a single word is
+// still too wide, so the words never leave the frame whatever was written
+function fitCaption (ctx: CanvasRenderingContext2D, caption: FilmCaption, size: number, room: number) {
+  const kept = fitted.get(caption)
+  if (kept && kept.room === room) return kept
+  let fit = size
+  let lines: string[] = []
+  for (let tries = 0; tries < 6; tries++) {
+    ctx.font = captionFont(caption, fit)
+    lines = []
+    for (const line of caption.text.split('\n')) {
+      let current = ''
+      for (const word of line.split(' ')) {
+        const longer = current === '' ? word : `${current} ${word}`
+        if (current !== '' && ctx.measureText(longer).width > room) {
+          lines.push(current)
+          current = word
+        } else {
+          current = longer
+        }
+      }
+      lines.push(current)
+    }
+    const widest = Math.max(...lines.map(line => ctx.measureText(line).width))
+    if (widest <= room) break
+    fit *= Math.max(room / widest, 0.5)
+  }
+  const result = { room, size: fit, lines }
+  fitted.set(caption, result)
+  return result
+}
+
 // Faces a film's captions need, loaded before the first frame so no frame is drawn in a fallback face
 export function loadCaptionFonts (plan: FilmPlan): Promise<unknown> {
   const loads = plan.captions
@@ -40,8 +75,7 @@ export function drawCaptions (ctx: CanvasRenderingContext2D, plan: FilmPlan, tim
     const alpha = captionAlpha(caption, time)
     if (alpha <= 0) continue
 
-    const size = caption.size * shortSide
-    const lines = caption.text.split('\n')
+    const { size, lines } = fitCaption(ctx, caption, caption.size * shortSide, width - 2 * margin)
     const lineHeight = size * LINE_HEIGHT
     const blockHeight = lineHeight * lines.length
     ctx.save()

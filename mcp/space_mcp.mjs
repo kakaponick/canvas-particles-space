@@ -240,7 +240,10 @@ async function openStudio () {
       const failure = reply.result?.exceptionDetails
       if (failure) {
         const text = failure.exception?.description ?? failure.text ?? 'The page threw an error'
-        throw new Error(text.split('\n')[0].replace(/^(Uncaught )?(\(in promise\) )?Error: /, ''))
+        // The message may run over several lines (a film's problems come as a list); the stack below it goes
+        const lines = text.split('\n')
+        const stack = lines.findIndex(line => /^\s+at /.test(line))
+        throw new Error(lines.slice(0, stack < 0 ? lines.length : Math.max(stack, 1)).join('\n').replace(/^(Uncaught )?(\(in promise\) )?Error: /, ''))
       }
       if (reply.error) throw new Error(reply.error.message)
       return reply.result?.result?.value

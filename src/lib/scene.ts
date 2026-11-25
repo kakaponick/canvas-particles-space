@@ -20,6 +20,7 @@ import type { IntroParams } from './intro_params'
 import type { SimulationSettings } from './simulation_presets'
 import { stepSpring, type Spring2D } from './black_hole_motion'
 import { renderTitleSprite, waitForTitleFont, type TitleSprite, type TitleStyle } from './title_sprite'
+export type { TitleSprite } from './title_sprite'
 import { clearRingEnergy, createRingEnergy, stepRingEnergy } from './ring_energy'
 import { createGridSettings, placeGrid } from './space_grid'
 import { LIGHT_SPEED, SHADOW_RADII, clearOrbiters, createOrbiters, stepOrbiters } from './orbiters'
@@ -55,6 +56,7 @@ const REMNANT = LAYER_BIT.remnant
 const CAMERA = LAYER_BIT.camera
 const RINGDOWN = LAYER_BIT.ringdown
 const GRAVITY_WAVE = LAYER_BIT.gravityWave
+const TITLE = LAYER_BIT.title
 // What happens around the explosion plays on one clock, what the ringing horizon does on another, so a
 // new blast does not cut off a wave that is still crossing the frame
 const BLAST_LAYERS = STAR | GLARE | LIGHT | ECHO | SHOCKWAVE | BURST | REMNANT | CAMERA
@@ -111,6 +113,10 @@ export interface Scene {
   resize: (width: number, height: number, pixelRatio: number, input: SceneInput, force?: boolean) => boolean
   // Draws the title's words for the lens; resolves once they are in place or the wait for the face is over
   setTitle: (style: TitleStyle, fontTimeoutMs: number, force?: boolean) => Promise<void>
+  // Draws a title's words ahead of time, and puts words drawn so in place of the current ones at once: a
+  // film changes its title at a cue, where there is no waiting for a face
+  makeTitle: (style: TitleStyle, fontTimeoutMs: number) => Promise<TitleSprite>
+  useTitle: (sprite: TitleSprite) => void
   // Starts again with a fresh particle field, at this moment of the intro
   restart: (input: SceneInput, introTime?: number) => void
   // Plays layers of the opening again on their own, at the black hole and as the opening times them:
@@ -162,7 +168,7 @@ export function createScene (
   const intro = createIntroFrame()
   const ringTiming: RingdownTiming = { frequency: 1, decay: 1 }
   // Layers of the opening fired again: which are playing and the moment of the opening each clock is at
-  const cue = { blastLayers: 0, blastTime: 0, ringLayers: 0, ringTime: 0 }
+  const cue = { blastLayers: 0, blastTime: 0, ringLayers: 0, ringTime: 0, title: false, titleTime: 0 }
   const cueFrame = createIntroFrame()
 
   const random = createRandom(seed)
@@ -379,10 +385,15 @@ export function createScene (
     const p = from.params
     let blast = 0
     let ring = 0
+    let title = false
     let start = Infinity
     for (const layer of layers) {
       const bit = LAYER_BIT[layer]
-      if ((bit & RING_LAYERS) !== 0) {
+      if (bit === TITLE) {
+        // A title lit by the light front is there from the explosion; any other entrance has its own start
+        title = true
+        start = Math.min(start, Math.round(p.titleEntrance) === 0 ? p.collapseAt : p.titleInAt)
+      } else if ((bit & RING_LAYERS) !== 0) {
         ring |= bit
         start = Math.min(start, p.horizonAt + p.horizonGrowth)
       } else if ((bit & BLAST_LAYERS) !== 0) {
@@ -398,12 +409,27 @@ export function createScene (
       cue.ringLayers = ring
       cue.ringTime = start
     }
+    if (title) {
+      cue.title = true
+      cue.titleTime = start
+    }
+  }
+
+  async function makeTitle (style: TitleStyle, fontTimeoutMs: number) {
+    await waitForTitleFont(style, fontTimeoutMs)
+    return renderTitleSprite(style, scene.width, scene.pixelRatio)
+  }
+
+  function useTitle (sprite: TitleSprite) {
+    titleSprite = sprite
+    renderer?.setTitle(sprite)
   }
 
   function restart (from: SceneInput, introTime = 0) {
     scene.introTime = introTime
     cue.blastLayers = 0
     cue.ringLayers = 0
+    cue.title = false
     fadeBacklog = 0
     field.count = 0
     clearOrbiters(orbiters)
@@ -539,6 +565,20 @@ export function createScene (
       )
       // The core only starts to glow after the explosion, so nothing is called over before that
       if (cue.blastTime > Math.max(params.remnantAt, params.collapseAt) + params.glareRise && left < CUE_FADED) cue.blastLayers = 0
+    }
+    // A fired title lives its life again, from its entrance to its exit
+    if (cue.title) {
+      cue.titleTime += dt
+      sampleIntro(cue.titleTime, false, params, ringTiming, cueFrame)
+      intro.titleAlpha = hidden.title ? 0 : cueFrame.titleAlpha
+      intro.titleReveal = cueFrame.titleReveal
+      intro.titleDissolve = cueFrame.titleDissolve
+      intro.titleAge = cueFrame.titleAge
+      intro.titleFall = cueFrame.titleFall
+      intro.titleGrain = cueFrame.titleGrain
+      intro.titleBurn = cueFrame.titleBurn
+      intro.titleFly = cueFrame.titleFly
+      if (cue.titleTime >= params.dissolveAt + params.dissolveDuration) cue.title = false
     }
     // Seconds since a fired ringing began; negative while its clock is still at an earlier layer
     let sinceCueRing = -1
@@ -818,7 +858,8 @@ export function createScene (
     composite.colorEmber = params.colorEmber
     // The camera and the film belong to the intro: its layer switch removes them, and they are gone
     // by the time the intro ends
-    const film = hidden.camera ? 0 : intro.film
+    // The film look lifts as the intro ends, except for the share that is kept after it
+    const film = hidden.camera ? 0 : intro.film + (1 - intro.film) * params.filmHold
     const shake = hidden.camera ? 0 : intro.shake
     composite.cameraZoom = cameraZoom
     composite.zoomX = zoomX
@@ -863,6 +904,8 @@ export function createScene (
     ready: () => renderer !== null,
     resize,
     setTitle,
+    makeTitle,
+    useTitle,
     restart,
     fire,
     placeHole,

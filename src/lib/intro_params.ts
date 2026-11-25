@@ -116,7 +116,8 @@ export const DEFAULT_INTRO_PARAMS = {
   lensFringe: 0,
   vignette: 0,
   filmGrain: 0,
-  letterbox: 0
+  letterbox: 0,
+  filmHold: 0
 }
 
 export const TITLE_ENTRANCES = ['Lit by the light front', 'Fades in', 'Gathers from dust', 'Comes out of the black hole'] as const
@@ -262,7 +263,8 @@ export const INTRO_PARAM_SPECS = Object.fromEntries([
   p('lensFringe', 'Lens Fringe', 0, 20, 0.1, 'px', 'Red and blue edges toward the corners', 'Red and blue edges on the particles towards the corners of the frame, as a cheap lens gives. 0 removes them.'),
   p('vignette', 'Vignette', 0, 1, 0.01, '', 'How much the frame corners darken', 'How much the corners of the frame darken.'),
   spoken(p('filmGrain', 'Grain', 0, 0.5, 0.005, '', 'Flickering grain over the frame; 0 = none', 'Strength of the flickering grain over the whole frame.'), 'Film Grain'),
-  p('letterbox', 'Letterbox', 0, 0.3, 0.005, 'share', 'Bar height top and bottom, % of screen', 'Height of the black bar at the top and at the bottom, as a share of the screen height. The bars open when the intro ends.')
+  p('letterbox', 'Letterbox', 0, 0.3, 0.005, 'share', 'Bar height top and bottom, % of screen', 'Height of the black bar at the top and at the bottom, as a share of the screen height. The bars open when the intro ends, unless Keep After Intro holds them.'),
+  p('filmHold', 'Keep After Intro', 0, 1, 0.01, 'share', 'Film look kept after the intro; 0 = none', 'How much of the film look (lens fringe, vignette, grain, letterbox) stays once the intro is over: 0 lifts it all as the intro ends, 1 keeps it for good. A film without the intro shows these four only while this is above 0, and a track on it fades the look in and out.')
 ].map(spec => [spec.key, spec])) as Record<IntroParamKey, IntroParamSpec>
 
 // A real black hole's strongest ringdown tone (the l = 2 mode of a non-spinning hole): with its shadow

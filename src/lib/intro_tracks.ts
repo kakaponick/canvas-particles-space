@@ -14,7 +14,7 @@ export type IntroLayer = typeof INTRO_LAYERS[number]
 
 // The layers that are one event of the opening and can be played again on their own, at the black hole,
 // once the opening is over (scene.fire; a film's cues). The rest are states: they are switched, not fired
-export const CUE_LAYERS = ['star', 'glare', 'light', 'echo', 'shockwave', 'burst', 'remnant', 'ringdown', 'gravityWave', 'camera'] as const
+export const CUE_LAYERS = ['star', 'glare', 'light', 'echo', 'shockwave', 'burst', 'remnant', 'ringdown', 'gravityWave', 'title', 'camera'] as const
 
 export type CueLayer = typeof CUE_LAYERS[number]
 
@@ -31,7 +31,7 @@ export const INTRO_LAYER_NOTES: Record<IntroLayer, string> = {
   remnant: 'the core left behind, white-hot and then reddening away',
   ringdown: 'the newborn horizon wobbling as an oval, and the ring flickering with it',
   gravityWave: 'the gravitational wave that carries the wobble outward and ripples the sky and the sheet',
-  title: 'the words of the opening',
+  title: 'the words of the opening; fired, a title arrives and leaves again, with words of its own if the cue gives them',
   hole: 'the shadow of the black hole',
   lens: 'the bending of light around the black hole',
   ring: 'the photon ring',
@@ -225,7 +225,7 @@ export const INTRO_TRACKS: IntroTrack[] = [
     key: 'camera',
     label: 'Camera and Film',
     layer: 'camera',
-    params: ['cameraZoom', 'cameraSettle', 'cameraKick', 'shakeAmount', 'shakeDecay', 'lensFringe', 'vignette', 'filmGrain', 'letterbox'],
+    params: ['cameraZoom', 'cameraSettle', 'cameraKick', 'shakeAmount', 'shakeDecay', 'lensFringe', 'vignette', 'filmGrain', 'letterbox', 'filmHold'],
     spans: (p, reduced) => full(reduced, [{ start: 0, end: p.introEnd }])
   },
   {
