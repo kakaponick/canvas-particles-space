@@ -13,6 +13,7 @@ export interface ParticleState {
   baseSpeed: number
   gravityStrength: number
   orbitalStrength: number
+  gravityInertia: number
   // Visible black hole: radius of its shadow, % of the viewport's short side. The photon ring,
   // the lens and the strength and reach of gravity scale with it
   blackHoleSize: number
@@ -140,33 +141,9 @@ export interface ParticleState {
   activeParticles: number
   introComplete: boolean
 
-  setNumParticles: (num: number) => void
   setBaseSpeed: (speed: number) => void
-  setGravityStrength: (gravity: number) => void
-  setOrbitalStrength: (orbital: number) => void
-  setBlackHoleSize: (size: number) => void
-  setHorizonScale: (scale: number) => void
-  setBlackHoleSpin: (spin: number) => void
-  setSpinTilt: (degrees: number) => void
-  setSpinAxis: (degrees: number) => void
-  setFrameDrag: (strength: number) => void
-  setGravityReach: (reach: number) => void
   toggleRing: () => void
   toggleRingFeed: () => void
-  setRingBrightness: (value: number) => void
-  setRingGlow: (value: number) => void
-  setRingWidth: (value: number) => void
-  setRingDoppler: (value: number) => void
-  setRingSide: (value: number) => void
-  setRingBase: (value: number) => void
-  setRingFeed: (value: number) => void
-  setRingAfterglow: (value: number) => void
-  setRingFlowSpeed: (value: number) => void
-  setFollowFrequency: (value: number) => void
-  setStarsBrightness: (value: number) => void
-  setStarDensity: (value: number) => void
-  setStarCell: (value: number) => void
-  setPulseIntensity: (intensity: number) => void
   toggleBlackHoleFollowing: () => void
   // Moving a position slider anchors the black hole there
   setBlackHoleX: (x: number) => void
@@ -178,51 +155,9 @@ export interface ParticleState {
   removeColor: (index: number) => void
   updateColor: (index: number, updates: Partial<ParticleColor>) => void
   setBackgroundColor: (r: number, g: number, b: number) => void
-  setLensingRadius: (radius: number) => void
   toggleLensing: () => void
   toggleLensingTraced: () => void
-  setFarZ: (farZ: number) => void
-  setBaseBrightness: (brightness: number) => void
-  setDepthFade: (fade: number) => void
-  setMinOpacity: (opacity: number) => void
-  setMaxOpacity: (opacity: number) => void
-  setPulseSpeedMultiplier: (multiplier: number) => void
-  setTrailIntensity: (intensity: number) => void
-  setSpeedGlow: (value: number) => void
-  setParticleSize: (value: number) => void
-  setSpawnRadius: (value: number) => void
-  setBlackHoleDepth: (value: number) => void
-  setGravityDepth: (value: number) => void
-  setScrollSpeedStep: (value: number) => void
-  setSpeedVariance: (variance: number) => void
   togglePause: () => void
-  setLensingRotation: (rotation: number) => void
-  setLensingFalloff: (falloff: number) => void
-  setLensingPivot: (value: number) => void
-  setLensingCore: (value: number) => void
-  setLensingMaxBend: (value: number) => void
-  setLensingReach: (value: number) => void
-  setLensingTwistLimit: (value: number) => void
-  setLensingAbsorption: (absorption: number) => void
-  setGridCell: (value: number) => void
-  setGridSheet: (value: number) => void
-  setGridTilt: (value: number) => void
-  setGridDepth: (value: number) => void
-  setGridSky: (value: number) => void
-  setCameraZoom: (value: number) => void
-  setCameraX: (value: number) => void
-  setCameraY: (value: number) => void
-  setCameraPair: (value: number) => void
-  setCompanionSize: (value: number) => void
-  setCompanionDistance: (value: number) => void
-  setCompanionSpeed: (value: number) => void
-  setCompanionWaves: (value: number) => void
-  setOrbitCount: (value: number) => void
-  setOrbitSize: (value: number) => void
-  setOrbitEccentricity: (value: number) => void
-  setOrbitSpeed: (value: number) => void
-  setOrbitTrail: (value: number) => void
-  setOrbitStarSize: (value: number) => void
   setFrameRateCap: (fps: number) => void
   setMeasuredFps: (fps: number) => void
   toggleAdaptiveParticles: () => void
@@ -242,6 +177,7 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   baseSpeed: 1.5,
   gravityStrength: 2.5,
   orbitalStrength: 40,
+  gravityInertia: 0,
   blackHoleSize: 8,
   horizonScale: 1,
   blackHoleSpin: 0,
@@ -331,83 +267,17 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
     { r: 196, g: 213, b: 255, enabled: true, percent: 12 }
   ],
 
-  setNumParticles: (num) => set({ numParticles: num }),
   setBaseSpeed: (speed) => set({ baseSpeed: speed }),
-  setGravityStrength: (gravity) => set({ gravityStrength: gravity }),
-  setOrbitalStrength: (orbital) => set({ orbitalStrength: orbital }),
-  setBlackHoleSize: (size) => set({ blackHoleSize: size }),
-  setHorizonScale: (scale) => set({ horizonScale: scale }),
-  setBlackHoleSpin: (spin) => set({ blackHoleSpin: spin }),
-  setSpinTilt: (degrees) => set({ spinTilt: degrees }),
-  setSpinAxis: (degrees) => set({ spinAxis: degrees }),
-  setFrameDrag: (strength) => set({ frameDrag: strength }),
-  setGravityReach: (reach) => set({ gravityReach: reach }),
   toggleRing: () => set((state) => ({ ringEnabled: !state.ringEnabled })),
   toggleRingFeed: () => set((state) => ({ ringFeedEnabled: !state.ringFeedEnabled })),
-  setRingBrightness: (value) => set({ ringBrightness: value }),
-  setRingGlow: (value) => set({ ringGlow: value }),
-  setRingWidth: (value) => set({ ringWidth: value }),
-  setRingDoppler: (value) => set({ ringDoppler: value }),
-  setRingSide: (value) => set({ ringSide: value }),
-  setRingBase: (value) => set({ ringBase: value }),
-  setRingFeed: (value) => set({ ringFeed: value }),
-  setRingAfterglow: (value) => set({ ringAfterglow: value }),
-  setRingFlowSpeed: (value) => set({ ringFlowSpeed: value }),
-  setFollowFrequency: (value) => set({ followFrequency: value }),
-  setStarsBrightness: (value) => set({ starsBrightness: value }),
-  setStarDensity: (value) => set({ starDensity: value }),
-  setStarCell: (value) => set({ starCell: value }),
-  setPulseIntensity: (intensity) => set({ pulseIntensity: intensity }),
   toggleBlackHoleFollowing: () => set((state) => ({ blackHoleFollowing: !state.blackHoleFollowing })),
   setBlackHoleX: (x) => set({ blackHoleX: toShare(x), blackHoleFollowing: false }),
   setBlackHoleY: (y) => set({ blackHoleY: toShare(y), blackHoleFollowing: false }),
   setBlackHolePosition: (x, y) => set({ blackHoleX: toShare(x), blackHoleY: toShare(y) }),
   anchorBlackHoleAt: (x, y) => set({ blackHoleX: toShare(x), blackHoleY: toShare(y), blackHoleFollowing: false }),
-  setLensingRadius: (radius) => set({ lensingRadius: radius }),
   toggleLensing: () => set((state) => ({ lensingEnabled: !state.lensingEnabled })),
   toggleLensingTraced: () => set((state) => ({ lensingTraced: !state.lensingTraced })),
-  setFarZ: (farZ) => set({ farZ }),
-  setBaseBrightness: (brightness) => set({ baseBrightness: brightness }),
-  setDepthFade: (fade) => set({ depthFade: fade }),
-  setMinOpacity: (opacity) => set({ minOpacity: opacity }),
-  setMaxOpacity: (opacity) => set({ maxOpacity: opacity }),
-  setPulseSpeedMultiplier: (multiplier) => set({ pulseSpeedMultiplier: multiplier }),
-  setTrailIntensity: (intensity) => set({ trailIntensity: intensity }),
-  setSpeedGlow: (value) => set({ speedGlow: value }),
-  setParticleSize: (value) => set({ particleSize: value }),
-  setSpawnRadius: (value) => set({ spawnRadius: value }),
-  setBlackHoleDepth: (value) => set({ blackHoleDepth: value }),
-  setGravityDepth: (value) => set({ gravityDepth: value }),
-  setScrollSpeedStep: (value) => set({ scrollSpeedStep: value }),
-  setSpeedVariance: (variance) => set({ speedVariance: variance }),
   togglePause: () => set((state) => ({ isPaused: !state.isPaused })),
-  setLensingRotation: (rotation) => set({ lensingRotation: rotation }),
-  setLensingFalloff: (falloff) => set({ lensingFalloff: falloff }),
-  setLensingPivot: (value) => set({ lensingPivot: value }),
-  setLensingCore: (value) => set({ lensingCore: value }),
-  setLensingMaxBend: (value) => set({ lensingMaxBend: value }),
-  setLensingReach: (value) => set({ lensingReach: value }),
-  setLensingTwistLimit: (value) => set({ lensingTwistLimit: value }),
-  setLensingAbsorption: (absorption) => set({ lensingAbsorption: absorption }),
-  setGridCell: (value) => set({ gridCell: value }),
-  setGridSheet: (value) => set({ gridSheet: value }),
-  setGridTilt: (value) => set({ gridTilt: value }),
-  setGridDepth: (value) => set({ gridDepth: value }),
-  setGridSky: (value) => set({ gridSky: value }),
-  setCameraZoom: (value) => set({ cameraZoom: value }),
-  setCameraX: (value) => set({ cameraX: value }),
-  setCameraY: (value) => set({ cameraY: value }),
-  setCameraPair: (value) => set({ cameraPair: value }),
-  setCompanionSize: (value) => set({ companionSize: value }),
-  setCompanionDistance: (value) => set({ companionDistance: value }),
-  setCompanionSpeed: (value) => set({ companionSpeed: value }),
-  setCompanionWaves: (value) => set({ companionWaves: value }),
-  setOrbitCount: (value) => set({ orbitCount: value }),
-  setOrbitSize: (value) => set({ orbitSize: value }),
-  setOrbitEccentricity: (value) => set({ orbitEccentricity: value }),
-  setOrbitSpeed: (value) => set({ orbitSpeed: value }),
-  setOrbitTrail: (value) => set({ orbitTrail: value }),
-  setOrbitStarSize: (value) => set({ orbitStarSize: value }),
   setFrameRateCap: (fps) => set({ frameRateCap: fps }),
   setMeasuredFps: (fps) => set({ measuredFps: fps }),
   toggleAdaptiveParticles: () => set((state) => ({ adaptiveParticles: !state.adaptiveParticles })),

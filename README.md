@@ -44,6 +44,10 @@ pnpm preview
 
 # Lint
 pnpm lint
+
+# Frame time against an earlier commit (see CLAUDE.md, Measuring)
+node scripts/bench.mjs page --against HEAD
+node scripts/bench.mjs step --against HEAD
 ```
 
 ## Opening
@@ -101,7 +105,7 @@ and meaning; `window.space.describe()` reads the same text. The groups:
 - **Black Hole**: **Size** (shadow radius as a share of the screen's short side), the Event Horizon where
   particles are captured, the depth it sits at, **Spin** with the tilt and direction of its axis (a spinning
   hole's shadow flattens on the side turning toward the camera and shifts the other way, the photon ring follows
-  it, the orbiting stars and the particles near the hole are dragged round, the particles as hard as **Frame Drag** says, and under Ray Traced so is the light), **Gravity**, **Orbital Force**, **Gravity Reach** (in black hole
+  it, the orbiting stars and the particles near the hole are dragged round, the particles as hard as **Frame Drag** says, and under Ray Traced so is the light), **Gravity**, **Orbital Force**, **Inertia** (how much of the speed gravity gives the particles they keep: at 0 the classic look, near 1 they swing past the hole along bent paths), **Gravity Reach** (in black hole
   radii), Follow Cursor and how stiffly it follows, its resting position, and **Zoom**: magnifies the view around
   the black hole, which stays where it is on the screen. The scene is drawn anew at the zoom, not enlarged:
   particles, orbits, the ring and the grids stay sharp, and hairlines stay hairlines. Below 1 the camera pulls

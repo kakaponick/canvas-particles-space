@@ -90,6 +90,8 @@ export const SIMULATION_SETTING_SPECS = {
     'Strength of gravitational attraction toward the black hole center. Higher values create stronger inward pull on particles. Negative values push them away.'),
   orbitalStrength: spec('Orbital Force', -500, 500, 5, fixed(0), 'Swirl around the hole; sign sets direction',
     'Tangential force that causes particles to orbit around the black hole. Creates swirling, accretion disk-like motion patterns. Negative values swirl the other way.'),
+  gravityInertia: spec('Inertia', 0, 1, 0.01, fixed(2), 'Speed kept from gravity; 0 = none',
+    'How much of the speed the black holes give a particle it keeps from one frame to the next. 0 = the pull moves particles only while it acts, the scene\'s classic motion. 1 = they keep all of it, as bodies in free fall do: they fall faster as they near the hole, swing round it and fly on along bent paths. Between, what they gained dies away by that share every 60th of a second. Gravity, Orbital Force, the spin\'s drag and the second black hole all add to that speed.'),
   followFrequency: spec('Follow Stiffness', 0.1, 60, 0.1, fixed(1, ' rad/s'), 'Lower: the hole trails the cursor more',
     'How quickly the black hole catches up with the cursor; lower values feel heavier.'),
   blackHoleX: spec('Position X', 0, 1, 0.01, percentOfOne, 'Anchor, left to right; turns Follow off',

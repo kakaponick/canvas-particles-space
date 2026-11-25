@@ -17,7 +17,7 @@ const everyNumber = <Keys extends readonly StepNumber[]>(
 const STEP_NUMBERS = everyNumber([
   'frameScale', 'time', 'speed', 'width', 'height', 'focal', 'vanishX', 'vanishY', 'holeX', 'holeY', 'holeRadius',
   'captureRadius', 'captureX', 'captureY', 'spinRight', 'spinUp', 'spinToward', 'companionX', 'companionY', 'companionRadius', 'companionCapture', 'gravityReach', 'holeDepth',
-  'gravityDepth', 'lineWidth', 'gravityStrength', 'orbitalStrength', 'farZ', 'depthFade', 'pulseSpeedMultiplier',
+  'gravityDepth', 'lineWidth', 'gravityStrength', 'orbitalStrength', 'inertia', 'farZ', 'depthFade', 'pulseSpeedMultiplier',
   'pulseIntensity', 'baseBrightness', 'minOpacity', 'maxOpacity', 'revealRadius', 'revealX', 'revealY', 'revealFeather',
   'opacityScale'
 ] as const)

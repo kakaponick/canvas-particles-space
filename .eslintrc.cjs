@@ -6,7 +6,8 @@ module.exports = {
     'plugin:@typescript-eslint/recommended',
     'plugin:react-hooks/recommended'
   ],
-  ignorePatterns: ['dist', '.eslintrc.cjs'],
+  // src/components/ui is shadcn's generated code, kept as the generator writes it
+  ignorePatterns: ['dist', '.eslintrc.cjs', 'src/components/ui'],
   parser: '@typescript-eslint/parser',
   plugins: ['react-refresh'],
   rules: {

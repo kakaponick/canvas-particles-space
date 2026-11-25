@@ -132,32 +132,32 @@ function SettingsBody () {
 
       <SettingsSection id="particles" title="Particles">
         {/* The field, then its motion, then the look of a particle */}
-        <SettingSlider field="numParticles" setter="setNumParticles" />
-        <SettingSlider field="farZ" setter="setFarZ" />
-        <SettingSlider field="spawnRadius" setter="setSpawnRadius" />
+        <SettingSlider field="numParticles" />
+        <SettingSlider field="farZ" />
+        <SettingSlider field="spawnRadius" />
         <div className="mt-3 flex flex-col gap-1">
-          <SettingSlider field="baseSpeed" setter="setBaseSpeed" />
-          <SettingSlider field="speedVariance" setter="setSpeedVariance" />
-          <SettingSlider field="scrollSpeedStep" setter="setScrollSpeedStep" />
+          <SettingSlider field="baseSpeed" />
+          <SettingSlider field="speedVariance" />
+          <SettingSlider field="scrollSpeedStep" />
         </div>
         <div className="mt-3 flex flex-col gap-1">
-          <SettingSlider field="particleSize" setter="setParticleSize" />
-          <SettingSlider field="trailIntensity" setter="setTrailIntensity" />
+          <SettingSlider field="particleSize" />
+          <SettingSlider field="trailIntensity" />
         </div>
       </SettingsSection>
 
       <SettingsSection id="lighting" title="Particle Lighting">
         {/* Brightness, then the opacity range, then the pulse */}
-        <SettingSlider field="baseBrightness" setter="setBaseBrightness" />
-        <SettingSlider field="speedGlow" setter="setSpeedGlow" />
-        <SettingSlider field="depthFade" setter="setDepthFade" />
+        <SettingSlider field="baseBrightness" />
+        <SettingSlider field="speedGlow" />
+        <SettingSlider field="depthFade" />
         <div className="mt-3 flex flex-col gap-1">
-          <SettingSlider field="minOpacity" setter="setMinOpacity" />
-          <SettingSlider field="maxOpacity" setter="setMaxOpacity" />
+          <SettingSlider field="minOpacity" />
+          <SettingSlider field="maxOpacity" />
         </div>
         <div className="mt-3 flex flex-col gap-1">
-          <SettingSlider field="pulseIntensity" setter="setPulseIntensity" />
-          <SettingSlider field="pulseSpeedMultiplier" setter="setPulseSpeedMultiplier" />
+          <SettingSlider field="pulseIntensity" />
+          <SettingSlider field="pulseSpeedMultiplier" />
         </div>
       </SettingsSection>
 
@@ -172,101 +172,102 @@ function SettingsBody () {
 
       <SettingsSection id="black-hole" title="Black Hole" defaultOpen>
         {/* The hole itself and its spin, then its pull, then where it sits */}
-        <SettingSlider field="blackHoleSize" setter="setBlackHoleSize" />
-        <SettingSlider field="horizonScale" setter="setHorizonScale" />
-        <SettingSlider field="blackHoleDepth" setter="setBlackHoleDepth" />
+        <SettingSlider field="blackHoleSize" />
+        <SettingSlider field="horizonScale" />
+        <SettingSlider field="blackHoleDepth" />
         <div className="mt-3 flex flex-col gap-1">
-          <SettingSlider field="blackHoleSpin" setter="setBlackHoleSpin" />
-          <SettingSlider field="spinTilt" setter="setSpinTilt" />
-          <SettingSlider field="spinAxis" setter="setSpinAxis" />
-          <SettingSlider field="frameDrag" setter="setFrameDrag" />
+          <SettingSlider field="blackHoleSpin" />
+          <SettingSlider field="spinTilt" />
+          <SettingSlider field="spinAxis" />
+          <SettingSlider field="frameDrag" />
         </div>
         <div className="mt-3 flex flex-col gap-1">
-          <SettingSlider field="gravityStrength" setter="setGravityStrength" />
-          <SettingSlider field="orbitalStrength" setter="setOrbitalStrength" />
-          <SettingSlider field="gravityReach" setter="setGravityReach" />
-          <SettingSlider field="gravityDepth" setter="setGravityDepth" />
+          <SettingSlider field="gravityStrength" />
+          <SettingSlider field="orbitalStrength" />
+          <SettingSlider field="gravityInertia" />
+          <SettingSlider field="gravityReach" />
+          <SettingSlider field="gravityDepth" />
         </div>
         <FollowCursorRow />
-        <SettingSlider field="followFrequency" setter="setFollowFrequency" />
+        <SettingSlider field="followFrequency" />
         <SettingSlider field="blackHoleX" setter="setBlackHoleX" />
         <SettingSlider field="blackHoleY" setter="setBlackHoleY" />
-        <SettingSlider field="cameraZoom" setter="setCameraZoom" />
-        <SettingSlider field="cameraX" setter="setCameraX" />
-        <SettingSlider field="cameraY" setter="setCameraY" />
-        <SettingSlider field="cameraPair" setter="setCameraPair" />
+        <SettingSlider field="cameraZoom" />
+        <SettingSlider field="cameraX" />
+        <SettingSlider field="cameraY" />
+        <SettingSlider field="cameraPair" />
       </SettingsSection>
 
       <SettingsSection id="companion" title="Second Black Hole">
-        <SettingSlider field="companionSize" setter="setCompanionSize" />
-        <SettingSlider field="companionDistance" setter="setCompanionDistance" />
-        <SettingSlider field="companionSpeed" setter="setCompanionSpeed" />
-        <SettingSlider field="companionWaves" setter="setCompanionWaves" />
+        <SettingSlider field="companionSize" />
+        <SettingSlider field="companionDistance" />
+        <SettingSlider field="companionSpeed" />
+        <SettingSlider field="companionWaves" />
       </SettingsSection>
 
       <PhotonRingSection>
-        <SettingSlider field="ringBrightness" setter="setRingBrightness" />
-        <SettingSlider field="ringGlow" setter="setRingGlow" />
-        <SettingSlider field="ringWidth" setter="setRingWidth" />
-        <SettingSlider field="ringDoppler" setter="setRingDoppler" />
-        <SettingSlider field="ringSide" setter="setRingSide" />
+        <SettingSlider field="ringBrightness" />
+        <SettingSlider field="ringGlow" />
+        <SettingSlider field="ringWidth" />
+        <SettingSlider field="ringDoppler" />
+        <SettingSlider field="ringSide" />
         <InfallFeedRow />
-        <SettingSlider field="ringBase" setter="setRingBase" />
-        <SettingSlider field="ringFeed" setter="setRingFeed" />
-        <SettingSlider field="ringAfterglow" setter="setRingAfterglow" />
-        <SettingSlider field="ringFlowSpeed" setter="setRingFlowSpeed" />
+        <SettingSlider field="ringBase" />
+        <SettingSlider field="ringFeed" />
+        <SettingSlider field="ringAfterglow" />
+        <SettingSlider field="ringFlowSpeed" />
       </PhotonRingSection>
 
       <LensingSection>
         {/* The mode, what both modes read, then what only the stylized lens reads: reach, the falloff,
             the twist and the limits near the hole */}
         <RayTracedRow />
-        <SettingSlider field="lensingRadius" setter="setLensingRadius" />
-        <SettingSlider field="lensingAbsorption" setter="setLensingAbsorption" />
+        <SettingSlider field="lensingRadius" />
+        <SettingSlider field="lensingAbsorption" />
         <StylizedLens>
-          <SettingSlider field="lensingReach" setter="setLensingReach" />
+          <SettingSlider field="lensingReach" />
           <div className="mt-3 flex flex-col gap-1">
-            <SettingSlider field="lensingFalloff" setter="setLensingFalloff" />
-            <SettingSlider field="lensingPivot" setter="setLensingPivot" />
+            <SettingSlider field="lensingFalloff" />
+            <SettingSlider field="lensingPivot" />
           </div>
           <div className="mt-3 flex flex-col gap-1">
-            <SettingSlider field="lensingRotation" setter="setLensingRotation" />
-            <SettingSlider field="lensingTwistLimit" setter="setLensingTwistLimit" />
+            <SettingSlider field="lensingRotation" />
+            <SettingSlider field="lensingTwistLimit" />
           </div>
           <div className="mt-3 flex flex-col gap-1">
-            <SettingSlider field="lensingMaxBend" setter="setLensingMaxBend" />
-            <SettingSlider field="lensingCore" setter="setLensingCore" />
+            <SettingSlider field="lensingMaxBend" />
+            <SettingSlider field="lensingCore" />
           </div>
         </StylizedLens>
       </LensingSection>
 
       <SettingsSection id="orbiting-stars" title="Orbiting Stars">
         {/* How many and on what orbits, their pace, then their look */}
-        <SettingSlider field="orbitCount" setter="setOrbitCount" />
-        <SettingSlider field="orbitSize" setter="setOrbitSize" />
-        <SettingSlider field="orbitEccentricity" setter="setOrbitEccentricity" />
-        <SettingSlider field="orbitSpeed" setter="setOrbitSpeed" />
+        <SettingSlider field="orbitCount" />
+        <SettingSlider field="orbitSize" />
+        <SettingSlider field="orbitEccentricity" />
+        <SettingSlider field="orbitSpeed" />
         <div className="mt-3 flex flex-col gap-1">
-          <SettingSlider field="orbitTrail" setter="setOrbitTrail" />
-          <SettingSlider field="orbitStarSize" setter="setOrbitStarSize" />
+          <SettingSlider field="orbitTrail" />
+          <SettingSlider field="orbitStarSize" />
         </div>
       </SettingsSection>
 
       <SettingsSection id="space-grid" title="Space Grid">
         {/* The sheet and its shape, the grid behind the lens, then the cell both share */}
-        <SettingSlider field="gridSheet" setter="setGridSheet" />
-        <SettingSlider field="gridTilt" setter="setGridTilt" />
-        <SettingSlider field="gridDepth" setter="setGridDepth" />
+        <SettingSlider field="gridSheet" />
+        <SettingSlider field="gridTilt" />
+        <SettingSlider field="gridDepth" />
         <div className="mt-3 flex flex-col gap-1">
-          <SettingSlider field="gridSky" setter="setGridSky" />
-          <SettingSlider field="gridCell" setter="setGridCell" />
+          <SettingSlider field="gridSky" />
+          <SettingSlider field="gridCell" />
         </div>
       </SettingsSection>
 
       <SettingsSection id="stars" title="Background Stars">
-        <SettingSlider field="starsBrightness" setter="setStarsBrightness" />
-        <SettingSlider field="starDensity" setter="setStarDensity" />
-        <SettingSlider field="starCell" setter="setStarCell" />
+        <SettingSlider field="starsBrightness" />
+        <SettingSlider field="starDensity" />
+        <SettingSlider field="starCell" />
       </SettingsSection>
     </div>
   )

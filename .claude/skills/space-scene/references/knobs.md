@@ -69,11 +69,16 @@ What follows from how it is drawn:
 |---|---|
 | Pull towards the hole (negative pushes away) | `gravityStrength` |
 | Sideways force that makes them swirl (the sign is the direction) | `orbitalStrength` |
+| How much of the speed gravity gives them they keep | `gravityInertia` |
 | How far it reaches across the screen, in radii | `gravityReach` |
 | Where the hole sits in depth, and how thick a layer it pulls | `blackHoleDepth`, `gravityDepth` |
 
-- The particles have no velocity of their own: gravity displaces them each frame. Real orbits belong to
-  the orbiting stars (section 7), not to the particles.
+- At `gravityInertia` 0 (the default) gravity displaces the particles only while it acts, the scene's
+  classic look. Raised, they keep the speed it gives them: about 0.9 gathers the particles that pass close
+  into a turning ring round the shadow and thins the field outside it; 1 keeps all of it, so they swing
+  past the hole and fly on along bent paths, a whirl of straight streaks. Orbital Force, the spin's drag
+  and the second black hole add to that speed too. Closed orbits still belong to the orbiting stars
+  (section 7).
 - Only the layer around `blackHoleDepth` is pulled; `gravityDepth` at 50 or more reaches the whole field,
   which is what makes the long-exposure knots dense. With a moving field it is the opposite: strong
   `gravityStrength` over the whole depth pulls everything into the horizon and the frame goes nearly empty.

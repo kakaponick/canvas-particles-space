@@ -1,4 +1,4 @@
-import { memo } from 'react'
+import { memo, useCallback } from 'react'
 import { useParticleStore, type ParticleState } from '../../store/particle_store'
 import { DEFAULT_PRESET } from '../../store/preset_store'
 import { SIMULATION_SETTING_SPECS, type SimulationSettingSpec, type SimulationSliderKey } from '../../lib/simulation_specs'
@@ -12,7 +12,9 @@ type NumberSetter = {
 
 interface SettingSliderProps {
   field: SimulationSliderKey
-  setter: NumberSetter
+  // Only for a setting that does more than store its value (the hole's place also stops it following the
+  // cursor); a slider without one sets its field
+  setter?: NumberSetter
 }
 
 const defaults = DEFAULT_PRESET.settings as Partial<Record<SimulationSliderKey, number>>
@@ -22,7 +24,9 @@ const defaults = DEFAULT_PRESET.settings as Partial<Record<SimulationSliderKey, 
 // marks and returns to on a double-click comes from the Default preset
 const SettingSlider = memo(function SettingSlider ({ field, setter }: SettingSliderProps) {
   const value = useParticleStore(state => state[field])
-  const onChange = useParticleStore(state => state[setter])
+  const ownSetter = useParticleStore(state => (setter ? state[setter] : null))
+  const setField = useCallback((next: number) => useParticleStore.setState({ [field]: next } as Partial<ParticleState>), [field])
+  const onChange = ownSetter ?? setField
   const { label, min, max, step, format, hint, spokenName } = SIMULATION_SETTING_SPECS[field] as SimulationSettingSpec
 
   return (

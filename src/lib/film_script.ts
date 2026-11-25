@@ -134,7 +134,7 @@ const lineOf = (stack: string | undefined) => {
 // How a function made from text numbers its lines differs between engines, so it is asked once
 function findFirstLine () {
   if (firstLine > 0) return
-  // eslint-disable-next-line no-new-func -- a script is text by nature; this one is the engine's own line count
+  // new Function: a script is text by nature; this one is the engine's own line count
   const probe = new Function('seen', `seen(new Error().stack)\n//# sourceURL=${SCRIPT_NAME}`) as (seen: (stack?: string) => void) => void
   probe(stack => { firstLine = rawLine(stack) })
   if (firstLine === 0) firstLine = 1
@@ -558,7 +558,7 @@ function playScript (source: unknown, input: unknown, script: ScriptKind) {
   math.random = () => nextRandom(generator())
 
   try {
-    // eslint-disable-next-line no-new-func -- a film script is text an agent wrote, and running it is the point
+    // new Function: a film script is text an agent wrote, and running it is the point
     const run = new Function(...SCRIPT_WORDS, 'Math', `"use strict";${source}\n//# sourceURL=${SCRIPT_NAME}`) as (...given: unknown[]) => void
     run(...SCRIPT_WORDS.map(word => words[word]), math)
   } catch (error) {

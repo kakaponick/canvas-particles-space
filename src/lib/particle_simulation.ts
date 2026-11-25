@@ -36,6 +36,10 @@ export interface ParticleField {
   pulseSpeed: Float32Array
   speedMultiplier: Float32Array
   color: Uint32Array
+  // Sideways speed the black holes gave a particle, in world units per 60 Hz frame; kept only while
+  // Inertia is above 0
+  vx: Float32Array
+  vy: Float32Array
 }
 
 export interface PaletteSampler {
@@ -101,6 +105,9 @@ export interface StepSettings {
   lineWidth: number
   gravityStrength: number
   orbitalStrength: number
+  // Share of the sideways speed the black holes give a particle that it keeps from one 60 Hz frame to the
+  // next: 0 moves it only while it is pulled, 1 keeps it all, as a body in free fall does
+  inertia: number
   farZ: number
   depthFade: number
   pulseSpeedMultiplier: number
@@ -138,6 +145,8 @@ export interface StepLater {
 // the hole's radius and a spin of 1. Space turns at 2 J / r^3 (Lense-Thirring), which with J = spin / 4
 // in the hole's radii is a speed of spin / 2 across the pull at one radius
 const DRAG_SHARE = 0.5
+// A kept speed below a hundredth of a world unit a second (squared, per 60 Hz frame) is let go
+const SPEED_FLOOR_SQ = (0.01 / 60) ** 2
 
 const RESPAWN_FAR = 0
 const RESPAWN_HOLE = 1
@@ -192,6 +201,8 @@ function spawnParticle (field: ParticleField, i: number, z: number, spawn: Spawn
   field.x[i] = Math.cos(angle) * radius
   field.y[i] = Math.sin(angle) * radius
   field.z[i] = z
+  field.vx[i] = 0
+  field.vy[i] = 0
   field.color[i] = samplePaletteColor(spawn.palette, random)
   field.alpha[i] = 0.3 + nextRandom(random) * 0.7
   field.pulsePhase[i] = nextRandom(random) * Math.PI * 2
@@ -246,7 +257,9 @@ export function createParticleField (shared = 0): ParticleField {
     pulsePhase: floats(),
     pulseSpeed: floats(),
     speedMultiplier: floats(),
-    color: shared > 0 ? new Uint32Array(new SharedArrayBuffer(shared * 4)) : new Uint32Array(0)
+    color: shared > 0 ? new Uint32Array(new SharedArrayBuffer(shared * 4)) : new Uint32Array(0),
+    vx: floats(),
+    vy: floats()
   }
 }
 
@@ -263,6 +276,8 @@ export function setParticleCount (field: ParticleField, requested: number, spawn
     field.pulsePhase = growFloats(field.pulsePhase, count)
     field.pulseSpeed = growFloats(field.pulseSpeed, count)
     field.speedMultiplier = growFloats(field.speedMultiplier, count)
+    field.vx = growFloats(field.vx, count)
+    field.vy = growFloats(field.vy, count)
     const color = new Uint32Array(count)
     color.set(field.color)
     field.color = color
@@ -272,6 +287,55 @@ export function setParticleCount (field: ParticleField, requested: number, spawn
     spawnParticle(field, i, nextRandom(spawn.random) * spawn.farZ, spawn)
   }
   field.count = count
+}
+
+// The step's settings as the scene holds them before its first frame: no black hole, nothing lit. The
+// scene fills them in every frame; a benchmark sets what it measures over these, so a new setting reaches
+// it with the value that changes nothing
+export function createStepSettings (ringEnergy: RingEnergy | null = null): StepSettings {
+  return {
+    frameScale: 0,
+    time: 0,
+    speed: 0,
+    width: 0,
+    height: 0,
+    focal: 1,
+    vanishX: 0,
+    vanishY: 0,
+    holeX: NaN,
+    holeY: NaN,
+    holeRadius: 0,
+    captureRadius: 0,
+    captureX: 0,
+    captureY: 0,
+    spinRight: 0,
+    spinUp: 0,
+    spinToward: 0,
+    companionX: 0,
+    companionY: 0,
+    companionRadius: 0,
+    companionCapture: 0,
+    ringEnergy,
+    gravityReach: 0,
+    holeDepth: 0,
+    gravityDepth: 1,
+    lineWidth: 3,
+    gravityStrength: 0,
+    orbitalStrength: 0,
+    inertia: 0,
+    farZ: 1,
+    depthFade: 0,
+    pulseSpeedMultiplier: 0,
+    pulseIntensity: 0,
+    baseBrightness: 0,
+    minOpacity: 0,
+    maxOpacity: 0,
+    revealRadius: 0,
+    revealX: 0,
+    revealY: 0,
+    revealFeather: 80,
+    opacityScale: 1
+  }
 }
 
 export function createInstanceData (shared = 0): InstanceData {
@@ -333,7 +397,7 @@ export function stepRange (
   to: number,
   later: StepLater | null
 ): number {
-  const { x, y, z, alpha, pulsePhase, pulseSpeed, speedMultiplier, color } = field
+  const { x, y, z, alpha, pulsePhase, pulseSpeed, speedMultiplier, color, vx, vy } = field
   const { floats, colors } = out
   const {
     frameScale, time, width, height, focal, vanishX, vanishY, holeX, holeY, holeRadius, holeDepth,
@@ -383,6 +447,15 @@ export function stepRange (
   const dragRight = settings.spinRight * dragScale
   const dragUp = settings.spinUp * dragScale
   const dragging = hasHole && (dragToward !== 0 || dragRight !== 0 || dragUp !== 0)
+  // Inertia: a push of the holes is a change of speed that lasts. Per 60 Hz frame the speed keeps the share
+  // `inertia` and gains the push, so over this step's frames it keeps `keep` and gains the push `gain`
+  // times, which at 0 is the push alone, the motion the scene had before particles kept any speed.
+  // `velocityGain` turns the push of this step back into speed per 60 Hz frame
+  const inertia = settings.inertia
+  const inertial = inertia > 0 && frameScale > 0
+  const keep = inertial ? (inertia < 1 ? Math.pow(inertia, frameScale) : 1) : 0
+  const gain = inertial && inertia < 1 ? (1 - keep) / (1 - inertia) : inertial ? frameScale : 1
+  const velocityGain = inertial ? gain / frameScale : 0
   // The second black hole pulls in proportion to its size and reaches as far in its own radii
   const companionRadius = settings.companionRadius
   const hasCompanion = hasHole && companionRadius > 0
@@ -421,6 +494,20 @@ export function stepRange (
       if (later) later.respawns[from + later.respawnCount++] = i * 4 + RESPAWN_FAR
       else spawnParticle(field, i, farZ, spawn)
       continue
+    }
+
+    // A particle the holes set moving drifts on with what it kept of that speed
+    let speedX = 0
+    let speedY = 0
+    if (inertial) {
+      speedX = vx[i] * keep
+      speedY = vy[i] * keep
+      if (speedX !== 0 || speedY !== 0) {
+        px += speedX * frameScale
+        py += speedY * frameScale
+        x[i] = px
+        y[i] = py
+      }
     }
 
     const endScale = focal / pz
@@ -467,16 +554,26 @@ export function stepRange (
           const pull = pullScale / clampedSq * depthWeight
           const toWorld = pz * invFocal * invDistance
 
+          let pushX
+          let pushY
           if (dragging) {
             const orbit = pull * (orbitScale + dragToward * invDistance)
             const across = pull * depthOffset
-            px += (dx * pull - dy * orbit - across * dragUp) * toWorld
-            py += (dy * pull + dx * orbit - across * dragRight) * toWorld
+            pushX = (dx * pull - dy * orbit - across * dragUp) * toWorld
+            pushY = (dy * pull + dx * orbit - across * dragRight) * toWorld
           } else {
             const orbit = pull * orbitScale
-            px += (dx * pull - dy * orbit) * toWorld
-            py += (dy * pull + dx * orbit) * toWorld
+            pushX = (dx * pull - dy * orbit) * toWorld
+            pushY = (dy * pull + dx * orbit) * toWorld
           }
+          if (inertial) {
+            speedX += pushX * velocityGain
+            speedY += pushY * velocityGain
+            pushX *= gain
+            pushY *= gain
+          }
+          px += pushX
+          py += pushY
           x[i] = px
           y[i] = py
 
@@ -507,8 +604,16 @@ export function stepRange (
           const orbit = pull * orbitScale
           const toWorld = pz * invFocal / Math.sqrt(clampedSq)
 
-          px += (dx * pull - dy * orbit) * toWorld
-          py += (dy * pull + dx * orbit) * toWorld
+          let pushX = (dx * pull - dy * orbit) * toWorld
+          let pushY = (dy * pull + dx * orbit) * toWorld
+          if (inertial) {
+            speedX += pushX * velocityGain
+            speedY += pushY * velocityGain
+            pushX *= gain
+            pushY *= gain
+          }
+          px += pushX
+          py += pushY
           x[i] = px
           y[i] = py
 
@@ -519,6 +624,13 @@ export function stepRange (
     }
 
     z[i] = pz
+    // Speed too small to move a particle a hundredth of a world unit in a second is let go, so a particle
+    // the holes no longer reach stops costing the drift above
+    if (inertial) {
+      const moving = speedX * speedX + speedY * speedY > SPEED_FLOOR_SQ
+      vx[i] = moving ? speedX : 0
+      vy[i] = moving ? speedY : 0
+    }
 
     // A particle that did not move draws nothing, which also saves its stroke
     if (endX === startX && endY === startY) continue

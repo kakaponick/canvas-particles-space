@@ -550,8 +550,13 @@ if (!fs.existsSync(mapPath)) {
     }
   }
   const everyName = new Set(Object.values(known).flat())
+  // A file the map points at (a film, a script) is held to being there, from the repository or the skill
+  const isFile = name => /[\\/]/.test(name) || /\.(js|mjs|ts|tsx|json|md|mp4)$/.test(name)
+  const skillDir = path.dirname(path.dirname(mapPath))
   for (const name of named) {
-    if (!everyName.has(name)) problem(`knobs.md names \`${name}\`, which is no key, layer, preset, font, size or caption place of the scene`)
+    if (isFile(name)) {
+      if (![root, skillDir].some(dir => fs.existsSync(path.join(dir, name)))) problem(`knobs.md names the file \`${name}\`, which is not there`)
+    } else if (!everyName.has(name)) problem(`knobs.md names \`${name}\`, which is no key, layer, preset, font, size or caption place of the scene`)
   }
 }
 

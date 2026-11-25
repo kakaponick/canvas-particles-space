@@ -7,11 +7,11 @@ import {
   createParticleField,
   createInstanceData,
   createPaletteSampler,
+  createStepSettings,
   ensureInstanceCapacity,
   setParticleCount,
   stepParticles,
-  type SpawnSettings,
-  type StepSettings
+  type SpawnSettings
 } from './particle_simulation'
 import { createParticleRenderer, type FrameInput, type ParticleRenderer } from './particle_renderer'
 import { createIntroFrame, getRingdownTiming, ringdownWobble, sampleIntro, type IntroFrame, type RingdownTiming } from './intro_timeline'
@@ -201,48 +201,7 @@ export function createScene (
   }
   setParticleCount(field, input.particleCount, spawn)
 
-  const settings: StepSettings = {
-    frameScale: 0,
-    time: 0,
-    speed: 0,
-    width: 0,
-    height: 0,
-    focal: 1,
-    vanishX: 0,
-    vanishY: 0,
-    holeX: NaN,
-    holeY: NaN,
-    holeRadius: 0,
-    captureRadius: 0,
-    captureX: 0,
-    captureY: 0,
-    spinRight: 0,
-    spinUp: 0,
-    spinToward: 0,
-    companionX: 0,
-    companionY: 0,
-    companionRadius: 0,
-    companionCapture: 0,
-    ringEnergy,
-    gravityReach: 0,
-    holeDepth: 0,
-    gravityDepth: 1,
-    lineWidth: 3,
-    gravityStrength: 0,
-    orbitalStrength: 0,
-    farZ: 1,
-    depthFade: 0,
-    pulseSpeedMultiplier: 0,
-    pulseIntensity: 0,
-    baseBrightness: 0,
-    minOpacity: 0,
-    maxOpacity: 0,
-    revealRadius: 0,
-    revealX: 0,
-    revealY: 0,
-    revealFeather: 80,
-    opacityScale: 1
-  }
+  const settings = createStepSettings(ringEnergy)
 
   const background: [number, number, number] = [0, 0, 0]
   const frame: FrameInput = {
@@ -748,6 +707,7 @@ export function createScene (
     settings.lineWidth = state.particleSize
     settings.gravityStrength = hidden.gravity ? 0 : state.gravityStrength
     settings.orbitalStrength = hidden.gravity ? 0 : state.orbitalStrength
+    settings.inertia = state.gravityInertia
     settings.farZ = state.farZ
     settings.depthFade = state.depthFade
     settings.pulseSpeedMultiplier = state.pulseSpeedMultiplier
