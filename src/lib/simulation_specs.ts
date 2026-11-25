@@ -104,7 +104,7 @@ export const SIMULATION_SETTING_SPECS = {
     'How much the ring lights up where particles fall into or skim past the black hole.'),
   ringAfterglow: spec('Afterglow', 0.05, 30, 0.05, fixed(2, ' s'), 'How long infall light lingers',
     'How long the light left by infalling particles lingers on the ring.'),
-  ringFlowSpeed: spec('Flow Speed', -10, 10, 0.05, fixed(2, ' rad/s'), 'Bright patches\' speed; sign sets direction',
+  ringFlowSpeed: spec('Flow Speed', -30, 30, 0.1, fixed(2, ' rad/s'), 'Bright patches\' speed; sign sets direction',
     'How fast the bright patches travel around the ring. Negative values turn them the other way.'),
   lensingRadius: spec('Einstein Radius', 0, 8, 0.05, fixed(2, '×'), 'Lens ring size, in hole radii; 0 = no lens',
     'Radius of the Einstein ring, in black hole radii: light from behind the hole is bent into a ring this size. For a real black hole it tells how far the camera is: about the square root of twice that distance in Schwarzschild radii, divided by 2.6, so 1.7 at 10 and 3 at 30. 0 turns the lens off.'),
