@@ -1,8 +1,8 @@
 // A film: the scene as a short video, described by one JSON object. It names its length, frame, seed and
 // starting settings, and is a timeline of five kinds of things: values that move along keyframes (tracks),
 // layers that switch on and off (layers), the intro as a clip (intro), its events fired again (cues) and
-// the pace of the scene's own time (speed), with a fade to black and captions laid over the picture and names
-// for its stretches (shots). A script (film_script.ts) is a shorter way to write this same object.
+// the pace of the scene's own time (speed), with a fade to black, shapes (graphics) and captions laid over the
+// picture and names for its stretches (shots). A script (film_script.ts) is a shorter way to write this same object.
 // planFilm checks it against the registries the panels are built from and
 // turns it into a plan the renderer (film_render.ts) plays frame by frame. A film starts from the page's
 // defaults, never from what this browser happens to have set, so the same film is the same video anywhere.
@@ -57,15 +57,92 @@ export const CAPTION_FONTS: readonly CaptionFont[] = [...(Object.keys(TITLE_FONT
 export const CAPTION_REVEALS = ['letters', 'words', 'lines'] as const
 export const CAPTION_ALIGNS = ['left', 'center', 'right'] as const
 
+// What a film draws over its picture besides words: lines and arrows, circles, boxes, small charts, pictures
+export const GRAPHIC_KINDS = ['line', 'circle', 'rect', 'plot', 'image'] as const
+export type GraphicKind = typeof GRAPHIC_KINDS[number]
+export const GRAPHIC_ARROWS = ['end', 'start', 'both'] as const
+// What a place rides with: the frame, or one of the two black holes
+export const GRAPHIC_ANCHORS = ['hole', 'companion'] as const
+
+// A number of a shape: written, or the name of a value read at each second (the shape's own "values", the
+// film's "seconds", or a number of the scene as the tracks left it)
+export type FilmNumber = number | string
+
+// A point of a shape. On the frame it is shares of the frame's width and height; at a black hole it is that
+// hole's radii from its centre, x to the right and y up, and rides with the hole, the zoom and the camera
+export interface FilmPlace {
+  anchor: 'frame' | typeof GRAPHIC_ANCHORS[number]
+  x: FilmNumber
+  y: FilmNumber
+}
+
+export interface PlotSeries {
+  // In the plot's own units, in the order they are joined
+  points: (readonly [number, number])[]
+  color: string
+}
+
+export interface FilmGraphic {
+  kind: GraphicKind
+  from: number
+  to: number
+  // Seconds it takes to appear and to leave
+  fade: number
+  color: string
+  opacity: FilmNumber
+  // Thickness of its stroke as a share of the frame's short side, so a zoom does not thicken it
+  width: number
+  // Lengths of a dash and of the gap after it, shares of the short side; null is a solid stroke
+  dash: readonly [number, number] | null
+  fill: string | null
+  fillOpacity: FilmNumber
+  // Numbers of its own, each along keyframes
+  values: Record<string, FilmTrack>
+  // Seconds over which the stroke draws itself from "from"; 0 is there at once
+  draw: number
+  // A line: the places it joins
+  points: FilmPlace[]
+  smooth: boolean
+  close: boolean
+  arrow: typeof GRAPHIC_ARROWS[number] | null
+  // A circle, a box and a picture stand around a place. Their lengths are in the unit of that place: the
+  // hole's radii, or shares of the frame's short side
+  center: FilmPlace | null
+  radius: FilmNumber
+  radiusY: FilmNumber | null
+  // Degrees an arc runs between, 0 to the right and 90 up; null is the whole circle
+  arc: readonly [FilmNumber, FilmNumber] | null
+  size: readonly [FilmNumber, FilmNumber]
+  round: FilmNumber
+  // A plot: its place on the frame as [left, top, width, height] in shares of it, the numbers its sides
+  // stand for, and its curves
+  box: readonly [number, number, number, number]
+  xRange: readonly [number, number]
+  yRange: readonly [number, number]
+  series: PlotSeries[]
+  xLabel: CaptionRun[] | null
+  yLabel: CaptionRun[] | null
+  // Height of a plot's letters as a share of the frame's short side
+  labelSize: number
+  // A dark plate behind a plot, 0 (none) to 1 (solid)
+  plate: number
+  // The curve is drawn only up to this x, and a dot stands on it at this one
+  upTo: FilmNumber | null
+  marker: FilmNumber | null
+  // A picture: where it is read from, and how wide it is drawn
+  src: string
+  imageWidth: FilmNumber
+}
+
 export interface FilmCaption {
   text: string
   // The text as it is drawn: its lines, each cut into runs at its marks (caption_text.ts)
   lines: CaptionRun[][]
   from: number
   to: number
-  // A place on the frame, something in the scene the caption points at, or shares of the frame's
-  // width and height
-  at: CaptionPlace | readonly [number, number]
+  // A place on the frame, something in the scene the caption points at, shares of the frame's width and
+  // height, or a point of the scene the words are centred on and ride with
+  at: CaptionPlace | readonly [number, number] | FilmPlace
   // Direction of a pointing caption from the black hole, degrees: 0 is right, 90 is up
   angle: number
   // Height of the letters as a share of the frame's short side
@@ -153,6 +230,8 @@ export interface FilmPlan {
   title: TitleText
   tracks: FilmTrack[]
   captions: FilmCaption[]
+  // Shapes drawn over the picture and under the captions, in this order
+  graphics: FilmGraphic[]
   // What happens when, in the order it happens: the film as the plan understood it
   timeline: string[]
   // What the plan changed in the film it was given: values moved into range and the like
@@ -191,7 +270,18 @@ function faceFor<Face extends string> (text: string, face: Face, where: string, 
   return 'unbounded'
 }
 
-const FILM_KEYS = ['duration', 'fps', 'size', 'width', 'height', 'scale', 'seed', 'preset', 'settings', 'intro', 'warmup', 'speed', 'fade', 'tracks', 'layers', 'cues', 'captions', 'shots']
+const FILM_KEYS = ['duration', 'fps', 'size', 'width', 'height', 'scale', 'seed', 'preset', 'settings', 'intro', 'warmup', 'speed', 'fade', 'tracks', 'layers', 'cues', 'captions', 'graphics', 'shots']
+// What every shape takes, and what each kind takes besides
+const GRAPHIC_COMMON = ['kind', 'from', 'to', 'fade', 'color', 'opacity', 'width', 'dash', 'fill', 'fillOpacity', 'values', 'draw']
+export const GRAPHIC_KEYS: Record<GraphicKind, readonly string[]> = {
+  line: ['points', 'smooth', 'close', 'arrow'],
+  circle: ['center', 'radius', 'radiusY', 'arc'],
+  rect: ['center', 'size', 'round'],
+  plot: ['box', 'x', 'y', 'points', 'series', 'xLabel', 'yLabel', 'labelSize', 'plate', 'upTo', 'marker'],
+  image: ['src', 'center']
+}
+const GRAPHIC_WIDTH = 0.004
+const GRAPHIC_DASH = [0.012, 0.009] as const
 const CUE_KEYS = ['at', 'play', 'params', 'title', 'font', 'uppercase']
 const INTRO_FILM_KEYS = ['at', 'preset', 'params', 'title', 'font', 'uppercase', 'hide']
 const CAPTION_KEYS = ['text', 'from', 'to', 'at', 'angle', 'size', 'color', 'font', 'fade', 'accent', 'align', 'width', 'plate', 'reveal', 'revealOver', 'values', 'radius']
@@ -373,6 +463,52 @@ export interface CaptionScope {
   numbers: readonly string[]
 }
 
+// Whether a name can be read as a number at a second of the film: one of the caption's or shape's own, the
+// film's second, or a number of the scene
+const isValueKey = (key: string, values: Record<string, FilmTrack>) => key in values || key === 'seconds' || key in SLIDERS || BACKGROUND_KEYS.includes(key) ||
+  (key in DEFAULT_INTRO_PARAMS && !INTRO_PARAM_SPECS[key as IntroParamKey].options && !INTRO_PARAM_SPECS[key as IntroParamKey].color)
+
+function readValues (where: string, source: unknown, duration: number) {
+  const values: Record<string, FilmTrack> = {}
+  if (source === undefined) return values
+  if (!isObject(source)) fail(`${where}.values takes an object of keyframes: { years: [[2, 0], [8, 13.8]] }`)
+  for (const [key, keyframes] of Object.entries(source)) {
+    values[key] = { key, target: 'caption', color: false, toggle: false, ...readKeyframes(`${where}.values.${key}`, keyframes, duration, value => asNumber(`${where}.values.${key}`, value)) }
+  }
+  return values
+}
+
+// A number of a shape or a place: written, or the name of a value that is read at each second
+function readNumber (where: string, value: unknown, values: Record<string, FilmTrack>): FilmNumber {
+  if (typeof value !== 'string' || (value.trim() !== '' && Number.isFinite(Number(value)))) return asNumber(where, value)
+  if (!isValueKey(value, values)) {
+    try {
+      unknownKey(value, [...Object.keys(values), 'seconds', ...Object.keys(SLIDERS), ...INTRO_KEYS])
+    } catch (error) {
+      // Said with the place the name was written at
+      fail(`${where}: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+  return value
+}
+
+const PLACE_FORMS = '[x, y] in shares of the frame, { "hole": [dx, dy] } or { "companion": [dx, dy] } in that hole\'s radii'
+
+function readPlace (where: string, source: unknown, values: Record<string, FilmTrack>): FilmPlace {
+  if (Array.isArray(source) && source.length === 2) {
+    return { anchor: 'frame', x: readNumber(`${where}[0]`, source[0], values), y: readNumber(`${where}[1]`, source[1], values) }
+  }
+  if (isObject(source)) {
+    const keys = Object.keys(source)
+    const anchor = GRAPHIC_ANCHORS.find(name => name === keys[0])
+    const pair = anchor ? source[anchor] : undefined
+    if (keys.length === 1 && anchor && Array.isArray(pair) && pair.length === 2) {
+      return { anchor, x: readNumber(`${where}.${anchor}[0]`, pair[0], values), y: readNumber(`${where}.${anchor}[1]`, pair[1], values) }
+    }
+  }
+  fail(`${where} takes a place: ${PLACE_FORMS}; got ${JSON.stringify(source)}`)
+}
+
 export function readCaptions (source: unknown, duration: number, notes: string[], attempt: Attempt, scope?: CaptionScope): FilmCaption[] {
   if (source === undefined) return []
   if (!Array.isArray(source)) fail('captions take an array: [{ text, from, to, at }]')
@@ -385,10 +521,15 @@ export function readCaptions (source: unknown, duration: number, notes: string[]
     const to = clamp(asNumber(`${where}.to`, entry.to ?? duration), 0, duration)
     if (to <= from) fail(`${where}: to (${to}) must be later than from (${from})`)
 
+    const values = readValues(where, entry.values, duration)
     let at: FilmCaption['at'] = 'bottom'
     if (Array.isArray(entry.at)) {
       if (entry.at.length !== 2) fail(`${where}.at takes [x, y] as shares of the frame, e.g. [0.5, 0.8]`)
       at = [clamp(asNumber(`${where}.at[0]`, entry.at[0]), 0, 1), clamp(asNumber(`${where}.at[1]`, entry.at[1]), 0, 1)]
+    } else if (isObject(entry.at)) {
+      // A point of the scene the words are centred on and ride with
+      if (scope) fail(`${where}.at takes one of ${scope.places.join(', ')} or [x, y]: this picture has no black hole to ride with`)
+      at = readPlace(`${where}.at`, entry.at, values)
     } else if (entry.at !== undefined) {
       const places = scope?.places ?? CAPTION_PLACES
       if (!(places as readonly string[]).includes(String(entry.at))) fail(`${where}.at takes one of ${places.join(', ')} or [x, y]`)
@@ -409,22 +550,13 @@ export function readCaptions (source: unknown, duration: number, notes: string[]
     }
 
     const lines = parseCaption(entry.text, `${where}.text`)
-    const values: Record<string, FilmTrack> = {}
-    if (entry.values !== undefined) {
-      if (!isObject(entry.values)) fail(`${where}.values takes an object of keyframes: { years: [[2, 0], [8, 13.8]] }`)
-      for (const [key, keyframes] of Object.entries(entry.values)) {
-        values[key] = { key, target: 'caption', color: false, toggle: false, ...readKeyframes(`${where}.values.${key}`, keyframes, duration, value => asNumber(`${where}.values.${key}`, value)) }
-      }
-    }
     // A number in the text is one of the caption's own, the film's second, or a number of the scene
     for (const key of captionKeys(lines)) {
       if (scope) {
         if (!(key in values) && key !== 'seconds' && !scope.numbers.includes(key)) unknownKey(`${where}.text #{${key}}`, [...Object.keys(values), 'seconds', ...scope.numbers])
         continue
       }
-      const known = key in values || key === 'seconds' || key in SLIDERS || BACKGROUND_KEYS.includes(key) ||
-        (key in DEFAULT_INTRO_PARAMS && !INTRO_PARAM_SPECS[key as IntroParamKey].options && !INTRO_PARAM_SPECS[key as IntroParamKey].color)
-      if (!known) unknownKey(`${where}.text #{${key}}`, [...Object.keys(values), 'seconds', ...Object.keys(SLIDERS), ...INTRO_KEYS])
+      if (!isValueKey(key, values)) unknownKey(`${where}.text #{${key}}`, [...Object.keys(values), 'seconds', ...Object.keys(SLIDERS), ...INTRO_KEYS])
     }
     const reveal = oneOf('reveal', entry.reveal, CAPTION_REVEALS)
     return [{
@@ -448,6 +580,160 @@ export function readCaptions (source: unknown, duration: number, notes: string[]
       values,
       radius: entry.radius === undefined ? null : clamp(asNumber(`${where}.radius`, entry.radius), 0, 40)
     }]
+  }, []))
+}
+
+function readGraphics (source: unknown, duration: number, notes: string[], attempt: Attempt): FilmGraphic[] {
+  if (source === undefined) return []
+  if (!Array.isArray(source)) fail('graphics take an array: [{ kind, from, to, ... }]')
+  return source.flatMap((entry, index) => attempt<FilmGraphic[]>(() => {
+    const where = `graphics[${index}]`
+    if (!isObject(entry)) fail(`${where} is not an object`)
+    const kind = String(entry.kind) as GraphicKind
+    if (!GRAPHIC_KINDS.includes(kind)) fail(`${where}.kind takes one of: ${GRAPHIC_KINDS.join(', ')}; got ${JSON.stringify(entry.kind)}`)
+    // A picture's "width" is how wide it is drawn; every other kind's is its stroke
+    takeKnown(entry, [...GRAPHIC_COMMON, ...GRAPHIC_KEYS[kind]], `${where}.`, attempt)
+    const from = clamp(asNumber(`${where}.from`, entry.from ?? 0), 0, duration)
+    const to = clamp(asNumber(`${where}.to`, entry.to ?? duration), 0, duration)
+    if (to <= from) fail(`${where}: to (${to}) must be later than from (${from})`)
+
+    const values = readValues(where, entry.values, duration)
+    const number = (key: string, fallback: number, source: unknown = entry[key]) => source === undefined ? fallback : readNumber(`${where}.${key}`, source, values)
+    const place = (key: string) => {
+      if (entry[key] === undefined) fail(`${where}.${key} takes a place: ${PLACE_FORMS}`)
+      return readPlace(`${where}.${key}`, entry[key], values)
+    }
+    const colorOf = (key: string, value: unknown, fallback: string) => {
+      const color = value === undefined ? fallback : String(value)
+      if (!/^#[0-9a-f]{6}$/i.test(color)) fail(`${where}.${key} takes '#rrggbb'`)
+      return color
+    }
+    const pair = (key: string, source: unknown, what: string) => {
+      if (!Array.isArray(source) || source.length !== 2) fail(`${where}.${key} takes ${what}`)
+      return [asNumber(`${where}.${key}[0]`, source[0]), asNumber(`${where}.${key}[1]`, source[1])] as const
+    }
+
+    let dash: FilmGraphic['dash'] = null
+    if (entry.dash === true) dash = GRAPHIC_DASH
+    else if (entry.dash !== undefined && entry.dash !== false) {
+      const [on, off] = pair('dash', entry.dash, 'true or [dash, gap] in shares of the frame\'s short side')
+      dash = [clamp(on, 0.0005, 0.5), clamp(off, 0.0005, 0.5)]
+    }
+    const color = colorOf('color', entry.color, '#ffffff')
+    const graphic: FilmGraphic = {
+      kind,
+      from,
+      to,
+      fade: clamp(entry.fade === undefined ? CAPTION_FADE : asNumber(`${where}.fade`, entry.fade), 0, (to - from) / 2),
+      color,
+      opacity: number('opacity', 1),
+      width: kind === 'image' ? 0 : clamp(entry.width === undefined ? GRAPHIC_WIDTH : asNumber(`${where}.width`, entry.width), 0, 0.1),
+      dash,
+      fill: entry.fill === undefined ? null : colorOf('fill', entry.fill, ''),
+      fillOpacity: number('fillOpacity', 1),
+      values,
+      draw: clamp(entry.draw === undefined ? 0 : asNumber(`${where}.draw`, entry.draw), 0, to - from),
+      points: [],
+      smooth: entry.smooth === undefined ? false : asBoolean(`${where}.smooth`, entry.smooth),
+      close: entry.close === undefined ? false : asBoolean(`${where}.close`, entry.close),
+      arrow: null,
+      center: null,
+      radius: 1,
+      radiusY: null,
+      arc: null,
+      size: [1, 1],
+      round: 0,
+      box: [0, 0, 1, 1],
+      xRange: [0, 1],
+      yRange: [0, 1],
+      series: [],
+      xLabel: null,
+      yLabel: null,
+      labelSize: 0.022,
+      plate: 0,
+      upTo: null,
+      marker: null,
+      src: '',
+      imageWidth: 1
+    }
+
+    if (kind === 'line') {
+      if (!Array.isArray(entry.points) || entry.points.length < 2) fail(`${where}.points takes two or more places: ${PLACE_FORMS}`)
+      graphic.points = entry.points.map((point, at) => readPlace(`${where}.points[${at}]`, point, values))
+      if (entry.arrow !== undefined && entry.arrow !== false) {
+        const arrow = entry.arrow === true ? 'end' : String(entry.arrow)
+        if (!(GRAPHIC_ARROWS as readonly string[]).includes(arrow)) fail(`${where}.arrow takes one of: ${GRAPHIC_ARROWS.join(', ')}`)
+        graphic.arrow = arrow as FilmGraphic['arrow']
+      }
+    } else if (kind === 'circle') {
+      graphic.center = place('center')
+      if (entry.radius === undefined) fail(`${where}.radius takes a number, or the name of a value such as "lensingRadius"`)
+      graphic.radius = number('radius', 1)
+      if (entry.radiusY !== undefined) graphic.radiusY = number('radiusY', 1)
+      if (entry.arc !== undefined) {
+        if (!Array.isArray(entry.arc) || entry.arc.length !== 2) fail(`${where}.arc takes [from, to] in degrees, 0 to the right and 90 up`)
+        graphic.arc = [number('arc[0]', 0, entry.arc[0]), number('arc[1]', 360, entry.arc[1])]
+      }
+    } else if (kind === 'rect') {
+      graphic.center = place('center')
+      if (!Array.isArray(entry.size) || entry.size.length !== 2) fail(`${where}.size takes [width, height]`)
+      graphic.size = [number('size[0]', 1, entry.size[0]), number('size[1]', 1, entry.size[1])]
+      graphic.round = number('round', 0)
+    } else if (kind === 'image') {
+      if (typeof entry.src !== 'string' || entry.src.trim() === '') fail(`${where}.src takes where the picture is read from: a URL, a data URL, or through the film server a path on its machine`)
+      graphic.src = entry.src.trim()
+      graphic.center = place('center')
+      graphic.imageWidth = number('width', 0.3)
+    } else {
+      const box = entry.box
+      if (!Array.isArray(box) || box.length !== 4) fail(`${where}.box takes [left, top, width, height] in shares of the frame, e.g. [0.62, 0.12, 0.3, 0.3]`)
+      const side = (at: number, min: number) => clamp(asNumber(`${where}.box[${at}]`, box[at]), min, 1)
+      graphic.box = [side(0, 0), side(1, 0), side(2, 0.05), side(3, 0.05)]
+      const range = (key: 'x' | 'y') => {
+        if (entry[key] === undefined) fail(`${where}.${key} takes [min, max]: the numbers the plot's ${key === 'x' ? 'left and right' : 'bottom and top'} stand for`)
+        const [min, max] = pair(key, entry[key], '[min, max]')
+        if (max === min) fail(`${where}.${key}: min and max are the same number`)
+        return [min, max] as const
+      }
+      graphic.xRange = range('x')
+      graphic.yRange = range('y')
+      const pointsOf = (key: string, source: unknown) => {
+        if (!Array.isArray(source) || source.length < 2) fail(`${where}.${key} takes two or more points [x, y] in the plot's own numbers`)
+        return source.map((point, at) => pair(`${key}[${at}]`, point, '[x, y]'))
+      }
+      if (entry.series !== undefined) {
+        if (!Array.isArray(entry.series) || entry.series.length === 0) fail(`${where}.series takes an array: [{ points, color }]`)
+        graphic.series = entry.series.map((one, at) => {
+          if (!isObject(one)) fail(`${where}.series[${at}] is not an object`)
+          takeKnown(one, ['points', 'color'], `${where}.series[${at}].`, attempt)
+          return { points: pointsOf(`series[${at}].points`, one.points), color: colorOf(`series[${at}].color`, one.color, color) }
+        })
+      }
+      if (entry.points !== undefined) graphic.series.unshift({ points: pointsOf('points', entry.points), color })
+      if (graphic.series.length === 0) fail(`${where} takes "points": [[x, y], ...], or "series": [{ points, color }] for several curves`)
+      const label = (key: string) => {
+        const text = entry[key]
+        if (text === undefined) return null
+        if (typeof text !== 'string' || text.includes('\n')) fail(`${where}.${key} takes one line of words`)
+        const line = parseCaption(text, `${where}.${key}`)[0]
+        if (line.some(run => run.value)) fail(`${where}.${key}: a plot's label takes no #{number}; a caption beside the plot counts`)
+        const strange = strangeLetters(captionLetters([line]))
+        if (strange.length > 0) notes.push(`${where}.${key} has letters that none of the bundled faces hold (${strange.slice(0, 8).join(' ')}); they are drawn in the machine's own face, which differs between machines`)
+        return line
+      }
+      graphic.xLabel = label('xLabel')
+      graphic.yLabel = label('yLabel')
+      graphic.labelSize = clamp(entry.labelSize === undefined ? 0.022 : asNumber(`${where}.labelSize`, entry.labelSize), 0.008, 0.1)
+      graphic.plate = clamp(entry.plate === undefined ? 0 : asNumber(`${where}.plate`, entry.plate), 0, 1)
+      if (entry.upTo !== undefined) graphic.upTo = number('upTo', 0)
+      if (entry.marker !== undefined) graphic.marker = number('marker', 0)
+
+      const [xMin, xMax] = [Math.min(...graphic.xRange), Math.max(...graphic.xRange)]
+      const [yMin, yMax] = [Math.min(...graphic.yRange), Math.max(...graphic.yRange)]
+      const inside = graphic.series.some(one => one.points.some(([x, y]) => x >= xMin && x <= xMax && y >= yMin && y <= yMax))
+      if (!inside) notes.push(`${where}: none of the plot's points fall inside x ${graphic.xRange.join('..')} and y ${graphic.yRange.join('..')}, so its curve is not seen`)
+    }
+    return [graphic]
   }, []))
 }
 
@@ -582,6 +868,7 @@ export function planFilm (source: unknown): FilmPlan {
     ...attempt(() => readLayers(source.layers, duration, attempt), [])
   ]
   const captions = attempt(() => readCaptions(source.captions, duration, notes, attempt), [])
+  const graphics = attempt(() => readGraphics(source.graphics, duration, notes, attempt), [])
 
   if (problems.length === 1) fail(problems[0])
   if (problems.length > 1) fail(`${problems.length} things in this film cannot be read:\n${problems.map((problem, index) => `${index + 1}. ${problem}`).join('\n')}`)
@@ -596,6 +883,32 @@ export function planFilm (source: unknown): FilmPlan {
     notes.push(`${look.join(', ')}: the film look lifts as the opening ends, so ${introEnds === null ? 'this film without the opening never shows it' : `it is gone after ${seconds(introEnds)} s`}; ` +
       'raise filmHold (0 to 1, in intro.params or on a track) to keep it')
   }
+
+  // A shape that rides with a second black hole no film second has, and a curve that waits on a number
+  // that stands still, are drawn as written and show nothing of what was meant
+  const moved = (key: string) => tracks.some(track => track.key === key && track.target !== 'layers' && track.values.some(value => value !== track.values[0]))
+  if (settings.companionSize === 0 && !tracks.some(track => track.key === 'companionSize')) {
+    graphics.forEach((graphic, index) => {
+      if ([...graphic.points, graphic.center].some(place => place?.anchor === 'companion')) {
+        notes.push(`graphics[${index}] rides with the second black hole, and this film has none (companionSize is 0), so it is not drawn`)
+      }
+    })
+    captions.forEach((caption, index) => {
+      if (typeof caption.at === 'object' && 'anchor' in caption.at && caption.at.anchor === 'companion') {
+        notes.push(`captions[${index}] rides with the second black hole, and this film has none (companionSize is 0), so it stands at the main one`)
+      }
+    })
+  }
+  graphics.forEach((graphic, index) => {
+    for (const key of ['upTo', 'marker'] as const) {
+      const name = graphic[key]
+      if (typeof name !== 'string' || name === 'seconds') continue
+      const own = graphic.values[name]
+      if (own ? own.values.every(value => value === own.values[0]) : !moved(name)) {
+        notes.push(`graphics[${index}].${key} reads "${name}", which never changes in this film, so it stands still; give it keyframes in the shape's "values" or on a track`)
+      }
+    }
+  })
 
   const plan: FilmPlan = {
     duration,
@@ -619,6 +932,7 @@ export function planFilm (source: unknown): FilmPlan {
     tracks,
     cues,
     captions,
+    graphics,
     timeline: [],
     notes
   }
@@ -693,6 +1007,18 @@ function describeTimeline (plan: FilmPlan) {
     const words = caption.text.replace(/\s+/g, ' ')
     entries.push({ at: caption.from, text: `${span(caption.from, caption.to)}  caption "${words.length > 40 ? words.slice(0, 40) + '...' : words}"` })
   }
+  const where = (place: FilmPlace | null | undefined) => !place || place.anchor === 'frame' ? 'on the frame' : place.anchor === 'hole' ? 'at the black hole' : 'at the second black hole'
+  for (const graphic of plan.graphics) {
+    const amount = (value: FilmNumber) => typeof value === 'number' ? seconds(value) : `"${value}"`
+    const what = graphic.kind === 'line'
+      ? `${graphic.arrow ? 'an arrow' : graphic.smooth ? 'a curve' : 'a line'} through ${graphic.points.length} places ${where(graphic.points[0])}`
+      : graphic.kind === 'plot'
+        ? `a plot of ${graphic.series.length === 1 ? `${graphic.series[0].points.length} points` : `${graphic.series.length} curves`}, x ${graphic.xRange.join('..')}, y ${graphic.yRange.join('..')}`
+        : graphic.kind === 'image'
+          ? `the picture ${graphic.src.startsWith('data:') ? 'given as data' : graphic.src.length > 40 ? '...' + graphic.src.slice(-37) : graphic.src} ${where(graphic.center)}`
+          : `${graphic.kind === 'circle' ? (graphic.arc ? 'an arc' : 'a circle') + ` of radius ${amount(graphic.radius)}` : 'a box'} ${where(graphic.center)}`
+    entries.push({ at: graphic.from, text: `${span(graphic.from, graphic.to)}  draws ${what}${graphic.draw > 0 ? `, drawn over ${seconds(graphic.draw)} s` : ''}` })
+  }
   return entries.sort((a, b) => a.at - b.at).map(entry => entry.text)
 }
 
@@ -745,7 +1071,7 @@ export interface CaptionNumbers {
 }
 
 // The number a caption's #{key} shows at this second: its own, the film's second, or the scene's as the tracks left it
-export function captionValue (plan: CaptionNumbers, caption: FilmCaption, key: string, time: number): number {
+export function captionValue (plan: CaptionNumbers, caption: { values: Record<string, FilmTrack> }, key: string, time: number): number {
   const own = caption.values[key]
   if (own) return trackValue(own, time)
   if (key === 'seconds') return time
@@ -754,7 +1080,7 @@ export function captionValue (plan: CaptionNumbers, caption: FilmCaption, key: s
 }
 
 // How visible a caption is at this second: 0 before and after it, 1 between its fades
-export function captionAlpha (caption: FilmCaption, time: number) {
+export function captionAlpha (caption: { from: number, to: number, fade: number }, time: number) {
   if (time < caption.from || time > caption.to) return 0
   if (caption.fade <= 0) return 1
   return clamp(Math.min(time - caption.from, caption.to - time) / caption.fade, 0, 1)
@@ -824,7 +1150,36 @@ comes to this same object: see "A film as a script" below. Names and ranges are 
                              the frame a line may take; "plate", 0-1, a dark plate behind the words; size,
                              color and accent '#rrggbb', fade; font: ${CAPTION_FONTS.join(' | ')}
                              (noto is a plain text face, for sentences and formulas). A line too long is
-                             broken at its spaces; Cyrillic in a display face without it goes to unbounded
+                             broken at its spaces; Cyrillic in a display face without it goes to unbounded.
+                             "at": { "hole": [3, 0] } centres the words on a point of the scene, with no line
+  "graphics": [{ "kind": "circle", "center": { "hole": [0, 0] }, "radius": "lensingRadius", "from": 2, "to": 9 }]
+                             shapes over the picture and under the captions, in the order written.
+                             kind: ${GRAPHIC_KINDS.join(' | ')}.
+                             A place is [x, y] in shares of the frame, or { "hole": [dx, dy] } and
+                             { "companion": [dx, dy] }: that hole's radii from its centre, x to the right and
+                             y up, riding with the hole, the zoom and the camera. A length that belongs to a
+                             place at a hole is in its radii, to a place on the frame in shares of the
+                             frame's short side. A number is a number or the name of a value read at each
+                             second: one of the shape's own "values" (keyframes, as a caption's), "seconds",
+                             or any number of the scene, so "radius": "lensingRadius" follows that setting
+                             along its track.
+                             line: "points" (two or more places), "smooth" (a curve through them), "close",
+                               "arrow": ${GRAPHIC_ARROWS.join(' | ')}
+                             circle: "center", "radius", "radiusY" (an ellipse), "arc": [from, to] in degrees,
+                               0 to the right and 90 up
+                             rect: "center", "size": [width, height], "round"
+                             plot: "box": [left, top, width, height] in shares of the frame, "x": [min, max],
+                               "y": [min, max], "points": [[x, y], ...] in the plot's own numbers (or "series":
+                               [{ "points", "color" }] for several curves), "xLabel", "yLabel" (one line, with
+                               a caption's marks), "labelSize", "plate"; "upTo" draws the curve only up to
+                               that x and "marker" puts a dot on it at that x, each a number or a name
+                             image: "src", "center", "width" (its height follows the picture). src is a URL
+                               or a data URL; through the film server also a path on its machine, from the
+                               folder the server runs in. Read before the first frame
+                             Every kind: from, to, fade, "color" and "fill" '#rrggbb', "opacity",
+                             "fillOpacity", "width" (the stroke, a share of the short side, so a zoom does not
+                             thicken it), "dash": true or [dash, gap], "values", and "draw": seconds over
+                             which the stroke draws itself
 }
 
 Everything but duration is optional. Start from describe to find setting keys; lengths around the black hole
@@ -860,6 +1215,19 @@ Recipes
                              "at": [0.2, 0.3], "align": "left", "reveal": "lines", "revealOver": 4 }]
   A label on an orbit:     "settings": { "orbitCount": 8, "orbitSize": 4 },
                            "captions": [{ "text": "Orbits at 4 radii of the shadow", "from": 2, "to": 8, "at": "hole", "radius": 4 }]
+  A ring that marks a radius: "graphics": [{ "kind": "circle", "center": { "hole": [0, 0] }, "radius": 1.5, "dash": true,
+                             "color": "#ffd27a", "from": 2, "to": 9, "draw": 1.5 }]
+  An arrow with its label: "graphics": [{ "kind": "line", "arrow": "end", "points": [{ "hole": [5, 3] }, { "hole": [1.2, 0.7] }],
+                             "from": 2, "to": 8, "draw": 1 }],
+                           "captions": [{ "text": "Shadow", "from": 2.5, "to": 8, "at": { "hole": [5.6, 3.5] }, "size": 0.03 }]
+  A point that travels:    "graphics": [{ "kind": "circle", "center": { "hole": ["r", 0] }, "radius": 0.15, "fill": "#ffffff",
+                             "from": 2, "to": 10, "values": { "r": [[2, 8], [10, 1.5, "in"]] } }]
+  A chart that fills in:   "graphics": [{ "kind": "plot", "box": [0.64, 0.14, 0.28, 0.26], "x": [1, 8], "y": [0, 1], "plate": 0.6,
+                             "points": [[1, 0], [1.5, 0.58], [2, 0.71], [4, 0.87], [8, 0.94]], "xLabel": "r / r_{s}",
+                             "yLabel": "dτ / dt", "marker": "r", "from": 2, "to": 12,
+                             "values": { "r": [[2, 8], [12, 1, "linear"]] } }]
+  A picture in a corner:   "graphics": [{ "kind": "image", "src": "films/photo.png", "center": [0.82, 0.24], "width": 0.3,
+                             "from": 1, "to": 7 }]
   Vertical short:          "size": "vertical", "settings": { "blackHoleY": 0.42 }
 
 Check with preview (a contact sheet of frames) before render; both take the same film.`

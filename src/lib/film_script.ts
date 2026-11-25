@@ -12,10 +12,10 @@ import { createRandom, nextRandom } from './random'
 
 export const SCRIPT_WORDS = [
   'film', 'opening', 'shot', 'wait', 'now', 'mark', 'at', 'meanwhile', 'together', 'set', 'to', 'drive', 'slow',
-  'hide', 'show', 'fire', 'title', 'caption', 'random', 'pick', 'spring', 'input'
+  'hide', 'show', 'fire', 'title', 'caption', 'draw', 'random', 'pick', 'spring', 'input'
 ] as const
-// The words that belong to the particle scene alone: a fractal film has no opening, events, layers or scene time
-const SCENE_WORDS = ['opening', 'slow', 'hide', 'show', 'fire', 'title'] as const
+// The words that belong to the particle scene alone: a fractal film has no opening, events, layers, scene time or shapes
+const SCENE_WORDS = ['opening', 'slow', 'hide', 'show', 'fire', 'title', 'draw'] as const
 export const FRACTAL_SCRIPT_WORDS = SCRIPT_WORDS.filter(word => !(SCENE_WORDS as readonly string[]).includes(word))
 
 // Keys a moving value gets for each second when its path is a function: the rate the scene is stepped at
@@ -237,6 +237,7 @@ function playScript (source: unknown, input: unknown, script: ScriptKind) {
   const layers = new Map<string, { at: number, shown: boolean }[]>()
   const cues: Patch[] = []
   const captions: Patch[] = []
+  const graphics: Patch[] = []
   const shots: Patch[] = []
   const marks: Record<string, number> = {}
   const notes: string[] = []
@@ -499,6 +500,28 @@ function playScript (source: unknown, input: unknown, script: ScriptKind) {
       }
     },
 
+    draw (shape: unknown, second?: unknown) {
+      sceneOnly('draw')
+      begin()
+      if (!isObject(shape) || typeof shape.kind !== 'string') {
+        fail('draw() takes a shape as "graphics" takes it: draw({ kind: "circle", center: { hole: [0, 0] }, radius: 3 }, 4)')
+      }
+      const graphic: Patch = { ...shape, from: time }
+      graphics.push(graphic)
+      if (typeof second === 'number') {
+        graphic.to = tidy(time + span('draw()', second))
+        end = Math.max(end, graphic.to as number)
+      } else if (typeof second === 'function') {
+        (second as Block)()
+        graphic.to = time
+      } else if (second !== undefined) {
+        fail('draw() takes the shape and then its seconds, or a function it lasts as long as')
+      } else {
+        // As a caption: for as long as the shot it is in
+        open[open.length - 1].push(graphic)
+      }
+    },
+
     random (first?: unknown, second?: unknown) {
       begin()
       const share = nextRandom(generator())
@@ -556,14 +579,16 @@ function playScript (source: unknown, input: unknown, script: ScriptKind) {
   for (const caption of open[0]) caption.to = duration
   // A caption's own numbers, given the short way: two ends to run between over its life, or a function of
   // the seconds since it appeared
-  for (const caption of captions) {
+  for (const caption of [...captions, ...graphics]) {
     if (!isObject(caption.values)) continue
     const from = caption.from as number
     const life = (caption.to as number) - from
+    // A shape moves as smoothly as the scene does; a written number changes no faster than it is read
+    const rate = 'kind' in caption ? BAKE_RATE : VALUE_RATE
     caption.values = Object.fromEntries(Object.entries(caption.values).map(([key, value]) => {
       if (typeof value === 'function') {
         const path = value as Path
-        const count = Math.max(1, Math.ceil(life * VALUE_RATE))
+        const count = Math.max(1, Math.ceil(life * rate))
         const keys: unknown[][] = [[from, fine(path(0, 0))]]
         for (let step = 1; step <= count; step++) keys.push([tidy(from + life * step / count), fine(path(life * step / count, step / count)), 'linear'])
         return [key, keys]
@@ -575,7 +600,7 @@ function playScript (source: unknown, input: unknown, script: ScriptKind) {
     }))
   }
 
-  return { head, duration, opening: opening as Patch | null, ops, layers, cues, captions, shots, marks, notes }
+  return { head, duration, opening: opening as Patch | null, ops, layers, cues, captions, graphics, shots, marks, notes }
 }
 
 /**
@@ -583,7 +608,7 @@ function playScript (source: unknown, input: unknown, script: ScriptKind) {
  * `input` is what the script reads as `input`: one script, several films.
  */
 export function writeFilm (source: unknown, input: unknown = {}): { film: Patch, marks: Record<string, number>, notes: string[] } {
-  const { head, duration, opening: intro, ops, layers, cues, captions, shots, marks, notes } = playScript(source, input, FILM_KIND)
+  const { head, duration, opening: intro, ops, layers, cues, captions, graphics, shots, marks, notes } = playScript(source, input, FILM_KIND)
   // What every value is before the script touches it: the film's head and the opening, as the plan reads them
   const start = planFilm({ ...head, duration, intro: intro ? { ...intro, at: 0 } : false })
   const film: Patch = { ...head, duration }
@@ -627,6 +652,7 @@ export function writeFilm (source: unknown, input: unknown = {}): { film: Patch,
   if (Object.keys(switches).length > 0) film.layers = switches
   if (cues.length > 0) film.cues = cues
   if (captions.length > 0) film.captions = captions
+  if (graphics.length > 0) film.graphics = graphics
   if (shots.length > 0) film.shots = shots
   return { film, marks, notes }
 }
@@ -690,6 +716,12 @@ is the film above. It is plain JavaScript: functions, loops, Math. The same scri
   caption('*{#{years:1}} billion years', 8, { at: 'top', values: { years: [0, 13.8] } })
                              a number of the caption's own, the short way: two ends to run between over its
                              life, or a function of its seconds, s => 13.8 * (1 - Math.exp(-s))
+  draw({ kind: 'circle', center: { hole: [0, 0] }, radius: 'lensingRadius', dash: true }, 6)
+                             a shape over the picture, as "graphics" takes it, for 6 s from now; with no
+                             seconds it lasts as long as the shot it is in, with a function as long as that plays
+  draw({ kind: 'line', arrow: 'end', points: [{ hole: ['r', 0] }, { hole: [1, 0] }], values: { r: [9, 4] } }, 5)
+                             its own numbers the short way a caption's are: two ends, or a function of its
+                             seconds, s => 4 + 2 * Math.cos(s). A plot's points are a list the script works out
   title('ACT TWO', 3)        a title card for 3 s, lensed like the opening's; without seconds it lives by
                              the intro's own title parameters. Options: { font, uppercase, params }
   fire('ringdown', 'gravityWave', { gravityWaveGain: 2 })   events of the opening again, with their params
@@ -698,7 +730,7 @@ is the film above. It is plain JavaScript: functions, loops, Math. The same scri
                              0.5 s (a third argument); 0 is a still frame. The seconds stay film seconds
   set({ fade: 1 }); to({ fade: 0 }, 1.5)   "fade" and "speed" are values like any other
 
-Captions, titles, events and switches take no time: they are laid at the current second. What takes time
+Captions, shapes, titles, events and switches take no time: they are laid at the current second. What takes time
 is wait, to, drive, opening and what is played inside shot and slow.
 
   meanwhile(() => { to({ gridTilt: 70 }, 30) })   starts now and does not hold what follows: a slow move
@@ -725,6 +757,7 @@ Example
   })
   shot('approach', () => {
     caption('The shadow', { at: 'hole' })
+    draw({ kind: 'circle', center: { hole: [0, 0] }, radius: 'lensingRadius', dash: true, draw: 1.5 })
     to({ cameraZoom: 3 }, 5, 'spring')
     slow(0.15, () => { wait(3) })
   })
@@ -738,7 +771,7 @@ Example
 export const FRACTAL_SCRIPT_GUIDE = `A fractal film as a script
 The same language as a film's script, playing a fractal film forward: give the script as a string wherever a fractal
 film is taken; fractal.script(source, input) returns the JSON it writes. Its words are the film's but those of the
-particle scene (opening, slow, hide, show, fire, title): ${FRACTAL_SCRIPT_WORDS.join(', ')}.
+particle scene (opening, slow, hide, show, fire, title, draw): ${FRACTAL_SCRIPT_WORDS.join(', ')}.
 
   film({ target: 'triple', palette: 'ice', fps: 30 })   first and once, all optional: what the JSON sets once
                              (${FRACTAL_HEAD_KEYS.join(', ')}). No duration: the film ends where the script does

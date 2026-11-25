@@ -5,7 +5,7 @@
 import { TITLE_FONTS } from './title_sprite'
 import type { CompositeSettings } from './particle_renderer'
 import { createShadowShape, shadowScaleAt } from './kerr_shadow'
-import { captionAlpha, captionValue, type CaptionNumbers, type FilmCaption, type FilmPlan } from './film'
+import { captionAlpha, captionValue, type CaptionNumbers, type FilmCaption, type FilmNumber, type FilmPlace, type FilmPlan } from './film'
 
 // What captions need of a film: its frame, length, captions and tracks, and where its numbers come from.
 // A particle film's plan is one; a fractal film builds one of its own
@@ -45,6 +45,60 @@ const BEHIND = '"Noto Sans", "Noto Sans Math", "Noto Sans Symbols", system-ui, s
 function captionFont (caption: FilmCaption, size: number) {
   if (caption.font === 'system') return `500 ${size}px system-ui, sans-serif`
   return caption.font === 'noto' ? `500 ${size}px ${BEHIND}` : `500 ${size}px "${TITLE_FONTS[caption.font].family}", ${BEHIND}`
+}
+
+// Where the composite pass put a black hole on the frame, and how long one of its radii is there
+export function holeOnFrame (composite: CaptionFrame, pixel: number, second: boolean) {
+  const zoom = composite.cameraZoom
+  const sceneX = second ? composite.companionX : composite.holeX
+  const sceneY = second ? composite.companionY : composite.holeY
+  return {
+    x: (composite.zoomX + (sceneX - composite.shakeX - composite.zoomX) * zoom) * pixel,
+    y: (composite.zoomY + (sceneY - composite.shakeY - composite.zoomY) * zoom) * pixel,
+    radius: (second ? composite.companionRadius : composite.horizon) * zoom * pixel
+  }
+}
+
+/**
+ * A place of a caption or a shape on a frame `width` by `height` video pixels: where it is, and how long
+ * its unit is there (the hole's radius, or the frame's short side). Null for a place at a second black hole
+ * while there is none, unless `orMain` puts it at the main one instead.
+ */
+export function placeOnFrame (
+  place: FilmPlace, read: (value: FilmNumber) => number, composite: CaptionFrame, pixel: number, width: number, height: number, orMain = false
+) {
+  if (place.anchor === 'frame') return { x: read(place.x) * width, y: read(place.y) * height, unit: Math.min(width, height) }
+  const second = place.anchor === 'companion' && composite.companionRadius > 0
+  if (place.anchor === 'companion' && !second && !orMain) return null
+  const hole = holeOnFrame(composite, pixel, second)
+  return { x: hole.x + read(place.x) * hole.radius, y: hole.y - read(place.y) * hole.radius, unit: hole.radius }
+}
+
+// The plain text face at a size: a plot's labels and numbers
+export const plainFont = (size: number) => `500 ${size}px ${BEHIND}`
+
+/**
+ * One line of words with raised and lowered parts, in the plain text face, its middle at `y`. `align` says
+ * which of its ends, or its middle, stands at `x`.
+ */
+export function drawMarked (
+  ctx: CanvasRenderingContext2D, line: CaptionRun[], x: number, y: number, size: number, color: string, accent: string, align: 'left' | 'center' | 'right'
+) {
+  const whole = plainFont(size)
+  const small = plainFont(size * SCRIPT_SIZE)
+  const widths = line.map(run => {
+    ctx.font = run.shift === 0 ? whole : small
+    return ctx.measureText(run.text).width
+  })
+  let left = x - widths.reduce((sum, one) => sum + one, 0) * (align === 'center' ? 0.5 : align === 'right' ? 1 : 0)
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'middle'
+  line.forEach((run, index) => {
+    ctx.font = run.shift === 0 ? whole : small
+    ctx.fillStyle = run.accent ? accent : color
+    ctx.fillText(run.text, left, y + (run.shift > 0 ? RAISED : run.shift < 0 ? LOWERED : 0) * size)
+    left += widths[index]
+  })
 }
 
 // A stretch of a line drawn in one go: a word, or the part of a word that is raised, lowered or stressed
@@ -192,7 +246,7 @@ function fitCaption (ctx: CanvasRenderingContext2D, plan: CaptionPlan, caption: 
 }
 
 // Faces a film's captions need, loaded before the first frame so no frame is drawn in a fallback face
-export function loadCaptionFonts (plan: Pick<FilmPlan, 'captions'>): Promise<unknown> {
+export function loadCaptionFonts (plan: Pick<FilmPlan, 'captions'> & Partial<Pick<FilmPlan, 'graphics'>>): Promise<unknown> {
   const loads = plan.captions
     .filter(caption => caption.font !== 'system')
     .map(caption => {
@@ -200,6 +254,12 @@ export function loadCaptionFonts (plan: Pick<FilmPlan, 'captions'>): Promise<unk
       const live = caption.lines.some(line => line.some(run => run.value))
       return document.fonts.load(captionFont(caption, 32), captionLetters(caption.lines) + (live ? '0123456789.,-' : '')).catch(() => undefined)
     })
+  // A plot's labels and the numbers at the ends of its axes are in the plain text face
+  for (const graphic of plan.graphics ?? []) {
+    if (graphic.kind !== 'plot') continue
+    const letters = [graphic.xLabel, graphic.yLabel].map(line => line ? captionLetters([line]) : '').join('') + '0123456789.,-'
+    loads.push(document.fonts.load(plainFont(32), letters).catch(() => undefined))
+  }
   return Promise.all(loads)
 }
 
@@ -235,26 +295,30 @@ export function drawCaptions (ctx: CanvasRenderingContext2D, plan: CaptionPlan, 
     let y = height / 2
     ctx.textAlign = 'center'
 
-    if (caption.at === 'hole' || caption.at === 'einstein' || caption.at === 'companion') {
+    if (typeof caption.at === 'object' && 'anchor' in caption.at) {
+      // The words are centred on a point of the scene and ride with it
+      const read = (value: FilmNumber) => typeof value === 'number' ? value : captionValue(plan, caption, value, time)
+      const point = placeOnFrame(caption.at, read, composite, pixel, width, height, true)
+      if (point) {
+        x = point.x
+        y = point.y
+      }
+    } else if (caption.at === 'hole' || caption.at === 'einstein' || caption.at === 'companion') {
       // Where the composite pass put the black hole on the frame
-      const zoom = composite.cameraZoom
       const second = caption.at === 'companion' && composite.companionRadius > 0
-      const sceneX = second ? composite.companionX : composite.holeX
-      const sceneY = second ? composite.companionY : composite.holeY
-      const holeX = (composite.zoomX + (sceneX - composite.shakeX - composite.zoomX) * zoom) * pixel
-      const holeY = (composite.zoomY + (sceneY - composite.shakeY - composite.zoomY) * zoom) * pixel
+      const hole = holeOnFrame(composite, pixel, second)
       const angle = caption.angle * Math.PI / 180
       // A spinning hole's shadow is not round: the label starts on its outline in that direction
       const shadow = composite.horizon * shadowScaleAt(composite.shadowShape, angle, composite.spinAxis)
       const edge = (second
         ? composite.companionRadius
-        : caption.at === 'einstein' && composite.einstein > 0 ? composite.einstein : shadow) * zoom * pixel
+        : caption.at === 'einstein' && composite.einstein > 0 ? composite.einstein : shadow) * composite.cameraZoom * pixel
       // A label can start anywhere around the hole it points at, in that hole's radii: an orbit, a distance
-      const radius = caption.radius === null ? edge : (second ? composite.companionRadius : composite.horizon) * zoom * pixel * caption.radius
+      const radius = caption.radius === null ? edge : hole.radius * caption.radius
       const dirX = Math.cos(angle)
       const dirY = -Math.sin(angle)
-      const fromX = holeX + dirX * radius
-      const fromY = holeY + dirY * radius
+      const fromX = hole.x + dirX * radius
+      const fromY = hole.y + dirY * radius
       const reach = LABEL_REACH * shortSide
       const toX = fromX + dirX * reach
       const toY = fromY + dirY * reach

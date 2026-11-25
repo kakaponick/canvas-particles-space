@@ -13,6 +13,7 @@ import type { TitleSprite, TitleStyle } from './title_sprite'
 import type { StreamTargetChunk } from 'mediabunny'
 import { applyTracks, filmFade, filmSpeed, planFilm, type FilmPlan } from './film'
 import { drawCaptions, loadCaptionFonts } from './film_captions'
+import { drawGraphics, loadGraphicImages, type FilmImages } from './film_graphics'
 import { clamp, fail } from './agent_values'
 
 // A film waits for its faces: a title in a fallback face would be a different video
@@ -72,7 +73,7 @@ function titleStyle (plan: FilmPlan, words = plan.title, set: Partial<FilmPlan['
 }
 
 // The film's own scene and the canvas its finished frames land on, captions included
-async function createFilmPlayer (plan: FilmPlan, pixel: number) {
+async function createFilmPlayer (plan: FilmPlan, pixel: number, imageUrls?: Record<string, string>) {
   const glCanvas = document.createElement('canvas')
   const gl = getRenderingContext(glCanvas)
   if (!gl) fail('WebGL 2 is not available, so a film cannot be drawn')
@@ -111,8 +112,11 @@ async function createFilmPlayer (plan: FilmPlan, pixel: number) {
 
   // A cue that brings words of its own has them drawn now: at its second there is no waiting for a face
   let cueTitles: (TitleSprite | null)[] = []
+  // A film's pictures are read now too, so no frame waits for one
+  let images: FilmImages | null = null
   try {
     await Promise.all([scene.setTitle(titleStyle(plan), FONT_WAIT_MS), loadCaptionFonts(plan)])
+    if (plan.graphics.length > 0) images = await loadGraphicImages(plan, imageUrls)
     cueTitles = await Promise.all(plan.cues.map(cue => cue.title ? scene.makeTitle(titleStyle(plan, cue.title, cue.params), FONT_WAIT_MS) : null))
   } catch (error) {
     dispose()
@@ -178,6 +182,7 @@ async function createFilmPlayer (plan: FilmPlan, pixel: number) {
       ctx.fillRect(0, 0, canvas.width, canvas.height)
       ctx.globalAlpha = 1
     }
+    if (images) drawGraphics(ctx, plan, time, scene.frame.composite, canvas.width / plan.width, images)
     if (plan.captions.length > 0) drawCaptions(ctx, plan, time, scene.frame.composite, canvas.width / plan.width)
   }
 
@@ -246,6 +251,9 @@ export interface RenderOptions {
   upload?: string
   // Saves the file through the browser's download, under this name; the film is then held in the page
   download?: string
+  // Where each picture of the film's graphics is read from, by the "src" it was written with; a "src" not
+  // named here is its own address. The film server gives the addresses of files on its machine
+  images?: Record<string, string>
 }
 
 // The lowest H.264 level a stream of this frame, rate and bitrate fits in
@@ -424,7 +432,7 @@ export async function renderFilm (source: unknown, options: RenderOptions = {}) 
 
   return exclusively(plan.frames, async () => {
     const started = performance.now()
-    const player = await createFilmPlayer(plan, plan.scale)
+    const player = await createFilmPlayer(plan, plan.scale, options.images)
     try {
       const job = { canvas: player.canvas, fps: plan.fps, frames: plan.frames, duration: plan.duration, draw: player.drawFrame }
       const { blob, facts } = await encodeVideo(job, options, started)
@@ -493,6 +501,8 @@ export interface PreviewOptions {
   at?: number[]
   // How many frames to spread over the film when `at` is left out
   frames?: number
+  // Where each picture of the film's graphics is read from, as in a render
+  images?: Record<string, string>
 }
 
 // Draws frames of the film side by side on one picture, each with its second in the corner. Every frame
@@ -513,7 +523,7 @@ export async function previewFilm (source: unknown, options: PreviewOptions = {}
   const last = indices[indices.length - 1]
 
   return exclusively(last + 1, async () => {
-    const player = await createFilmPlayer(plan, tileWidth / plan.width)
+    const player = await createFilmPlayer(plan, tileWidth / plan.width, options.images)
     try {
       const tile = player.canvas
       const sheet = createSheet(tile.width, tile.height, columns, rows)

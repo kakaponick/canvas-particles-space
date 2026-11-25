@@ -27,7 +27,8 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const DIST = path.resolve(process.env.SPACE_DIST ?? path.join(ROOT, 'dist'))
 const MIME = {
   '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.json': 'application/json',
-  '.woff2': 'font/woff2', '.png': 'image/png', '.jpg': 'image/jpeg', '.ico': 'image/x-icon',
+  '.woff2': 'font/woff2', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp',
+  '.gif': 'image/gif', '.avif': 'image/avif', '.ico': 'image/x-icon',
   '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.m4a': 'audio/mp4', '.ogg': 'audio/ogg', '.flac': 'audio/flac'
 }
 const PAGE_READY_MS = 30_000
@@ -369,6 +370,35 @@ function filmOf (args) {
 // A fractal film comes as a film does: its JSON, or a script read here for its grammar
 const fractalOf = args => filmOf(args)
 
+// Pictures a film's graphics may name by a path on this machine
+const PICTURES = ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.avif']
+
+// The pictures a film's graphics name by a path, each handed to the page under a one-off token, as the audio
+// is. A script's paths are known only once the page has written its JSON, so the page writes it first
+async function filmPictures (page, film, input) {
+  const written = typeof film === 'string' ? (await page.evaluate(inPage('film.script', film, input))).film : film
+  const graphics = Array.isArray(written?.graphics) ? written.graphics : []
+  const images = {}
+  const missing = []
+  const tokens = []
+  for (const [index, graphic] of graphics.entries()) {
+    const src = graphic?.kind === 'image' && typeof graphic.src === 'string' ? graphic.src.trim() : ''
+    if (src === '' || src in images || ['data:', 'blob:', 'http://', 'https://'].some(start => src.toLowerCase().startsWith(start))) continue
+    const file = path.resolve(process.cwd(), src)
+    if (!PICTURES.includes(path.extname(file).toLowerCase())) {
+      missing.push(`graphics[${index}].src: ${src} is not a picture this server hands out (${PICTURES.join(', ')})`)
+    } else if (!fs.existsSync(file) || !fs.statSync(file).isFile()) {
+      missing.push(`graphics[${index}].src: no picture at ${file}`)
+    } else {
+      const token = crypto.randomUUID()
+      page.downloads.set(token, file)
+      tokens.push(token)
+      images[src] = `${page.origin}/__film/file/${token}`
+    }
+  }
+  return { images, missing, release: () => tokens.forEach(token => page.downloads.delete(token)) }
+}
+
 const round = (value) => typeof value === 'number' ? Number(value.toFixed(4)) : value
 
 function describeText (settings, intro, presets, introPresets, layerInfo, filter) {
@@ -441,7 +471,14 @@ async function runTool (name, args, report) {
 
   if (name === 'space_check') {
     const film = filmOf(args)
-    const checked = await page.evaluate(inPage('film.check', film, args.input))
+    // A picture named by a path is looked for here, and told with whatever else the page found wrong
+    let unread = null
+    const checked = await page.evaluate(inPage('film.check', film, args.input)).catch(error => { unread = error })
+    const pictures = await filmPictures(page, film, args.input).catch(() => null)
+    pictures?.release()
+    const lost = pictures?.missing ?? []
+    if (unread) throw lost.length > 0 ? new Error(`${unread.message}\nAnd on this machine:\n${lost.join('\n')}`) : unread
+    if (lost.length > 0) throw new Error(lost.join('\n'))
     const lines = [
       `The film: ${+checked.duration.toFixed(2)} s, ${checked.fps} fps, ${checked.width}x${checked.height}, ${checked.frames} frames.`,
       ...(checked.notes.length > 0 ? [`Adjusted: ${checked.notes.join('; ')}`] : []),
@@ -468,7 +505,10 @@ async function runTool (name, args, report) {
     if (Array.isArray(args.at)) options.at = args.at
     if (typeof args.frames === 'number') options.frames = args.frames
     if (args.input !== undefined) options.input = args.input
-    const sheet = await withProgress(page, report, () => page.evaluate(inPage('film.preview', film, options)))
+    const pictures = await filmPictures(page, film, args.input)
+    if (pictures.missing.length > 0) throw new Error(pictures.missing.join('\n'))
+    options.images = pictures.images
+    const sheet = await withProgress(page, report, () => page.evaluate(inPage('film.preview', film, options))).finally(pictures.release)
     const note = sheet.notes.length > 0 ? `\nAdjusted: ${sheet.notes.join('; ')}` : ''
     // The film as it was understood, so what was meant can be checked against it before a render
     const timeline = `\nTimeline:\n${sheet.timeline.map(line => '  ' + line).join('\n')}`
@@ -547,6 +587,13 @@ async function runTool (name, args, report) {
       tokens.push(() => page.downloads.delete(token))
       options.audio = `${page.origin}/__film/file/${token}`
     }
+    const pictures = await filmPictures(page, film, args.input)
+    tokens.push(pictures.release)
+    if (pictures.missing.length > 0) {
+      pictures.release()
+      throw new Error(pictures.missing.join('\n'))
+    }
+    options.images = pictures.images
     // The file is written beside its place and moved there whole, so a failed render leaves nothing half done
     const token = crypto.randomUUID()
     const target = { path: `${out}.part`, file: undefined, written: false, error: null }
