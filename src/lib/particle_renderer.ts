@@ -15,6 +15,7 @@ import {
   latticeVertexShaderSource
 } from './webgl_shaders'
 import { INSTANCE_FLOATS } from './particle_simulation'
+import type { SceneColor } from './scene_color'
 import { MAX_ORBITERS, STRETCH_SECONDS } from './orbiters'
 import type { TitleSprite } from './title_sprite'
 import { RING_BINS } from './ring_energy'
@@ -94,6 +95,23 @@ export interface CompositeSettings {
   ringPhase: number
   ringBase: number
   ringFeed: number
+  // The line: its width at Thickness 0 in screen pixels, how far outside the shadow's edge it stands in
+  // its own widths, how far from the hole the ring and its glow are drawn, in shadow radii, and the width
+  // of the bell of light that draws the line, as a share of the line's own
+  ringLineMin: number
+  ringOffset: number
+  ringReach: number
+  ringSoftness: number
+  // The glow: how far its tight core and its wide skirt reach, in black hole radii, and the share of the
+  // glow each holds at the line
+  ringGlowCore: number
+  ringGlowSkirt: number
+  ringGlowCoreShare: number
+  ringGlowSkirtShare: number
+  // The ring's colour and what its approaching and receding sides turn toward
+  ringColor: SceneColor
+  ringApproaching: SceneColor
+  ringReceding: SceneColor
   // Explosion center and its light
   centerX: number
   centerY: number
@@ -268,8 +286,16 @@ export interface FrameInput {
   orbitFocal: number
   orbitDepth: number
   doppler: number
-  // How strongly brightness follows speed, and the frame length in 60 Hz reference frames it is judged by
+  // The tint that shift gives the particles: its colours round the vanishing point and toward the edges,
+  // how fast it turns from one to the other per half screen diagonal, and the most of a colour it replaces
+  tintAhead: SceneColor
+  tintEdge: SceneColor
+  tintGradient: number
+  tintLimit: number
+  // How strongly brightness follows speed, the speed (CSS pixels per 60 Hz frame) that lights a particle
+  // half way, and the frame length in 60 Hz reference frames it is judged by
   speedGlow: number
+  speedKnee: number
   frameScale: number
   // Vanishing point of the particle field in CSS pixels, the centre of its doppler tint
   vanishX: number
@@ -329,6 +355,14 @@ function setUniformColor (gl: WebGL2RenderingContext, uniform: CachedUniform, co
   if (uniform.x === color) return
   uniform.x = color
   gl.uniform3f(uniform.location, (color >> 16 & 255) / 255, (color >> 8 & 255) / 255, (color & 255) / 255)
+}
+
+function setUniform3f (gl: WebGL2RenderingContext, uniform: CachedUniform, x: number, y: number, z: number) {
+  if (uniform.x === x && uniform.y === y && uniform.z === z) return
+  uniform.x = x
+  uniform.y = y
+  uniform.z = z
+  gl.uniform3f(uniform.location, x, y, z)
 }
 
 function setUniform4f (gl: WebGL2RenderingContext, uniform: CachedUniform, x: number, y: number, z: number, w: number) {
@@ -391,11 +425,11 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   }
 
   const fadeUniforms = getUniforms(gl, fadeProgram, ['color'] as const)
-  const particleUniforms = getUniforms(gl, particleProgram, ['resolution', 'pixelRatio', 'center', 'doppler', 'speedGlow', 'frameScale', 'zoom', 'zoomFrom'] as const)
+  const particleUniforms = getUniforms(gl, particleProgram, ['resolution', 'pixelRatio', 'center', 'doppler', 'speedGlow', 'speedKnee', 'tintAhead', 'tintEdge', 'tint', 'frameScale', 'zoom', 'zoomFrom'] as const)
   const orbitUniforms = getUniforms(gl, orbitProgram, ['resolution', 'zoom', 'orbit', 'dimmed', 'turnX', 'turnY'] as const)
   const compositeUniforms = getUniforms(gl, compositeProgram, [
     'resolution', 'pixelRatio', 'time', 'hole', 'horizon', 'einstein', 'falloff', 'falloffPivot', 'lensCore', 'maxBend', 'lensReach', 'twistLimit', 'swirl', 'absorption', 'trace', 'spin', 'ring',
-    'ringWidth', 'ringGlow', 'ringDoppler', 'ringSide', 'ringPhase', 'ringBase', 'ringFeed',
+    'ringWidth', 'ringGlow', 'ringDoppler', 'ringSide', 'ringPhase', 'ringBase', 'ringFeed', 'ringLine', 'ringGlowShape', 'ringColor', 'ringApproaching', 'ringReceding',
     'center', 'starGlow', 'starRadius', 'sourcePower', 'glareRadius', 'exposure',
     'lightRadius', 'lightWidth', 'lightPower', 'lightSpeed', 'echoPower', 'echoDecay',
     'waveRadius', 'waveStrength', 'waveWidth', 'remnantGlow', 'remnantRedshift', 'remnantRadius',
@@ -633,6 +667,10 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     gl.useProgram(particleProgram)
     setUniform1f(gl, particleUniforms.doppler, frame.doppler)
     setUniform1f(gl, particleUniforms.speedGlow, frame.speedGlow)
+    setUniform1f(gl, particleUniforms.speedKnee, frame.speedKnee)
+    setUniform3f(gl, particleUniforms.tintAhead, frame.tintAhead.r, frame.tintAhead.g, frame.tintAhead.b)
+    setUniform3f(gl, particleUniforms.tintEdge, frame.tintEdge.r, frame.tintEdge.g, frame.tintEdge.b)
+    setUniform2f(gl, particleUniforms.tint, frame.tintGradient, frame.tintLimit)
     setUniform1f(gl, particleUniforms.frameScale, frame.frameScale)
     setUniform2f(gl, particleUniforms.center, frame.vanishX, frame.vanishY)
     setUniform4f(gl, particleUniforms.zoom, layerZoomX * ratio, layerZoomY * ratio, layerZoom, 0)
@@ -838,6 +876,11 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     setUniform1f(gl, u.ringPhase, settings.ringPhase)
     setUniform1f(gl, u.ringBase, settings.ringBase)
     setUniform1f(gl, u.ringFeed, settings.ringFeed)
+    setUniform4f(gl, u.ringLine, settings.ringLineMin, settings.ringOffset, settings.ringReach, settings.ringSoftness)
+    setUniform4f(gl, u.ringGlowShape, settings.ringGlowCore, settings.ringGlowSkirt, settings.ringGlowCoreShare, settings.ringGlowSkirtShare)
+    setUniform3f(gl, u.ringColor, settings.ringColor.r, settings.ringColor.g, settings.ringColor.b)
+    setUniform3f(gl, u.ringApproaching, settings.ringApproaching.r, settings.ringApproaching.g, settings.ringApproaching.b)
+    setUniform3f(gl, u.ringReceding, settings.ringReceding.r, settings.ringReceding.g, settings.ringReceding.b)
     setUniform2f(gl, u.center, settings.centerX * ratio, settings.centerY * ratio)
     setUniform1f(gl, u.starGlow, settings.starGlow)
     setUniform1f(gl, u.starRadius, Math.max(settings.starRadius * ratio, 0.5))

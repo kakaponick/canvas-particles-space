@@ -3,8 +3,9 @@ import { useParticleStore } from '../store/particle_store'
 import { hexToRgb, rgbToHex } from '../lib/utils'
 import ColorPalette from './controls/color_palette'
 import SettingSlider from './controls/setting_slider'
+import SettingColor from './controls/setting_color'
 import ColorPickerInput from './controls/color_picker_input'
-import SettingsSection, { SettingsRow, SettingsSwitch } from './controls/settings_section'
+import SettingsSection, { SettingsFine, SettingsRow, SettingsSwitch } from './controls/settings_section'
 import FrameRateControl, { MeasuredFps } from './controls/frame_rate_control'
 import PresetControl, { ActivePresetName } from './controls/preset_control'
 
@@ -151,6 +152,9 @@ function SettingsBody () {
         <SettingSlider field="cameraYaw" />
         <SettingSlider field="cameraPitch" />
         <SettingSlider field="cameraSpin" />
+        <SettingsFine id="three-d">
+          <SettingSlider field="threeDEndFade" />
+        </SettingsFine>
       </ThreeDSection>
 
       <SettingsSection id="particles" title="Particles">
@@ -167,6 +171,9 @@ function SettingsBody () {
           <SettingSlider field="particleSize" />
           <SettingSlider field="trailIntensity" />
         </div>
+        <SettingsFine id="particles">
+          <SettingSlider field="particleSizeMin" />
+        </SettingsFine>
       </SettingsSection>
 
       <SettingsSection id="lighting" title="Particle Lighting">
@@ -182,6 +189,9 @@ function SettingsBody () {
           <SettingSlider field="pulseIntensity" />
           <SettingSlider field="pulseSpeedMultiplier" />
         </div>
+        <SettingsFine id="lighting">
+          <SettingSlider field="speedGlowKnee" />
+        </SettingsFine>
       </SettingsSection>
 
       <SettingsSection
@@ -191,6 +201,15 @@ function SettingsBody () {
       >
         <ColorPalette />
         <BackgroundColorControl />
+        <SettingsFine id="colors">
+          {/* The tint of a fast flight: its two colors, then where and when it shows */}
+          <SettingColor field="flightTintAhead" />
+          <SettingColor field="flightTintEdge" />
+          <SettingSlider field="flightTintGradient" />
+          <SettingSlider field="flightTintLimit" />
+          <SettingSlider field="flightTintFrom" />
+          <SettingSlider field="flightTintFull" />
+        </SettingsFine>
       </SettingsSection>
 
       <SettingsSection id="black-hole" title="Black Hole" defaultOpen>
@@ -219,6 +238,9 @@ function SettingsBody () {
         <SettingSlider field="cameraX" />
         <SettingSlider field="cameraY" />
         <SettingSlider field="cameraPair" />
+        <SettingsFine id="black-hole">
+          <SettingSlider field="frameDragSweep" />
+        </SettingsFine>
       </SettingsSection>
 
       <SettingsSection id="companion" title="Second Black Hole">
@@ -226,6 +248,13 @@ function SettingsBody () {
         <SettingSlider field="companionDistance" />
         <SettingSlider field="companionSpeed" />
         <SettingSlider field="companionWaves" />
+        <SettingsFine id="companion">
+          {/* The last turns, then what the merger leaves */}
+          <SettingSlider field="companionClosest" />
+          <SettingSlider field="companionSpin" />
+          <SettingSlider field="companionOval" />
+          <SettingSlider field="companionHandover" />
+        </SettingsFine>
       </SettingsSection>
 
       <PhotonRingSection>
@@ -239,6 +268,31 @@ function SettingsBody () {
         <SettingSlider field="ringFeed" />
         <SettingSlider field="ringAfterglow" />
         <SettingSlider field="ringFlowSpeed" />
+        <SettingsFine id="photon-ring">
+          {/* Its colors, the line, the glow's shape, then what feeds it */}
+          <SettingColor field="ringColor" />
+          <SettingColor field="ringColorApproaching" />
+          <SettingColor field="ringColorReceding" />
+          <div className="mt-3 flex flex-col gap-1">
+            <SettingSlider field="ringWidthMin" />
+            <SettingSlider field="ringOffset" />
+            <SettingSlider field="ringSoftness" />
+          </div>
+          <div className="mt-3 flex flex-col gap-1">
+            <SettingSlider field="ringGlowCore" />
+            <SettingSlider field="ringGlowCoreShare" />
+            <SettingSlider field="ringGlowSkirt" />
+            <SettingSlider field="ringGlowSkirtShare" />
+          </div>
+          <div className="mt-3 flex flex-col gap-1">
+            <SettingSlider field="ringFeedCapture" />
+            <SettingSlider field="ringFeedSkim" />
+            <SettingSlider field="ringFeedReach" />
+            <SettingSlider field="ringStarFlare" />
+            <SettingSlider field="ringStarSpread" />
+            <SettingSlider field="ringStarSides" />
+          </div>
+        </SettingsFine>
       </PhotonRingSection>
 
       <LensingSection>
@@ -274,6 +328,17 @@ function SettingsBody () {
           <SettingSlider field="orbitTrail" />
           <SettingSlider field="orbitStarSize" />
         </div>
+        <SettingsFine id="orbiting-stars">
+          {/* How the orbits are made, then what the stars do on them */}
+          <SettingSlider field="orbitSizeSpread" />
+          <SettingSlider field="orbitEccentricitySpread" />
+          <SettingSlider field="orbitClosest" />
+          <SettingSlider field="orbitEscape" />
+          <div className="mt-3 flex flex-col gap-1">
+            <SettingSlider field="orbitDrag" />
+            <SettingSlider field="orbitFadeIn" />
+          </div>
+        </SettingsFine>
       </SettingsSection>
 
       <SettingsSection id="space-grid" title="Space Grid">

@@ -25,11 +25,13 @@ export type { TitleSprite } from './title_sprite'
 import { clearRingEnergy, createRingEnergy, stepRingEnergy } from './ring_energy'
 import { createGridSettings, placeGrid, turnGrid } from './space_grid'
 import { LATTICE_LINES_PER_SIDE, createLatticeSettings, latticeAnchor } from './space_lattice'
-import { LIGHT_SPEED, SHADOW_RADII, clearOrbiters, createOrbiters, stepOrbiters } from './orbiters'
+import { LIGHT_SPEED, SHADOW_RADII, clearOrbiters, createOrbitTuning, createOrbiters, stepOrbiters } from './orbiters'
 import { createPair, stepPair } from './companion'
 import { CLOSEST_CAMERA, cameraFor, shadowAngle } from './lens_trace'
 import { createShadowShape, updateShadowShape } from './kerr_shadow'
 import { createRandom, seedRandom } from './random'
+import { createSceneColor, readSceneColor } from './scene_color'
+import { SIMULATION_COLOR_SPECS } from './simulation_specs'
 import type { ParticleCrew } from './particle_crew'
 
 // The crumbling title follows the black hole's gravity: at these settings (the defaults) the dust
@@ -44,8 +46,16 @@ const TITLE_SAFE_MARGIN = 16
 const MIN_HOLE_OVAL = 1e-4
 // The gravitational wave is switched off this many wobble decay times after its front left the screen
 const GRAVITY_WAVE_FADES = 6
-// Two equal black holes becoming one leave an oval this many times longer than one forming in the intro
-const MERGER_RING = 3
+// The photon ring and its glow are drawn out to this many shadow radii from the hole. That holds a glow
+// reaching up to RING_GLOW_HELD radii and a line whose light ends within RING_LINE_HELD of its widths off
+// the shadow's edge (its offset and RING_FADES bells of its softness, where a bell has faded out); a glow
+// set wider, as many reaches away, or a line set further off or softer gets the room it needs
+const RING_REACH = 1.6
+const RING_GLOW_HELD = 0.2
+const RING_LINE_HELD = 2.5
+const RING_FADES = 3
+// The tint of a fast flight is at its fullest no nearer than this to the speed it begins at
+const MIN_TINT_SPAN = 1e-6
 // A fired effect is over once everything it shows is fainter than this
 const CUE_FADED = 0.002
 const DEGREE = Math.PI / 180
@@ -210,6 +220,7 @@ export function createScene (
   let ringWasFed = true
   const field = crew ? crew.field : createParticleField()
   const orbiters = createOrbiters(random)
+  const orbitTuning = createOrbitTuning()
   const pair = createPair()
   const shadowShape = createShadowShape()
   const instances = crew ? crew.instances : createInstanceData()
@@ -252,7 +263,12 @@ export function createScene (
     orbitFocal: 0,
     orbitDepth: 1,
     doppler: 0,
+    tintAhead: createSceneColor(),
+    tintEdge: createSceneColor(),
+    tintGradient: 1.7,
+    tintLimit: 0.8,
     speedGlow: 1,
+    speedKnee: 0.15,
     frameScale: 1,
     vanishX: 0,
     vanishY: 0,
@@ -292,6 +308,17 @@ export function createScene (
       ringPhase: 0,
       ringBase: 1,
       ringFeed: 0,
+      ringLineMin: 1.5,
+      ringOffset: 0.7,
+      ringReach: RING_REACH,
+      ringSoftness: 0.45,
+      ringGlowCore: 0.035,
+      ringGlowSkirt: 0.18,
+      ringGlowCoreShare: 0.3,
+      ringGlowSkirtShare: 0.12,
+      ringColor: createSceneColor(),
+      ringApproaching: createSceneColor(),
+      ringReceding: createSceneColor(),
       centerX: 0,
       centerY: 0,
       starGlow: 0,
@@ -551,7 +578,10 @@ export function createScene (
     // A second black hole turns with the main one around the place the black hole stands; the main one
     // grows as it takes the companion in
     const shadowShare = state.blackHoleSize / 100
-    stepPair(pair, state.companionSize, state.companionDistance, state.companionSpeed, state.companionWaves, shadowShare, dt, scene.time)
+    stepPair(
+      pair, state.companionSize, state.companionDistance, state.companionSpeed, state.companionWaves, shadowShare, dt, scene.time,
+      state.companionClosest, state.companionSpin
+    )
     const shadowRadius = shadowShare * shortSide * pair.growth
     getRingdownTiming(params, shadowRadius, lightSpeed, ringTiming)
 
@@ -631,7 +661,8 @@ export function createScene (
     // along the line between them, the most as they become one. What they leave is a spinning hole, whose
     // oval keeps turning the way the two circled, half a turn a wobble, while it fades. It rings as a real
     // hole of its size and spin does, at the speed of light the pair's own orbit is counted in, so the
-    // last turns of the pair, the merger and the ringing are one motion
+    // last turns of the pair, the merger and the ringing are one motion. Two equal holes leave an oval Merger
+    // Oval times longer than one forming in the intro
     const sinceMerger = pair.mergedAt >= 0 ? scene.time - pair.mergedAt : -1
     const pairLight = LIGHT_SPEED * shortSide
     const pairRate = Math.max(Math.abs(state.companionSpeed), 0.01)
@@ -641,7 +672,7 @@ export function createScene (
     let drawnAlong = 0
     let ringing = 0
     if (pair.companion > 0 && !hidden.ringdown) {
-      const most = params.ringdownAmplitude * MERGER_RING * pair.symmetry
+      const most = params.ringdownAmplitude * state.companionOval * pair.symmetry
       if (sinceMerger < 0) {
         drawnOut = most * pair.merged
         drawnAlong = pair.phase
@@ -771,19 +802,27 @@ export function createScene (
     // The particles are dragged round by the spin the shadow is drawn for: the same vector, held to the
     // fastest spin there is, times Frame Drag
     const dragShare = spin > 0 ? spin / Math.sqrt(across * across + spinToward * spinToward) * state.frameDrag : 0
-    settings.spinRight = sceneRight * dragShare
-    settings.spinUp = sceneUp * dragShare
+    // The share of spin that lies in the screen sweeps the flat field's near and far particles apart Drag
+    // Sweep times as hard; in 3D the axis stands in space and the drag turns round it as it is
+    const sweep = threeD ? 1 : state.frameDragSweep
+    settings.spinRight = sceneRight * dragShare * sweep
+    settings.spinUp = sceneUp * dragShare * sweep
     settings.spinToward = sceneToward * dragShare
     // With the feed off the simulation stops collecting light, and old light does not return later
     const ringFed = state.ringEnabled && state.ringFeedEnabled
     if (ringWasFed && !ringFed) clearRingEnergy(ringEnergy)
     ringWasFed = ringFed
     settings.ringEnergy = ringFed ? ringEnergy : null
+    settings.ringCaptureEnergy = state.ringFeedCapture
+    settings.ringSkimReach = state.ringFeedReach
+    settings.ringSkimEnergy = state.ringFeedSkim
     frame.ringFed = ringFed
     settings.gravityReach = horizon * state.gravityReach
     settings.holeDepth = state.farZ * state.blackHoleDepth / 100
     settings.gravityDepth = state.farZ * state.gravityDepth / 100
     settings.lineWidth = state.particleSize
+    settings.minLineWidth = state.particleSizeMin
+    settings.endFade = state.threeDEndFade
     settings.gravityStrength = hidden.gravity ? 0 : state.gravityStrength
     settings.orbitalStrength = hidden.gravity ? 0 : state.orbitalStrength
     settings.inertia = state.gravityInertia
@@ -892,10 +931,19 @@ export function createScene (
       view.stepped = threeD
       // The orbiting stars circle the hole at its full size and light up as it forms. The renderer keeps
       // the stretches they fly and draws the traces from them, around the hole as it is this frame
+      orbitTuning.sizeSpread = state.orbitSizeSpread
+      orbitTuning.eccentricitySpread = state.orbitEccentricitySpread
+      orbitTuning.closest = state.orbitClosest
+      orbitTuning.escape = state.orbitEscape
+      orbitTuning.fadeIn = state.orbitFadeIn
+      orbitTuning.drag = state.orbitDrag
+      orbitTuning.flare = state.ringStarFlare
+      orbitTuning.flareSpread = state.ringStarSpread
+      orbitTuning.flareSides = state.ringStarSides
       frame.orbitCount = stepOrbiters(
         orbiters, state.orbitCount, state.orbitSize, state.orbitEccentricity, state.orbitSpeed, dt,
         shadowRadius, shadowRadius * state.horizonScale, sceneToward, shortSide,
-        Math.min(holeGrowth, 1), state.orbitTrail, spawn.palette, settings.ringEnergy
+        Math.min(holeGrowth, 1), state.orbitTrail, spawn.palette, settings.ringEnergy, orbitTuning
       )
       frame.orbitRowNew = orbiters.rowNew
       frame.orbitDimmed = orbiters.dimmed
@@ -908,8 +956,15 @@ export function createScene (
       scene.simulationMs = performance.now() - simStart
     }
     frame.speedGlow = state.speedGlow
+    frame.speedKnee = state.speedGlowKnee
     if (frameScale > 0) frame.frameScale = frameScale
-    frame.doppler = hidden.doppler ? 0 : Math.min(Math.max((speed - 2) / 10, 0), 1) * (reducedMotion ? 0.5 : 1)
+    // A fast flight tints the particles: from Flight Tint From, growing evenly to its fullest at Flight Tint Full
+    const tintSpan = Math.max(state.flightTintFull - state.flightTintFrom, MIN_TINT_SPAN)
+    frame.doppler = hidden.doppler ? 0 : Math.min(Math.max((speed - state.flightTintFrom) / tintSpan, 0), 1) * (reducedMotion ? 0.5 : 1)
+    readSceneColor(frame.tintAhead, state.flightTintAhead, SIMULATION_COLOR_SPECS.flightTintAhead.exact)
+    readSceneColor(frame.tintEdge, state.flightTintEdge, SIMULATION_COLOR_SPECS.flightTintEdge.exact)
+    frame.tintGradient = state.flightTintGradient
+    frame.tintLimit = state.flightTintLimit
     readBackground(state)
     // The 8-bit scene texture rounds away fades smaller than half a step, so on fast displays
     // a per-frame fade would leave a grey haze. Fading in whole 60 Hz steps keeps the trail
@@ -1045,6 +1100,20 @@ export function createScene (
     composite.ringPhase = ringEnergy.phase
     composite.ringBase = ringFed ? state.ringBase : 1
     composite.ringFeed = ringFed ? state.ringFeed : 0
+    composite.ringLineMin = state.ringWidthMin
+    composite.ringOffset = state.ringOffset
+    composite.ringSoftness = state.ringSoftness
+    // The line's width in shadow radii, at the camera's zoom
+    const ringLine = state.ringWidth + state.ringWidthMin / Math.max(composite.horizon * cameraZoom * scene.pixelRatio, 1)
+    composite.ringReach = RING_REACH + RING_FADES * Math.max(Math.max(state.ringGlowCore, state.ringGlowSkirt) - RING_GLOW_HELD, 0) +
+      Math.max(state.ringOffset + RING_FADES * state.ringSoftness - RING_LINE_HELD, 0) * ringLine
+    composite.ringGlowCore = state.ringGlowCore
+    composite.ringGlowSkirt = state.ringGlowSkirt
+    composite.ringGlowCoreShare = state.ringGlowCoreShare
+    composite.ringGlowSkirtShare = state.ringGlowSkirtShare
+    readSceneColor(composite.ringColor, state.ringColor)
+    readSceneColor(composite.ringApproaching, state.ringColorApproaching, SIMULATION_COLOR_SPECS.ringColorApproaching.exact)
+    readSceneColor(composite.ringReceding, state.ringColorReceding, SIMULATION_COLOR_SPECS.ringColorReceding.exact)
     composite.centerX = blastAtHole ? hole.x : originX
     composite.centerY = blastAtHole ? hole.y : originY
     composite.starGlow = intro.starGlow
@@ -1088,7 +1157,7 @@ export function createScene (
     const mergerWave = !introWave && pairWave > 0 && sinceMerger >= 0 && sinceMerger <= farthest / pairLight + mergerRing.decay * GRAVITY_WAVE_FADES
     composite.pairWave = sinceMerger >= 0 && sinceMerger * pairLight > farthest + shadowRadius ? 0 : pairWave
     composite.pairFront = mergerWave ? sinceMerger : -1
-    composite.pairFrontSoft = 0.25 / mergerRing.frequency
+    composite.pairFrontSoft = state.companionHandover / mergerRing.frequency
     // A fired wave leaves the black hole as the newborn hole's did, once the other two are gone
     const cueWave = !introWave && !mergerWave && (cue.ringLayers & GRAVITY_WAVE) !== 0 && sinceCueRing > 0 && sinceCueRing <= waveLife
     if (sinceCueRing > Math.max(waveLife, ringTiming.decay * GRAVITY_WAVE_FADES)) cue.ringLayers = 0

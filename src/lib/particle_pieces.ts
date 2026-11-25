@@ -17,11 +17,11 @@ const everyNumber = <Keys extends readonly StepNumber[]>(
 // The step's numbers in the order they cross to the workers
 const STEP_NUMBERS = everyNumber([
   'frameScale', 'time', 'speed', 'width', 'height', 'focal', 'vanishX', 'vanishY', 'holeX', 'holeY', 'holeRadius',
-  'captureRadius', 'captureX', 'captureY', 'spinRight', 'spinUp', 'spinToward', 'companionX', 'companionY', 'companionRadius', 'companionCapture', 'gravityReach', 'holeDepth',
-  'gravityDepth', 'lineWidth', 'gravityStrength', 'orbitalStrength', 'inertia', 'farZ', 'depthFade', 'pulseSpeedMultiplier',
+  'captureRadius', 'captureX', 'captureY', 'spinRight', 'spinUp', 'spinToward', 'companionX', 'companionY', 'companionRadius', 'companionCapture', 'ringCaptureEnergy', 'ringSkimReach', 'ringSkimEnergy', 'gravityReach', 'holeDepth',
+  'gravityDepth', 'lineWidth', 'minLineWidth', 'gravityStrength', 'orbitalStrength', 'inertia', 'farZ', 'depthFade', 'pulseSpeedMultiplier',
   'pulseIntensity', 'baseBrightness', 'minOpacity', 'maxOpacity', 'revealRadius', 'revealX', 'revealY', 'revealFeather',
   'opacityScale', 'threeD', 'holeWorldX', 'holeWorldY', 'holeWorldZ', 'companionWorldX', 'companionWorldY',
-  'companionWorldZ', 'cameraYaw', 'cameraPitch', 'cameraYawFrom', 'cameraPitchFrom'
+  'companionWorldZ', 'cameraYaw', 'cameraPitch', 'cameraYawFrom', 'cameraPitchFrom', 'endFade'
 ] as const)
 // The spawn depth follows the step's numbers
 const SPAWN_FAR_Z = STEP_NUMBERS.length

@@ -505,6 +505,12 @@ function describeText (settings, intro, presets, introPresets, layerInfo, filter
     lines.push('SWITCHES  true or false, in "settings"; in "tracks" a switch flips at its second')
     for (const entry of toggles) lines.push(`  ${entry.key}  default ${entry.default}  ${entry.description}`)
   }
+  // A page built before the colour settings has none to list
+  const colors = settings.colors ?? []
+  if (colors.length > 0) {
+    lines.push('COLOURS  "#rrggbb", in "settings"; in "tracks" a colour moves channel by channel')
+    for (const entry of colors) lines.push(`  ${entry.key}  default ${entry.default}  ${entry.label}: ${about(entry)}`)
+  }
   const other = settings.other.filter(entry => !filmless.includes(entry.key))
   if (other.length > 0) {
     lines.push('OTHER  in "settings"; the background channels also in "tracks"')

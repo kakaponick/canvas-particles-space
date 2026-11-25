@@ -154,7 +154,14 @@ knob is described once and everything else follows from that description:
   `SIMULATION_SETTING_KEYS` (`src/lib/simulation_presets.ts`), its spec in `SIMULATION_SETTING_SPECS`
   (`src/lib/simulation_specs.ts`: label, range, step, unit, a hint of at most 42 characters, the full
   description). The Settings panel, `window.space`, presets and films all pick it up from there.
-- A switch, a colour or anything else that is not a slider also needs its line in `TOGGLES` or
+- A colour setting: a `'#rrggbb'` string with its default in the store, its key in
+  `SIMULATION_SETTING_KEYS`, its spec in `SIMULATION_COLOR_SPECS` (`src/lib/simulation_specs.ts`: label, a
+  hint of at most 42 characters, the full description), a `SettingColor` row in
+  `src/components/settings_body.tsx`, and `readSceneColor` (`src/lib/scene_color.ts`) where the scene reads
+  it. `window.space`, presets, films (a colour moves channel by channel along a track) and scripts pick it
+  up from the spec. A colour that replaces a constant of the code gives its spec that constant as `exact`:
+  a hex can only round it, and the films made before must keep their bytes.
+- A switch or anything else that is neither a slider nor a colour also needs its line in `TOGGLES` or
   `parseSettings` (`src/lib/agent_values.ts`), and in `readTracks` (`src/lib/film.ts`) if a film should
   move it.
 - An intro parameter: its default in `DEFAULT_INTRO_PARAMS`, its spec in `INTRO_PARAM_SPECS`

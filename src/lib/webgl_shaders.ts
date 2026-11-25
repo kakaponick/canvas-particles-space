@@ -60,6 +60,10 @@ export const particleVertexShaderSource = `
   uniform vec2 u_center;      // vanishing point in CSS pixels
   uniform float u_doppler;    // 0 at rest, 1 near the speed of light
   uniform float u_speedGlow;  // how strongly brightness follows speed; 0 lights every moving particle in full
+  uniform float u_speedKnee;  // speed, in CSS pixels per 60 Hz frame, at which a particle reaches half its brightness
+  uniform vec3 u_tintAhead;   // the tint of a fast flight: its colour round the vanishing point,
+  uniform vec3 u_tintEdge;    // its colour toward the edges,
+  uniform vec2 u_tint;        // how fast it turns from one to the other per half screen diagonal, the most of a colour it replaces
   uniform float u_frameScale; // length of this frame in 60 Hz reference frames
   uniform vec4 u_zoom;        // the camera: the point its zoom leaves in place (device pixels), the zoom
   uniform vec4 u_zoomFrom;    // the camera of the frame before, the same way
@@ -70,10 +74,6 @@ export const particleVertexShaderSource = `
   varying vec4 v_color;
 
   const float PI = 3.14159265359;
-  // Speed, in CSS pixels per 60 Hz frame, at which a particle reaches half of its brightness
-  const float SPEED_KNEE = 0.15;
-  const vec3 BLUESHIFT = vec3(0.6, 0.76, 1.0);
-  const vec3 REDSHIFT = vec3(1.0, 0.58, 0.42);
 
   void main () {
     // The camera's zoom is applied to the segment itself, not to the finished picture, so a magnified
@@ -106,18 +106,18 @@ export const particleVertexShaderSource = `
     // per 60 Hz frame, so the result is the same at any refresh rate, and u_speedGlow bends the link
     // The speed is the particle's own, whatever the camera does
     float referenceSpeed = length(a_segment.zw - a_segment.xy) / max(u_frameScale, 0.0001);
-    float glow = pow(max(referenceSpeed / (referenceSpeed + SPEED_KNEE), 0.000001), u_speedGlow);
+    float glow = pow(max(referenceSpeed / (referenceSpeed + u_speedKnee), 0.000001), u_speedGlow);
 
     // Relativistic aberration, stylised: light ahead shifts blue, light at the edges shifts red
     // Measured from the vanishing point, in half screen diagonals
     float radial = length(a_segment.zw - u_center) * 2.0 * u_pixelRatio / max(length(u_resolution), 1.0);
-    float shift = u_doppler * (1.0 - 1.7 * radial);
-    vec3 tint = shift > 0.0 ? BLUESHIFT : REDSHIFT;
+    float shift = u_doppler * (1.0 - u_tint.x * radial);
+    vec3 tint = shift > 0.0 ? u_tintAhead : u_tintEdge;
 
     v_ends = vec2(along, len - along);
     v_across = across;
     v_halfWidth = halfWidth;
-    v_color = vec4(mix(a_color.rgb, tint, min(abs(shift), 0.8)), min(a_style.y * glow * targetArea / drawnArea, 1.0));
+    v_color = vec4(mix(a_color.rgb, tint, min(abs(shift), u_tint.y)), min(a_style.y * glow * targetArea / drawnArea, 1.0));
 
     // Rows stay top-down in the scene texture, which is the layout the composite pass samples
     gl_Position = vec4(pixel / u_resolution * 2.0 - 1.0, 0.0, 1.0);
@@ -250,7 +250,12 @@ export const compositeFragmentShaderSource = `
   uniform vec4 u_spin;           // the hole's spin a/M (0 = none), cosine and sine of its axis's angle to the line to the camera, turn of the axis on screen from up toward the left
   uniform sampler2D u_shadowShape; // a spinning hole's shadow: its radius all the way round, in round-shadow radii, from the axis's right toward its up
   uniform float u_ring;          // photon ring brightness
-  uniform float u_ringWidth;     // thickness of the line beyond its 1.5 px floor, in black hole radii
+  uniform float u_ringWidth;     // thickness of the line beyond its floor, in black hole radii
+  uniform vec4 u_ringLine;       // the line: its floor in screen pixels, how far outside the shadow's edge it stands in its own widths, how far from the hole the ring is drawn in shadow radii, the width of its bell of light as a share of its own
+  uniform vec4 u_ringGlowShape;  // the glow: how far its tight core and its wide skirt reach, in black hole radii, and the share of the glow each holds at the line
+  uniform vec3 u_ringColor;      // the ring's colour, and what its approaching and receding sides turn toward
+  uniform vec3 u_ringApproaching;
+  uniform vec3 u_ringReceding;
   uniform float u_ringGlow;      // strength of the soft light around the line; 0 leaves the bare line
   uniform float u_ringDoppler;   // contrast between the approaching and the receding side
   uniform float u_ringSide;      // direction of the approaching side, radians
@@ -354,13 +359,6 @@ export const compositeFragmentShaderSource = `
   uniform float u_letterbox;     // height of each black bar, pixels
 
   const float PI = 3.14159265359;
-  const vec3 RING_COLOR = vec3(1.0);
-  // The ring's glow: how far its tight core and its wide skirt reach, in black hole radii, and the share
-  // of the glow each holds at the line
-  const vec2 RING_GLOW_REACH = vec2(0.035, 0.18);
-  const vec2 RING_GLOW_SHARE = vec2(0.3, 0.12);
-  const vec3 RING_APPROACHING = vec3(0.8, 0.9, 1.0);
-  const vec3 RING_RECEDING = vec3(1.0, 0.42, 0.16);
   // A blur spreads the letters' light thin; this brings the glow back to a visible level
   const float TITLE_HALO_GAIN = 1.5;
   // Dust Pull is the distance a letter standing that far from the hole would be drawn; this turns
@@ -877,32 +875,32 @@ export const compositeFragmentShaderSource = `
       color *= besideHole;
 
       // The second black hole's ring is a plain line: no matter is tracked falling into it
-      if (u_companion.z > 0.0 && u_ring > 0.0 && companionDist < u_companion.z * 1.6) {
-        float ringLine = 1.5 * px + u_ringWidth * u_companion.z;
-        float fromLine = companionDist - u_companion.z - 0.7 * ringLine;
-        float inner = fromLine / (0.45 * ringLine);
+      if (u_companion.z > 0.0 && u_ring > 0.0 && companionDist < u_companion.z * u_ringLine.z) {
+        float ringLine = u_ringLine.x * px + u_ringWidth * u_companion.z;
+        float fromLine = companionDist - u_companion.z - u_ringLine.y * ringLine;
+        float inner = fromLine / (u_ringLine.w * ringLine);
         float line = exp(-inner * inner);
         if (u_ringGlow > 0.0) {
-          vec2 spread = fromLine / (u_companion.z * RING_GLOW_REACH);
-          line += u_ringGlow * dot(RING_GLOW_SHARE, exp(-spread * spread));
+          vec2 spread = fromLine / (u_companion.z * u_ringGlowShape.xy);
+          line += u_ringGlow * dot(u_ringGlowShape.zw, exp(-spread * spread));
         }
-        color += RING_COLOR * u_ring * u_ringBase * line * besideHole;
+        color += u_ringColor * u_ring * u_ringBase * line * besideHole;
       }
 
       // Photon ring: light that circled the hole before escaping, a hair-thin line hugging the shadow, along
       // its outline when the hole spins
-      if (u_ring > 0.0 && dist < shadowEdge * 1.6) {
+      if (u_ring > 0.0 && dist < shadowEdge * u_ringLine.z) {
         // Added to a floor rather than clamped to it, so every step of Thickness shows
-        float ringLine = 1.5 * px + u_ringWidth * u_horizon;
-        float fromLine = dist - shadowEdge - 0.7 * ringLine;
-        float inner = fromLine / (0.45 * ringLine);
+        float ringLine = u_ringLine.x * px + u_ringWidth * u_horizon;
+        float fromLine = dist - shadowEdge - u_ringLine.y * ringLine;
+        float inner = fromLine / (u_ringLine.w * ringLine);
         float line = exp(-inner * inner);
         // The glow is the light a camera spreads around a line this bright: tight around the line with a
         // faint wide skirt, on both sides of it. It scales with the hole and is gone well inside the
-        // reach of this branch, so it never ends in an edge
+        // reach of this branch (u_ringLine.z, which grows with the glow), so it never ends in an edge
         if (u_ringGlow > 0.0) {
-          vec2 spread = fromLine / (u_horizon * RING_GLOW_REACH);
-          line += u_ringGlow * dot(RING_GLOW_SHARE, exp(-spread * spread));
+          vec2 spread = fromLine / (u_horizon * u_ringGlowShape.xy);
+          line += u_ringGlow * dot(u_ringGlowShape.zw, exp(-spread * spread));
         }
 
         // The ring burns brighter where the simulation drops matter into the hole
@@ -916,7 +914,7 @@ export const compositeFragmentShaderSource = `
         float boost = (1.0 + 0.5 * u_ringDoppler * side) / (1.0 + 0.5 * u_ringDoppler);
         // The colour follows the square of the contrast: a mild one only brightens and dims the sides of
         // a white ring, a strong one also turns them blue and red
-        vec3 tint = mix(RING_COLOR, side > 0.0 ? RING_APPROACHING : RING_RECEDING, abs(side) * u_ringDoppler * u_ringDoppler);
+        vec3 tint = mix(u_ringColor, side > 0.0 ? u_ringApproaching : u_ringReceding, abs(side) * u_ringDoppler * u_ringDoppler);
         color += tint * u_ring * boost * boost * boost * line * besideCompanion;
       }
     }

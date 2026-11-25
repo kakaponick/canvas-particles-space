@@ -26,6 +26,9 @@ export interface ParticleState {
   spinTilt: number
   spinAxis: number
   frameDrag: number
+  // How hard spin that lies in the screen sweeps the particles nearer than the hole and those beyond it
+  // apart, as a multiple of how hard spin toward the camera swirls them; the flat mode only
+  frameDragSweep: number
   // Reach of the black hole's gravity, in multiples of its size
   gravityReach: number
   ringEnabled: boolean
@@ -45,6 +48,30 @@ export interface ParticleState {
   ringFeed: number
   ringAfterglow: number
   ringFlowSpeed: number
+  // The ring's own colour and the tints of its approaching and receding sides, '#rrggbb'
+  ringColor: string
+  ringColorApproaching: string
+  ringColorReceding: string
+  // The line: its width at Thickness 0 in screen pixels, and how far outside the shadow's edge it stands,
+  // in its own widths, and the width of the bell of light that draws it, as a share of its own
+  ringWidthMin: number
+  ringOffset: number
+  ringSoftness: number
+  // The glow's shape: how far its tight core and its wide skirt reach, in black hole radii, and the share
+  // of Glow each holds at the line
+  ringGlowCore: number
+  ringGlowCoreShare: number
+  ringGlowSkirt: number
+  ringGlowSkirtShare: number
+  // What feeds the ring: the light a captured particle leaves, the light one passing within Skim Reach
+  // black hole radii adds per 60 Hz frame, the light a captured orbiting star leaves, how far round the
+  // ring that flare spreads, radians, and the light in each of its sides as a multiple of its middle
+  ringFeedCapture: number
+  ringFeedSkim: number
+  ringFeedReach: number
+  ringStarFlare: number
+  ringStarSpread: number
+  ringStarSides: number
   // How quickly the black hole catches up with its target, radians per second
   followFrequency: number
   // Static background stars: brightness, share of grid cells holding a star, grid cell size in CSS pixels
@@ -76,8 +103,20 @@ export interface ParticleState {
   // How strongly a particle's brightness follows its speed: 0 lights every moving particle in full,
   // 1 is the original canvas, higher values dim slow particles further
   speedGlow: number
-  // Stroke width of the nearest particles, CSS pixels
+  // Speed at which a particle reaches half its brightness, CSS pixels per 60 Hz frame
+  speedGlowKnee: number
+  // The tint of a fast flight (the doppler layer): its colours ahead and at the edges of the frame,
+  // '#rrggbb', how fast it turns from one to the other outward from the vanishing point, the most of a
+  // particle's colour it replaces, and the flight speeds at which it begins and is whole
+  flightTintAhead: string
+  flightTintEdge: string
+  flightTintGradient: number
+  flightTintLimit: number
+  flightTintFrom: number
+  flightTintFull: number
+  // Stroke width of the nearest particles and of the farthest, CSS pixels
   particleSize: number
+  particleSizeMin: number
   // Radius of the disc particles spawn in, world units
   spawnRadius: number
   // Depth of the black hole's plane and the scale of the depth band its gravity acts in, % of the render depth
@@ -122,6 +161,15 @@ export interface ParticleState {
   orbitSpeed: number
   orbitTrail: number
   orbitStarSize: number
+  // How the orbits are made and held: how hard the hole's spin swings them, as a multiple of what the spin
+  // gives; how much they differ from the size and the eccentricity set; the closest a new orbit comes and
+  // the distance at which a star has escaped, both in Schwarzschild radii; seconds a new star takes to light up
+  orbitDrag: number
+  orbitSizeSpread: number
+  orbitEccentricitySpread: number
+  orbitClosest: number
+  orbitEscape: number
+  orbitFadeIn: number
   // A second black hole (companion.ts): its radius in main hole radii (0 = none), the gap between the
   // two centres in main hole radii, the rate of the pair's time (its sign is its direction) and the
   // strength of the gravitational waves the pair sends out
@@ -129,6 +177,13 @@ export interface ParticleState {
   companionDistance: number
   companionSpeed: number
   companionWaves: number
+  // The merger: the share of touching inside which the pair turns no faster, the spin the merged hole
+  // keeps as a multiple of what two holes without spin leave, how many times longer its oval is than that of
+  // a hole forming in the opening, and the wobbles over which its ringing takes over from the pair's wave
+  companionClosest: number
+  companionSpin: number
+  companionOval: number
+  companionHandover: number
   // How much the camera magnifies the scene around the black hole; 1 is no zoom
   cameraZoom: number
   // Where the camera looks while it is zoomed in: black hole radii to the right of the black hole and
@@ -142,6 +197,8 @@ export interface ParticleState {
   cameraYaw: number
   cameraPitch: number
   cameraSpin: number
+  // Share of Field Depth over which the 3D column of particles fades at both its ends, seen from the side
+  threeDEndFade: number
   frameRateCap: number
   measuredFps: number
   // Lower the particle count automatically when the simulation overruns the frame
@@ -196,6 +253,7 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   spinTilt: 80,
   spinAxis: 0,
   frameDrag: 1,
+  frameDragSweep: 1,
   gravityReach: 5,
   ringEnabled: true,
   ringFeedEnabled: true,
@@ -208,6 +266,22 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   ringFeed: 0.9,
   ringAfterglow: 0.6,
   ringFlowSpeed: 0.6,
+  ringColor: '#ffffff',
+  ringColorApproaching: '#cce6ff',
+  ringColorReceding: '#ff6b29',
+  ringWidthMin: 1.5,
+  ringOffset: 0.7,
+  ringSoftness: 0.45,
+  ringGlowCore: 0.035,
+  ringGlowCoreShare: 0.3,
+  ringGlowSkirt: 0.18,
+  ringGlowSkirtShare: 0.12,
+  ringFeedCapture: 0.9,
+  ringFeedSkim: 0.0005,
+  ringFeedReach: 1.5,
+  ringStarFlare: 6,
+  ringStarSpread: 0.2,
+  ringStarSides: 0.5,
   followFrequency: 6,
   starsBrightness: 1,
   starDensity: 0.12,
@@ -230,7 +304,15 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   pulseSpeedMultiplier: 1.0,
   trailIntensity: 0.15,
   speedGlow: 1,
+  speedGlowKnee: 0.15,
+  flightTintAhead: '#99c2ff',
+  flightTintEdge: '#ff946b',
+  flightTintGradient: 1.7,
+  flightTintLimit: 0.8,
+  flightTintFrom: 2,
+  flightTintFull: 12,
   particleSize: 3,
+  particleSizeMin: 0.3,
   spawnRadius: 700,
   blackHoleDepth: 30,
   gravityDepth: 18,
@@ -261,16 +343,27 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   cameraYaw: 40,
   cameraPitch: 20,
   cameraSpin: 0,
+  threeDEndFade: 0.12,
   companionSize: 0,
   companionDistance: 8,
   companionSpeed: 1,
   companionWaves: 1,
+  companionClosest: 0.6,
+  companionSpin: 1,
+  companionOval: 3,
+  companionHandover: 0.25,
   orbitCount: 0,
   orbitSize: 4,
   orbitEccentricity: 0.5,
   orbitSpeed: 1,
   orbitTrail: 8,
   orbitStarSize: 5,
+  orbitDrag: 1,
+  orbitSizeSpread: 0.8,
+  orbitEccentricitySpread: 0.4,
+  orbitClosest: 1.3,
+  orbitEscape: 400,
+  orbitFadeIn: 0.6,
   frameRateCap: 0,
   measuredFps: 0,
   adaptiveParticles: true,

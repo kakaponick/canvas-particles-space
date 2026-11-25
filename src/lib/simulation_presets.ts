@@ -4,18 +4,22 @@
 import type { ParticleColor, ParticleState } from '../store/particle_store'
 
 export const SIMULATION_SETTING_KEYS = [
-  'numParticles', 'baseSpeed', 'speedVariance', 'farZ', 'trailIntensity', 'speedGlow',
-  'particleSize', 'spawnRadius', 'blackHoleDepth', 'gravityDepth', 'scrollSpeedStep',
+  'numParticles', 'baseSpeed', 'speedVariance', 'farZ', 'trailIntensity', 'speedGlow', 'speedGlowKnee',
+  'particleSize', 'particleSizeMin', 'spawnRadius', 'blackHoleDepth', 'gravityDepth', 'scrollSpeedStep',
   'baseBrightness', 'depthFade', 'minOpacity', 'maxOpacity', 'pulseIntensity', 'pulseSpeedMultiplier',
+  'flightTintAhead', 'flightTintEdge', 'flightTintGradient', 'flightTintLimit', 'flightTintFrom', 'flightTintFull',
   'starsBrightness', 'starDensity', 'starCell',
-  'blackHoleSize', 'horizonScale', 'blackHoleSpin', 'spinTilt', 'spinAxis', 'frameDrag', 'gravityReach', 'gravityStrength', 'orbitalStrength', 'gravityInertia', 'followFrequency',
+  'blackHoleSize', 'horizonScale', 'blackHoleSpin', 'spinTilt', 'spinAxis', 'frameDrag', 'frameDragSweep', 'gravityReach', 'gravityStrength', 'orbitalStrength', 'gravityInertia', 'followFrequency',
   'blackHoleFollowing', 'blackHoleX', 'blackHoleY', 'cameraZoom', 'cameraX', 'cameraY', 'cameraPair',
-  'threeD', 'cameraYaw', 'cameraPitch', 'cameraSpin',
-  'companionSize', 'companionDistance', 'companionSpeed', 'companionWaves',
+  'threeD', 'cameraYaw', 'cameraPitch', 'cameraSpin', 'threeDEndFade',
+  'companionSize', 'companionDistance', 'companionSpeed', 'companionWaves', 'companionClosest', 'companionSpin', 'companionOval', 'companionHandover',
   'ringEnabled', 'ringFeedEnabled', 'ringBrightness', 'ringGlow', 'ringWidth', 'ringDoppler', 'ringSide', 'ringBase', 'ringFeed', 'ringAfterglow', 'ringFlowSpeed',
+  'ringColor', 'ringColorApproaching', 'ringColorReceding', 'ringWidthMin', 'ringOffset', 'ringSoftness', 'ringGlowCore', 'ringGlowCoreShare', 'ringGlowSkirt', 'ringGlowSkirtShare',
+  'ringFeedCapture', 'ringFeedSkim', 'ringFeedReach', 'ringStarFlare', 'ringStarSpread', 'ringStarSides',
   'lensingEnabled', 'lensingTraced', 'lensingRadius', 'lensingRotation', 'lensingFalloff', 'lensingPivot', 'lensingCore', 'lensingMaxBend', 'lensingReach', 'lensingTwistLimit', 'lensingAbsorption',
   'gridCell', 'gridSheet', 'gridTilt', 'gridDepth', 'gridSky', 'gridLattice', 'gridLatticeCell', 'gridLatticeWarp',
   'orbitCount', 'orbitSize', 'orbitEccentricity', 'orbitSpeed', 'orbitTrail', 'orbitStarSize',
+  'orbitDrag', 'orbitSizeSpread', 'orbitEccentricitySpread', 'orbitClosest', 'orbitEscape', 'orbitFadeIn',
   'colorPalette', 'backgroundR', 'backgroundG', 'backgroundB'
 ] as const satisfies readonly (keyof ParticleState)[]
 
@@ -78,6 +82,9 @@ export function normalizePresetName (name: string) {
 
 const isNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value)
 
+// A colour setting is kept as '#rrggbb'
+export const isHexColor = (value: unknown): value is string => typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value)
+
 function readPalette (value: unknown): ParticleColor[] | null {
   if (!Array.isArray(value) || value.length === 0) return null
   const palette: ParticleColor[] = []
@@ -95,7 +102,10 @@ export function readSimulationSettings (stored: Record<string, unknown>, default
   for (const key of SIMULATION_SETTING_KEYS) {
     const value = stored[key]
     if (key === 'colorPalette') settings[key] = readPalette(value) ?? settings[key]
-    else if (typeof value === typeof defaults[key] && (typeof value !== 'number' || Number.isFinite(value))) {
+    // The only strings among the settings are colours
+    else if (typeof value === 'string') {
+      if (typeof defaults[key] === 'string' && isHexColor(value)) settings[key] = value.toLowerCase()
+    } else if (typeof value === typeof defaults[key] && (typeof value !== 'number' || Number.isFinite(value))) {
       // An old or hand-edited save may hold a fractional count
       settings[key] = key === 'numParticles' ? Math.round(value as number) : value
     }

@@ -44,22 +44,34 @@ The particles fly towards the camera through a field `farZ` deep, born in a disc
 |---|---|
 | How many, how deep, how wide | `numParticles`, `farZ`, `spawnRadius` |
 | How fast | `baseSpeed`, `speedVariance` |
-| What a particle looks like | `particleSize`, `trailIntensity`, `speedGlow`, `baseBrightness` |
+| What a particle looks like | `particleSize`, `particleSizeMin`, `trailIntensity`, `speedGlow`, `speedGlowKnee`, `baseBrightness` |
 | How depth changes it | `depthFade`, `minOpacity`, `maxOpacity` |
 | Twinkle | `pulseIntensity`, `pulseSpeedMultiplier` |
 | Colours | `colorPalette`, `backgroundR`, `backgroundG`, `backgroundB` |
+| The tint of a fast flight: its two colours, where one gives way to the other, how much, from what speed | `flightTintAhead`, `flightTintEdge`, `flightTintGradient`, `flightTintLimit`, `flightTintFrom`, `flightTintFull` |
 
 What follows from how it is drawn:
 
 - A particle's brightness is its speed. A particle that did not move draws nothing, so `baseSpeed` 0 leaves
   the field dark except where gravity moves it. `speedGlow` bends that link: 0 lights every moving
-  particle in full, high values leave only the fast ones.
+  particle in full, high values leave only the fast ones. `speedGlowKnee` is the speed that lights a
+  particle half way, the point the curve bends round: lower it and a slow flight and the far field show,
+  raise it and only the streaks near the camera stay.
+- A particle thins with distance from `particleSize` down to `particleSizeMin`. Raise the second to the
+  first and the field is drawn in strokes of one width, a flat graphic look; at 0 the far field thins away.
 - The trail is the fade of the picture, not part of the particle. `trailIntensity` 0 means nothing ever
   fades: a long exposure. Together with `baseSpeed` 0 the black hole draws with its own pull.
 - Gravity is not scaled by the flight speed, so slowing the flight does not weaken the hole.
 - `colorPalette` is an array of colours with shares; a particle takes its colour when it is born, so a new
   palette arrives as particles are recycled. It is set, never keyframed. The background channels can be
   keyframed.
+- A fast flight tints the particles over their own colours (the `doppler` layer): `flightTintAhead`
+  round the point the field flies out of, `flightTintEdge` toward the edges. It begins at a flight speed
+  of `flightTintFrom` and is whole at `flightTintFull`, so at the default `baseSpeed` there is none: lower
+  `flightTintFrom` to 0 to tint a slow flight. `flightTintGradient` is how fast one colour gives way to
+  the other outward (the turn lies 1 / it of the way to the corner; at 1 and below the frame is all
+  `flightTintAhead`), and `flightTintLimit` the most of a particle's colour the tint replaces: at 1 a
+  fast flight is two flat colours. The two colours take a hex string and can be keyframed.
 - On the page the count is trimmed by the particle budget; in a film `numParticles` is exact, up to
   200 000, and costs render time in proportion.
 
@@ -103,6 +115,7 @@ it is recycled, and what it carried lights the photon ring (section 6).
 | Angle of its axis to the camera: 0° down the axis, 90° side-on | `spinTilt` |
 | Which way the axis points on screen, from up toward the left | `spinAxis` |
 | How hard the spin carries the particles round, × what the spin itself gives | `frameDrag` |
+| How hard spin lying in the screen sweeps near and far particles apart, × the swirl | `frameDragSweep` |
 
 - Spin reshapes the shadow in either lens: the side turning toward the camera flattens and the shadow moves
   the other way, and the photon ring follows the outline. Particles are captured on the circle that fits it.
@@ -120,6 +133,11 @@ it is recycled, and what it carried lights the photon ring (section 6).
 - `frameDrag` multiplies that drag and nothing else: 1 is the physical share, where the spiral needs a zoom
   to be seen; about 4 winds a vortex round the shadow that reads at a zoom of 1 with the field flying, and
   about 12 holds a bright ring of particles circling the hole before they fall. 0 keeps the shadow, the lens and the stars' swing and lets the particles fall straight.
+- `frameDragSweep` multiplies `frameDrag` for the share of spin that lies in the screen, the one that
+  sweeps near and far particles across the axis: at 1 it is as hard as the swirl, higher makes the crossed
+  trails of a side-on hole show, 0 leaves a side-on hole dragging nothing. It is the flat mode's: under
+  `threeD` the axis stands in space and the drag is the real turn round it. The stars have their own
+  multiple, `orbitDrag` (section 7).
 - `blackHoleSize` stays the mass: a spinning hole's shadow is a little smaller than a still one's.
 - The look needs `spinTilt` well away from 0°; at 0° the shadow stays round and only the sky winds.
 - Two holes that merge leave a spinning one about the axis of their orbit, which faces the camera, whatever
@@ -170,13 +188,34 @@ The lens bends the finished picture (particles, stars, grids), not the particles
 |---|---|
 | On or off | `ringEnabled` |
 | The line: brightness, soft light around it, added thickness | `ringBrightness`, `ringGlow`, `ringWidth` |
+| The line's width at no thickness, in screen pixels, how far off the shadow's edge it stands, in its widths, and how soft it is | `ringWidthMin`, `ringOffset`, `ringSoftness` |
+| The glow's shape: reach of its tight core and of its wide skirt, in radii, and the share of the glow in each | `ringGlowCore`, `ringGlowSkirt`, `ringGlowCoreShare`, `ringGlowSkirtShare` |
 | The approaching side brighter and bluer, and which side that is | `ringDoppler`, `ringSide` |
+| Its colour, and what the two sides turn toward | `ringColor`, `ringColorApproaching`, `ringColorReceding` |
 | Light with nothing falling in | `ringBase` |
 | Light from what falls in: on or off, how much, how long it lingers, how fast it travels round | `ringFeedEnabled`, `ringFeed`, `ringAfterglow`, `ringFlowSpeed` |
+| What each thing that falls in leaves: a captured particle, one skimming past per frame and how near it must pass, a captured star, how far round its flare spreads and how bright its sides are | `ringFeedCapture`, `ringFeedSkim`, `ringFeedReach`, `ringStarFlare`, `ringStarSpread`, `ringStarSides` |
 
 - The ring is fed by the simulation: particles captured or skimming past, and orbiting stars that cross
   the horizon. A dark ring usually means nothing is falling in; raise `gravityStrength` or `ringBase`.
-- `ringWidth` 0 is the finest line the screen draws, at any zoom.
+- `ringWidth` 0 is the finest line the screen draws, at any zoom: `ringWidthMin` pixels, 1.5 by default.
+  `ringWidth` is added to it in radii, so the first grows with a zoom and the second does not. `ringOffset`
+  moves the line off the shadow's edge in its own widths: 0 centres it on the edge, where the shadow hides
+  its inner half, and a negative value draws it inside the shadow. `ringSoftness` is the width of the
+  bell of light that draws the line, as a share of the line's own: low is a hard hairline, high a soft band.
+- `ringGlow` scales the whole glow; the four shape keys say where it lies. A wide `ringGlowSkirt` with a
+  high `ringGlowSkirtShare` is a halo that fills the shadow and hazes the sky; both shares at 0 leave the
+  bare line whatever `ringGlow` says.
+- `ringFeed` scales all the light that falls in; `ringFeedCapture` and `ringFeedSkim` set what a captured
+  particle and a passing one give, so their ratio is whether the ring flashes where things go in or glows
+  where the stream runs past. Skimming counts within `ringFeedReach` radii, never beyond `gravityReach`,
+  and in the flat mode only inside `gravityDepth`. A swallowed star leaves `ringStarFlare`, on the scale
+  of `ringFeedCapture`, spread `ringStarSpread` to each side with `ringStarSides` of it in each: three
+  points of light that the ring's flow then carries round.
+- The ring is `ringColor`, and `ringDoppler` turns its bright side toward `ringColorApproaching` and its
+  dim side toward `ringColorReceding` by the square of the contrast, so the tints show from about 0.5 up.
+  The second black hole's ring takes `ringColor`, the line and the glow, and neither the feed nor the sides.
+  The three colours take a hex string and can be keyframed.
 
 ## 7. Orbiting stars
 
@@ -189,9 +228,23 @@ come, as around a real black hole.
 | Shape of the orbits | `orbitSize`, `orbitEccentricity` |
 | Rate of their time; the sign is the direction | `orbitSpeed` |
 | How long a trace stays lit, and its width | `orbitTrail`, `orbitStarSize` |
+| How much the orbits differ from the size and the stretch set | `orbitSizeSpread`, `orbitEccentricitySpread` |
+| The closest a new orbit comes, and how far out a star counts as gone, in Schwarzschild radii | `orbitClosest`, `orbitEscape` |
+| How hard the spin swings the orbits, × what the spin itself gives | `orbitDrag` |
+| Seconds a new star takes to light up | `orbitFadeIn` |
 
-- Changing `orbitSize` or `orbitEccentricity` makes every orbit anew, so do not glide them along a track:
-  set them at the start, or step them with the hold ease.
+- Changing `orbitSize`, `orbitEccentricity`, `orbitSizeSpread`, `orbitEccentricitySpread` or `orbitClosest`
+  makes every orbit anew, so do not glide them along a track: set them at the start, or step them with the
+  hold ease.
+- Both spreads at 0 put every star on the same ellipse, turned differently: a clean rosette. `orbitSizeSpread`
+  at its top scatters them from the shadow's edge to twice `orbitSize`.
+- `orbitClosest` and `orbitEscape` are in Schwarzschild radii, the unit of the orbits' own physics (the
+  shadow is 2.6 of them), so they still follow `blackHoleSize`. Below 3 no orbit lasts: a low `orbitClosest`
+  with a high `orbitEccentricity` feeds stars to the ring, a high one keeps them all clear. A low
+  `orbitEscape` replaces a flung star while it is still in the frame.
+- `orbitDrag` is the stars' own multiple of the spin's pull round and leaves `frameDrag`, the particles',
+  alone. It needs `blackHoleSpin` and `spinTilt` away from 90°; raised, the rosettes turn faster and the
+  closest stars are thrown in or out.
 - `orbitCount` along a track wants the hold ease too: stars arrive in whole numbers.
 - A long `orbitTrail` over several turns draws the rosette of the precession. The traces are lines kept
   around the hole, so they follow it, grow with `blackHoleSize` and stay sharp at any zoom.
@@ -206,9 +259,13 @@ come, as around a real black hole.
 | Gap between the centres, in main hole radii | `companionDistance` |
 | Rate of the pair's time; the sign is the direction | `companionSpeed` |
 | Strength of the spiral gravitational wave of the pair | `companionWaves` |
+| Where the closing pair stops speeding up, as a share of touching | `companionClosest` |
+| What a merger leaves: its spin × the real one, its oval × the opening's, the wobbles its ringing takes to take over the wave | `companionSpin`, `companionOval`, `companionHandover` |
 
 - The two turn around their common centre by Kepler's law, so closing `companionDistance` speeds them up
-  by itself. Moving it from far to 0 over a film is a merger.
+  by itself. Moving it from far to 0 over a film is a merger. Inside `companionClosest` of the distance at
+  which they touch they turn no faster: lower it and the last turns whip round, raise it to 1 and the pair
+  merges at the pace it touched at.
 - Below a distance of 1 + `companionSize` the shadows overlap and the main hole grows by the companion's
   mass. At 0 they are one hole, which rings and sends a last wave.
 - The last turns, the merger and the ringing are one motion. The main hole is drawn out toward the
@@ -216,8 +273,12 @@ come, as around a real black hole.
   dies away. Its tone is the merged hole's own (what is left spins, so two equal holes ring about 1.4
   times higher than a still hole of that size) and runs on the pair's clock: `companionSpeed` scales it,
   and the opening's `ringdownPitch`, `ringdownLength` and `lightCrossTime` do not.
-- `ringdownAmplitude`, an intro parameter, is how far the merged hole is drawn out: three times it for
-  equal masses, less for unequal ones. It works in a film without the opening.
+- `ringdownAmplitude`, an intro parameter, is how far the merged hole is drawn out: `companionOval` times
+  it (3 by default) for equal masses, less for unequal ones. It works in a film without the opening.
+- `companionSpin` multiplies the spin the merger leaves (section 4): it flattens the merged shadow and
+  raises and lengthens the tone the hole rings with; at 0 the merged hole is a still one and rings lowest.
+  `companionHandover` is how many wobbles the ringing takes to take over from the spiral at the front
+  that leaves the merger: low is a seam in the wave, high a long blend.
 - `companionWaves` alone sets the wave. The spiral rises to its peak at the merger and flies on outward,
   and the dying turns of the ringing follow it at the same strength, with no jump between them.
   `gravityWaveGain` shapes only the opening's wave and a fired one.
@@ -271,6 +332,7 @@ by the waves. They keep their size at any zoom.
 | Which of two holes it looks at: -1 the main one, 0 their centre, 1 the second | `cameraPair` |
 | The field as a volume, seen from around the hole | `threeD` |
 | Where the 3D camera stands: around the hole, above or below it, and how fast it circles on its own | `cameraYaw`, `cameraPitch`, `cameraSpin` |
+| How much of the 3D column fades at each of its ends, as a share of `farZ` | `threeDEndFade` |
 
 - Setting a position anchors the hole. A film has no cursor: the hole rests at its position and tracks
   move it, through the same spring, so a low `followFrequency` makes it heavy and late.
@@ -304,6 +366,9 @@ by the waves. They keep their size at any zoom.
   only matter while `threeD` is on, and the camera eases between the flat view and its place in about a
   second, so a film can flip `threeD` on a track and get a turn instead of a cut. For a full circle in a
   film keyframe `cameraYaw` from -180 to 180, or set `cameraSpin` in degrees a second.
+- From the side the field is a column with two ends, where particles are born and where they leave.
+  `threeDEndFade` fades both over that share of `farZ`: 0 cuts them hard, 0.5 fades the whole column
+  toward its middle. Straight on it does nothing.
 - What turns with the camera is the field, the orbits (they lie across the line of flight, so they are
   seen as ellipses from above), the second black hole (it circles in that plane too) and the sky, which
   slides with the camera's turn. A hole without spin looks the same from every side. A spinning hole's
@@ -417,27 +482,17 @@ The cost of a knob, in the last column:
 
 | Fixed | File in src/lib | Cost |
 |---|---|---|
-| The speed at which a particle reaches half its brightness, 0.15 px a 60 Hz frame; `speedGlow` bends the curve round it | webgl_shaders.ts | frame |
-| The tint of a fast flight: blue ahead and red at the edges, turning 0.59 of a half diagonal out, 0.8 of the colour at most, growing from `baseSpeed` 2 to 12 | webgl_shaders.ts, scene.ts | frame |
-| The thinnest stroke, 0.3 px at the far end of the field | particle_simulation.ts, particle_simulation_3d.ts | frame |
 | How the pull falls with distance, as (radius / distance)^2, and the bell of the depth band (in 3D the true distance, out to the sphere of Gravity Reach) | particle_simulation.ts, particle_simulation_3d.ts | particle |
 | The spin's drag, spin / 2 at one radius | particle_simulation.ts, particle_simulation_3d.ts | has one: `frameDrag` |
 | How the drag falls: one power of the distance faster than the pull, so `frameDrag` makes the vortex stronger and never wider | particle_simulation.ts, particle_simulation_3d.ts | particle |
-| How hard spin lying in the screen sweeps near and far particles apart: as hard as spin toward the camera swirls them | particle_simulation.ts | frame |
 | What spin lying in the screen does along the line of sight: nothing, so both sides of a tilted hole fall alike | particle_simulation.ts | particle |
 | A captured particle is reborn in four tries, else on the rim, up to half a capture radius outside it | particle_simulation.ts, particle_simulation_3d.ts | machine |
-| The fade of the 3D column over 0.12 of Field Depth at both its ends, seen from the side | particle_simulation_3d.ts | frame |
 | Motion capped at six reference frames a step; a stall treated as one frame | particle_simulation.ts, frame_pacing.ts | machine |
 
 ### The photon ring
 
 | Fixed | File in src/lib | Cost |
 |---|---|---|
-| The ring's colour, white, and the tints of its approaching and receding sides, blue-white and orange | webgl_shaders.ts | frame |
-| The line: never thinner than 1.5 px, standing 0.7 of its width outside the shadow's edge | webgl_shaders.ts | frame |
-| The glow's shape: a tight core reaching 0.035 radii with 0.3 of the glow and a skirt reaching 0.18 with 0.12; `ringGlow` scales both | webgl_shaders.ts | frame |
-| How the light fed to the ring is shared: 0.9 from a captured particle, 0.0005 a frame from one skimming within 1.5 radii; `ringFeed` scales both | particle_simulation.ts, particle_simulation_3d.ts | frame |
-| The flare a captured star leaves: six particles' worth, spread 0.2 of a radian to each side | orbiters.ts | birth |
 | The second hole's ring: a plain line at `ringBase`, with no feed and no Doppler sides | webgl_shaders.ts | pixel |
 | The ring's light is kept in 256 directions | ring_energy.ts | machine |
 
@@ -458,10 +513,6 @@ The cost of a knob, in the last column:
 | Fixed | File in src/lib | Cost |
 |---|---|---|
 | The speed of light, 1.2 short sides a second, and how the orbits precess | orbiters.ts | has one: `orbitSpeed` is the rate of their time |
-| The spin's drag on the stars: always the physical share, whatever `frameDrag` says | scene.ts, orbiters.ts | frame |
-| How much the orbits differ from `orbitSize` and `orbitEccentricity`: each star gets 0.6 to 1.4 of the size and 0.6 to 1 of the eccentricity | orbiters.ts | birth |
-| The closest an orbit comes, 1.3 Schwarzschild radii, and the 400 at which a star has escaped and is replaced | orbiters.ts | frame |
-| The 0.6 s a new star takes to light up | orbiters.ts | frame |
 | At most 64 stars, and traces of 60 s at most | orbiters.ts, particle_renderer.ts | machine |
 
 ### A second black hole and the waves
@@ -472,9 +523,7 @@ The cost of a knob, in the last column:
 | The spiral wave's stretch, 0.16 radii at the shadow as the two touch | companion.ts | has one: `companionWaves` |
 | That a wave weakens as 1 over the distance and moves the picture across its path | webgl_shaders.ts | has one: `companionWaves`, `gravityWaveGain` |
 | A real hole's ringdown tone, and how spin raises it | intro_params.ts, companion.ts | has one: `ringdownPitch`, `ringdownLength` |
-| The closest orbit a pair turns at before it merges, 0.6 of touching | companion.ts | frame |
-| The spin a merger leaves, 0.69 for two equal holes | companion.ts | frame |
-| The oval two equal holes leave, three times longer than one forming in the opening, and the quarter of a wobble over which the merged hole's wave takes over | scene.ts | frame |
+| The spin a merger leaves, 0.69 for two equal holes, held under 0.95, where the fit of its tone still holds | companion.ts | has one: `companionSpin` |
 | The second hole has no spin of its own | companion.ts, particle_simulation.ts | particle and pixel: a new effect |
 
 ### The grids and the sky

@@ -17,19 +17,12 @@ import {
 } from './particle_simulation'
 
 // The flat loop's constants, which this loop keeps
-const RING_CAPTURE_ENERGY = 0.9
-const RING_SKIM_REACH = 1.5
-const RING_SKIM_ENERGY = 0.0005
 const MIN_CLIP_MARGIN = 4
-const MIN_LINE_WIDTH = 0.3
 const RESPAWN_TRIES = 4
 const RESPAWN_RIM_SPREAD = 0.5
 
 // Strokes are cut where they pass this close in front of the camera, in scene units
 const NEAR = 1
-// Seen from the side, the column fades in over this share of Field Depth at both of its ends, so the
-// place particles are born and the place they leave are not hard edges
-const END_FADE = 0.12
 
 const RESPAWN_FAR = 0
 const RESPAWN_HOLE = 1
@@ -173,10 +166,12 @@ export function stepRange3d (
   const captureRadius = settings.captureRadius * worldPerPixel
   const captureRadiusSq = captureRadius * captureRadius
   const ringEnergy = settings.ringEnergy
-  const skimRadius = radius * RING_SKIM_REACH
+  const captureEnergy = settings.ringCaptureEnergy
+  const skimRadius = radius * settings.ringSkimReach
   const skimRadiusSq = skimRadius * skimRadius
-  const skimEnergy = RING_SKIM_ENERGY * frameScale
+  const skimEnergy = settings.ringSkimEnergy * frameScale
   const nearLineWidth = settings.lineWidth
+  const minLineWidth = settings.minLineWidth
   // The flat loop's pull, (radius / distance)^2 screen pixels a frame turned into scene units at the
   // hole's depth, along the true distance. It does not depend on the flight speed
   const pullScale = gravityStrength * 0.6 * frameScale * radius * radius * worldPerPixel
@@ -207,10 +202,11 @@ export function stepRange3d (
   const revealRadiusSq = revealRadius * revealRadius
   const invRevealFeather = 1 / Math.max(revealFeather, 1)
   // Straight on, the ends of the column are the far end and the camera itself, as in the flat loop; the
-  // more the camera turns away from that, the more they fade (m8 is the cosine of the angle it turned)
+  // more the camera turns away from that, the more they fade (m8 is the cosine of the angle it turned),
+  // over the share of Field Depth the step is given (endFade)
   const endWeight = Math.min(1 - m8, 1)
-  const fadingEnds = endWeight > 1e-6
-  const invEndFade = 1 / (farZ * END_FADE)
+  const fadingEnds = endWeight > 1e-6 && settings.endFade > 0
+  const invEndFade = 1 / (farZ * settings.endFade)
   const clipMargin = Math.max(MIN_CLIP_MARGIN, nearLineWidth * 0.5 + 2)
   const minX = -clipMargin
   const minY = -clipMargin
@@ -261,8 +257,8 @@ export function stepRange3d (
             // The light lands on the ring where the particle is seen around the hole
             const ringX = -(m0 * dx + m2 * dz)
             const ringY = -(m3 * dx + m4 * dy + m5 * dz)
-            if (later) noteDeposit(later, from, ringX, ringY, RING_CAPTURE_ENERGY)
-            else depositRingEnergy(ringEnergy, ringX, ringY, RING_CAPTURE_ENERGY)
+            if (later) noteDeposit(later, from, ringX, ringY, captureEnergy)
+            else depositRingEnergy(ringEnergy, ringX, ringY, captureEnergy)
           }
           if (later) later.respawns[from + later.respawnCount++] = i * 4 + RESPAWN_HOLE
           else respawnBeyondSphere(field, i, spawn, holeX, holeY, holeZ, captureRadius)
@@ -383,7 +379,7 @@ export function stepRange3d (
     const distanceFactor = ez < farZ ? ez * invFarZ : 1
     const depthFactor = 1 - distanceFactor * depthFade
     const depthWidth = (1 - distanceFactor) * nearLineWidth
-    const lineWidth = depthWidth > MIN_LINE_WIDTH ? depthWidth : MIN_LINE_WIDTH
+    const lineWidth = depthWidth > minLineWidth ? depthWidth : minLineWidth
 
     const pulseFactor = pulsing
       ? 1 + Math.sin(time * pulseSpeed[i] * pulseRate + pulsePhase[i]) * pulseIntensity * distanceFactor

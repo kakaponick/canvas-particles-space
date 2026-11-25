@@ -11,12 +11,12 @@ import { DEFAULT_TITLE_TEXT, type TitleText } from '../store/intro_debug_store'
 import { BUILT_IN_INTRO_PRESETS, useIntroPresetStore } from '../store/intro_preset_store'
 import { pickSimulationSettings, type SimulationSettings } from './simulation_presets'
 import { STYLIZED_LENS_KEYS } from './simulation_specs'
-import { DEFAULT_INTRO_PARAMS, INTRO_PARAM_SPECS, type IntroParamKey, type IntroParams } from './intro_params'
+import { DEFAULT_INTRO_PARAMS, INTRO_PARAM_SPECS, colorToCss, cssToColor, type IntroParamKey, type IntroParams } from './intro_params'
 import { CUE_LAYERS, INTRO_LAYERS, type CueLayer, type IntroLayer } from './intro_tracks'
 import { TITLE_FONTS, type TitleFontKey } from './title_sprite'
 import { captionKeys, captionLetters, parseCaption, strangeLetters, type CaptionRun } from './caption_text'
 import {
-  INTRO_KEYS, SETTING_KEYS, SLIDERS, TOGGLES, asBoolean, asNumber, clamp, fail, findPreset, parseIntroValue, parseSettings,
+  COLORS, INTRO_KEYS, SETTING_KEYS, SLIDERS, TOGGLES, asBoolean, asColor, asNumber, clamp, fail, findPreset, parseIntroValue, parseSettings,
   unknownKey, type Patch
 } from './agent_values'
 
@@ -355,7 +355,7 @@ export function readKeyframes (where: string, source: unknown, duration: number,
 function readTracks (source: unknown, duration: number, notes: string[], attempt: Attempt): FilmTrack[] {
   if (source === undefined) return []
   if (!isObject(source)) fail('tracks take an object: { settingKey: [[seconds, value], ...] }')
-  const known = [...Object.keys(SLIDERS), ...TRACK_SWITCHES, 'backgroundR', 'backgroundG', 'backgroundB', ...INTRO_KEYS]
+  const known = [...Object.keys(SLIDERS), ...TRACK_SWITCHES, ...Object.keys(COLORS), 'backgroundR', 'backgroundG', 'backgroundB', ...INTRO_KEYS]
   const readTrack = (key: string, keyframes: unknown): FilmTrack => {
     const slider = SLIDERS[key]
     if (slider) {
@@ -367,6 +367,10 @@ function readTracks (source: unknown, duration: number, notes: string[], attempt
     }
     if (key === 'backgroundR' || key === 'backgroundG' || key === 'backgroundB') {
       return { key, target: 'settings' as const, color: false, toggle: false, ...readKeyframes(`tracks.${key}`, keyframes, duration, value => inRange(`tracks.${key}`, value, 0, 255, notes)) }
+    }
+    // A colour setting moves as 0xRRGGBB, channel by channel, and is written back as the text the store keeps
+    if (key in COLORS) {
+      return { key, target: 'settings' as const, color: true, toggle: false, ...readKeyframes(`tracks.${key}`, keyframes, duration, value => cssToColor(asColor(`tracks.${key}`, value))) }
     }
     if (key === 'colorPalette') fail('tracks.colorPalette: the palette cannot move along keyframes; set it in settings')
     if (key === 'blackHoleFollowing') fail('tracks.blackHoleFollowing: a film has no cursor to follow; move the black hole with blackHoleX and blackHoleY')
@@ -1076,14 +1080,14 @@ export function trackValue (track: FilmTrack, time: number) {
 
 // Writes every track's value at this second of the film into the plan's settings, intro parameters and layers
 export function applyTracks (plan: FilmPlan, time: number) {
-  const settings = plan.settings as unknown as Record<string, number | boolean>
+  const settings = plan.settings as unknown as Record<string, number | boolean | string>
   const params = plan.params as unknown as Record<string, number>
   const hidden = plan.hidden as Record<string, boolean>
   for (const track of plan.tracks) {
     const value = trackValue(track, time)
     if (track.target === 'layers') hidden[track.key] = value !== 1
     else if (track.toggle) settings[track.key] = value === 1
-    else if (track.target === 'settings') settings[track.key] = value
+    else if (track.target === 'settings') settings[track.key] = track.color ? colorToCss(value) : value
     else params[track.key] = value
   }
 }
@@ -1132,7 +1136,8 @@ comes to this same object: see "A film as a script" below. Names and ranges are 
   "tracks": { "blackHoleSize": [[0, 6], [4, 14], [9, 14, "linear"]] },
                              keyframes [seconds, value, ease?] for any numeric setting or intro parameter;
                              ease is how the value arrives: ease (default) | linear | in | out | hold.
-                             A switch takes true or false and flips at its second. "cameraZoom" here is the
+                             A switch takes true or false and flips at its second; a colour (describe lists
+                             them) takes '#rrggbb' and moves channel by channel. "cameraZoom" here is the
                              Zoom setting; the opening's own camera of that name is set in intro.params
   "speed": [[0, 1], [9, 1], [10, 0.1], [14, 0.1], [15, 1]],
                              how fast the scene's time runs, as keyframes or one number: 1 is real time, 0.1

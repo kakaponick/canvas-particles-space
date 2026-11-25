@@ -7,16 +7,8 @@ export const REFERENCE_FPS = 60
 
 // Longest step one frame may advance, so a stall does not teleport the field
 const MAX_FRAME_SCALE = 6
-// Energy a captured particle leaves in the photon ring
-const RING_CAPTURE_ENERGY = 0.9
-// Particles closer than this many black hole radii warm the ring as they pass, per 60 Hz frame
-const RING_SKIM_REACH = 1.5
-const RING_SKIM_ENERGY = 0.0005
-
 // Segments are clipped to the viewport plus at least this margin, wide enough to hide their ends
 const MIN_CLIP_MARGIN = 4
-// Thinnest stroke, in CSS pixels; the far end of the field is drawn this wide
-const MIN_LINE_WIDTH = 0.3
 
 // Random spawns tried for a captured particle before it is placed right outside the event horizon
 const RESPAWN_TRIES = 4
@@ -98,13 +90,20 @@ export interface StepSettings {
   companionCapture: number
   // Collects the light of matter falling in or skimming past; null leaves the photon ring unfed
   ringEnergy: RingEnergy | null
+  // The light a captured particle leaves in the ring, and the light one closer than `ringSkimReach` black
+  // hole radii adds as it passes, per 60 Hz frame
+  ringCaptureEnergy: number
+  ringSkimReach: number
+  ringSkimEnergy: number
   gravityReach: number
   // Depth of the plane where the black hole pulls hardest
   holeDepth: number
   // Scale of the depth band the black hole pulls in; gravity ends two scales away from its plane
   gravityDepth: number
-  // Stroke width of the nearest particles, in CSS pixels
+  // Stroke width of the nearest particles, in CSS pixels, and of the farthest: the far end of the field is
+  // drawn this wide
   lineWidth: number
+  minLineWidth: number
   gravityStrength: number
   orbitalStrength: number
   // Share of the sideways speed the black holes give a particle that it keeps from one 60 Hz frame to the
@@ -138,6 +137,9 @@ export interface StepSettings {
   cameraPitch: number
   cameraYawFrom: number
   cameraPitchFrom: number
+  // Seen from the side, the 3D column fades over this share of Field Depth at both of its ends, so the
+  // place particles are born and the place they leave are not hard edges
+  endFade: number
 }
 
 export interface InstanceData {
@@ -325,9 +327,9 @@ export function setParticleCount (field: ParticleField, requested: number, spawn
   field.count = count
 }
 
-// The step's settings as the scene holds them before its first frame: no black hole, nothing lit. The
-// scene fills them in every frame; a benchmark sets what it measures over these, so a new setting reaches
-// it with the value that changes nothing
+// The step's settings as the scene holds them before its first frame: no black hole, nothing lit, and the
+// numbers that were constants of the loops at the values they had. The scene fills them in every frame; a
+// benchmark sets what it measures over these, so a new setting reaches it with the value that changes nothing
 export function createStepSettings (ringEnergy: RingEnergy | null = null): StepSettings {
   return {
     frameScale: 0,
@@ -352,10 +354,14 @@ export function createStepSettings (ringEnergy: RingEnergy | null = null): StepS
     companionRadius: 0,
     companionCapture: 0,
     ringEnergy,
+    ringCaptureEnergy: 0.9,
+    ringSkimReach: 1.5,
+    ringSkimEnergy: 0.0005,
     gravityReach: 0,
     holeDepth: 0,
     gravityDepth: 1,
     lineWidth: 3,
+    minLineWidth: 0.3,
     gravityStrength: 0,
     orbitalStrength: 0,
     inertia: 0,
@@ -381,7 +387,8 @@ export function createStepSettings (ringEnergy: RingEnergy | null = null): StepS
     cameraYaw: 0,
     cameraPitch: 0,
     cameraYawFrom: 0,
-    cameraPitchFrom: 0
+    cameraPitchFrom: 0,
+    endFade: 0.12
   }
 }
 
@@ -466,9 +473,10 @@ export function stepRange (
   const captureShifted = captureShiftX !== 0 || captureShiftY !== 0
   const spawnScale = focal / spawn.farZ
   const ringEnergy = settings.ringEnergy
-  const skimRadius = holeRadius * RING_SKIM_REACH
+  const captureEnergy = settings.ringCaptureEnergy
+  const skimRadius = holeRadius * settings.ringSkimReach
   const skimRadiusSq = skimRadius * skimRadius
-  const skimEnergy = RING_SKIM_ENERGY * frameScale
+  const skimEnergy = settings.ringSkimEnergy * frameScale
   // Gravity acts within a depth band around the hole's plane; particles far behind only get lensed,
   // though the event horizon takes them at any depth.
   // The band is a compact bell, (1 - u^2 / 4)^3, close to exp(-u^2) but zero beyond |u| = 2 and
@@ -478,6 +486,7 @@ export function stepRange (
   const holeDepthFar = holeDepth + depthBand * 2
   const invDepthBand = 1 / depthBand
   const nearLineWidth = settings.lineWidth
+  const minLineWidth = settings.minLineWidth
   // Gravity does not depend on the flight speed: at Base Speed 0 the particles it moves are the only
   // ones that light up, and the rest of the field goes dark
   const pullScale = gravityStrength * 0.6 * frameScale * holeRadiusSq
@@ -568,10 +577,10 @@ export function stepRange (
         }
         if (captureSq < captureRadiusSq) {
           if (later) {
-            if (ringEnergy) noteDeposit(later, from, -dx, -dy, RING_CAPTURE_ENERGY)
+            if (ringEnergy) noteDeposit(later, from, -dx, -dy, captureEnergy)
             later.respawns[from + later.respawnCount++] = i * 4 + RESPAWN_HOLE
           } else {
-            if (ringEnergy) depositRingEnergy(ringEnergy, -dx, -dy, RING_CAPTURE_ENERGY)
+            if (ringEnergy) depositRingEnergy(ringEnergy, -dx, -dy, captureEnergy)
             respawnBeyondHorizon(field, i, spawn, settings.captureX - vanishX, settings.captureY - vanishY, captureRadius, spawnScale)
           }
           continue
@@ -678,7 +687,7 @@ export function stepRange (
     const distanceFactor = pz * invFarZ
     const depthFactor = 1 - distanceFactor * depthFade
     const depthWidth = (1 - distanceFactor) * nearLineWidth
-    const lineWidth = depthWidth > MIN_LINE_WIDTH ? depthWidth : MIN_LINE_WIDTH
+    const lineWidth = depthWidth > minLineWidth ? depthWidth : minLineWidth
 
     // The sine is the costliest step of a particle that only flies, so it is skipped when it changes nothing
     const pulseFactor = pulsing

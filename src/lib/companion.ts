@@ -10,15 +10,14 @@
 // the two circled.
 import { LIGHT_SPEED, SHADOW_RADII } from './orbiters'
 
-// The pair never turns faster than it would this share of the way in from touching, so the last moment
-// before the merger does not spin without bound
-const CLOSEST_ORBIT = 0.6
 // Stretch of the sky by the spiral wave at the shadow's edge while the two touch, in black hole radii
 const WAVE_SHARE = 0.16
 // The spin two black holes without spin leave behind, as a share of the most a hole can have, from their
 // symmetric mass ratio m1 m2 / (m1 + m2)^2 (Buonanno, Kidder and Lehner 2008, as fitted by Barausse and
 // Rezzolla 2009): 0.69 for two equal ones
 const SPIN_FIT = [3.4641, -3.871, 4.028] as const
+// The most spin the hole they leave is given, whatever multiple of that fit is asked for
+const MERGED_SPIN_MAX = 0.95
 // The strongest tone of a spinning hole, its l = m = 2 mode (Berti, Cardoso and Will 2006): pitch
 // f1 + f2 (1 - spin)^f3 in c^3 / GM, and the wobbles it rings for, q1 + q2 (1 - spin)^q3
 const TONE_FIT = [1.5251, -1.1568, 0.1292] as const
@@ -70,9 +69,14 @@ export function createPair (): Pair {
 /**
  * Advances the pair by `dt` seconds. `size` is the companion's radius and `distance` the gap between the
  * centres, both in main hole radii; `speed` is the rate of the pair's time; `shadowShare` is the main
- * hole's radius as a share of the screen's short side; `time` is the scene's clock.
+ * hole's radius as a share of the screen's short side; `time` is the scene's clock. The pair never turns
+ * faster than it would `closest` of the way in from touching, so the last moment before the merger does
+ * not spin without bound; `spinShare` multiplies the spin the merger leaves.
  */
-export function stepPair (pair: Pair, size: number, distance: number, speed: number, waves: number, shadowShare: number, dt: number, time: number) {
+export function stepPair (
+  pair: Pair, size: number, distance: number, speed: number, waves: number, shadowShare: number, dt: number, time: number,
+  closest: number, spinShare: number
+) {
   if (size <= 0 || shadowShare <= 0) {
     pair.companion = 0
     pair.growth = 1
@@ -94,7 +98,7 @@ export function stepPair (pair: Pair, size: number, distance: number, speed: num
   pair.merged = merged
 
   // Kepler's third law for the two masses, in Schwarzschild radii of the main hole and the speed of light
-  const orbit = Math.max(distance, touching * CLOSEST_ORBIT) * SHADOW_RADII
+  const orbit = Math.max(distance, touching * closest) * SHADOW_RADII
   pair.omega = speed * LIGHT_SPEED * SHADOW_RADII / shadowShare * Math.sqrt((1 + size) / (2 * orbit * orbit * orbit))
   pair.phase += pair.omega * dt
   if (merge >= 1) {
@@ -123,7 +127,7 @@ export function stepPair (pair: Pair, size: number, distance: number, speed: num
   pair.wave = waves * WAVE_SHARE * symmetry * Math.min(touching / Math.max(distance, touching), 1)
 
   const share = symmetry / 4
-  const spin = Math.min(share * (SPIN_FIT[0] + share * (SPIN_FIT[1] + share * SPIN_FIT[2])), 0.95)
+  const spin = Math.min(share * (SPIN_FIT[0] + share * (SPIN_FIT[1] + share * SPIN_FIT[2])) * spinShare, MERGED_SPIN_MAX)
   pair.spin = spin
   const tone = TONE_FIT[0] + TONE_FIT[1] * Math.pow(1 - spin, TONE_FIT[2])
   const quality = QUALITY_FIT[0] + QUALITY_FIT[1] * Math.pow(1 - spin, QUALITY_FIT[2])

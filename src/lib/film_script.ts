@@ -5,7 +5,7 @@
 // say is something that JSON can hold. The words of the language are SCRIPT_WORDS, told in SCRIPT_GUIDE.
 import { DEFAULT_INTRO_PARAMS, INTRO_PARAM_SPECS, type IntroParamKey } from './intro_params'
 import { CUE_LAYERS, INTRO_LAYERS } from './intro_tracks'
-import { INTRO_KEYS, SETTING_KEYS, SLIDERS, clamp, fail, unknownKey, type Patch } from './agent_values'
+import { COLORS, INTRO_KEYS, SETTING_KEYS, SLIDERS, clamp, fail, unknownKey, type Patch } from './agent_values'
 import { EASES, MAX_DURATION, MAX_SPEED, MIN_DURATION, TRACK_SWITCHES, planFilm } from './film'
 import { FRACTAL_HEAD_KEYS, FRACTAL_TRACKS, FRACTAL_TRACK_KEYS, fractalStart, type FractalTrackKey } from './fractal'
 import { createRandom, nextRandom } from './random'
@@ -73,6 +73,7 @@ function filmKindOf (key: string): KeyKind {
   if (slider) return { kind: 'number', home: 'settings', min: slider.min, max: slider.max }
   if (TRACK_SWITCHES.includes(key)) return { kind: 'switch', home: 'settings', min: 0, max: 1 }
   if (BACKGROUND.includes(key)) return { kind: 'number', home: 'settings', min: 0, max: 255 }
+  if (key in COLORS) return { kind: 'color', home: 'settings', min: 0, max: 0xffffff }
   if (key === 'blackHoleFollowing') fail('blackHoleFollowing: a film has no cursor to follow; move the black hole with blackHoleX and blackHoleY')
   if (SETTING_KEYS.includes(key)) return { kind: 'once', home: 'settings', min: 0, max: 0 }
   if (!(key in DEFAULT_INTRO_PARAMS)) unknownKey(key, VALUE_KEYS)

@@ -14,7 +14,7 @@ import { DEFAULT_INTRO_PARAMS, INTRO_PARAM_SPECS, colorToCss, introParamName, ty
 import { CUE_LAYERS, INTRO_LAYERS, INTRO_LAYER_NOTES, type IntroLayer } from './intro_tracks'
 import { TITLE_FONTS, type TitleFontKey } from './title_sprite'
 import {
-  ALL_SETTING_KEYS, INTRO_KEYS, SETTING_KEYS, SLIDERS, TOGGLES, asBoolean, asNumber, clamp, fail, findPreset,
+  ALL_SETTING_KEYS, COLORS, INTRO_KEYS, SETTING_KEYS, SLIDERS, TOGGLES, asBoolean, asNumber, clamp, fail, findPreset,
   parseIntroValue, parseSettings, pickKeys, sliderName, unknownKey, type Patch
 } from './agent_values'
 import { FILM_GUIDE, planFilm } from './film'
@@ -29,7 +29,7 @@ import { checkReel, previewReel, renderReel, type ReelOptions } from './reel_ren
 const DEVICE_TOGGLE_DEFAULTS: Record<string, boolean> = { adaptiveParticles: true, fpsCounter: false }
 
 const HELP = `window.space: the scene for agents. Every call returns plain JSON-safe data; errors are thrown with a reason.
-  describe(filter?)        simulation settings: key, label, value, default, range, description
+  describe(filter?)        simulation settings: key, label, value, default, range, description; sliders, switches, colours
   get(keys?) / set(patch) / reset(keys?)    read, change (one batch, values clamped to range), back to defaults
   pause() / play()         freeze or run the whole scene
   preset.list() / preset.apply(name)        saved simulation presets
@@ -79,12 +79,15 @@ function describeSettings (filter?: string) {
   const toggles = Object.entries(TOGGLES)
     .filter(([key, description]) => matches(filter, key, description))
     .map(([key, description]) => ({ key, value: state[key], default: defaults[key] ?? DEVICE_TOGGLE_DEFAULTS[key], description }))
+  const colors = Object.entries(COLORS)
+    .filter(([key, spec]) => matches(filter, key, sliderName(spec), spec.description))
+    .map(([key, spec]) => ({ key, label: sliderName(spec), value: state[key], default: defaults[key], type: 'colour', hint: spec.hint, description: spec.description }))
   const other = [
     { key: 'colorPalette', value: state.colorPalette, description: 'Star colours: array of { r, g, b (0-255), enabled, percent }.' },
     { key: 'backgroundR', value: state.backgroundR, description: 'Background red, 0-255 (also backgroundG, backgroundB).' },
     { key: 'frameRateCap', value: state.frameRateCap, description: 'Frame rate limit in FPS, 30-240; 0 is no limit (per device, not in presets).' }
   ].filter(entry => matches(filter, entry.key, entry.description))
-  return { sliders, toggles, other }
+  return { sliders, toggles, colors, other }
 }
 
 function getSettings (keys?: string | string[]) {

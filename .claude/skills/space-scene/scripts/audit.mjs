@@ -33,12 +33,12 @@ const source = file => JSON.stringify(path.join(root, 'src', file).replaceAll(pa
 
 // What the page itself is built from, gathered into one module
 const ENTRY = `
-export { SLIDERS, TOGGLES, SETTING_KEYS, DEVICE_KEYS, ALL_SETTING_KEYS, INTRO_KEYS, parseSettings, parseIntroValue } from ${source('lib/agent_values.ts')}
+export { SLIDERS, TOGGLES, COLORS, SETTING_KEYS, DEVICE_KEYS, ALL_SETTING_KEYS, INTRO_KEYS, parseSettings, parseIntroValue } from ${source('lib/agent_values.ts')}
 export { STYLIZED_LENS_KEYS } from ${source('lib/simulation_specs.ts')}
 export { INTRO_PARAM_SPECS, DEFAULT_INTRO_PARAMS } from ${source('lib/intro_params.ts')}
 export { INTRO_LAYERS, CUE_LAYERS, INTRO_LAYER_NOTES, INTRO_TRACKS } from ${source('lib/intro_tracks.ts')}
 export { TITLE_FONTS } from ${source('lib/title_sprite.ts')}
-export { planFilm, FILM_SIZES, CAPTION_PLACES, CAPTION_FONTS, CAPTION_REVEALS, CAPTION_ALIGNS, FILM_GUIDE, GRAPHIC_KINDS, GRAPHIC_KEYS, GRAPHIC_COMMON } from ${source('lib/film.ts')}
+export { planFilm, applyTracks, FILM_SIZES, CAPTION_PLACES, CAPTION_FONTS, CAPTION_REVEALS, CAPTION_ALIGNS, FILM_GUIDE, GRAPHIC_KINDS, GRAPHIC_KEYS, GRAPHIC_COMMON } from ${source('lib/film.ts')}
 export { writeFilm, SCRIPT_WORDS, SCRIPT_GUIDE, writeFractal, FRACTAL_SCRIPT_WORDS, FRACTAL_SCRIPT_GUIDE } from ${source('lib/film_script.ts')}
 export { planFractal, fractalView, FRACTAL_GUIDE, FRACTAL_KEYS, FRACTAL_TRACK_KEYS, FRACTAL_NUMBERS, FRACTAL_CAPTION_PLACES, FRACTAL_HEAD_KEYS } from ${source('lib/fractal.ts')}
 export { FRACTAL_TARGETS, FRACTAL_PALETTES } from ${source('lib/fractal_catalog.ts')}
@@ -76,7 +76,7 @@ const attempt = (what, work) => {
 
 const registries = await loadRegistries()
 const {
-  SLIDERS, TOGGLES, SETTING_KEYS, DEVICE_KEYS, ALL_SETTING_KEYS, INTRO_KEYS, parseSettings, INTRO_PARAM_SPECS,
+  SLIDERS, TOGGLES, COLORS, SETTING_KEYS, DEVICE_KEYS, ALL_SETTING_KEYS, INTRO_KEYS, parseSettings, INTRO_PARAM_SPECS,
   DEFAULT_INTRO_PARAMS, INTRO_LAYERS, CUE_LAYERS, INTRO_LAYER_NOTES, INTRO_TRACKS, TITLE_FONTS, planFilm, FILM_SIZES, CAPTION_PLACES,
   CAPTION_FONTS, CAPTION_REVEALS, CAPTION_ALIGNS, FILM_GUIDE, GRAPHIC_KINDS, GRAPHIC_KEYS, GRAPHIC_COMMON,
   useParticleStore, BUILT_IN_PRESETS, DEFAULT_PRESET, BUILT_IN_INTRO_PRESETS, writeFilm, SCRIPT_WORDS, SCRIPT_GUIDE,
@@ -90,7 +90,8 @@ const state = useParticleStore.getState()
 const defaults = DEFAULT_PRESET.settings
 const sliderKeys = Object.keys(SLIDERS)
 const switchKeys = Object.keys(TOGGLES)
-const otherKeys = ALL_SETTING_KEYS.filter(key => !(key in SLIDERS) && !(key in TOGGLES))
+const settingColorKeys = Object.keys(COLORS)
+const otherKeys = ALL_SETTING_KEYS.filter(key => !(key in SLIDERS) && !(key in TOGGLES) && !(key in COLORS))
 // What the page keeps about itself rather than about the scene; window.space reaches it by pause(),
 // play() and readout()
 const RUNTIME = ['isPaused', 'measuredFps', 'activeParticles', 'introComplete']
@@ -102,6 +103,25 @@ for (const [key, value] of Object.entries(state)) {
 }
 for (const key of sliderKeys) {
   if (!ALL_SETTING_KEYS.includes(key)) problem(`slider "${key}" has a spec but is not in SIMULATION_SETTING_KEYS, so set() refuses it`)
+}
+// A colour setting is a '#rrggbb' in the store with a spec; one that stands for a colour the code once
+// held as a constant has its default at the hex that constant rounds to, so the scene still draws the constant
+const HEX = /^#[0-9a-f]{6}$/
+for (const key of settingColorKeys) {
+  if (!SETTING_KEYS.includes(key)) problem(`colour "${key}" has a spec but is not in SIMULATION_SETTING_KEYS, so set() refuses it`)
+  if (!HEX.test(String(state[key]))) problem(`colour "${key}": its default ${JSON.stringify(state[key])} is not '#rrggbb' in lower case`)
+  const { exact } = COLORS[key]
+  if (!exact) continue
+  const rounded = '#' + exact.rgb.map(channel => Math.round(channel * 255).toString(16).padStart(2, '0')).join('')
+  if (exact.hex !== rounded) problem(`colour "${key}": the channels it stands for round to ${rounded}, not to its ${exact.hex}`)
+  if (state[key] !== exact.hex) problem(`colour "${key}": its default ${state[key]} is not the ${exact.hex} its exact channels stand for, so films from before it was a setting change`)
+}
+for (const [key, value] of Object.entries(state)) {
+  if (typeof value === 'string' && !(key in COLORS)) problem(`store value "${key}" is a string with no spec in SIMULATION_COLOR_SPECS`)
+}
+// A hint is one line of the panel's context menu
+for (const [key, { hint }] of [...Object.entries(SLIDERS), ...Object.entries(COLORS)]) {
+  if (hint.length > 42) problem(`"${key}": its hint is ${hint.length} characters, more than the 42 a line holds: ${hint}`)
 }
 
 // 2. window.space.set takes every key, and every slider's default sits on its own range
@@ -128,7 +148,7 @@ for (const key of sceneReads) {
   if (!SETTING_KEYS.includes(key)) problem(`scene.ts reads state.${key}, which is not in SIMULATION_SETTING_KEYS: no preset, film or agent can set it`)
 }
 
-// 4. A film takes every setting at its start, and moves every number and switch along its tracks
+// 4. A film takes every setting at its start, and moves every number, switch and colour along its tracks
 const filmSettingKeys = SETTING_KEYS.filter(key => key !== 'blackHoleFollowing')
 attempt('film.settings with every setting', () => planFilm({
   duration: 1,
@@ -139,6 +159,7 @@ const trackSwitches = switchKeys.filter(key => SETTING_KEYS.includes(key) && key
 const settingTracks = {
   ...Object.fromEntries(sliderKeys.filter(key => SETTING_KEYS.includes(key)).map(key => [key, [[0, SLIDERS[key].min], [1, SLIDERS[key].max]]])),
   ...Object.fromEntries(trackSwitches.map(key => [key, [[0, true], [0.5, false]]])),
+  ...Object.fromEntries(settingColorKeys.map(key => [key, [[0, '#000000'], [1, '#ffffff', 'linear']]])),
   backgroundR: [[0, 0], [1, 255]],
   backgroundG: [[0, 0], [1, 255]],
   backgroundB: [[0, 0], [1, 255]]
@@ -148,6 +169,24 @@ for (const [key, keyframes] of Object.entries(settingTracks)) {
   const settings = STYLIZED_LENS_KEYS.includes(key) ? { cameraZoom: 2, lensingTraced: false } : { cameraZoom: 2 }
   const plan = attempt(`film.tracks.${key}`, () => planFilm({ duration: 1, intro: false, settings, tracks: { [key]: keyframes } }))
   if (plan && plan.notes.length > 0) problem(`film.tracks.${key}: ${plan.notes.join('; ')}`)
+}
+// A colour moves channel by channel and is written back as the text the store keeps
+const tinted = attempt('a colour setting along a track', () => planFilm({ duration: 2, intro: false, tracks: Object.fromEntries(settingColorKeys.map(key => [key, [[0, '#000000'], [2, '#ff8000', 'linear']]])) }))
+if (tinted) {
+  registries.applyTracks(tinted, 1)
+  for (const key of settingColorKeys) {
+    if (tinted.settings[key] !== '#804000') problem(`film.tracks.${key}: half way from #000000 to #ff8000 the setting is ${JSON.stringify(tinted.settings[key])}, not "#804000"`)
+  }
+}
+for (const key of settingColorKeys) {
+  for (const value of ['red', '#12345', 0x1000000, null]) {
+    try {
+      parseSettings({ [key]: value }, ALL_SETTING_KEYS)
+      problem(`set({ ${key}: ${JSON.stringify(value)} }) is taken, and is no colour`)
+    } catch {
+      // Refused, as it should be
+    }
+  }
 }
 if (!defaults.lensingTraced) problem('the default lens is not ray traced, which the films and the docs say it is')
 for (const key of STYLIZED_LENS_KEYS) {
@@ -263,7 +302,7 @@ samePlan('a script with the opening', `opening({ title: 'A', hide: ['camera'] })
 
 const numberKeys = [...sliderKeys.filter(key => SETTING_KEYS.includes(key)), 'backgroundR', 'backgroundG', 'backgroundB',
   ...INTRO_KEYS.filter(key => !(key in SLIDERS) && !INTRO_PARAM_SPECS[key].options && !INTRO_PARAM_SPECS[key].color)]
-const colorKeys = INTRO_KEYS.filter(key => INTRO_PARAM_SPECS[key].color)
+const colorKeys = [...settingColorKeys, ...INTRO_KEYS.filter(key => INTRO_PARAM_SPECS[key].color)]
 const edge = (key, end) => key.startsWith('background') ? (end === 'min' ? 0 : 255) : (SLIDERS[key] ?? INTRO_PARAM_SPECS[key])[end]
 const everything = scriptPlan('a script that moves every value', `
   opening()
@@ -578,6 +617,7 @@ if (process.argv.includes('--keys')) {
   const list = (title, names) => console.log(`${title} (${names.length}): ${names.join(' ')}\n`)
   list('Sliders', sliderKeys)
   list('Switches', switchKeys)
+  list('Colours', settingColorKeys)
   list('Other settings', otherKeys)
   list('Kept per device, not in presets or films', DEVICE_KEYS)
   list('Intro parameters', INTRO_KEYS)
@@ -595,7 +635,7 @@ if (problems.length > 0) {
   for (const text of problems) console.log(`  - ${text}`)
   process.exit(1)
 }
-console.log(`Every knob is within reach: ${sliderKeys.length} sliders, ${switchKeys.length} switches, ${otherKeys.length} other settings, ` +
+console.log(`Every knob is within reach: ${sliderKeys.length} sliders, ${switchKeys.length} switches, ${settingColorKeys.length} colours, ${otherKeys.length} other settings, ` +
   `${INTRO_KEYS.length} intro parameters, ${INTRO_LAYERS.length} layers a film switches (${CUE_LAYERS.length} of them events it fires again), ` +
   `${presetNames.length} presets, ${introPresetNames.length} intro presets. ` +
   `The scene reads ${sceneReads.length} settings, all of them settable; knobs.md names every one. ` +

@@ -37,18 +37,31 @@ const MAX_STEP = 0.12
 const MAX_STEPS = 24
 // Gravity is cut off this close to the Schwarzschild radius, where the potential diverges
 const MIN_CLEARANCE = 0.15
-// Closest pericentre an orbit is given, in Schwarzschild radii; closer ones exist only as plunges
-const MIN_PERICENTRE = 1.3
-// A star this far out, in Schwarzschild radii, has escaped and is replaced
-const ESCAPE_RADIUS = 400
-// How much the orbits differ from the size and eccentricity set: each gets a share of them
-const SIZE_SPREAD = 0.8
-const ECCENTRICITY_SPREAD = 0.4
-// Seconds a new star takes to light up
-const FADE_IN = 0.6
-// Light a captured star leaves in the photon ring, many times a particle's, and how far round it spreads
-const CAPTURE_ENERGY = 6
-const CAPTURE_SPREAD = 0.2
+// How the orbits are made and held, beyond their number, size and pace: the Fine Tuning of the Orbiting
+// Stars and the stars' part of the Photon Ring's. Made once with the scene, which fills it in every frame
+export interface OrbitTuning {
+  // How much the orbits differ from the size and eccentricity set: each gets a share of them
+  sizeSpread: number
+  eccentricitySpread: number
+  // Closest pericentre an orbit is given, in Schwarzschild radii; closer ones exist only as plunges
+  closest: number
+  // A star this far out, in Schwarzschild radii, has escaped and is replaced
+  escape: number
+  // Seconds a new star takes to light up
+  fadeIn: number
+  // How hard the hole's spin swings the orbits, as a multiple of what the spin gives (Lense-Thirring)
+  drag: number
+  // Light a captured star leaves in the photon ring, many times a particle's, how far round it spreads to
+  // each side, and the light in each side as a multiple of the middle's
+  flare: number
+  flareSpread: number
+  flareSides: number
+}
+
+// The values the code had before they were settings
+export function createOrbitTuning (): OrbitTuning {
+  return { sizeSpread: 0.8, eccentricitySpread: 0.4, closest: 1.3, escape: 400, fadeIn: 0.6, drag: 1, flare: 6, flareSpread: 0.2, flareSides: 0.5 }
+}
 
 export interface Orbiters {
   count: number
@@ -82,6 +95,9 @@ export interface Orbiters {
   // The settings the orbits were made for; a change makes them all again
   size: number
   eccentricity: number
+  sizeSpread: number
+  eccentricitySpread: number
+  closest: number
 }
 
 export function createOrbiters (random: Random): Orbiters {
@@ -106,7 +122,10 @@ export function createOrbiters (random: Random): Orbiters {
     age: new Float32Array(MAX_ORBITERS),
     color: new Uint32Array(MAX_ORBITERS),
     size: 0,
-    eccentricity: 0
+    eccentricity: 0,
+    sizeSpread: 0,
+    eccentricitySpread: 0,
+    closest: 0
   }
 }
 
@@ -117,9 +136,10 @@ const potential = (r: number) => -0.5 / (r - 1)
 // the star is on that orbit wherever along it it starts
 function spawnOrbiter (orbiters: Orbiters, i: number, size: number, eccentricity: number, palette: PaletteSampler) {
   const random = orbiters.random
-  const semiMajor = size * SHADOW_RADII * (1 - SIZE_SPREAD / 2 + SIZE_SPREAD * nextRandom(random))
-  const e = eccentricity * (1 - ECCENTRICITY_SPREAD + ECCENTRICITY_SPREAD * nextRandom(random))
-  const pericentre = Math.max(semiMajor * (1 - e), MIN_PERICENTRE)
+  const { sizeSpread, eccentricitySpread } = orbiters
+  const semiMajor = size * SHADOW_RADII * (1 - sizeSpread / 2 + sizeSpread * nextRandom(random))
+  const e = eccentricity * (1 - eccentricitySpread + eccentricitySpread * nextRandom(random))
+  const pericentre = Math.max(semiMajor * (1 - e), orbiters.closest)
   const apocentre = Math.max(semiMajor * (1 + e), pericentre)
 
   let r = apocentre
@@ -161,7 +181,7 @@ export function clearOrbiters (orbiters: Orbiters) {
 /**
  * Advances the stars by `dt` seconds and writes the stretch each is flying into `orbiters.row`. Lengths
  * are CSS pixels; `speed` is the rate of their time, and its sign their direction; `trail` is the
- * seconds a trace stays lit. Returns the number of stars.
+ * seconds a trace stays lit; `tuning` is how the orbits are made and held. Returns the number of stars.
  */
 export function stepOrbiters (
   orbiters: Orbiters,
@@ -177,7 +197,8 @@ export function stepOrbiters (
   opacity: number,
   trail: number,
   palette: PaletteSampler,
-  ringEnergy: RingEnergy | null
+  ringEnergy: RingEnergy | null,
+  tuning: OrbitTuning
 ): number {
   const count = Math.min(Math.max(Math.floor(requested), 0), MAX_ORBITERS)
   if (count === 0 || shadowRadius <= 0) {
@@ -186,9 +207,13 @@ export function stepOrbiters (
   }
 
   // New settings make every orbit again; a higher count only adds stars
-  const remade = size !== orbiters.size || eccentricity !== orbiters.eccentricity
+  const remade = size !== orbiters.size || eccentricity !== orbiters.eccentricity || tuning.sizeSpread !== orbiters.sizeSpread ||
+    tuning.eccentricitySpread !== orbiters.eccentricitySpread || tuning.closest !== orbiters.closest
   orbiters.size = size
   orbiters.eccentricity = eccentricity
+  orbiters.sizeSpread = tuning.sizeSpread
+  orbiters.eccentricitySpread = tuning.eccentricitySpread
+  orbiters.closest = tuning.closest
   for (let i = remade ? 0 : orbiters.count; i < count; i++) spawnOrbiter(orbiters, i, size, eccentricity, palette)
   orbiters.count = count
 
@@ -211,7 +236,9 @@ export function stepOrbiters (
   // The share of the hole's spin along the line to the camera is what turns orbits in the plane of the
   // screen: J = spin M^2 = spin / 4 in Schwarzschild radii, and 2 v J / r^3 across the motion. The screen's
   // y runs down, so a hole turning anticlockwise to the eye turns the negative way here
-  const drag = -0.5 * spinToward
+  const drag = -0.5 * spinToward * tuning.drag
+  const { escape, fadeIn, flare, flareSpread } = tuning
+  const flareSide = flare * tuning.flareSides
 
   for (let i = 0; i < count; i++) {
     let px = x[i]
@@ -256,12 +283,12 @@ export function stepOrbiters (
       }
     }
 
-    if (r < capture || r > ESCAPE_RADIUS || r !== r) {
+    if (r < capture || r > escape || r !== r) {
       // What crosses the radius of no return lights the photon ring where it went in
       if (ringEnergy && r < capture) {
-        depositRingEnergy(ringEnergy, px, py, CAPTURE_ENERGY)
-        depositRingEnergy(ringEnergy, px - py * CAPTURE_SPREAD, py + px * CAPTURE_SPREAD, CAPTURE_ENERGY * 0.5)
-        depositRingEnergy(ringEnergy, px + py * CAPTURE_SPREAD, py - px * CAPTURE_SPREAD, CAPTURE_ENERGY * 0.5)
+        depositRingEnergy(ringEnergy, px, py, flare)
+        depositRingEnergy(ringEnergy, px - py * flareSpread, py + px * flareSpread, flareSide)
+        depositRingEnergy(ringEnergy, px + py * flareSpread, py - px * flareSpread, flareSide)
       }
       spawnOrbiter(orbiters, i, size, eccentricity, palette)
       px = x[i]
@@ -288,7 +315,7 @@ export function stepOrbiters (
     row[o + 2] = px
     row[o + 3] = py
     row[o + 4] = dimmed
-    row[o + 5] = opacity * (age[i] < FADE_IN ? age[i] / FADE_IN : 1)
+    row[o + 5] = opacity * (age[i] < fadeIn ? age[i] / fadeIn : 1)
     rowColors[o + 6] = color[i]
   }
 

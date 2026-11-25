@@ -1,4 +1,4 @@
-import { useId } from 'react'
+import { useEffect, useId, useRef } from 'react'
 
 interface ColorPickerInputProps {
   value: string
@@ -8,14 +8,38 @@ interface ColorPickerInputProps {
   ariaLabel?: string
   // In the row's context menu (hint_menu.tsx), and always read by screen readers
   description?: string
+  // The color the context menu's Reset returns to; a row without one offers no reset
+  resetValue?: string
 }
 
 // One row: name, swatch and hex; the whole row opens the browser's color picker
-function ColorPickerInput ({ value, onChange, label, ariaLabel, description }: ColorPickerInputProps) {
+function ColorPickerInput ({ value, onChange, label, ariaLabel, description, resetValue }: ColorPickerInputProps) {
   const descriptionId = useId()
+  const rowRef = useRef<HTMLDivElement>(null)
+  // The listener is attached once and reads the current props from here
+  const live = useRef({ value, onChange, resetValue })
+  live.current = { value, onChange, resetValue }
+
+  useEffect(() => {
+    const row = rowRef.current
+    if (!row) return
+    // Reset from the context menu
+    const handleReset = () => {
+      const { value: current, onChange: change, resetValue: reset } = live.current
+      if (reset !== undefined && reset !== current) change(reset)
+    }
+    row.addEventListener('hint-reset', handleReset)
+    return () => row.removeEventListener('hint-reset', handleReset)
+  }, [])
 
   return (
-    <div className="min-w-0 flex-1" data-hint={description} data-hint-label={description ? (ariaLabel ?? label) : undefined}>
+    <div
+      ref={rowRef}
+      className="min-w-0 flex-1"
+      data-hint={description}
+      data-hint-label={description ? (ariaLabel ?? label) : undefined}
+      data-hint-reset={description && resetValue !== undefined ? resetValue.toUpperCase() : undefined}
+    >
       <label
         className="relative flex h-7 min-w-0 cursor-pointer items-center gap-2 bg-text-light/[0.06] px-3 font-mono text-xs
           transition-colors duration-150 hover:bg-neon-cyan/[0.08]

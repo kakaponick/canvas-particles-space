@@ -2,15 +2,17 @@
 // preset name against the registries the panels are built from, shared by window.space (scene_api.ts) and
 // by films (film.ts). Every check fails with a reason an agent can act on.
 import type { ParticleColor, ParticleState } from '../store/particle_store'
-import { SIMULATION_SETTING_KEYS } from './simulation_presets'
-import { SIMULATION_SETTING_SPECS, type SimulationSettingSpec } from './simulation_specs'
+import { SIMULATION_SETTING_KEYS, isHexColor } from './simulation_presets'
+import { SIMULATION_COLOR_SPECS, SIMULATION_SETTING_SPECS, type SimulationColorSpec, type SimulationSettingSpec } from './simulation_specs'
 import { DEFAULT_INTRO_PARAMS, INTRO_PARAM_SPECS, cssToColor, type IntroParamKey } from './intro_params'
 
 export type Patch = Record<string, unknown>
 
 export const SLIDERS = SIMULATION_SETTING_SPECS as Record<string, SimulationSettingSpec>
 // The full name: the panel's short label ("Size", "Brightness") leans on its section, which this API does not show
-export const sliderName = (spec: SimulationSettingSpec) => spec.spokenName ?? spec.label
+export const sliderName = (spec: SimulationSettingSpec | SimulationColorSpec) => spec.spokenName ?? spec.label
+// The colour settings: each takes '#rrggbb' and moves channel by channel along a film's track
+export const COLORS = SIMULATION_COLOR_SPECS as Record<string, SimulationColorSpec>
 export const TOGGLES: Record<string, string> = {
   blackHoleFollowing: 'The black hole follows the cursor; false anchors it at blackHoleX, blackHoleY.',
   ringEnabled: 'Photon ring around the shadow.',
@@ -78,6 +80,13 @@ export function onSliderGrid (value: number, min: number, max: number, step: num
   return clamp(Number(snapped.toFixed(decimals)), min, max)
 }
 
+// A colour as the store keeps it, '#rrggbb' in lower case; 0xRRGGBB as a number is taken too
+export function asColor (key: string, value: unknown) {
+  if (isHexColor(value)) return value.toLowerCase()
+  if (typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 0xffffff) return '#' + value.toString(16).padStart(6, '0')
+  return fail(`${key} takes a colour as '#rrggbb', got ${JSON.stringify(value)}`)
+}
+
 export function asChannel (key: string, value: unknown) {
   return Math.round(clamp(asNumber(key, value), 0, 255))
 }
@@ -120,6 +129,8 @@ export function parseSettings (patch: unknown, known: readonly string[]) {
       if (next[key] !== number) clamped[key] = next[key]
     } else if (key in TOGGLES) {
       next[key] = asBoolean(key, value)
+    } else if (key in COLORS) {
+      next[key] = asColor(key, value)
     } else if (key === 'colorPalette') {
       next.colorPalette = asPalette(value)
     } else if (key === 'backgroundR' || key === 'backgroundG' || key === 'backgroundB') {
