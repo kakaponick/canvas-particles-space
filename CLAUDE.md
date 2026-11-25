@@ -16,6 +16,7 @@ The main quality of the interface is the balance between flexibility (the user c
 
 The hard constraint in this project is frame time. Any change that touches the **per-frame path** has to keep it lean. The per-frame path is:
 - `renderFrame` in `src/components/particle_canvas.tsx`
+- `advance` in `src/lib/scene.ts`
 - `stepParticles` in `src/lib/particle_simulation.ts`
 - `render` in `src/lib/particle_renderer.ts`
 - the composite fragment shader in `src/lib/webgl_shaders.ts`
@@ -24,13 +25,14 @@ The bottleneck is the **main thread**, not the GPU. About 88% of main-thread tim
 
 ### Frame pipeline
 
-1. `renderFrame` reads both stores with `getState()`. It applies the frame-rate cap through the `nextFrameSlot` scheduler and derives `frameScale` from the real elapsed time.
+1. `renderFrame` reads both stores with `getState()`. It applies the frame-rate cap through the `nextFrameSlot` scheduler, derives `frameScale` from the real elapsed time and hands both stores to the scene as its `SceneInput`. `advance` (`src/lib/scene.ts`) assembles the frame from that input alone.
 2. `stepParticles` advances a struct-of-arrays field (Float32Array per property) and writes clipped segments into one interleaved instance array: 7 floats per segment, with the colour stored as a packed Uint32.
 3. `render` uploads the instances with a single `bufferSubData` and draws instanced quads into a persistent scene FBO that holds the trails. It then runs one full-screen composite pass, which does the lens, the intro effects and the title, and draws the space sheet over it while that is on.
 
 ### Invariants
 
-- **The per-frame path allocates nothing.** `frame`, `settings`, `instances` and `composite` are created once in the effect and mutated in place. New per-frame data becomes fields on these objects or preallocated typed arrays, not fresh objects, arrays or closures.
+- **The scene reads no store, no window and no clock.** `createScene` owns the field, the black hole, the intro frame and the renderer; what a frame depends on arrives in `SceneInput` (settings, intro parameters, hidden layers, reduced motion, particle count) with `frameScale` and `dt`. The page keeps the loop, the frame-rate cap, the particle budget, input handling and every store write. Random numbers come from the scene's own seeded generator (`src/lib/random.ts`), never `Math.random`, so one seed and one sequence of inputs draw the same frames; that is what lets a film render the scene in a plain loop.
+- **The per-frame path allocates nothing.** `frame`, `settings`, `instances` and `composite` are created once with the scene, the page's `input` once in the effect, and all are mutated in place. New per-frame data becomes fields on these objects or preallocated typed arrays, not fresh objects, arrays or closures.
 - **React never renders per frame.** The loop reads stores through `getState()`. It writes to a store only when a value changes, and only at a throttled rate:
   - `measuredFps`: every 500 ms;
   - `activeParticles`: when the budget changes it;

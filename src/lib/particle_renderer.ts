@@ -173,6 +173,8 @@ export interface FrameInput {
   background: readonly [number, number, number]
   // False keeps the scene texture as it is (a frozen frame) and only recomposites it
   updateScene: boolean
+  // False draws into the scene only and shows nothing: a film's extra step between two of its frames
+  present: boolean
   fadeAlpha: number
   instances: Float32Array
   instanceCount: number
@@ -681,6 +683,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
         gl.activeTexture(gl.TEXTURE0 + SCENE_TEXTURE_UNIT)
       }
     }
+    if (!frame.present) return
     composite(frame.composite, frame.title)
     if (frame.grid.brightness > 0) drawGrid(frame.grid, frame.composite)
   }

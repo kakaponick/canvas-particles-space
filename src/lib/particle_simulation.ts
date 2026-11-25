@@ -1,5 +1,6 @@
 import type { ParticleColor } from '../store/particle_store'
 import { depositRingEnergy, type RingEnergy } from './ring_energy'
+import { nextRandom, type Random } from './random'
 
 // Simulation runs in 60 Hz frame units: speeds and forces are tuned per 1/60 s
 export const REFERENCE_FPS = 60
@@ -45,6 +46,8 @@ export interface PaletteSampler {
 }
 
 export interface SpawnSettings {
+  // Every random draw of the field comes from here, so a seed repeats it
+  random: Random
   palette: PaletteSampler
   farZ: number
   speedVariance: number
@@ -134,11 +137,11 @@ export function createPaletteSampler (palette: ParticleColor[]): PaletteSampler 
   return { source: palette, colors, cumulativeWeights, totalWeight }
 }
 
-export function samplePaletteColor (palette: PaletteSampler): number {
+export function samplePaletteColor (palette: PaletteSampler, random: Random): number {
   const last = palette.colors.length - 1
   if (last < 0) return WHITE
 
-  const target = Math.random() * palette.totalWeight
+  const target = nextRandom(random) * palette.totalWeight
   for (let i = 0; i < last; i++) {
     if (target <= palette.cumulativeWeights[i]) return palette.colors[i]
   }
@@ -146,18 +149,19 @@ export function samplePaletteColor (palette: PaletteSampler): number {
 }
 
 function spawnParticle (field: ParticleField, i: number, z: number, spawn: SpawnSettings) {
-  const angle = Math.random() * Math.PI * 2
-  const radius = spawn.radius * Math.sqrt(Math.random())
+  const random = spawn.random
+  const angle = nextRandom(random) * Math.PI * 2
+  const radius = spawn.radius * Math.sqrt(nextRandom(random))
   field.x[i] = Math.cos(angle) * radius
   field.y[i] = Math.sin(angle) * radius
   field.z[i] = z
-  field.color[i] = samplePaletteColor(spawn.palette)
-  field.alpha[i] = 0.3 + Math.random() * 0.7
-  field.pulsePhase[i] = Math.random() * Math.PI * 2
-  field.pulseSpeed[i] = 0.5 + Math.random() * 1.5
+  field.color[i] = samplePaletteColor(spawn.palette, random)
+  field.alpha[i] = 0.3 + nextRandom(random) * 0.7
+  field.pulsePhase[i] = nextRandom(random) * Math.PI * 2
+  field.pulseSpeed[i] = 0.5 + nextRandom(random) * 1.5
 
   // 99% of particles stay near the base speed, 1% reach up to 100x
-  const r = Math.random()
+  const r = nextRandom(random)
   field.speedMultiplier[i] = 1 + spawn.speedVariance * (2 + r * r * r * r * r * 98)
 }
 
@@ -179,8 +183,8 @@ function respawnBeyondHorizon (
     const dy = field.y[i] * spawnScale - holeOffsetY
     if (dx * dx + dy * dy >= captureRadiusSq) return
   }
-  const angle = Math.random() * Math.PI * 2
-  const radius = captureRadius * (1 + Math.random() * RESPAWN_RIM_SPREAD)
+  const angle = nextRandom(spawn.random) * Math.PI * 2
+  const radius = captureRadius * (1 + nextRandom(spawn.random) * RESPAWN_RIM_SPREAD)
   field.x[i] = (holeOffsetX + Math.cos(angle) * radius) / spawnScale
   field.y[i] = (holeOffsetY + Math.sin(angle) * radius) / spawnScale
 }
@@ -225,7 +229,7 @@ export function setParticleCount (field: ParticleField, requested: number, spawn
   }
 
   for (let i = field.count; i < count; i++) {
-    spawnParticle(field, i, Math.random() * spawn.farZ, spawn)
+    spawnParticle(field, i, nextRandom(spawn.random) * spawn.farZ, spawn)
   }
   field.count = count
 }

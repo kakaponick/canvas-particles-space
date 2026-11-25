@@ -8,6 +8,7 @@
 // the orbits scale with the hole and move with it. They lie in the plane of the screen. A star writes one
 // segment per frame into the particle instance array; the renderer stamps those into a layer of their own
 // that fades slowly, which is the trace of the orbit.
+import { nextRandom, type Random } from './random'
 import { depositRingEnergy, type RingEnergy } from './ring_energy'
 import { INSTANCE_FLOATS, samplePaletteColor, type InstanceData, type PaletteSampler } from './particle_simulation'
 
@@ -48,13 +49,16 @@ export interface Orbiters {
   // Seconds since the star appeared
   age: Float32Array
   color: Uint32Array
+  // Every random draw of the orbits comes from here, so a seed repeats them
+  random: Random
   // The settings the orbits were made for; a change makes them all again
   size: number
   eccentricity: number
 }
 
-export function createOrbiters (): Orbiters {
+export function createOrbiters (random: Random): Orbiters {
   return {
+    random,
     count: 0,
     x: new Float64Array(MAX_ORBITERS),
     y: new Float64Array(MAX_ORBITERS),
@@ -75,8 +79,9 @@ const potential = (r: number) => -0.5 / (r - 1)
 // angular momentum follow from the orbit's two turning points, which holds for any central force, so
 // the star is on that orbit wherever along it it starts
 function spawnOrbiter (orbiters: Orbiters, i: number, size: number, eccentricity: number, palette: PaletteSampler) {
-  const semiMajor = size * SHADOW_RADII * (1 - SIZE_SPREAD / 2 + SIZE_SPREAD * Math.random())
-  const e = eccentricity * (1 - ECCENTRICITY_SPREAD + ECCENTRICITY_SPREAD * Math.random())
+  const random = orbiters.random
+  const semiMajor = size * SHADOW_RADII * (1 - SIZE_SPREAD / 2 + SIZE_SPREAD * nextRandom(random))
+  const e = eccentricity * (1 - ECCENTRICITY_SPREAD + ECCENTRICITY_SPREAD * nextRandom(random))
   const pericentre = Math.max(semiMajor * (1 - e), MIN_PERICENTRE)
   const apocentre = Math.max(semiMajor * (1 + e), pericentre)
 
@@ -90,12 +95,12 @@ function spawnOrbiter (orbiters: Orbiters, i: number, size: number, eccentricity
   } else {
     momentumSq = 2 * (potential(pericentre) - potential(apocentre)) / (1 / (apocentre * apocentre) - 1 / (pericentre * pericentre))
     energy = momentumSq / (2 * apocentre * apocentre) + potential(apocentre)
-    r = pericentre + (apocentre - pericentre) * Math.random()
+    r = pericentre + (apocentre - pericentre) * nextRandom(random)
   }
 
   const around = Math.sqrt(momentumSq) / r
-  const outward = Math.sqrt(Math.max(2 * (energy - potential(r)) - around * around, 0)) * (Math.random() < 0.5 ? -1 : 1)
-  const angle = Math.random() * Math.PI * 2
+  const outward = Math.sqrt(Math.max(2 * (energy - potential(r)) - around * around, 0)) * (nextRandom(random) < 0.5 ? -1 : 1)
+  const angle = nextRandom(random) * Math.PI * 2
   const cos = Math.cos(angle)
   const sin = Math.sin(angle)
   orbiters.x[i] = r * cos
@@ -105,7 +110,7 @@ function spawnOrbiter (orbiters: Orbiters, i: number, size: number, eccentricity
   orbiters.drawnX[i] = NaN
   orbiters.drawnY[i] = NaN
   orbiters.age[i] = 0
-  orbiters.color[i] = samplePaletteColor(palette)
+  orbiters.color[i] = samplePaletteColor(palette, random)
 }
 
 /**

@@ -88,6 +88,8 @@ src/
 │   ├── blackhole_indicator.tsx
 │   └── interaction_hints.tsx  # Hints for the interactions not tried yet
 ├── lib/
+│   ├── scene.ts               # The scene apart from the page: one frame from its inputs
+│   ├── random.ts              # Seeded random generator of a scene
 │   ├── particle_simulation.ts # Particle state and per-frame physics
 │   ├── particle_renderer.ts   # WebGL passes: trail fade, particles, title, black hole composite, space sheet
 │   ├── intro_timeline.ts      # Choreography of the opening seconds
