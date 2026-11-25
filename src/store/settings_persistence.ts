@@ -1,7 +1,7 @@
 // Keeps the current settings in this browser across reloads. Only what differs from the defaults is
 // stored, so a setting the visitor never touched keeps following the defaults of the page.
 import { useParticleStore, type ParticleState } from './particle_store'
-import { DEFAULT_PRESET, DEFAULT_PRESET_ID, usePresetStore } from './preset_store'
+import { DEFAULT_PRESET, DEFAULT_PRESET_ID, isBuiltInPreset, usePresetStore } from './preset_store'
 import {
   SIMULATION_SETTING_KEYS,
   changedSimulationSettings,
@@ -52,8 +52,9 @@ function restoreSettings () {
     adaptiveParticles: typeof adaptiveParticles === 'boolean' ? adaptiveParticles : defaultAdaptiveParticles,
     fpsCounter: typeof fpsCounter === 'boolean' ? fpsCounter : defaultFpsCounter
   })
-  if (usePresetStore.getState().presets.some(preset => preset.id === activePresetId)) {
-    usePresetStore.setState({ activeId: activePresetId as string })
+  if (typeof activePresetId === 'string' &&
+    (isBuiltInPreset(activePresetId) || usePresetStore.getState().presets.some(preset => preset.id === activePresetId))) {
+    usePresetStore.setState({ activeId: activePresetId })
   }
 }
 

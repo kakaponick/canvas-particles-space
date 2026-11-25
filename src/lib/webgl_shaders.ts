@@ -423,10 +423,12 @@ export const compositeFragmentShaderSource = `
       if (bend * dist * (1.0 + abs(u_swirl)) > 0.01) {
         // The original canvas scaled the picture around the hole by the cosine of the pull: a bubble whose
         // distortion dies off with the cube of the distance, rippling into nested rings inside the ring.
-        // A point mass, r * (1 - pull), bends rays far across the screen instead. u_lensReach blends the
-        // two; both are zero at the ring, so the ring stays where it is
+        // A point mass, r * (1 - pull), bends rays far across the screen instead, and inside the ring it
+        // turns negative: the ray comes from the other side of the hole, which is the mirrored second
+        // image a real lens shows there. u_lensReach blends the two; both are zero at the ring, so the
+        // ring stays where it is
         float wave = cos(0.5 * PI * bend);
-        float radial = bend <= 1.0 ? mix(wave, 1.0 - bend, u_lensReach) : wave * mix(1.0, 2.0 / PI, u_lensReach);
+        float radial = mix(wave, 1.0 - bend, u_lensReach);
         vec2 lensed = (samplePx - u_hole) * radial;
         // Every ray at the ring comes from the single point right behind the hole, which would smear a
         // few pixels into a flat milky band. Rays stop short of that point, so the ring shows real detail

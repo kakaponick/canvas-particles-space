@@ -16,8 +16,9 @@ export interface ParticleState {
   // Visible black hole: radius of its shadow, % of the viewport's short side. The photon ring,
   // the lens and the strength and reach of gravity scale with it
   blackHoleSize: number
-  // Radius of no return, % of the viewport's short side: particles crossing it are recycled
-  eventHorizon: number
+  // Radius of no return, in multiples of the black hole's size: what crosses it is recycled. 1 is the
+  // edge of the shadow, where a real black hole captures light
+  horizonScale: number
   // Reach of the black hole's gravity, in multiples of its size
   gravityReach: number
   ringEnabled: boolean
@@ -122,7 +123,7 @@ export interface ParticleState {
   setGravityStrength: (gravity: number) => void
   setOrbitalStrength: (orbital: number) => void
   setBlackHoleSize: (size: number) => void
-  setEventHorizon: (horizon: number) => void
+  setHorizonScale: (scale: number) => void
   setGravityReach: (reach: number) => void
   toggleRing: () => void
   toggleRingFeed: () => void
@@ -207,7 +208,7 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   gravityStrength: 2.5,
   orbitalStrength: 40,
   blackHoleSize: 8,
-  eventHorizon: 8,
+  horizonScale: 1,
   gravityReach: 5,
   ringEnabled: true,
   ringFeedEnabled: true,
@@ -287,7 +288,7 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   setGravityStrength: (gravity) => set({ gravityStrength: gravity }),
   setOrbitalStrength: (orbital) => set({ orbitalStrength: orbital }),
   setBlackHoleSize: (size) => set({ blackHoleSize: size }),
-  setEventHorizon: (horizon) => set({ eventHorizon: horizon }),
+  setHorizonScale: (scale) => set({ horizonScale: scale }),
   setGravityReach: (reach) => set({ gravityReach: reach }),
   toggleRing: () => set((state) => ({ ringEnabled: !state.ringEnabled })),
   toggleRingFeed: () => set((state) => ({ ringFeedEnabled: !state.ringFeedEnabled })),

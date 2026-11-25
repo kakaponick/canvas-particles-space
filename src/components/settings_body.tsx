@@ -149,7 +149,7 @@ function SettingsBody () {
       <SettingsSection id="black-hole" title="Black Hole" defaultOpen>
         {/* The hole itself, then its pull, then where it sits */}
         <SettingSlider field="blackHoleSize" setter="setBlackHoleSize" />
-        <SettingSlider field="eventHorizon" setter="setEventHorizon" />
+        <SettingSlider field="horizonScale" setter="setHorizonScale" />
         <SettingSlider field="blackHoleDepth" setter="setBlackHoleDepth" />
         <div className="mt-3 flex flex-col gap-1">
           <SettingSlider field="gravityStrength" setter="setGravityStrength" />

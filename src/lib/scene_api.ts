@@ -7,7 +7,7 @@
 // tool that evaluates scripts in the page (the chrome-devtools MCP server in .mcp.json), and takes
 // screenshots with that tool.
 import { useParticleStore, type ParticleColor, type ParticleState } from '../store/particle_store'
-import { DEFAULT_PRESET, usePresetStore } from '../store/preset_store'
+import { BUILT_IN_PRESETS, DEFAULT_PRESET, usePresetStore } from '../store/preset_store'
 import { useIntroDebugStore, DEFAULT_TITLE_TEXT, type TitleText } from '../store/intro_debug_store'
 import { BUILT_IN_INTRO_PRESETS, useIntroPresetStore } from '../store/intro_preset_store'
 import { SIMULATION_SETTING_KEYS } from './simulation_presets'
@@ -329,11 +329,11 @@ export const sceneApi = {
   preset: {
     list: () => {
       const { presets, activeId } = usePresetStore.getState()
-      return { active: activeId, presets: [DEFAULT_PRESET, ...presets].map(({ id, name }) => ({ id, name })) }
+      return { active: activeId, presets: [...BUILT_IN_PRESETS, ...presets].map(({ id, name, description }) => ({ id, name, ...(description ? { description } : {}) })) }
     },
     apply: (name: string) => {
       const { presets, applyPreset } = usePresetStore.getState()
-      const preset = findPreset([DEFAULT_PRESET, ...presets], name)
+      const preset = findPreset([...BUILT_IN_PRESETS, ...presets], name)
       applyPreset(preset.id)
       return { applied: preset.name }
     }

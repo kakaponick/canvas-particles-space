@@ -558,7 +558,7 @@ function ParticleCanvas () {
       // The ringdown does not resize the horizon: it squashes it into an oval (composite.holeOval)
       const holeGrowth = hidden.hole ? 0 : intro.holeScale
       const horizon = shadowRadius * holeGrowth
-      const captureRadius = state.eventHorizon / 100 * shortSide * holeGrowth
+      const captureRadius = horizon * state.horizonScale
       if (intro.holdAtCenter) {
         stepSpring(hole, originX, originY, dt, params.centerHoldFrequency)
       } else {
@@ -617,7 +617,7 @@ function ParticleCanvas () {
         frame.orbitCount = state.orbitCount > 0
           ? stepOrbiters(
             orbiters, state.orbitCount, state.orbitSize, state.orbitEccentricity, state.orbitSpeed, dt,
-            hole.x, hole.y, shadowRadius, state.eventHorizon / 100 * shortSide, shortSide,
+            hole.x, hole.y, shadowRadius, shadowRadius * state.horizonScale, shortSide,
             state.orbitStarSize, Math.min(holeGrowth, 1), spawn.palette, settings.ringEnergy, instances, frame.instanceCount
           )
           : 0

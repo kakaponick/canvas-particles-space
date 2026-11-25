@@ -18,6 +18,34 @@ const defaultSettings: SimulationSettings = pickSimulationSettings(useParticleSt
 
 export const DEFAULT_PRESET: Readonly<SimulationPreset> = { id: DEFAULT_PRESET_ID, name: DEFAULT_PRESET_NAME, settings: defaultSettings }
 
+// A black hole as general relativity has it, as far as the scene can show one, where Default is tuned for
+// the look. The lens is a point mass: the whole sky is pulled, with one mirrored image inside the Einstein
+// ring, no twist (the hole does not rotate) and no light taken away outside the shadow. The Einstein ring
+// is as wide as a camera about 20 Schwarzschild radii away sees it. What reaches the edge of the shadow is
+// captured, and nothing swirls the particles around the hole
+export const SCHWARZSCHILD_PRESET: Readonly<SimulationPreset> = {
+  id: 'schwarzschild',
+  name: 'Schwarzschild',
+  description: 'A real non-rotating black hole: point-mass lens, no twist',
+  settings: {
+    ...pickSimulationSettings(defaultSettings),
+    horizonScale: 1,
+    orbitalStrength: 0,
+    lensingRadius: 2.5,
+    lensingReach: 1,
+    lensingFalloff: 2,
+    lensingRotation: 0,
+    lensingAbsorption: 0,
+    lensingCore: 0.1,
+    lensingMaxBend: 256
+  }
+}
+
+// Presets that come with the page: they can be applied, never changed or deleted
+export const BUILT_IN_PRESETS: readonly Readonly<SimulationPreset>[] = [DEFAULT_PRESET, SCHWARZSCHILD_PRESET]
+
+export const isBuiltInPreset = (id: string) => BUILT_IN_PRESETS.some(preset => preset.id === id)
+
 function loadPresets (): SimulationPreset[] {
   try {
     return parseSimulationPresets(window.localStorage.getItem(STORAGE_KEY), defaultSettings)
@@ -40,7 +68,8 @@ let nextId = 0
 const createPresetId = () => `preset-${Date.now().toString(36)}-${(nextId++).toString(36)}`
 
 export function isReservedPresetName (name: string) {
-  return normalizePresetName(name).toLowerCase() === DEFAULT_PRESET_NAME.toLowerCase()
+  const key = normalizePresetName(name).toLowerCase()
+  return BUILT_IN_PRESETS.some(preset => preset.name.toLowerCase() === key)
 }
 
 export function findPresetByName (presets: SimulationPreset[], name: string) {
@@ -93,7 +122,7 @@ export const usePresetStore = createWithEqualityFn<PresetState>((set, get) => {
     },
 
     applyPreset: (id) => {
-      const preset = id === DEFAULT_PRESET_ID ? DEFAULT_PRESET : get().presets.find(entry => entry.id === id)
+      const preset = BUILT_IN_PRESETS.find(entry => entry.id === id) ?? get().presets.find(entry => entry.id === id)
       if (!preset) return
       useParticleStore.setState(pickSimulationSettings(preset.settings))
       set({ activeId: preset.id })

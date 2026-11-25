@@ -1,8 +1,9 @@
 import { useParticleStore } from '../../store/particle_store'
 import {
+  BUILT_IN_PRESETS,
   DEFAULT_PRESET,
-  DEFAULT_PRESET_ID,
   findPresetByName,
+  isBuiltInPreset,
   isReservedPresetName,
   usePresetStore
 } from '../../store/preset_store'
@@ -25,7 +26,7 @@ function differsFromPreset (state: Parameters<typeof sameSimulationSettings>[0],
 function useActivePreset () {
   const presets = usePresetStore(state => state.presets)
   const activeId = usePresetStore(state => state.activeId)
-  const list = [DEFAULT_PRESET, ...presets]
+  const list = [...BUILT_IN_PRESETS, ...presets]
   const active = list.find(preset => preset.id === activeId) ?? DEFAULT_PRESET
   const modified = useParticleStore(state => differsFromPreset(state, active.settings))
   return { presets, list, active, modified }
@@ -61,9 +62,10 @@ function PresetControl () {
           <PresetItem
             key={preset.id}
             name={preset.name}
+            description={preset.description}
             active={preset.id === active.id}
             modified={modified}
-            builtIn={preset.id === DEFAULT_PRESET_ID}
+            builtIn={isBuiltInPreset(preset.id)}
             subject="the current settings"
             onApply={() => applyPreset(preset.id)}
             onUpdate={() => updatePreset(preset.id)}

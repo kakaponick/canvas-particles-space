@@ -2,6 +2,7 @@
 // builds its sliders from here, and the agent API (scene_api.ts) describes and validates settings with it,
 // so a setting is described in exactly one place.
 import { BASE_SPEED_MAX, BASE_SPEED_MIN, BASE_SPEED_STEP } from './base_speed'
+import { HORIZON_SCALE_MAX } from './simulation_presets'
 
 export interface SimulationSettingSpec {
   label: string
@@ -68,9 +69,9 @@ export const SIMULATION_SETTING_SPECS = {
   starCell: spoken(spec('Spacing', 4, 200, 1, fixed(0, ' px'), 'Grid cell size; smaller packs stars closer',
     'Size of one star grid cell; smaller cells mean more, closer stars.'), 'Star Spacing'),
   blackHoleSize: spoken(spec('Size', 0, 60, 0.5, fixed(1, '%'), 'Shadow radius, % of short side; 0 = none',
-    'Radius of the black hole\'s shadow as a share of the screen\'s short side. The photon ring, the lens and the strength and reach of gravity grow with it. 0 removes the black hole.'), 'Black Hole Size'),
-  eventHorizon: spec('Event Horizon', 0, 60, 0.5, fixed(1, '%'), 'Capture radius, % of short side; 0 = none',
-    'Radius of no return as a share of the screen\'s short side. Particles that cross it are destroyed and recycled. Below the black hole size they vanish inside the shadow; above it they vanish before reaching it; 0 lets them fly through.'),
+    'Radius of the black hole\'s shadow as a share of the screen\'s short side. Everything else is measured from it: the photon ring, the event horizon, the lens, the strength and reach of gravity, the orbits of the stars. The radius of a real black hole\'s shadow is 2.6 Schwarzschild radii. 0 removes the black hole.'), 'Black Hole Size'),
+  horizonScale: spec('Event Horizon', 0, HORIZON_SCALE_MAX, 0.05, fixed(2, '×'), 'Capture radius, in hole radii; 0 = none',
+    'Radius of no return, in black hole radii, so it follows the black hole\'s size. Particles and orbiting stars that cross it are destroyed and recycled. 1 is the edge of the shadow, where a real black hole captures light; below 1 they vanish inside the shadow, above 1 before reaching it; 0 lets them fly through.'),
   gravityReach: spec('Gravity Reach', 0, 40, 0.5, fixed(1, '×'), 'How far gravity reaches, in hole radii',
     'How far the black hole\'s gravity reaches, in multiples of its size. Particles within this distance are affected by gravity and orbital forces.'),
   blackHoleDepth: spoken(spec('Depth', 0, 100, 1, fixed(0, '%'), 'Where the hole sits, % of Field Depth',
@@ -106,9 +107,9 @@ export const SIMULATION_SETTING_SPECS = {
   ringFlowSpeed: spec('Flow Speed', -10, 10, 0.05, fixed(2, ' rad/s'), 'Bright patches\' speed; sign sets direction',
     'How fast the bright patches travel around the ring. Negative values turn them the other way.'),
   lensingRadius: spec('Einstein Radius', 0, 8, 0.05, fixed(2, '×'), 'Lens ring size, in hole radii; 0 = no lens',
-    'Radius of the Einstein ring, in black hole radii: light from behind the hole is bent into a ring this size. 0 turns the lens off.'),
+    'Radius of the Einstein ring, in black hole radii: light from behind the hole is bent into a ring this size. For a real black hole it tells how far the camera is: about the square root of twice that distance in Schwarzschild radii, divided by 2.6, so 1.7 at 10 and 3 at 30. 0 turns the lens off.'),
   lensingReach: spoken(spec('Reach', 0, 1, 0.05, fixed(2), '0 = compact bubble · 1 = whole sky bends',
-    'How far the lens is felt outside its ring. 0 = a compact bubble, the rest of the sky stays put; 1 = a point mass (realistic), the whole sky is pulled, weaker with distance.'), 'Lens Reach'),
+    'How far the lens is felt outside its ring, and what it shows inside. 0 = a compact bubble: the rest of the sky stays put, and inside the ring the sky folds into nested rings. 1 = a point mass (realistic): the whole sky is pulled, weaker with distance, and inside the ring there is one mirrored image of the sky from the other side.'), 'Lens Reach'),
   lensingRotation: spec('Twist', -10, 10, 0.05, fixed(2), 'Swirl of the sky; sign sets direction',
     'Swirl of the sky around the black hole, like light orbiting it. 0 = none; negative values twist the other way.'),
   lensingTwistLimit: spec('Twist Limit', 0, 64, 0.5, fixed(1, '×'), 'How tightly the swirl winds inward',
@@ -118,7 +119,7 @@ export const SIMULATION_SETTING_SPECS = {
   lensingPivot: spec('Falloff Pivot', 1, 300, 1, fixed(0, '%'), 'No-effect distance, % of short side',
     'Distance from the black hole, as a share of the screen\'s short side, where Falloff changes nothing: nearer, a higher falloff pulls harder; farther, it pulls less.'),
   lensingMaxBend: spec('Fold Limit', 1, 256, 1, fixed(0), 'Higher: more nested rings in the lens',
-    'Cap on how hard the lens can pull. Inside the Einstein ring a stronger pull folds the sky into more nested, mirrored rings; 1 leaves none.'),
+    'Cap on how hard the lens can pull. Inside the Einstein ring a stronger pull folds the sky into more nested, mirrored rings (with Reach at 1, reaches further across the sky for its one mirrored image); 1 leaves none.'),
   lensingCore: spec('Core', 0, 2, 0.05, fixed(2, '×'), 'Higher: more detail inside the ring',
     'How far from the point right behind the black hole the bent rays stay, in Einstein ring radii. 0 smears that single point into a flat band along the ring; higher values fill the ring with detail from farther around it.'),
   lensingAbsorption: spec('Light Absorption', 0, 5, 0.05, fixed(2), 'Dark zone around the shadow; 0 = none',

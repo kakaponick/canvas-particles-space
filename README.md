@@ -72,6 +72,7 @@ ripples the background stars, swallows the title and then drifts to your cursor.
 - **Gravity**: Gravitational pull strength
 - **Orbital Force**: Tangential force around black hole
 - **Einstein Radius**: Einstein ring radius, in black hole radii
+- **Presets**: **Default** is tuned for the look; **Schwarzschild** is a real non-rotating black hole as far as the scene shows one: a point-mass lens with one mirrored image inside the Einstein ring, no twist, and capture at the edge of the shadow. Every length around the hole is in black hole radii, so Black Hole Size alone scales it
 - **Orbiting Stars**: stars with real orbits around the black hole (**Count**, 0 = none): ellipses that precess, faster the closer they come, with a trace that stays lit for **Trail** seconds. **Orbit Size**, **Eccentricity** and **Orbit Speed** (its sign is the direction) shape them; a star that crosses the Event Horizon lights the photon ring
 - **Space Grid**: two grids for explaining curved space, both off until their brightness is above 0. **Sheet** is a grid seen at an angle (**Sheet Tilt**) and dented where the black hole sits (**Well Depth**); the gravitational wave of the opening ripples through it. **Lensed Grid** is a flat grid on the sky read through the lens, so it shows what the lens does
 
