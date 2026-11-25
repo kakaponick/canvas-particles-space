@@ -285,7 +285,7 @@ function ParticleCanvas () {
     const isOverAnchoredHole = (x: number, y: number) => {
       if (useParticleStore.getState().blackHoleFollowing || scene.frame.composite.horizon <= 0) return false
       const grabRadius = Math.max(scene.frame.composite.horizon * MOUSE_GRAB_SHADOWS, MIN_MOUSE_GRAB_RADIUS)
-      return Math.hypot(x - hole.x, y - hole.y) <= grabRadius
+      return Math.hypot(x - hole.x - scene.holeShiftX, y - hole.y - scene.holeShiftY) <= grabRadius
     }
 
     const showHoverCursor = (x: number, y: number) => {
@@ -325,8 +325,8 @@ function ParticleCanvas () {
       if (event.target instanceof Element && event.target.closest('[data-intro-dock]')) return
       if (lastPointerType !== 'mouse') return
       if (useParticleStore.getState().blackHoleFollowing) {
-        pointer.x = event.clientX
-        pointer.y = event.clientY
+        pointer.x = event.clientX - scene.holeShiftX
+        pointer.y = event.clientY - scene.holeShiftY
       }
       if (event.target === canvas) showHoverCursor(event.clientX, event.clientY)
       else setCanvasCursor('')
@@ -382,8 +382,8 @@ function ParticleCanvas () {
         // The place it was anchored at is saved with the settings
         if (scene.width > 0 && scene.height > 0) state.setBlackHolePosition(hole.x / scene.width, hole.y / scene.height)
       } else {
-        pointer.x = event.clientX
-        pointer.y = event.clientY
+        pointer.x = event.clientX - scene.holeShiftX
+        pointer.y = event.clientY - scene.holeShiftY
       }
       showHoverCursor(event.clientX, event.clientY)
     }
@@ -406,7 +406,7 @@ function ParticleCanvas () {
       const touch = event.changedTouches[0]
       if (!touch || draggingTouch !== -1) return
       const grabRadius = Math.max(scene.frame.composite.horizon * 2.2, MIN_TOUCH_GRAB_RADIUS)
-      if (Math.hypot(touch.clientX - hole.x, touch.clientY - hole.y) > grabRadius) {
+      if (Math.hypot(touch.clientX - hole.x - scene.holeShiftX, touch.clientY - hole.y - scene.holeShiftY) > grabRadius) {
         if (swipingTouch === -1) {
           swipingTouch = touch.identifier
           swipeY = touch.clientY
@@ -415,8 +415,8 @@ function ParticleCanvas () {
       }
       draggingTouch = touch.identifier
       pointer.holding = true
-      pointer.x = touch.clientX
-      pointer.y = touch.clientY
+      pointer.x = touch.clientX - scene.holeShiftX
+      pointer.y = touch.clientY - scene.holeShiftY
       event.preventDefault()
     }
 
@@ -427,8 +427,8 @@ function ParticleCanvas () {
           swipeY = touch.clientY
         }
         if (touch.identifier !== draggingTouch) continue
-        pointer.x = touch.clientX
-        pointer.y = touch.clientY
+        pointer.x = touch.clientX - scene.holeShiftX
+        pointer.y = touch.clientY - scene.holeShiftY
         event.preventDefault()
       }
     }

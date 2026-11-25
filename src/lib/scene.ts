@@ -114,6 +114,10 @@ export interface Scene {
   speed: number
   ringdown: number
   simulationMs: number
+  // How far from its place in the scene the black hole shows on the screen, CSS pixels: the camera
+  // looking beside it. The page lays a pointer over the hole with it
+  holeShiftX: number
+  holeShiftY: number
   // False while the WebGL context is lost
   ready: () => boolean
   // Returns whether the size changed
@@ -806,6 +810,26 @@ export function createScene (
       zoomX = (hole.x * own + originX * shared) / zoomed
       zoomY = (hole.y * own + originY * shared) / zoomed
     }
+    // The camera looks beside the black hole: the point that far from it (in a pair, a share of the way to either
+    // hole, and radii to the right and up) stands where the hole would. It is the zoom's fixed point that
+    // moves, and it stays inside the frame, so the camera never looks past the picture the scene draws:
+    // the farther in the zoom, the farther it can look, and at no zoom there is nowhere to look
+    scene.holeShiftX = 0
+    scene.holeShiftY = 0
+    if (zoomed > 1e-6) {
+      // In a pair the zoom holds their common centre still: towards the second hole above 0, the main one below
+      const inPair = pair.companion > 0 ? state.cameraPair : 0
+      const lookX = (inPair > 0 ? settings.companionX - hole.x : hole.x - holeX) * inPair + state.cameraX * shadowRadius
+      const lookY = (inPair > 0 ? settings.companionY - hole.y : hole.y - holeY) * inPair - state.cameraY * shadowRadius
+      if (lookX !== 0 || lookY !== 0) {
+        const stillX = zoomX
+        const stillY = zoomY
+        zoomX = Math.min(Math.max(zoomX + lookX / zoomed, 0), viewportWidth)
+        zoomY = Math.min(Math.max(zoomY + lookY / zoomed, 0), viewportHeight)
+        scene.holeShiftX = (stillX - zoomX) * (cameraZoom - 1)
+        scene.holeShiftY = (stillY - zoomY) * (cameraZoom - 1)
+      }
+    }
     let titleScale = 1 + params.titlePush * intro.titleAge
     let titleX = centerX
     let titleY = centerY + params.titleOffset * shortSide
@@ -1006,6 +1030,8 @@ export function createScene (
     speed: 0,
     ringdown: 0,
     simulationMs: 0,
+    holeShiftX: 0,
+    holeShiftY: 0,
     ready: () => renderer !== null,
     resize,
     setTitle,

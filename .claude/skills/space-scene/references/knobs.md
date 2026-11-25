@@ -235,6 +235,8 @@ by the waves. They keep their size at any zoom.
 | Where it rests, as shares of the frame | `blackHoleX`, `blackHoleY` |
 | Whether it follows the cursor, and how stiffly it moves to where it is sent | `blackHoleFollowing`, `followFrequency` |
 | Magnification around the hole | `cameraZoom` |
+| Where a zoomed-in camera looks: radii right of the hole and above it | `cameraX`, `cameraY` |
+| Which of two holes it looks at: -1 the main one, 0 their centre, 1 the second | `cameraPair` |
 
 - Setting a position anchors the hole. A film has no cursor: the hole rests at its position and tracks
   move it, through the same spring, so a low `followFrequency` makes it heavy and late.
@@ -246,6 +248,17 @@ by the waves. They keep their size at any zoom.
 - The zoom redraws the scene, it does not enlarge the picture: particles, traces, the ring and the grids
   stay sharp. While the zoom changes, trails streak, as a moving camera's would. The title and the
   opening's dust are the two things that still soften.
+- The camera pans only while it is zoomed in. It is a window into the picture the scene draws: the zoom is
+  its size, the pan where it looks, and it stops at the picture's edge. At `cameraZoom` 2 with the hole in
+  the middle it reaches a quarter of the frame each way, at 4 three eighths; at 1 the whole picture is in
+  the frame and a pan does nothing. To move the picture at no zoom, move the hole (`blackHoleX`,
+  `blackHoleY`).
+- The point the camera looks at stands where the hole would: `cameraX` at 3 puts the place 3 radii right of
+  the hole there. In a pair the zoom holds the common centre still while both holes circle it;
+  `cameraPair` 1 holds the second hole still and follows it round its orbit, -1 the main one, and a track
+  from -1 to 1 pans from one to the other. Labels and graphics that ride on the scene follow the camera.
+- A pan is a track like any other: ease it for a glide, give it the hold ease for a cut. A cut starts the trails
+  afresh; a glide streaks them.
 
 ## 12. The page only
 

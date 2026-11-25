@@ -124,6 +124,11 @@ export interface ParticleState {
   companionWaves: number
   // How much the camera magnifies the scene around the black hole; 1 is no zoom
   cameraZoom: number
+  // Where the camera looks while it is zoomed in: black hole radii to the right of the black hole and
+  // above it, and in a pair the share of the way from its centre to the second hole (below 0, to the main one)
+  cameraX: number
+  cameraY: number
+  cameraPair: number
   frameRateCap: number
   measuredFps: number
   // Lower the particle count automatically when the simulation overruns the frame
@@ -203,6 +208,9 @@ export interface ParticleState {
   setGridDepth: (value: number) => void
   setGridSky: (value: number) => void
   setCameraZoom: (value: number) => void
+  setCameraX: (value: number) => void
+  setCameraY: (value: number) => void
+  setCameraPair: (value: number) => void
   setCompanionSize: (value: number) => void
   setCompanionDistance: (value: number) => void
   setCompanionSpeed: (value: number) => void
@@ -292,6 +300,9 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   gridDepth: 2.5,
   gridSky: 0,
   cameraZoom: 1,
+  cameraX: 0,
+  cameraY: 0,
+  cameraPair: 0,
   companionSize: 0,
   companionDistance: 8,
   companionSpeed: 1,
@@ -380,6 +391,9 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   setGridDepth: (value) => set({ gridDepth: value }),
   setGridSky: (value) => set({ gridSky: value }),
   setCameraZoom: (value) => set({ cameraZoom: value }),
+  setCameraX: (value) => set({ cameraX: value }),
+  setCameraY: (value) => set({ cameraY: value }),
+  setCameraPair: (value) => set({ cameraPair: value }),
   setCompanionSize: (value) => set({ companionSize: value }),
   setCompanionDistance: (value) => set({ companionDistance: value }),
   setCompanionSpeed: (value) => set({ companionSpeed: value }),

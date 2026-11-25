@@ -105,7 +105,9 @@ and meaning; `window.space.describe()` reads the same text. The groups:
   radii), Follow Cursor and how stiffly it follows, its resting position, and **Zoom**: magnifies the view around
   the black hole, which stays where it is on the screen. The scene is drawn anew at the zoom, not enlarged:
   particles, orbits, the ring and the grids stay sharp, and hairlines stay hairlines. Below 1 the camera pulls
-  back, and the picture repeats, mirrored, beyond its edges
+  back, and the picture repeats, mirrored, beyond its edges. While it is zoomed in the camera can look beside
+  the black hole (**Pan X**, **Pan Y**, in radii) and, in a pair, at either black hole (**Pan in Pair**); it
+  moves inside the picture the scene draws and stops at its edge
 - **Second Black Hole**: a companion of **Size** (in main hole radii, 0 = none) at **Distance** from the main
   one. The two circle their common centre at the rate Kepler's law gives, faster as they close in (**Orbit
   Speed** scales it, its sign is the direction), each with its own shadow, lens, ring, gravity and well in the
@@ -143,7 +145,8 @@ opening's timeline. The API is a separate chunk that visitors without `?agent` n
 The scene can be rendered to a short mp4 (1-180 s, H.264, up to 4K and 240 fps) from one JSON description: its length and
 frame, a seed, starting settings, and a timeline: keyframes for any setting, layers of the scene switched on
 and off, the opening as a clip, its events (the flash, the light front, the ringing, the gravitational wave)
-fired again at any second, slow motion and still frames, captions and an optional audio track. The same film
+fired again at any second, slow motion and still frames, a camera that zooms and pans, shapes drawn over
+the picture (lines and arrows, circles, charts, pictures), captions and an optional audio track. The same film
 is the same video on any machine.
 
 ```json
@@ -195,6 +198,11 @@ to({ fade: 1 }, 1.5)
   planets are bundled (Noto Sans, Noto Sans Math, Noto Sans Symbols), so they are the same on every machine; a
   caption can arrive a letter, a word or a line at a time, stand on a plate, in a column, on black, or point at a
   distance from the hole. `films/horizon.js` is a 40 s film about the event horizon made of these.
+- **A film that draws**: `graphics` lays shapes over the picture: a line or an arrow, a circle or an arc, a
+  rectangle, a small chart with a dot that walks along its curve, a picture. A shape can ride on the scene (its
+  places in black hole radii, following the hole, the zoom and the pan) and read its numbers from the film, so a
+  ring stays on the Einstein radius while a track moves it. `films/graphics.js` is a 34 s film made of these, with
+  a camera that pans from the centre of a pair to its second black hole.
 - **A film to start from**: `films/showreel.json` is a 50 s tour of what a film can do (the opening with its own
   title, a zoom with labels on the shadow, the lens changed by keyframes, orbiting stars, the sheet, two black
   holes merging). `node films/showreel_sound.mjs` writes its soundtrack, `films/showreel.wav`, to give
@@ -271,6 +279,7 @@ src/
 │   ├── film_script.ts           # A film written as a script, and the script's guide
 │   ├── film_render.ts           # Plays a film in a scene of its own: mp4 and contact sheet
 │   ├── film_captions.ts         # Captions drawn over a film's frames
+│   ├── film_graphics.ts         # Shapes drawn over a film's frames: lines, circles, charts, pictures
 │   └── caption_text.ts          # The marks a caption's text takes
 ├── store/
 │   ├── particle_store.ts        # Simulation settings and runtime state

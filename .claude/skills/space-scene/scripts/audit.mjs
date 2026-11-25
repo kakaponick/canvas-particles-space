@@ -37,7 +37,7 @@ export { SLIDERS, TOGGLES, SETTING_KEYS, DEVICE_KEYS, ALL_SETTING_KEYS, INTRO_KE
 export { INTRO_PARAM_SPECS, DEFAULT_INTRO_PARAMS } from ${source('lib/intro_params.ts')}
 export { INTRO_LAYERS, CUE_LAYERS, INTRO_LAYER_NOTES, INTRO_TRACKS } from ${source('lib/intro_tracks.ts')}
 export { TITLE_FONTS } from ${source('lib/title_sprite.ts')}
-export { planFilm, FILM_SIZES, CAPTION_PLACES, CAPTION_FONTS, CAPTION_REVEALS, CAPTION_ALIGNS, FILM_GUIDE } from ${source('lib/film.ts')}
+export { planFilm, FILM_SIZES, CAPTION_PLACES, CAPTION_FONTS, CAPTION_REVEALS, CAPTION_ALIGNS, FILM_GUIDE, GRAPHIC_KINDS, GRAPHIC_KEYS, GRAPHIC_COMMON } from ${source('lib/film.ts')}
 export { writeFilm, SCRIPT_WORDS, SCRIPT_GUIDE, writeFractal, FRACTAL_SCRIPT_WORDS, FRACTAL_SCRIPT_GUIDE } from ${source('lib/film_script.ts')}
 export { planFractal, fractalView, FRACTAL_GUIDE, FRACTAL_KEYS, FRACTAL_TRACK_KEYS, FRACTAL_NUMBERS, FRACTAL_CAPTION_PLACES, FRACTAL_HEAD_KEYS } from ${source('lib/fractal.ts')}
 export { FRACTAL_TARGETS, FRACTAL_PALETTES } from ${source('lib/fractal_catalog.ts')}
@@ -76,7 +76,7 @@ const registries = await loadRegistries()
 const {
   SLIDERS, TOGGLES, SETTING_KEYS, DEVICE_KEYS, ALL_SETTING_KEYS, INTRO_KEYS, parseSettings, INTRO_PARAM_SPECS,
   DEFAULT_INTRO_PARAMS, INTRO_LAYERS, CUE_LAYERS, INTRO_LAYER_NOTES, INTRO_TRACKS, TITLE_FONTS, planFilm, FILM_SIZES, CAPTION_PLACES,
-  CAPTION_FONTS, CAPTION_REVEALS, CAPTION_ALIGNS, FILM_GUIDE,
+  CAPTION_FONTS, CAPTION_REVEALS, CAPTION_ALIGNS, FILM_GUIDE, GRAPHIC_KINDS, GRAPHIC_KEYS, GRAPHIC_COMMON,
   useParticleStore, BUILT_IN_PRESETS, DEFAULT_PRESET, BUILT_IN_INTRO_PRESETS, writeFilm, SCRIPT_WORDS, SCRIPT_GUIDE,
   writeFractal, FRACTAL_SCRIPT_WORDS, FRACTAL_SCRIPT_GUIDE, planFractal, fractalView, FRACTAL_GUIDE, FRACTAL_KEYS, FRACTAL_TRACK_KEYS,
   FRACTAL_NUMBERS, FRACTAL_CAPTION_PLACES, FRACTAL_HEAD_KEYS, FRACTAL_TARGETS, FRACTAL_PALETTES
@@ -140,7 +140,7 @@ const settingTracks = {
   backgroundB: [[0, 0], [1, 255]]
 }
 for (const [key, keyframes] of Object.entries(settingTracks)) {
-  const plan = attempt(`film.tracks.${key}`, () => planFilm({ duration: 1, intro: false, tracks: { [key]: keyframes } }))
+  const plan = attempt(`film.tracks.${key}`, () => planFilm({ duration: 1, intro: false, settings: { cameraZoom: 2 }, tracks: { [key]: keyframes } }))
   if (plan && plan.notes.length > 0) problem(`film.tracks.${key}: ${plan.notes.join('; ')}`)
 }
 
@@ -411,6 +411,63 @@ for (const word of ['opening', 'slow', 'hide', 'show', 'fire', 'title']) {
     if (!/particle scene/.test(error.message)) problem(`a fractal script refuses ${word}() without saying why: ${error.message}`)
   }
 }
+
+// 8c. What a film draws over its picture: every kind of shape plans with every key it takes, and the guide
+// tells each; a place in each of its forms is read in a shape and in a caption; a number is read by name
+// from where a caption's is; a script's draw comes to the JSON it stands for; what will not show is told.
+// A new kind or key fails here until it has a value below, which is what keeps this list whole
+const SHAPE_VALUES = {
+  from: 0, to: 4, fade: 0.2, color: '#ffffff', opacity: 0.5, width: 0.004, dash: [0.01, 0.01], fill: '#000000', fillOpacity: 0.5,
+  values: { own: [[0, 0], [4, 1]] }, draw: 1,
+  points: [[0.1, 0.1], { hole: [1, 0] }, { companion: [0, 1] }], smooth: true, close: true, arrow: 'both',
+  center: { hole: ['own', 0] }, radius: 'own', radiusY: 2, arc: [0, 'own'], size: [0.2, 0.1], round: 0.01,
+  box: [0.1, 0.1, 0.3, 0.3], x: [0, 1], y: [0, 1], series: [{ points: [[0, 0], [1, 1]], color: '#ff0000' }], xLabel: 'r / r_{s}', yLabel: 'y',
+  labelSize: 0.02, plate: 0.5, upTo: 'seconds', marker: 'own', src: 'data:image/png;base64,AAAA'
+}
+const shapeFilm = (graphic, more = {}) => ({ duration: 4, intro: false, settings: { companionSize: 0.5 }, graphics: [graphic], ...more })
+for (const kind of GRAPHIC_KINDS) {
+  const keys = [...GRAPHIC_COMMON.filter(key => key !== 'kind'), ...(GRAPHIC_KEYS[kind] ?? [])]
+  const missing = keys.filter(key => !(key in SHAPE_VALUES))
+  if (missing.length > 0) {
+    problem(`the audit has no value for the shape key ${missing.join(', ')} of "${kind}": add one to SHAPE_VALUES`)
+    continue
+  }
+  const whole = attempt(`a ${kind} with every key it takes`, () => planFilm(shapeFilm({ kind, ...Object.fromEntries(keys.map(key => [key, SHAPE_VALUES[key]])), ...(kind === 'plot' ? { points: [[0, 0], [1, 1]] } : {}) })))
+  if (whole && whole.graphics.length !== 1) problem(`a ${kind} with every key it takes plans ${whole.graphics.length} shapes`)
+  if (whole && whole.notes.length > 0) problem(`a ${kind} with every key it takes: ${whole.notes.join('; ')}`)
+  if (!FILM_GUIDE.includes(`${kind}:`)) problem(`the film guide does not tell the shape "${kind}"`)
+  for (const key of keys) if (!FILM_GUIDE.includes(key)) problem(`the film guide does not tell the shape key "${key}"`)
+}
+for (const place of [[0.5, 0.5], { hole: [1, 0] }, { companion: [0, 1] }]) {
+  attempt(`a shape at ${JSON.stringify(place)}`, () => planFilm(shapeFilm({ kind: 'circle', center: place, radius: 1 })))
+  attempt(`a caption at ${JSON.stringify(place)}`, () => planFilm({ duration: 4, intro: false, settings: { companionSize: 0.5 }, captions: [{ text: 'x', at: place }] }))
+}
+for (const name of ['own', 'seconds', 'lensingRadius', 'gravityWaveGain']) {
+  attempt(`a shape whose radius reads "${name}"`, () => planFilm(shapeFilm({ kind: 'circle', center: [0.5, 0.5], radius: name, values: { own: [[0, 0.1], [4, 0.2]] } })))
+}
+refused('a shape whose radius reads a name nothing has', shapeFilm({ kind: 'circle', center: [0.5, 0.5], radius: 'nope' }))
+refused('a shape of an unknown kind', shapeFilm({ kind: 'blob' }))
+refused('a shape at a place that is neither form', shapeFilm({ kind: 'circle', center: { star: [0, 0] }, radius: 1 }))
+samePlan('a script that draws a shape', `
+  draw({ kind: 'circle', center: { hole: [0, 0] }, radius: 'r', values: { r: [1, 3] } }, 2)
+  wait(2)
+`, { duration: 2, intro: false, graphics: [{ kind: 'circle', center: { hole: [0, 0] }, radius: 'r', from: 0, to: 2, values: { r: [[0, 1], [2, 3, 'linear']] } }] })
+const told = (what, film, word) => {
+  const plan = attempt(what, () => planFilm(film))
+  if (plan && !plan.notes.some(note => note.includes(word))) problem(`${what} is not told so`)
+}
+told('a shape riding with a second black hole the film does not have', { duration: 4, intro: false, graphics: [{ kind: 'circle', center: { companion: [0, 0] }, radius: 1 }] }, 'second black hole')
+told('a plot whose points are all outside its ranges', shapeFilm({ kind: 'plot', box: [0.1, 0.1, 0.3, 0.3], x: [0, 1], y: [0, 1], points: [[5, 5], [6, 6]] }), 'plot')
+told('a plot whose marker reads a number that stands still', shapeFilm({ kind: 'plot', box: [0.1, 0.1, 0.3, 0.3], x: [0, 1], y: [0, 1], points: [[0, 0], [1, 1]], marker: 'lensingRadius' }), 'never changes')
+const bare = attempt('a film that draws nothing', () => planFilm({ duration: 4, intro: false }))
+if (bare && bare.graphics.length !== 0) problem('a film that draws nothing has shapes in its plan')
+
+// 8d. The camera's pan: it works only while the camera is zoomed in, so a film that pans and never zooms in
+// is told, and one that does both is not
+told('a film that pans the camera and never zooms in', { duration: 4, intro: false, tracks: { cameraX: [[0, 0], [4, 3]] } }, 'zoomed in')
+const panned = attempt('a film that zooms in and pans', () => planFilm({ duration: 4, intro: false, settings: { cameraZoom: 3, companionSize: 0.5 }, tracks: { cameraX: [[0, 0], [4, 3]], cameraY: [[0, 0], [4, -2]], cameraPair: [[0, -1], [4, 1]] } }))
+if (panned && panned.notes.length > 0) problem(`a film that zooms in and pans: ${panned.notes.join('; ')}`)
+for (const key of ['cameraX', 'cameraPair']) if (!FILM_GUIDE.includes(key)) problem(`the film guide has no recipe with "${key}"`)
 
 // 9. The map names every knob, and names nothing that is gone. In references/knobs.md a name in
 // backticks is a key, a layer, a preset, a font, a size or a caption place, and nothing else

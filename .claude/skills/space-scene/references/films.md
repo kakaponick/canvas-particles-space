@@ -18,6 +18,7 @@ that a viewer sees what was meant, and what has already gone wrong once.
 11. The timeline: time, layers and events
 12. Writing a film as a script
 13. Text that explains
+14. Shapes over the picture
 
 ## 1. Start from the picture, not from the keys
 
@@ -72,7 +73,13 @@ stay as long as it takes to read twice.
 - Below 1 the camera pulls back, to 0.5 at most. The frame then shows the scene smaller with its mirror
   images around it, which reads as a tunnel or a kaleidoscope, not as a wider sky. Use it as a figure of
   its own (an ending that falls away, a beat before a push-in), and keep the hole in the middle.
-- The zoom's centre is the black hole. To frame something else, move the hole.
+- The zoom holds the black hole still (the centre of a pair, when there are two). To frame something
+  else while zoomed in, pan: `cameraX` and `cameraY` in radii from the hole, `cameraPair` for one of two
+  holes. The camera moves inside the picture the scene draws and stops at its edge, so the reach grows
+  with the zoom and is nothing at 1; the check says so when a film pans and never zooms in. To frame
+  something else at no zoom, move the hole.
+- A camera held on one hole of a pair (`cameraPair` at 1 or -1) turns with the orbit, so the whole field
+  streaks past it: a tracking shot. Keep it to a few seconds, or lower `trailIntensity` for it.
 - Vertical frame: put the hole a little above the middle (`blackHoleY` near 0.42) and leave the lower third
   for captions.
 
@@ -317,3 +324,31 @@ takes; this is what each thing is for.
   answers it.
 - Underscores, asterisks and braces in plain text stay what they are: a mark is a sign with a brace right
   after it (`^{`, `_{`, `*{`, `#{`), and nothing else is read as one.
+
+## 14. Shapes over the picture
+
+`graphics` in the JSON, `draw` in a script; the keys are in `space_guide`. `films/graphics.js` uses every
+kind.
+
+- A shape is for what words cannot point at: a radius (a circle), a direction or a cause (an arrow), a
+  law (a plot), a thing from outside the scene (an image). One or two on the screen at a time; each one
+  is something the viewer has to read.
+- A shape that explains the scene rides on it: give its places as `{ hole: [dx, dy] }` in black hole
+  radii, and it follows the hole, the zoom and the pan. The shadow's edge is 1 and is 2.6 Schwarzschild
+  radii, so the horizon is a circle of radius 1 / 2.6 and the photon sphere one of 1.5 / 2.6. A shape
+  that belongs to the film (a chart, a framed picture) is given in shares of the frame.
+- Let a shape read the number it shows. `radius: 'lensingRadius'` keeps a ring on the Einstein ring while
+  a track moves it; `radius: 'companionDistance'` around the main hole is the second hole's orbit seen
+  from it. A plot's `marker` and a caption's `#{...}` given the same value move together, which is what
+  ties a chart to the picture.
+- A label for a shape is a caption with the same kind of place: `at: { hole: [dx, dy] }` centres the
+  words on that point of the scene, with no pointer line.
+- `draw` (seconds) makes a stroke draw itself, as `reveal` does for words. Use it when the shape arrives
+  with the sentence that names it.
+- A plot wants few points where the curve is flat and many where it bends; a script writes them in a
+  loop. Its labels take a caption's marks (`r / r_{s}`), not live numbers: the number goes in a caption
+  beside it.
+- An image is read before the first frame. Through the film server its `src` may be a path, from the
+  folder the server runs in (the repository); in the page it is a URL or a data URL. Say in a caption
+  what a picture is when it is not the scene's own: a diagram, an observation, a simulation.
+- Shapes lie over `fade` and under the captions, so a chart can stand on black.

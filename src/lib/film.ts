@@ -272,7 +272,7 @@ function faceFor<Face extends string> (text: string, face: Face, where: string, 
 
 const FILM_KEYS = ['duration', 'fps', 'size', 'width', 'height', 'scale', 'seed', 'preset', 'settings', 'intro', 'warmup', 'speed', 'fade', 'tracks', 'layers', 'cues', 'captions', 'graphics', 'shots']
 // What every shape takes, and what each kind takes besides
-const GRAPHIC_COMMON = ['kind', 'from', 'to', 'fade', 'color', 'opacity', 'width', 'dash', 'fill', 'fillOpacity', 'values', 'draw']
+export const GRAPHIC_COMMON = ['kind', 'from', 'to', 'fade', 'color', 'opacity', 'width', 'dash', 'fill', 'fillOpacity', 'values', 'draw']
 export const GRAPHIC_KEYS: Record<GraphicKind, readonly string[]> = {
   line: ['points', 'smooth', 'close', 'arrow'],
   circle: ['center', 'radius', 'radiusY', 'arc'],
@@ -739,6 +739,8 @@ function readGraphics (source: unknown, duration: number, notes: string[], attem
 
 // The parameters of the film look, which lifts as the intro ends unless filmHold keeps it
 const FILM_LOOK = ['lensFringe', 'vignette', 'filmGrain', 'letterbox'] as const
+// The settings that turn a zoomed-in camera, which do nothing at a zoom of 1
+const CAMERA_PAN = ['cameraX', 'cameraY', 'cameraPair'] as const
 
 // Checks a film and turns it into the plan the renderer plays. Everything it cannot read is told in one
 // error, each thing with its reason, so a film is put right in one go
@@ -882,6 +884,17 @@ export function planFilm (source: unknown): FilmPlan {
   if (look.length > 0 && !raised('filmHold') && (introEnds === null || introEnds < duration)) {
     notes.push(`${look.join(', ')}: the film look lifts as the opening ends, so ${introEnds === null ? 'this film without the opening never shows it' : `it is gone after ${seconds(introEnds)} s`}; ` +
       'raise filmHold (0 to 1, in intro.params or on a track) to keep it')
+  }
+
+  // The camera pans inside the picture a zoom leaves out of the frame, so a film that pans and never zooms
+  // in is told: nothing else would show that the frame stayed where it was
+  const pans = CAMERA_PAN.filter(key => (settings as unknown as Record<string, number>)[key] !== 0 ||
+    tracks.some(track => track.key === key && track.target === 'settings' && track.values.some(value => value !== 0)))
+  const zoomsIn = settings.cameraZoom > 1 ||
+    tracks.some(track => track.key === 'cameraZoom' && track.target === 'settings' && track.values.some(value => value > 1))
+  if (pans.length > 0 && !zoomsIn) {
+    notes.push(`${pans.join(', ')}: the camera pans only while it is zoomed in, and cameraZoom never rises above 1 in this film, so the frame stays where it was; ` +
+      'raise cameraZoom, or move the picture with blackHoleX and blackHoleY')
   }
 
   // A shape that rides with a second black hole no film second has, and a curve that waits on a number
@@ -1187,6 +1200,10 @@ are in black hole radii, so blackHoleSize alone scales it.
 
 Recipes
   Zoom into the hole:      "tracks": { "cameraZoom": [[0, 1], [8, 2.5]] }
+  Look beside the hole:    "tracks": { "cameraZoom": [[0, 1], [3, 3]], "cameraX": [[3, 0], [7, 4]] }
+                           (radii right of the hole; the camera pans only while zoomed in, inside the picture)
+  Pan between two holes:   "settings": { "companionSize": 0.7, "cameraZoom": 3 },
+                           "tracks": { "cameraPair": [[2, -1], [6, 1]] }   (-1 main, 0 their centre, 1 second)
   Move the hole:           "tracks": { "blackHoleX": [[0, 0.3], [10, 0.7]], "blackHoleY": [[0, 0.5]] }
   Real black hole:         "preset": "Schwarzschild", "intro": false
   Curved space sheet:      "settings": { "gridSheet": 0.6, "gridTilt": 65, "gridDepth": 3 }

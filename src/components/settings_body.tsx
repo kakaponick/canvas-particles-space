@@ -191,6 +191,9 @@ function SettingsBody () {
         <SettingSlider field="blackHoleX" setter="setBlackHoleX" />
         <SettingSlider field="blackHoleY" setter="setBlackHoleY" />
         <SettingSlider field="cameraZoom" setter="setCameraZoom" />
+        <SettingSlider field="cameraX" setter="setCameraX" />
+        <SettingSlider field="cameraY" setter="setCameraY" />
+        <SettingSlider field="cameraPair" setter="setCameraPair" />
       </SettingsSection>
 
       <SettingsSection id="companion" title="Second Black Hole">

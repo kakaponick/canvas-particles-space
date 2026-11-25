@@ -1,6 +1,7 @@
 // A popular-science film carried by what is drawn over the picture: rings that mark radii inside the shadow,
 // an arrow with a label that rides on the scene, a ring that follows a setting as it moves, a chart with a dot
-// that walks along it with the number a caption counts, the orbit of a second black hole, a picture in a frame.
+// that walks along it with the number a caption counts, the orbit of a second black hole with a camera that
+// pans to it, a picture in a frame.
 //   node .claude/skills/space-scene/scripts/space.mjs preview films/graphics.js out.jpg
 //   node .claude/skills/space-scene/scripts/space.mjs render films/graphics.js films/graphics.mp4
 // The picture is films/graphics_ring.png, read from the folder the film server runs in (the repository).
@@ -79,11 +80,13 @@ shot('pair', () => {
   caption('вторая чёрная дыра', { at: { companion: [0, 1.9] }, font: 'noto', size: 0.028 })
   caption('Расстояние: *{#{companionDistance:1,}} радиуса\nЧем ближе, тем быстрее оборот', column(0.2, { at: [0.72, 0.16] }))
   wait(2)
+  // The camera leaves the centre of the pair for the second hole and rides round its orbit with it
+  meanwhile(() => { to({ cameraZoom: 2.2, cameraPair: 1 }, 3) })
   to({ companionDistance: 3.2 }, 5)
 })
 
 shot('telescope', () => {
-  set({ companionSize: 0 })
+  set({ companionSize: 0, cameraZoom: 1, cameraPair: 0 })
   // A picture in a frame of its own: a plate, the picture, a thin edge
   draw({ kind: 'rect', center: [0.76, 0.42], size: [0.5, 0.5], round: 0.02, fill: '#000000', fillOpacity: 0.7, color: '#b8c4d6', width: 0.002 })
   draw({ kind: 'image', src: 'films/graphics_ring.png', center: [0.76, 0.42], width: 0.44 })

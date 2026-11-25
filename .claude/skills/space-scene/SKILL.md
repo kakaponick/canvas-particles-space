@@ -79,13 +79,14 @@ What trips an agent here:
 A film is one description: frame and length, a seed, starting settings, and a timeline. On the timeline
 any number, switch or colour moves along keyframes, the scene's layers switch on and off, the opening is a
 clip, its events (the flash, the fronts, the ringing, the gravitational wave) are fired again at any
-second, the scene's own time slows or stops, and captions lie over the picture. Everything the intro
+second, the scene's own time slows or stops, and shapes (lines and arrows, circles, charts, pictures) and
+captions lie over the picture. Everything the intro
 debugger does with time and layers, a film does. The same film is the same video on any machine. It plays in a
 scene of its own, from the page's defaults, so it never touches the page or anyone's saved settings.
 
 A film is written one of two ways, and every tool takes either. The JSON object itself suits a film of a
 few things. Anything longer is a script: JavaScript that plays the film forward (`wait`, `to`, `shot`,
-`caption`, `fire`), where no second is written by hand, a part of a film is a function, a path is a
+`caption`, `draw`, `fire`), where no second is written by hand, a part of a film is a function, a path is a
 function of time, and the film is as long as what was played. A script comes to the same JSON, so nothing
 about the scene is said differently in it.
 
