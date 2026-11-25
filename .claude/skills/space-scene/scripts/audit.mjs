@@ -41,6 +41,7 @@ export { planFilm, FILM_SIZES, CAPTION_PLACES, CAPTION_FONTS, CAPTION_REVEALS, C
 export { writeFilm, SCRIPT_WORDS, SCRIPT_GUIDE, writeFractal, FRACTAL_SCRIPT_WORDS, FRACTAL_SCRIPT_GUIDE } from ${source('lib/film_script.ts')}
 export { planFractal, fractalView, FRACTAL_GUIDE, FRACTAL_KEYS, FRACTAL_TRACK_KEYS, FRACTAL_NUMBERS, FRACTAL_CAPTION_PLACES, FRACTAL_HEAD_KEYS } from ${source('lib/fractal.ts')}
 export { FRACTAL_TARGETS, FRACTAL_PALETTES } from ${source('lib/fractal_catalog.ts')}
+export { planReel, isReel, REEL_GUIDE, REEL_KEYS, CLIP_KEYS, CLIP_KINDS, TRANSITION_KEYS, REEL_TRANSITIONS, MAX_REEL_CLIPS } from ${source('lib/reel.ts')}
 export { useParticleStore } from ${source('store/particle_store.ts')}
 export { BUILT_IN_PRESETS, DEFAULT_PRESET } from ${source('store/preset_store.ts')}
 export { BUILT_IN_INTRO_PRESETS } from ${source('store/intro_preset_store.ts')}
@@ -79,7 +80,8 @@ const {
   CAPTION_FONTS, CAPTION_REVEALS, CAPTION_ALIGNS, FILM_GUIDE, GRAPHIC_KINDS, GRAPHIC_KEYS, GRAPHIC_COMMON,
   useParticleStore, BUILT_IN_PRESETS, DEFAULT_PRESET, BUILT_IN_INTRO_PRESETS, writeFilm, SCRIPT_WORDS, SCRIPT_GUIDE,
   writeFractal, FRACTAL_SCRIPT_WORDS, FRACTAL_SCRIPT_GUIDE, planFractal, fractalView, FRACTAL_GUIDE, FRACTAL_KEYS, FRACTAL_TRACK_KEYS,
-  FRACTAL_NUMBERS, FRACTAL_CAPTION_PLACES, FRACTAL_HEAD_KEYS, FRACTAL_TARGETS, FRACTAL_PALETTES
+  FRACTAL_NUMBERS, FRACTAL_CAPTION_PLACES, FRACTAL_HEAD_KEYS, FRACTAL_TARGETS, FRACTAL_PALETTES,
+  planReel, isReel, REEL_GUIDE, REEL_KEYS, CLIP_KEYS, CLIP_KINDS, TRANSITION_KEYS, REEL_TRANSITIONS, MAX_REEL_CLIPS
 } = registries
 
 const state = useParticleStore.getState()
@@ -468,6 +470,58 @@ told('a film that pans the camera and never zooms in', { duration: 4, intro: fal
 const panned = attempt('a film that zooms in and pans', () => planFilm({ duration: 4, intro: false, settings: { cameraZoom: 3, companionSize: 0.5 }, tracks: { cameraX: [[0, 0], [4, 3]], cameraY: [[0, 0], [4, -2]], cameraPair: [[0, -1], [4, 1]] } }))
 if (panned && panned.notes.length > 0) problem(`a film that zooms in and pans: ${panned.notes.join('; ')}`)
 for (const key of ['cameraX', 'cameraPair']) if (!FILM_GUIDE.includes(key)) problem(`the film guide has no recipe with "${key}"`)
+
+// 8e. A reel: every kind of clip plans in one, the guide tells every key, kind and transition, a reel of one
+// clip is as long as the clip, a dissolve shortens the reel by its seconds and never two scenes play when that
+// is asked, a clip keeps what it was cut to, and everything wrong is told at once with the clip it is in.
+// A new kind of clip fails here until it has a film below
+const CLIP_FILMS = { film: { duration: 4, intro: false }, fractal: { duration: 4, target: 'spiral', depth: 6 } }
+const reelOf = (what, reel) => attempt(what, () => planReel(reel))
+for (const kind of CLIP_KINDS) {
+  if (!CLIP_FILMS[kind]) {
+    problem(`the audit has no film for a clip of the kind "${kind}": add one to CLIP_FILMS`)
+    continue
+  }
+  const alone = reelOf(`a reel of one ${kind} clip`, { fps: 30, clips: [{ [kind]: CLIP_FILMS[kind] }] })
+  if (alone && alone.frames !== 120) problem(`a reel of one ${kind} clip of 4 s at 30 fps is ${alone.frames} frames, not 120`)
+}
+for (const name of [...REEL_KEYS, ...CLIP_KEYS, ...TRANSITION_KEYS, ...REEL_TRANSITIONS]) {
+  if (!REEL_GUIDE.includes(name)) problem(`the reel guide does not tell "${name}"`)
+}
+const joined = kind => ({ fps: 30, clips: [{ film: CLIP_FILMS.film }, { fractal: CLIP_FILMS.fractal, transition: { kind, seconds: 1 } }] })
+for (const kind of REEL_TRANSITIONS) {
+  const plan = reelOf(`a reel joined by ${kind}`, joined(kind))
+  const frames = kind === 'dissolve' ? 210 : 240
+  if (plan && plan.frames !== frames) problem(`two clips of 4 s joined by ${kind} are ${plan.frames} frames, not ${frames}`)
+  if (plan && (plan.overlap > 0) !== (kind === 'dissolve')) problem(`a reel joined by ${kind} plays two scenes at once for ${plan.overlap} s`)
+}
+const single = reelOf('a reel that never plays two scenes', { ...joined('dissolve'), oneScene: true })
+if (single && single.overlap !== 0) problem('a reel asked for one scene at a time still plays two')
+const cutOut = reelOf('a clip cut out of its film', { fps: 30, clips: [{ film: CLIP_FILMS.film, from: 1, to: 3 }] })
+if (cutOut && (cutOut.clips[0].fromFrame !== 30 || cutOut.clips[0].count !== 60)) problem(`a clip cut from 1 s to 3 s starts at frame ${cutOut.clips[0].fromFrame} and is ${cutOut.clips[0].count} frames`)
+const ownFrame = reelOf('a clip that names a frame of its own', { fps: 30, clips: [{ film: { ...CLIP_FILMS.film, fps: 60, size: 'vertical' } }] })
+if (ownFrame && ownFrame.notes.length === 0) problem('a clip that names a frame of its own is not told that the reel\'s is used')
+const notReel = (what, reel) => {
+  try {
+    planReel(reel)
+    problem(`${what} is taken as a reel`)
+  } catch (error) {
+    return String(error.message)
+  }
+  return ''
+}
+notReel('a reel with no clips', { clips: [] })
+notReel('a clip that is both a film and a fractal', { clips: [{ film: CLIP_FILMS.film, fractal: CLIP_FILMS.fractal }] })
+notReel('a first clip that dissolves', { clips: [{ film: CLIP_FILMS.film, transition: 'dissolve' }] })
+notReel('a transition longer than half a clip', { clips: [{ film: CLIP_FILMS.film }, { film: CLIP_FILMS.film, transition: { kind: 'dissolve', seconds: 3 } }] })
+notReel('a clip whose from is after its to', { clips: [{ film: CLIP_FILMS.film, from: 3, to: 1 }] })
+notReel('a reel with an unknown key', { clips: [{ film: CLIP_FILMS.film }], clipz: 1 })
+notReel('a clip with an unknown key', { clips: [{ film: CLIP_FILMS.film, form: 1 }] })
+notReel('a transition with an unknown key', { clips: [{ film: CLIP_FILMS.film, transition: { kind: 'black', second: 1 } }] })
+notReel('a reel of too many clips', { clips: Array.from({ length: MAX_REEL_CLIPS + 1 }, () => ({ film: CLIP_FILMS.film })) })
+const several = notReel('a reel with mistakes in two clips', { clips: [{ film: { duration: 4, intro: false, nope: 1 } }, { fractal: { duration: 4, target: 'nowhere' } }] })
+if (several && !(several.includes('clips[0].') && several.includes('clips[1].'))) problem(`a reel with mistakes in two clips does not tell both with their clip: ${several}`)
+if (!isReel({ clips: [] }) || isReel({ duration: 4 })) problem('a description is not told from a reel by its clips')
 
 // 9. The map names every knob, and names nothing that is gone. In references/knobs.md a name in
 // backticks is a key, a layer, a preset, a font, a size or a caption place, and nothing else

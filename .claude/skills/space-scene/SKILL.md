@@ -84,6 +84,10 @@ captions lie over the picture. Everything the intro
 debugger does with time and layers, a film does. The same film is the same video on any machine. It plays in a
 scene of its own, from the page's defaults, so it never touches the page or anyone's saved settings.
 
+Several films make one video as a reel: a JSON object with `clips`, each a film of the scene or of the fractal
+(its JSON, a script, or the path of a film that exists), cut to a stretch and joined by a cut, through black
+or by a dissolve. The same tools take it; `films/reel.json` is one.
+
 A film is written one of two ways, and every tool takes either. The JSON object itself suits a film of a
 few things. Anything longer is a script: JavaScript that plays the film forward (`wait`, `to`, `shot`,
 `caption`, `draw`, `fire`), where no second is written by hand, a part of a film is a function, a path is a

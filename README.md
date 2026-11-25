@@ -198,6 +198,10 @@ to({ fade: 1 }, 1.5)
   planets are bundled (Noto Sans, Noto Sans Math, Noto Sans Symbols), so they are the same on every machine; a
   caption can arrive a letter, a word or a line at a time, stand on a plate, in a column, on black, or point at a
   distance from the hole. `films/horizon.js` is a 40 s film about the event horizon made of these.
+- **Several films in one**: a JSON object with `clips` is a reel, taken by the same tools: clips of the scene and
+  of the fractal one after another, each a film's JSON, a script or a path to a film that exists, cut to a
+  stretch with `from` and `to`, joined by a cut, through black or by a dissolve. `films/reel.json` goes from a
+  stretch of `horizon.js` into the fractal and out to a stretch of `graphics.js`.
 - **A film that draws**: `graphics` lays shapes over the picture: a line or an arrow, a circle or an arc, a
   rectangle, a small chart with a dot that walks along its curve, a picture. A shape can ride on the scene (its
   places in black hole radii, following the hole, the zoom and the pan) and read its numbers from the film, so a
@@ -279,6 +283,7 @@ src/
 │   ├── film_script.ts           # A film written as a script, and the script's guide
 │   ├── film_render.ts           # Plays a film in a scene of its own: mp4 and contact sheet
 │   ├── film_captions.ts         # Captions drawn over a film's frames
+│   ├── reel.ts                  # A reel: several films in one video, its format and guide (reel_render.ts plays it)
 │   ├── film_graphics.ts         # Shapes drawn over a film's frames: lines, circles, charts, pictures
 │   └── caption_text.ts          # The marks a caption's text takes
 ├── store/
