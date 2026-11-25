@@ -24,7 +24,7 @@ place. The audit script reads the file by that rule and fails when a name is mis
 13. The opening: every parameter by its track
 14. Layers of the opening
 15. Presets, fonts, sizes, caption places
-16. What is a law and not a knob
+16. What is still fixed in code
 
 ## 1. The unit everything is measured in
 
@@ -360,17 +360,49 @@ fired is its parameters in the table of section 13.
 - Caption places: `bottom`, `top`, `center`, and three that point a line at something in the scene: `hole`
   (the shadow's edge), `einstein` (the Einstein ring), `companion` (the second black hole).
 
-## 16. What is a law and not a knob
+## 16. What is still fixed in code
 
-These are fixed in the code. No setting, film or agent call changes them; changing one is a code change
-with its own measurements, and SKILL.md says how a new knob is added.
+A film shows only what it can set, so every number here is a limit on films. Each line says what is fixed
+and what a knob for it would take. A film that needs one is asking for that knob: make it (SKILL.md, "A new
+ability: the code"), delete its line here and write the film. A change that leaves a new number in the code
+adds its line, and its report names it.
 
-| Law | File in src/lib |
+**Free to bring out**: read once a frame or once a star, nothing per particle.
+
+| Fixed | File in src/lib | A knob would |
+|---|---|---|
+| The spin's drag on the orbiting stars: always the physical share, whatever `frameDrag` says | scene.ts, orbiters.ts | multiply the spin handed to the stars |
+| How much the orbits differ from `orbitSize` and `orbitEccentricity`: each star gets 0.6 to 1.4 of the size and 0.6 to 1 of the eccentricity | orbiters.ts | be read when a star is born |
+| The 0.6 s a new star takes to light up; the flare a captured star leaves in the ring, six particles' worth | orbiters.ts | be read once a star |
+| How the light fed to the ring is shared: 0.9 from a captured particle, 0.0005 a frame from one skimming within 1.5 radii; `ringFeed` scales both | particle_simulation.ts | be a step number hoisted above the loop |
+| How hard spin lying in the screen sweeps near and far particles apart: as hard as spin toward the camera swirls them | particle_simulation.ts | be a step number hoisted above the loop |
+| The thinnest stroke, 0.3 px at the far end of the field | particle_simulation.ts | be a step number hoisted above the loop |
+| The closest orbit a pair turns at before it merges, 0.6 of touching | companion.ts | be read once a frame |
+| The spin a merger leaves, 0.69 for two equal holes | companion.ts | multiply it once a frame, 1 = real |
+| The sheet's camera, 2.5 long screen sides away, its span of 2.2, and the wave's lift on it, 4 times its stretch of the sky | space_grid.ts | be a uniform a frame |
+
+**Costs the hot loop**: work per particle, so CLAUDE.md's Measuring decides.
+
+| Fixed | File in src/lib | A knob would |
+|---|---|---|
+| How the pull falls with distance, as (radius / distance)^2, and the bell of the depth band | particle_simulation.ts | put a power or a second polynomial on every pulled particle |
+| How the spin's drag falls: one power of the distance faster than the pull, so `frameDrag` makes the vortex stronger and never wider | particle_simulation.ts | put a branch or a power on every dragged particle |
+| What spin lying in the screen does along the line of sight: nothing, so both sides of a tilted hole fall alike | particle_simulation.ts | put a division on every dragged particle |
+
+**Nature, with its multiple already a knob**: nothing to bring out.
+
+| Fixed | File in src/lib | Its knob |
+|---|---|---|
+| The shadow at 2.598 Schwarzschild radii | orbiters.ts | `blackHoleSize` is the shadow |
+| The speed of light for the orbiting stars, 1.2 short sides a second, and how their orbits precess | orbiters.ts | `orbitSpeed` is the rate of their time |
+| Kepler's law for the pair | companion.ts | `companionSpeed` is the rate of its time |
+| A real hole's ringdown tone | intro_params.ts | `ringdownPitch` and `ringdownLength` multiply it |
+| The spin's drag on the particles, spin / 2 at one radius | particle_simulation.ts | `frameDrag` multiplies it |
+
+**The machine**: the same on every film, held by frame time or memory.
+
+| Fixed | File in src/lib |
 |---|---|
-| The speed of light for the orbiting stars (1.2 short sides a second) and the shadow at 2.598 Schwarzschild radii | orbiters.ts |
-| How the orbits are integrated and precess; at most 64 stars; the spread of sizes between stars | orbiters.ts |
-| Kepler's law for the pair, the closest orbit before they merge, the wave's share | companion.ts |
-| The shape of gravity's falloff with distance and depth; what a captured or skimming particle gives the ring | particle_simulation.ts |
-| A real hole's ringdown tone, which the pitch and length multiply | intro_params.ts |
-| The sheet's camera and span | space_grid.ts |
+| At most 64 orbiting stars | orbiters.ts |
+| The sheet's 225 lines each way, in 192 pieces each | space_grid.ts |
 | Motion capped at six reference frames a step; a stall treated as one frame | particle_simulation.ts, frame_pacing.ts |

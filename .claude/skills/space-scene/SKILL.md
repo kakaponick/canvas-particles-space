@@ -144,9 +144,11 @@ node .claude/skills/space-scene/scripts/space.mjs fractal-render films/mandelbro
 
 ### A new ability: the code
 
-When the effect asked for is not a combination of existing knobs (section 16 of the map lists what is
-fixed in code), it is a code change, under the rules of `CLAUDE.md`. A knob is described once and
-everything else follows from that description:
+When the effect asked for is not a combination of existing knobs, it is a code change, under the rules of
+`CLAUDE.md`. Section 16 of the map lists the numbers still fixed in code and what a knob for each would
+take: a film that needs one of them is asking for that knob, so make it and then write the film. A new
+effect brings its numbers out the same way (`CLAUDE.md`, "A number that shapes the picture is a knob"). A
+knob is described once and everything else follows from that description:
 
 - A numeric simulation setting: a field with its default in `src/store/particle_store.ts`, its key in
   `SIMULATION_SETTING_KEYS` (`src/lib/simulation_presets.ts`), its spec in `SIMULATION_SETTING_SPECS`
@@ -177,4 +179,5 @@ lists every key by kind.
 
 Say what was set and where the result is (the screenshot, the film's json and mp4 as paths), repeat
 anything the scene adjusted, and name what was not looked at. If the picture did not show the effect and a
-gating knob had to be raised, say which one: that is what the next request will need.
+gating knob had to be raised, say which one: that is what the next request will need. After a code change,
+name the numbers it left fixed (its new lines in section 16 of the map) and what a knob for each would take.
