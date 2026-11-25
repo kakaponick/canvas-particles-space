@@ -203,8 +203,20 @@ orbits, the sheet, a merger); `exposure.json`, `rosette.json`, `graph_paper.json
 `waltz.json` are each built on one ability. `language.js` is a film written as a script: shots, a path
 drawn by a function, a part used as a function, a loop of waves, slow motion, a title card, fades.
 `horizon.js` is a film that explains, carried by its text: words on black, a definition, a formula, a label,
-counters read from the film, a list that builds, and the scene's time slowed by the formula on screen. Copy
-the nearest one and change it; they all pass the check.
+counters read from the film, a list that builds, and the scene's time slowed by the formula on screen. Three
+films show the Ray Traced lens and spin: `ray_closer.js` flies the camera from 190 to 2 Schwarzschild radii
+by `lensingRadius` alone, a dolly zoom with its distances read from the same function; `ray_deeper.js` dives
+to the photon rings at the shadow's edge in a tall frame; `kerr_around.js` flies over a spinning hole from
+pole to pole with `ringSide` and `ringDoppler` following the spin. Copy the nearest one and change it; they
+all pass the check.
+
+What lights the photon rings under Ray Traced is whatever lies right round the hole in the picture behind
+it: each ring is the whole sky squeezed, and only a bright thing near the hole survives the squeeze. The
+lensed grid and the stars turn to an even speckle there; orbiting stars with long traces (`orbitCount` 40,
+`orbitSize` 2.5, `orbitTrail` 20) give every ring a copy of their loops, as a real hole's rings hold its
+disc. The drawn photon ring sits on top of the traced ones, so turn it off for a look at them. The stylized
+lens at a high zoom on the shadow's edge shows folds where it reads past the picture's edge, not "no rings":
+do not set it against the traced one there.
 
 ## 11. The timeline: time, layers and events
 

@@ -109,8 +109,11 @@ it is recycled, and what it carried lights the photon ring (section 6).
 - Two holes that merge leave a spinning one about the axis of their orbit, which faces the camera, whatever
   `blackHoleSpin` says: the remnant's spin (0.69 for two equal holes) takes over as the shadows join.
 - The `Kerr` preset is Schwarzschild's setup spinning at 0.99, seen at 80°, with the ring's bright side
-  (`ringSide`) on the flat side, which turns toward the camera. `ringSide` does not follow the axis by
-  itself: the approaching side is at 180° plus `spinAxis` when `spinTilt` is below 90°.
+  (`ringSide`) on the flat side, which turns toward the camera. `ringSide` and `ringDoppler` do not follow
+  the spin by themselves: the approaching side is at 180° plus `spinAxis` at every tilt (past 90° the hole
+  is seen turning the other way about the line of sight, but the same limb comes toward the camera), and
+  the contrast a real hole shows grows as the sine of `spinTilt`. A film drives both along the tilt (films.md,
+  section 10).
 
 ## 5. The lens: how light bends
 
