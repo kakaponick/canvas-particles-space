@@ -46,7 +46,12 @@ const FILM_INPUT = {
   input: { type: 'object', description: 'What a script reads as "input": one script, several films', additionalProperties: true }
 }
 
-const FRACTAL_FILM = { type: 'object', description: 'The fractal film as JSON, as space_fractal_guide describes it', additionalProperties: true }
+// A fractal film comes the same two ways
+const FRACTAL_INPUT = {
+  film: { type: 'object', description: 'The fractal film as JSON, as space_fractal_guide describes it', additionalProperties: true },
+  script: { type: 'string', description: 'The fractal film as a script instead: JavaScript that plays it forward, as space_fractal_guide describes it' },
+  input: { type: 'object', description: 'What a script reads as "input"', additionalProperties: true }
+}
 
 const TOOLS = [
   {
@@ -112,8 +117,15 @@ const TOOLS = [
   {
     name: 'space_fractal_check',
     description: 'Reads a fractal film without drawing it: the target found and its digits, the precision, the zoom over time, ' +
-      'the steps a pixel takes, what was adjusted, and every mistake at once.',
-    inputSchema: { type: 'object', properties: { film: FRACTAL_FILM }, required: ['film'] }
+      'the tracks, captions and shots, the steps a pixel takes, what was adjusted, and every mistake at once. ' +
+      'For a script also the seconds it marked, and the JSON it comes to when "out" names a file for it.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        ...FRACTAL_INPUT,
+        out: { type: 'string', description: 'Path of a .json file to write the film a script comes to; relative paths start at the working directory' }
+      }
+    }
   },
   {
     name: 'space_fractal_preview',
@@ -122,11 +134,10 @@ const TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        film: FRACTAL_FILM,
+        ...FRACTAL_INPUT,
         at: { type: 'array', items: { type: 'number' }, description: 'Seconds to show; evenly spread when left out' },
         frames: { type: 'number', description: 'How many frames to spread evenly over the film when "at" is left out (default 9)' }
-      },
-      required: ['film']
+      }
     }
   },
   {
@@ -135,12 +146,12 @@ const TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        film: FRACTAL_FILM,
+        ...FRACTAL_INPUT,
         out: { type: 'string', description: 'Path of the mp4 to write; relative paths start at the working directory' },
         quality: { type: 'string', enum: ['medium', 'high', 'max'], description: 'Bitrate; high by default' },
         audio: { type: 'string', description: 'Path of an audio file (mp3, wav, m4a, ogg) laid under the picture from its start' }
       },
-      required: ['film', 'out']
+      required: ['out']
     }
   }
 ]
@@ -355,12 +366,8 @@ function filmOf (args) {
   return script
 }
 
-function fractalOf (args) {
-  if (typeof args.film !== 'object' || args.film === null || Array.isArray(args.film)) {
-    throw new Error('Give the fractal film as "film", the JSON object space_fractal_guide describes')
-  }
-  return args.film
-}
+// A fractal film comes as a film does: its JSON, or a script read here for its grammar
+const fractalOf = args => filmOf(args)
 
 const round = (value) => typeof value === 'number' ? Number(value.toFixed(4)) : value
 
@@ -480,18 +487,32 @@ async function runTool (name, args, report) {
   if (name === 'space_fractal_guide') return text(await page.evaluate(inPage('fractal.guide')))
 
   if (name === 'space_fractal_check') {
-    const checked = await page.evaluate(inPage('fractal.check', fractalOf(args)))
-    return text([
+    const film = fractalOf(args)
+    const checked = await page.evaluate(inPage('fractal.check', film, args.input))
+    const lines = [
       `The film: ${+checked.duration.toFixed(2)} s, ${checked.fps} fps, ${checked.width}x${checked.height}, ${checked.frames} frames.`,
       ...(checked.notes.length > 0 ? [`Adjusted: ${checked.notes.join('; ')}`] : []),
       ...checked.timeline
-    ].join('\n'))
+    ]
+    if (typeof film === 'string') {
+      const written = await page.evaluate(inPage('fractal.script', film, args.input))
+      const marks = Object.entries(written.marks).map(([mark, second]) => `${mark} ${second} s`)
+      if (marks.length > 0) lines.push(`Marks: ${marks.join(', ')}`)
+      if (typeof args.out === 'string' && args.out.trim() !== '') {
+        const out = path.resolve(process.cwd(), args.out)
+        fs.mkdirSync(path.dirname(out), { recursive: true })
+        fs.writeFileSync(out, JSON.stringify(written.film, null, 1) + '\n')
+        lines.push(`Wrote ${out}`)
+      }
+    }
+    return text(lines.join('\n'))
   }
 
   if (name === 'space_fractal_preview') {
     const options = {}
     if (Array.isArray(args.at)) options.at = args.at
     if (typeof args.frames === 'number') options.frames = args.frames
+    if (args.input !== undefined) options.input = args.input
     const sheet = await withProgress(page, report, () => page.evaluate(inPage('fractal.preview', fractalOf(args), options)))
     const note = sheet.notes.length > 0 ? `\nAdjusted: ${sheet.notes.join('; ')}` : ''
     return {
@@ -516,7 +537,7 @@ async function runTool (name, args, report) {
 
     const options = { upload: '' }
     if (args.quality !== undefined) options.quality = args.quality
-    if (args.input !== undefined && !fractal) options.input = args.input
+    if (args.input !== undefined) options.input = args.input
     const tokens = []
     if (args.audio !== undefined) {
       const audio = path.resolve(process.cwd(), String(args.audio))

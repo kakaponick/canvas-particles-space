@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Proves that an agent can reach every knob of the scene, and that the map in references/knobs.md names
-// each of them. Run it from anywhere inside the repository after a setting, an intro parameter, a layer
-// or a preset is added, renamed or removed:
+// each of them, and that a fractal film reaches every target, palette and value it has. Run it from
+// anywhere inside the repository after a setting, an intro parameter, a layer, a preset, or anything of a
+// fractal film is added, renamed or removed:
 //
 //   node .claude/skills/space-scene/scripts/audit.mjs          the checks, a line per failure
 //   node .claude/skills/space-scene/scripts/audit.mjs --keys   also prints every key by kind
@@ -37,7 +38,9 @@ export { INTRO_PARAM_SPECS, DEFAULT_INTRO_PARAMS } from ${source('lib/intro_para
 export { INTRO_LAYERS, CUE_LAYERS, INTRO_LAYER_NOTES, INTRO_TRACKS } from ${source('lib/intro_tracks.ts')}
 export { TITLE_FONTS } from ${source('lib/title_sprite.ts')}
 export { planFilm, FILM_SIZES, CAPTION_PLACES, CAPTION_FONTS, CAPTION_REVEALS, CAPTION_ALIGNS, FILM_GUIDE } from ${source('lib/film.ts')}
-export { writeFilm, SCRIPT_WORDS, SCRIPT_GUIDE } from ${source('lib/film_script.ts')}
+export { writeFilm, SCRIPT_WORDS, SCRIPT_GUIDE, writeFractal, FRACTAL_SCRIPT_WORDS, FRACTAL_SCRIPT_GUIDE } from ${source('lib/film_script.ts')}
+export { planFractal, fractalView, FRACTAL_GUIDE, FRACTAL_KEYS, FRACTAL_TRACK_KEYS, FRACTAL_NUMBERS, FRACTAL_CAPTION_PLACES, FRACTAL_HEAD_KEYS } from ${source('lib/fractal.ts')}
+export { FRACTAL_TARGETS, FRACTAL_PALETTES } from ${source('lib/fractal_catalog.ts')}
 export { useParticleStore } from ${source('store/particle_store.ts')}
 export { BUILT_IN_PRESETS, DEFAULT_PRESET } from ${source('store/preset_store.ts')}
 export { BUILT_IN_INTRO_PRESETS } from ${source('store/intro_preset_store.ts')}
@@ -74,7 +77,9 @@ const {
   SLIDERS, TOGGLES, SETTING_KEYS, DEVICE_KEYS, ALL_SETTING_KEYS, INTRO_KEYS, parseSettings, INTRO_PARAM_SPECS,
   DEFAULT_INTRO_PARAMS, INTRO_LAYERS, CUE_LAYERS, INTRO_LAYER_NOTES, INTRO_TRACKS, TITLE_FONTS, planFilm, FILM_SIZES, CAPTION_PLACES,
   CAPTION_FONTS, CAPTION_REVEALS, CAPTION_ALIGNS, FILM_GUIDE,
-  useParticleStore, BUILT_IN_PRESETS, DEFAULT_PRESET, BUILT_IN_INTRO_PRESETS, writeFilm, SCRIPT_WORDS, SCRIPT_GUIDE
+  useParticleStore, BUILT_IN_PRESETS, DEFAULT_PRESET, BUILT_IN_INTRO_PRESETS, writeFilm, SCRIPT_WORDS, SCRIPT_GUIDE,
+  writeFractal, FRACTAL_SCRIPT_WORDS, FRACTAL_SCRIPT_GUIDE, planFractal, fractalView, FRACTAL_GUIDE, FRACTAL_KEYS, FRACTAL_TRACK_KEYS,
+  FRACTAL_NUMBERS, FRACTAL_CAPTION_PLACES, FRACTAL_HEAD_KEYS, FRACTAL_TARGETS, FRACTAL_PALETTES
 } = registries
 
 const state = useParticleStore.getState()
@@ -324,6 +329,89 @@ for (const name of [...CAPTION_REVEALS, ...CAPTION_ALIGNS, 'radius', 'plate', 'a
   if (!FILM_GUIDE.includes(name)) problem(`the film guide does not tell the caption option "${name}"`)
 }
 
+// 8b. A fractal film: every target, palette and size plans, the guide tells every key, value, number and
+// place, a loop's last frame is its first, a pace is summed into the depth, a script says what its JSON
+// says and refuses the words of the particle scene, and every mistake is told at once
+const fractalPlan = (what, film) => attempt(what, () => planFractal(film))
+for (const [name, target] of Object.entries(FRACTAL_TARGETS)) {
+  const plan = fractalPlan(`fractal target "${name}"`, { duration: 2, target: name, depth: 30 })
+  if (plan && !plan.target.multiplier) problem(`fractal target "${name}" is not a Misiurewicz point: it would not fall forever`)
+  if (plan && plan.target.preperiod !== target.preperiod) problem(`fractal target "${name}" was found with another preperiod`)
+  const loop = fractalPlan(`a loop at "${name}"`, { duration: 6, target: name, loop: true })
+  if (loop) {
+    const first = fractalView(loop, 0)
+    const last = fractalView(loop, loop.duration)
+    const copies = loop.loopCopies
+    const { size, turn } = loop.target.multiplier
+    if (Math.abs(last.zoom - first.zoom - copies * Math.log2(size)) > 1e-9 ||
+      Math.abs(last.angle - first.angle + copies * turn) > 1e-9 ||
+      Math.abs(last.phase - first.phase + copies * loop.target.period / loop.cycle) > 1e-9 ||
+      last.maxIter !== first.maxIter) {
+      problem(`a loop at "${name}" does not end where it began, one picture deeper`)
+    }
+  }
+}
+for (const name of Object.keys(FRACTAL_PALETTES)) fractalPlan(`fractal palette "${name}"`, { duration: 1, palette: name })
+for (const size of Object.keys(FILM_SIZES)) fractalPlan(`fractal size "${size}"`, { duration: 1, size })
+for (const name of [...FRACTAL_KEYS, ...FRACTAL_TRACK_KEYS, ...FRACTAL_NUMBERS, ...FRACTAL_CAPTION_PLACES, ...Object.keys(FRACTAL_TARGETS), ...Object.keys(FRACTAL_PALETTES)]) {
+  if (!FRACTAL_GUIDE.includes(name)) problem(`the fractal guide does not tell "${name}"`)
+}
+for (const key of FRACTAL_TRACK_KEYS) fractalPlan(`a fractal track of ${key}`, { duration: 4, tracks: { [key]: [[0, 1], [4, 2]] } })
+const paced = fractalPlan('a fractal film paced by a track', { duration: 10, tracks: { rate: [[0, 2], [10, 2]] } })
+if (paced && Math.abs(paced.depth - 20) > 0.01) problem(`a rate of 2 for 10 s falls to 10^${paced.depth}, not 10^20`)
+const plain = fractalPlan('a fractal film with a pace of its own', { duration: 10, rate: 1, easeIn: 0, from: 5 })
+if (plain && Math.abs(fractalView(plain, 4).depth - 9) > 1e-9) problem('a fall from 10^5 at 1 power of ten a second is not at 10^9 after 4 s')
+for (const number of FRACTAL_NUMBERS) fractalPlan(`a fractal caption showing #{${number}}`, { duration: 2, captions: [{ text: `#{${number}:1}`, at: 'hole' }] })
+const fractalRefused = (what, film, expected) => {
+  try {
+    planFractal(film)
+    problem(`${what} is taken, and should not be`)
+  } catch (error) {
+    if (expected && !expected.test(error.message)) problem(`${what} is refused without saying why: ${error.message}`)
+  }
+}
+fractalRefused('a loop with a rate track', { duration: 4, loop: true, tracks: { rate: [[0, 1], [4, 2]] } }, /loop/)
+fractalRefused('a rate track beside a depth', { duration: 4, depth: 10, tracks: { rate: [[0, 1]] } }, /tracks\.rate/)
+fractalRefused('a fractal caption at the einstein ring', { duration: 2, captions: [{ text: 'x', at: 'einstein' }] }, /hole/)
+fractalRefused('a fractal caption showing a number of the scene', { duration: 2, captions: [{ text: '#{cameraZoom}' }] }, /Unknown key/)
+fractalRefused('a fractal film with three mistakes', { duration: 2, target: 'nowhere', palete: 'fire', samples: 'x' }, /3 problems/)
+for (const word of FRACTAL_SCRIPT_WORDS) {
+  if (!new RegExp(`\\b${word}\\b`).test(FRACTAL_SCRIPT_GUIDE)) problem(`the fractal script guide does not tell the word "${word}"`)
+}
+const fractalExample = FRACTAL_SCRIPT_GUIDE.slice(FRACTAL_SCRIPT_GUIDE.lastIndexOf('\nExample\n') + 9)
+if (!FRACTAL_SCRIPT_GUIDE.includes('\nExample\n')) problem('the fractal script guide has no example to run')
+else attempt('the fractal script guide\'s example', () => planFractal(writeFractal(fractalExample).film))
+for (const key of FRACTAL_HEAD_KEYS) {
+  if (!FRACTAL_SCRIPT_GUIDE.includes(key)) problem(`the fractal script guide does not tell what film() takes: ${key}`)
+}
+const writtenFractal = attempt('a fractal script', () => planFractal(writeFractal(`
+  film({ target: 'triple', palette: 'ice' })
+  set({ rate: 0, fade: 1 })
+  shot('in', () => { to({ fade: 0 }, 1, 'linear'); caption('x', 2, { at: 'top' }) })
+  to({ rate: 2 }, 2, 'linear')
+  drive({ glow: s => s / 4 }, 2)
+`).film))
+const readFractal = fractalPlan('the JSON a fractal script stands for', {
+  duration: 5,
+  target: 'triple',
+  palette: 'ice',
+  tracks: { rate: [[1, 0], [3, 2, 'linear']], glow: [[3, 0], ...Array.from({ length: 120 }, (_, index) => [Math.round((3 + (index + 1) / 60) * 1e4) / 1e4, Math.round((index + 1) / 60 / 4 * 1e6) / 1e6, 'linear'])] },
+  fade: [[0, 1], [1, 0, 'linear']],
+  captions: [{ text: 'x', from: 1, to: 3, at: 'top' }],
+  shots: [{ name: 'in', from: 0, to: 1 }]
+})
+if (writtenFractal && readFractal && JSON.stringify(writtenFractal.timeline) !== JSON.stringify(readFractal.timeline)) {
+  problem('a fractal script and the JSON it stands for give different plans')
+}
+for (const word of ['opening', 'slow', 'hide', 'show', 'fire', 'title']) {
+  try {
+    writeFractal(`${word}('x'); wait(1)`)
+    problem(`a fractal script takes ${word}(), a word of the particle scene`)
+  } catch (error) {
+    if (!/particle scene/.test(error.message)) problem(`a fractal script refuses ${word}() without saying why: ${error.message}`)
+  }
+}
+
 // 9. The map names every knob, and names nothing that is gone. In references/knobs.md a name in
 // backticks is a key, a layer, a preset, a font, a size or a caption place, and nothing else
 const mapPath = path.join(here, '..', 'references', 'knobs.md')
@@ -381,4 +469,6 @@ console.log(`Every knob is within reach: ${sliderKeys.length} sliders, ${switchK
   `${INTRO_KEYS.length} intro parameters, ${INTRO_LAYERS.length} layers a film switches (${CUE_LAYERS.length} of them events it fires again), ` +
   `${presetNames.length} presets, ${introPresetNames.length} intro presets. ` +
   `The scene reads ${sceneReads.length} settings, all of them settable; knobs.md names every one. ` +
-  `A script says all of it in ${SCRIPT_WORDS.length} words.`)
+  `A script says all of it in ${SCRIPT_WORDS.length} words. ` +
+  `A fractal film falls into ${Object.keys(FRACTAL_TARGETS).length} targets in ${Object.keys(FRACTAL_PALETTES).length} palettes, ` +
+  `moves ${FRACTAL_TRACK_KEYS.length} values along keyframes, and its script has ${FRACTAL_SCRIPT_WORDS.length} words.`)

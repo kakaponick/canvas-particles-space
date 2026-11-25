@@ -47,7 +47,7 @@ const BACKGROUND_KEYS = ['backgroundR', 'backgroundG', 'backgroundB']
 export const MAX_SPEED = 4
 
 export const EASES = ['ease', 'linear', 'in', 'out', 'hold'] as const
-type Ease = typeof EASES[number]
+export type Ease = typeof EASES[number]
 
 export const CAPTION_PLACES = ['bottom', 'top', 'center', 'hole', 'einstein', 'companion'] as const
 export type CaptionPlace = typeof CAPTION_PLACES[number]
@@ -163,9 +163,9 @@ const isObject = (value: unknown): value is Patch => typeof value === 'object' &
 
 // A part of a film that cannot be read is written down and the reading goes on with `fallback`, so
 // everything wrong with a film is told at once instead of one thing a try
-type Attempt = <T>(work: () => T, fallback: T) => T
+export type Attempt = <T>(work: () => T, fallback: T) => T
 
-function takeKnown (source: Patch, known: readonly string[], where: string, attempt: Attempt) {
+export function takeKnown (source: Patch, known: readonly string[], where: string, attempt: Attempt) {
   for (const key of Object.keys(source)) {
     if (!known.includes(key)) attempt(() => unknownKey(`${where}${key}`, known), undefined)
   }
@@ -250,7 +250,7 @@ function readTitle (intro: Patch, title: TitleText, where = 'intro.'): TitleText
   return next
 }
 
-function readKeyframes (where: string, source: unknown, duration: number, read: (value: unknown) => number) {
+export function readKeyframes (where: string, source: unknown, duration: number, read: (value: unknown) => number) {
   if (!Array.isArray(source) || source.length === 0) fail(`${where} takes keyframes: [[seconds, value], [seconds, value, "ease"], ...]`)
   const keys = source.map((entry, index) => {
     if (!Array.isArray(entry) || entry.length < 2 || entry.length > 3) fail(`${where}[${index}] takes [seconds, value] or [seconds, value, ease]`)
@@ -305,7 +305,7 @@ function readLayers (source: unknown, duration: number, attempt: Attempt): FilmT
 
 // A value of the film itself: one number for the whole film, or keyframes. A film that keeps it at `rest`
 // throughout has no track. Speed is how fast the scene's time runs, fade the dark over the picture
-function readPace (key: 'speed' | 'fade', source: unknown, duration: number, max: number, rest: number, notes: string[]): FilmTrack | null {
+export function readPace (key: 'speed' | 'fade', source: unknown, duration: number, max: number, rest: number, notes: string[]): FilmTrack | null {
   if (source === undefined) return null
   const read = (value: unknown) => inRange(key, value, 0, max, notes)
   const keys = typeof source === 'number' ? { times: [0], values: [read(source)], eases: ['ease' as Ease] } : readKeyframes(key, source, duration, read)
@@ -313,7 +313,7 @@ function readPace (key: 'speed' | 'fade', source: unknown, duration: number, max
   return { key, target: key, color: false, toggle: false, ...keys }
 }
 
-function readShots (source: unknown, duration: number, attempt: Attempt): FilmShot[] {
+export function readShots (source: unknown, duration: number, attempt: Attempt): FilmShot[] {
   if (source === undefined) return []
   if (!Array.isArray(source)) fail('shots take an array: [{ name, from, to }]')
   return source.flatMap((entry, index) => attempt<FilmShot[]>(() => {
@@ -366,7 +366,14 @@ function readCues (source: unknown, duration: number, title: TitleText, notes: s
   }, [])).sort((a, b) => a.at - b.at)
 }
 
-function readCaptions (source: unknown, duration: number, notes: string[], attempt: Attempt): FilmCaption[] {
+// What a caption may point at and which numbers it may show, for a picture other than the scene (a fractal
+// film): its places, and the names of the numbers its #{key} may read besides its own and the second
+export interface CaptionScope {
+  places: readonly CaptionPlace[]
+  numbers: readonly string[]
+}
+
+export function readCaptions (source: unknown, duration: number, notes: string[], attempt: Attempt, scope?: CaptionScope): FilmCaption[] {
   if (source === undefined) return []
   if (!Array.isArray(source)) fail('captions take an array: [{ text, from, to, at }]')
   return source.flatMap((entry, index) => attempt<FilmCaption[]>(() => {
@@ -383,7 +390,8 @@ function readCaptions (source: unknown, duration: number, notes: string[], attem
       if (entry.at.length !== 2) fail(`${where}.at takes [x, y] as shares of the frame, e.g. [0.5, 0.8]`)
       at = [clamp(asNumber(`${where}.at[0]`, entry.at[0]), 0, 1), clamp(asNumber(`${where}.at[1]`, entry.at[1]), 0, 1)]
     } else if (entry.at !== undefined) {
-      if (!(CAPTION_PLACES as readonly string[]).includes(String(entry.at))) fail(`${where}.at takes one of ${CAPTION_PLACES.join(', ')} or [x, y]`)
+      const places = scope?.places ?? CAPTION_PLACES
+      if (!(places as readonly string[]).includes(String(entry.at))) fail(`${where}.at takes one of ${places.join(', ')} or [x, y]`)
       at = entry.at as CaptionPlace
     }
     const pointing = at === 'hole' || at === 'einstein' || at === 'companion'
@@ -410,6 +418,10 @@ function readCaptions (source: unknown, duration: number, notes: string[], attem
     }
     // A number in the text is one of the caption's own, the film's second, or a number of the scene
     for (const key of captionKeys(lines)) {
+      if (scope) {
+        if (!(key in values) && key !== 'seconds' && !scope.numbers.includes(key)) unknownKey(`${where}.text #{${key}}`, [...Object.keys(values), 'seconds', ...scope.numbers])
+        continue
+      }
       const known = key in values || key === 'seconds' || key in SLIDERS || BACKGROUND_KEYS.includes(key) ||
         (key in DEFAULT_INTRO_PARAMS && !INTRO_PARAM_SPECS[key as IntroParamKey].options && !INTRO_PARAM_SPECS[key as IntroParamKey].color)
       if (!known) unknownKey(`${where}.text #{${key}}`, [...Object.keys(values), 'seconds', ...Object.keys(SLIDERS), ...INTRO_KEYS])
@@ -726,8 +738,14 @@ export function applyTracks (plan: FilmPlan, time: number) {
   }
 }
 
+// Where a caption's numbers come from: the plan's settings and intro parameters, or a fractal film's own
+export interface CaptionNumbers {
+  settings: object
+  params: object
+}
+
 // The number a caption's #{key} shows at this second: its own, the film's second, or the scene's as the tracks left it
-export function captionValue (plan: FilmPlan, caption: FilmCaption, key: string, time: number): number {
+export function captionValue (plan: CaptionNumbers, caption: FilmCaption, key: string, time: number): number {
   const own = caption.values[key]
   if (own) return trackValue(own, time)
   if (key === 'seconds') return time

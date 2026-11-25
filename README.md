@@ -219,7 +219,15 @@ The camera falls into a Misiurewicz point, where the set has structure at every 
 Newton's method on BigInt to as many bits as the deepest frame needs. Every pixel is drawn on the graphics card
 as the offset of its orbit from that point's orbit (perturbation), with an exponent of its own so it never
 underflows, and rebased so the zoom has no glitches. `"loop": true` makes a clip that falls forever when played
-on repeat. `films/mandelbrot.json` falls for 60 s to ×10⁶⁰; `films/mandelbrot_loop.json` is a 12 s loop.
+on repeat. A fractal film is a timeline too: the pace, the turn and the colours move along keyframes, and it takes
+a fade, captions with a live ×10ⁿ, and shots. It can be written as a script in the films' own language
+(`space.fractal.script`). `films/mandelbrot.json` falls for 60 s to ×10⁶⁰, `films/mandelbrot_loop.json` is a 12 s
+loop, and `films/mandelbrot_story.js` tells a fall in words, speeding up past the depth where ordinary numbers give
+out and stopping there.
+
+On the page the ∞ button in the scene toolbar opens the same zoom live, in place of the particle scene. Its panel
+picks the target, the colours and the speed, pauses (the still picture is redrawn sharp) and starts again, and
+Save MP4 renders the fall from where the camera is as a 15, 30 or 60 s video on the visitor's own machine.
 
 ## Project Structure
 

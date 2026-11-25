@@ -18,7 +18,7 @@ import {
   parseIntroValue, parseSettings, pickKeys, sliderName, unknownKey, type Patch
 } from './agent_values'
 import { FILM_GUIDE, planFilm } from './film'
-import { SCRIPT_GUIDE, writeFilm } from './film_script'
+import { FRACTAL_SCRIPT_GUIDE, SCRIPT_GUIDE, writeFilm, writeFractal } from './film_script'
 import { cancelFilm, filmProgress, previewFilm, renderFilm, type PreviewOptions, type RenderOptions } from './film_render'
 import { FRACTAL_GUIDE } from './fractal'
 import { checkFractal, previewFractal, renderFractal } from './fractal_render'
@@ -49,8 +49,9 @@ const HELP = `window.space: the scene for agents. Every call returns plain JSON-
   film.script(source, input?)   the JSON a script writes, with the seconds it marked
   film.progress() / film.cancel()
   fractal.guide() / fractal.check(film) / fractal.preview(film, { at?, frames? }) / fractal.render(film, { quality?, audio?, download? })
-                           a zoom into the Mandelbrot set as a video, as deep as asked: the film renderer forked for
-                           another picture, with the same progress and cancel
+                           a zoom into the Mandelbrot set as a video, as deep as asked, on a timeline of its own
+                           (tracks, fade, captions, shots); the JSON object or a script, as for a film
+  fractal.script(source, input?)   the JSON a fractal script writes
 Colours take '#rrggbb'; choices take an option index or its name.`
 
 // A film as it was given: the object itself, or what a script writes, with what the script had to adjust
@@ -344,10 +345,11 @@ export const sceneApi = {
     cancel: cancelFilm
   },
   fractal: {
-    guide: () => FRACTAL_GUIDE,
-    check: (film: unknown) => checkFractal(film),
-    preview: async (film: unknown, options?: PreviewOptions) => previewFractal(film, options),
-    render: async (film: unknown, options?: RenderOptions) => (await renderFractal(film, options)).summary,
+    guide: () => `${FRACTAL_GUIDE}\n\n${FRACTAL_SCRIPT_GUIDE}`,
+    script: (source: unknown, input?: unknown) => writeFractal(source, input),
+    check: (film: unknown, input?: unknown) => checkFractal(film, input),
+    preview: async (film: unknown, options?: PreviewOptions & { input?: unknown }) => previewFractal(film, options),
+    render: async (film: unknown, options?: RenderOptions & { input?: unknown }) => (await renderFractal(film, options)).summary,
     progress: filmProgress,
     cancel: cancelFilm
   }

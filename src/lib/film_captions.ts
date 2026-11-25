@@ -4,7 +4,15 @@
 // numbers read from the film as it plays, Greek and mathematics, words that arrive one at a time.
 import { TITLE_FONTS } from './title_sprite'
 import type { CompositeSettings } from './particle_renderer'
-import { captionAlpha, captionValue, type FilmCaption, type FilmPlan } from './film'
+import { captionAlpha, captionValue, type CaptionNumbers, type FilmCaption, type FilmPlan } from './film'
+
+// What captions need of a film: its frame, length, captions and tracks, and where its numbers come from.
+// A particle film's plan is one; a fractal film builds one of its own
+export type CaptionPlan = Pick<FilmPlan, 'width' | 'height' | 'duration' | 'captions' | 'tracks'> & CaptionNumbers
+
+// What captions need of the frame: where the black hole and the camera stand, for a caption that points
+export type CaptionFrame = Pick<CompositeSettings, 'letterbox' | 'cameraZoom' | 'holeX' | 'holeY' | 'horizon' | 'einstein' |
+  'companionRadius' | 'companionX' | 'companionY' | 'shakeX' | 'shakeY' | 'zoomX' | 'zoomY'>
 import { captionLetters, writeNumber, type CaptionRun } from './caption_text'
 
 const LINE_HEIGHT = 1.3
@@ -142,7 +150,7 @@ function layOut (ctx: CanvasRenderingContext2D, caption: FilmCaption, size: numb
 // The widest a caption with live numbers comes to be, so its block keeps one place while the digits change
 const steady = new WeakMap<FilmCaption, { room: number, width: number }>()
 
-function fitCaption (ctx: CanvasRenderingContext2D, plan: FilmPlan, caption: FilmCaption, time: number, size: number, room: number): Fit {
+function fitCaption (ctx: CanvasRenderingContext2D, plan: CaptionPlan, caption: FilmCaption, time: number, size: number, room: number): Fit {
   // The words as they read at this second: a live number is written out
   const live = caption.lines.some(line => line.some(run => run.value))
   const write = (run: CaptionRun, value: number) => run.value ? writeNumber(value, run.value.digits, run.value.comma) : run.text
@@ -173,7 +181,7 @@ function fitCaption (ctx: CanvasRenderingContext2D, plan: FilmPlan, caption: Fil
 }
 
 // Faces a film's captions need, loaded before the first frame so no frame is drawn in a fallback face
-export function loadCaptionFonts (plan: FilmPlan): Promise<unknown> {
+export function loadCaptionFonts (plan: Pick<FilmPlan, 'captions'>): Promise<unknown> {
   const loads = plan.captions
     .filter(caption => caption.font !== 'system')
     .map(caption => {
@@ -188,7 +196,7 @@ export function loadCaptionFonts (plan: FilmPlan): Promise<unknown> {
  * Draws the captions shown at `time` over `ctx`, whose canvas holds the frame at `pixel` video pixels per
  * scene pixel. `composite` is the frame as the scene drew it: where the hole is and how the camera stands.
  */
-export function drawCaptions (ctx: CanvasRenderingContext2D, plan: FilmPlan, time: number, composite: CompositeSettings, pixel: number) {
+export function drawCaptions (ctx: CanvasRenderingContext2D, plan: CaptionPlan, time: number, composite: CaptionFrame, pixel: number) {
   const width = plan.width * pixel
   const height = plan.height * pixel
   const shortSide = Math.min(width, height)

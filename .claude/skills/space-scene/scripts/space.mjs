@@ -16,7 +16,7 @@
 // each shot, or nine spread over it.
 //
 // A zoom into the Mandelbrot set takes the same commands with "fractal-" before them (fractal-guide,
-// fractal-check, fractal-preview, fractal-render) and a fractal film, always a .json file.
+// fractal-check, fractal-preview, fractal-render) and a fractal film, a .json file or a .js script.
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
@@ -32,8 +32,8 @@ const USAGE = [
   'node space.mjs preview <film.json|film.js> <out.jpg> [seconds,seconds,...]',
   'node space.mjs render <film.json|film.js> <out.mp4> [medium|high|max] [audio file]',
   'and --input <file.json> for what a script reads as input',
-  'node space.mjs fractal-guide | fractal-check <fractal.json> | fractal-preview <fractal.json> <out.jpg> [seconds,...] |',
-  '  fractal-render <fractal.json> <out.mp4> [medium|high|max] [audio file]: a zoom into the Mandelbrot set'
+  'node space.mjs fractal-guide | fractal-check <fractal> [out.json] | fractal-preview <fractal> <out.jpg> [seconds,...] |',
+  '  fractal-render <fractal> <out.mp4> [medium|high|max] [audio file]: a zoom into the Mandelbrot set, .json or .js'
 ].join('\n')
 
 function findRoot () {
@@ -63,14 +63,10 @@ function readFilm (file, input) {
 // One tool call for each job named on the command line
 function readJobs (command, given) {
   if (command?.startsWith('fractal-')) {
-    // The same jobs on the fractal tools, which take a film as JSON only
+    // The same jobs on the fractal tools, which take a fractal film the same two ways
     const kind = command.slice('fractal-'.length)
     if (!['guide', 'check', 'preview', 'render'].includes(kind)) throw new Error(USAGE)
-    return readJobs(kind, given).map(job => {
-      if (job.args.script !== undefined) throw new Error(`${job.name}: a fractal film is a .json file`)
-      // check writes no JSON for a fractal film: it is JSON already
-      return { ...job, tool: job.tool.replace(/^space_/, 'space_fractal_'), args: kind === 'check' ? { film: job.args.film } : job.args }
-    })
+    return readJobs(kind, given).map(job => ({ ...job, tool: job.tool.replace(/^space_/, 'space_fractal_') }))
   }
   const words = [...given]
   let input

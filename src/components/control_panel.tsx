@@ -17,6 +17,8 @@ import { useParticleStore } from '../store/particle_store'
 import { MeasuredFps } from './controls/frame_rate_control'
 import { INTRO_DOCK_ID, closeIntroDebugger, isInDock, toggleIntroDebugger } from '../lib/intro_dock'
 import HintMenu from './controls/hint_menu'
+import { FractalToggle } from './fractal_mode'
+import { useFractalStore } from '../store/fractal_store'
 
 // The panel closes only on request, so the scene can be used while settings are being tuned
 function keepOpen (event: Event) {
@@ -106,6 +108,14 @@ function ControlPanel () {
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange)
   }, [])
 
+  // Settings belongs to the particle scene and the Mandelbrot mode stands in for it: opening either closes the other
+  useEffect(() => {
+    if (isOpen) useFractalStore.getState().setOpen(false)
+  }, [isOpen])
+  useEffect(() => useFractalStore.subscribe((state, before) => {
+    if (state.open && !before.open) setIsOpen(false)
+  }), [])
+
   // Tells the page Settings is open, so the intro debugger can move over on a wide screen (index.css)
   useEffect(() => {
     const root = document.documentElement
@@ -135,6 +145,7 @@ function ControlPanel () {
           order is the tab order */}
       <div role="group" aria-label="Scene controls" className="fixed right-3 top-3 z-[60] flex gap-2">
         <SceneFps />
+        <FractalToggle className={SCENE_BUTTON} />
         <IntroDebuggerToggle />
         {/* The trigger toggles: it opens Settings and, pressed again, closes it */}
         <SheetTrigger asChild>

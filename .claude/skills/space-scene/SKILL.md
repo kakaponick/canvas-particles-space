@@ -119,16 +119,20 @@ Read [references/films.md](references/films.md) before writing a film longer tha
 ### A zoom into the Mandelbrot set: a fractal film
 
 A request for a Mandelbrot (fractal) zoom, "zooming to infinity", is not the particle scene: it is a fractal
-film, one JSON object (target, depth or pace, palette, frame) drawn by its own renderer. Its format and
-targets are in `space_fractal_guide` (or `window.space.fractal.guide()`); `space_fractal_check`,
-`space_fractal_preview` and `space_fractal_render` work like their film counterparts. A frame depends on its
-second alone, so a preview draws only the frames asked for. Pick a named target or a Misiurewicz point
-(`re`, `im`, `preperiod`, `period`): only such a point has structure at every depth, and only it can loop.
-`"loop": true` makes a clip that, played on repeat, falls forever. Without the server:
+film drawn by its own renderer. Its format, targets and script language are in `space_fractal_guide` (or
+`window.space.fractal.guide()`); `space_fractal_check`, `space_fractal_preview` and `space_fractal_render` work
+like their film counterparts and take the film as JSON or as a script. A frame depends on its second alone,
+so a preview draws only the frames asked for. Pick a named target or a Misiurewicz point (`re`, `im`,
+`preperiod`, `period`): only such a point has structure at every depth, and only it can loop. A fall told in
+words is a script, as a film's is (`films/mandelbrot_story.js`): `to({ rate: 2 }, 4)` speeds the fall up,
+`set({ rate: 0 })` holds it, captions show the depth as `×10^{#{depth:0}}`. `"loop": true` makes a clip that,
+played on repeat, falls forever. On the page the same zoom is live behind the ∞ button of the toolbar.
+Without the server:
 
 ```
 node .claude/skills/space-scene/scripts/space.mjs fractal-guide
 node .claude/skills/space-scene/scripts/space.mjs fractal-preview films/mandelbrot.json out/mandelbrot.jpg 5,30,59
+node .claude/skills/space-scene/scripts/space.mjs fractal-check films/mandelbrot_story.js
 node .claude/skills/space-scene/scripts/space.mjs fractal-render films/mandelbrot.json films/mandelbrot.mp4
 ```
 

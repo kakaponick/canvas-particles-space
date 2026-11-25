@@ -7,12 +7,16 @@ import { DEFAULT_INTRO_PARAMS, INTRO_PARAM_SPECS, type IntroParamKey } from './i
 import { CUE_LAYERS, INTRO_LAYERS } from './intro_tracks'
 import { INTRO_KEYS, SETTING_KEYS, SLIDERS, clamp, fail, unknownKey, type Patch } from './agent_values'
 import { EASES, MAX_DURATION, MAX_SPEED, MIN_DURATION, TRACK_SWITCHES, planFilm } from './film'
+import { FRACTAL_HEAD_KEYS, FRACTAL_TRACKS, FRACTAL_TRACK_KEYS, fractalStart, type FractalTrackKey } from './fractal'
 import { createRandom, nextRandom } from './random'
 
 export const SCRIPT_WORDS = [
   'film', 'opening', 'shot', 'wait', 'now', 'mark', 'at', 'meanwhile', 'together', 'set', 'to', 'drive', 'slow',
   'hide', 'show', 'fire', 'title', 'caption', 'random', 'pick', 'spring', 'input'
 ] as const
+// The words that belong to the particle scene alone: a fractal film has no opening, events, layers or scene time
+const SCENE_WORDS = ['opening', 'slow', 'hide', 'show', 'fire', 'title'] as const
+export const FRACTAL_SCRIPT_WORDS = SCRIPT_WORDS.filter(word => !(SCENE_WORDS as readonly string[]).includes(word))
 
 // Keys a moving value gets for each second when its path is a function: the rate the scene is stepped at
 const BAKE_RATE = 60
@@ -34,9 +38,18 @@ type Block = () => void
 interface KeyKind {
   // A number moves any way; a colour moves with the film's own eases; a switch flips; the rest is set once
   kind: 'number' | 'color' | 'switch' | 'once'
-  home: 'settings' | 'params' | 'speed' | 'fade'
+  home: 'settings' | 'params' | 'speed' | 'fade' | 'fractal'
   min: number
   max: number
+}
+
+// What a script writes: a particle film or a fractal film. The language is one; the keys it moves, what
+// film() takes and which words it knows are the kind's
+interface ScriptKind {
+  name: 'film' | 'fractal'
+  headKeys: readonly string[]
+  kindOf: (key: string) => KeyKind
+  guide: string
 }
 
 // One thing a script did to a value, at a second of the film
@@ -53,7 +66,7 @@ const isObject = (value: unknown): value is Patch => typeof value === 'object' &
 const tidy = (value: number) => Math.round(value * 1e4) / 1e4
 const fine = (value: number) => Math.round(value * 1e6) / 1e6
 
-function kindOf (key: string): KeyKind {
+function filmKindOf (key: string): KeyKind {
   if (key === 'speed') return { kind: 'number', home: 'speed', min: 0, max: MAX_SPEED }
   if (key === 'fade') return { kind: 'number', home: 'fade', min: 0, max: 1 }
   const slider = SLIDERS[key]
@@ -68,6 +81,23 @@ function kindOf (key: string): KeyKind {
   if (spec.color) return { kind: 'color', home: 'params', min: 0, max: 0xffffff }
   return { kind: 'number', home: 'params', min: spec.min, max: spec.max }
 }
+
+const FILM_KIND: ScriptKind = { name: 'film', headKeys: HEAD_KEYS, kindOf: filmKindOf, guide: 'film.guide()' }
+
+const FRACTAL_VALUE_KEYS = ['fade', ...FRACTAL_TRACK_KEYS]
+
+function fractalKindOf (key: string): KeyKind {
+  if (key === 'fade') return { kind: 'number', home: 'fade', min: 0, max: 1 }
+  if (key in FRACTAL_TRACKS) {
+    const { min, max } = FRACTAL_TRACKS[key as FractalTrackKey]
+    return { kind: 'number', home: 'fractal', min, max }
+  }
+  if (FRACTAL_HEAD_KEYS.includes(key)) fail(`${key} is set once, in film(): it cannot change along a fractal film`)
+  if (key === 'depth') fail('depth follows from the pace: move rate, and the camera falls by its sum')
+  return unknownKey(key, FRACTAL_VALUE_KEYS)
+}
+
+const FRACTAL_KIND: ScriptKind = { name: 'fractal', headKeys: FRACTAL_HEAD_KEYS, kindOf: fractalKindOf, guide: 'fractal.guide()' }
 
 /**
  * A spring's way from 0 to 1 over a share of time: it runs past 1 and settles. `damping` is 0.1 (rings for
@@ -190,12 +220,10 @@ function writeKeys (key: string, kind: KeyKind, ops: Op[], start: unknown, notes
   return { keys, changed, first }
 }
 
-/**
- * Runs a film script and returns the film it wrote, the seconds it marked and what it had to adjust.
- * `input` is what the script reads as `input`: one script, several films.
- */
-export function writeFilm (source: unknown, input: unknown = {}): { film: Patch, marks: Record<string, number>, notes: string[] } {
-  if (typeof source !== 'string' || source.trim() === '') fail('A film script is JavaScript text. See film.guide()')
+// Runs a script and gathers what it played: the head, every value's moves, the layers, events, captions,
+// shots and marks, and the film's length. What the gathered things come to is the kind's own film
+function playScript (source: unknown, input: unknown, script: ScriptKind) {
+  if (typeof source !== 'string' || source.trim() === '') fail(`A film script is JavaScript text. See ${script.guide}`)
   findFirstLine()
 
   let time = 0
@@ -267,18 +295,23 @@ export function writeFilm (source: unknown, input: unknown = {}): { film: Patch,
     random ??= createRandom(head.seed === undefined ? 1 : Math.round(Number(head.seed)))
     return random
   }
+  // A word of the particle scene in a fractal script is told so, with the words a fractal script has
+  const sceneOnly = (word: string) => {
+    if (script.name !== 'film') fail(`${word}() belongs to the particle scene's films; a fractal script's words are ${FRACTAL_SCRIPT_WORDS.join(', ')}`)
+  }
 
   const words = {
     film (options: unknown) {
       if (started) fail('film() comes first, before anything is played, and once')
-      if (!isObject(options)) fail('film() takes an object: { size, fps, seed, preset, settings }')
-      known('film()', options, HEAD_KEYS)
+      if (!isObject(options)) fail(script.name === 'film' ? 'film() takes an object: { size, fps, seed, preset, settings }' : 'film() takes an object: { size, fps, target, palette, from }')
+      known('film()', options, script.headKeys)
       head = { ...options }
       started = true
     },
 
     opening (options: unknown = {}) {
       begin()
+      sceneOnly('opening')
       if (opening) fail('opening() is called once: the opening plays once, and fire() plays its events again')
       if (!isObject(options)) fail('opening() takes an object: { preset, params, title, font, uppercase, hide }')
       known('opening()', options, OPENING_KEYS)
@@ -349,7 +382,7 @@ export function writeFilm (source: unknown, input: unknown = {}): { film: Patch,
       begin()
       const line = here()
       for (const [key, value] of values('set()', source)) {
-        const kind = kindOf(key)
+        const kind = script.kindOf(key)
         if (kind.kind === 'once' && time > 0) {
           fail(`${key} is set once, at second 0: it cannot change along a film` + (kind.home === 'params' ? '; fire() and title() take it in their params' : ''))
         }
@@ -368,7 +401,7 @@ export function writeFilm (source: unknown, input: unknown = {}): { film: Patch,
         fail(`to(): the third word is how the value arrives: ${EASES.join(', ')}, spring, or a function of the share of the way (0 to 1)`)
       }
       for (const [key, value] of values('to()', source)) {
-        const kind = kindOf(key)
+        const kind = script.kindOf(key)
         if (kind.kind === 'switch') fail(`${key} is a switch: it flips at once, with set()`)
         if (kind.kind === 'once') fail(`${key} cannot move along a film: it is set once, with set() at second 0`)
         if (kind.kind === 'number' && (typeof value !== 'number' || !Number.isFinite(value))) fail(`${key} takes a number`)
@@ -384,7 +417,7 @@ export function writeFilm (source: unknown, input: unknown = {}): { film: Patch,
       const length = span('drive()', seconds)
       if (length === 0) fail('drive() takes the seconds its functions are followed for')
       for (const [key, path] of values('drive()', source)) {
-        const kind = kindOf(key)
+        const kind = script.kindOf(key)
         if (kind.kind !== 'number') fail(`${key} cannot follow a function: only a number can`)
         if (typeof path !== 'function') fail(`drive(): ${key} takes a function of the seconds since it began: s => 0.5 + 0.2 * Math.sin(s)`)
         record(key, { at: time, line, seconds: length, path: path as Path })
@@ -394,6 +427,7 @@ export function writeFilm (source: unknown, input: unknown = {}): { film: Patch,
 
     slow (rate: unknown, play: unknown, ramp: unknown = 0.5) {
       begin()
+      sceneOnly('slow')
       const line = here()
       if (typeof rate !== 'number' || !(rate >= 0 && rate <= MAX_SPEED)) fail(`slow() takes the pace of the scene's time, 0 (a still frame) to ${MAX_SPEED}; 1 is real time`)
       const run = block('slow()', play)
@@ -405,11 +439,12 @@ export function writeFilm (source: unknown, input: unknown = {}): { film: Patch,
       record('speed', { at: tidy(time - edge), line, seconds: edge, value: 1, ease: 'ease' })
     },
 
-    hide: (...names: unknown[]) => { begin(); switchLayers('hide()', names, false) },
-    show: (...names: unknown[]) => { begin(); switchLayers('show()', names, true) },
+    hide: (...names: unknown[]) => { begin(); sceneOnly('hide'); switchLayers('hide()', names, false) },
+    show: (...names: unknown[]) => { begin(); sceneOnly('show'); switchLayers('show()', names, true) },
 
     fire (...named: unknown[]) {
       begin()
+      sceneOnly('fire')
       const params = isObject(named[named.length - 1]) ? named.pop() as Patch : undefined
       if (named.length === 0) fail(`fire() takes the events to play: ${CUE_LAYERS.join(', ')}`)
       for (const name of named) {
@@ -424,6 +459,7 @@ export function writeFilm (source: unknown, input: unknown = {}): { film: Patch,
 
     title (text: unknown, second?: unknown, third?: unknown) {
       begin()
+      sceneOnly('title')
       if (typeof text !== 'string' || text.trim() === '') fail('title() takes the words: title("ACT TWO", 3)')
       const options = isObject(second) ? second : third ?? {}
       if (!isObject(options)) fail('title() takes its options as an object: { font, uppercase, params }')
@@ -506,7 +542,7 @@ export function writeFilm (source: unknown, input: unknown = {}): { film: Patch,
     const message = error instanceof Error ? error.message : String(error)
     if (error instanceof SyntaxError) fail(`The script cannot be read as JavaScript: ${message}`)
     const line = lineOf(error instanceof Error ? error.stack : undefined)
-    const unknown = error instanceof ReferenceError ? `. The words of a script: ${SCRIPT_WORDS.join(', ')}` : ''
+    const unknown = error instanceof ReferenceError ? `. The words of a script: ${(script.name === 'film' ? SCRIPT_WORDS : FRACTAL_SCRIPT_WORDS).join(', ')}` : ''
     fail(`${line > 0 ? `line ${line}: ` : ''}${message}${unknown}`)
   }
 
@@ -516,7 +552,7 @@ export function writeFilm (source: unknown, input: unknown = {}): { film: Patch,
     fail(`The script plays ${played} s, more than the duration of ${named} s it names; leave duration out of film() and the film is as long as what is played`)
   }
   const duration = typeof named === 'number' ? named : played
-  if (duration < MIN_DURATION) fail('The script plays nothing: wait(), to(), drive() and opening() are what give a film its length')
+  if (duration < MIN_DURATION) fail(script.name === 'film' ? 'The script plays nothing: wait(), to(), drive() and opening() are what give a film its length' : 'The script plays nothing: wait(), to() and drive() are what give a film its length')
   for (const caption of open[0]) caption.to = duration
   // A caption's own numbers, given the short way: two ends to run between over its life, or a function of
   // the seconds since it appeared
@@ -539,8 +575,16 @@ export function writeFilm (source: unknown, input: unknown = {}): { film: Patch,
     }))
   }
 
+  return { head, duration, opening: opening as Patch | null, ops, layers, cues, captions, shots, marks, notes }
+}
+
+/**
+ * Runs a film script and returns the film it wrote, the seconds it marked and what it had to adjust.
+ * `input` is what the script reads as `input`: one script, several films.
+ */
+export function writeFilm (source: unknown, input: unknown = {}): { film: Patch, marks: Record<string, number>, notes: string[] } {
+  const { head, duration, opening: intro, ops, layers, cues, captions, shots, marks, notes } = playScript(source, input, FILM_KIND)
   // What every value is before the script touches it: the film's head and the opening, as the plan reads them
-  const intro = opening as Patch | null
   const start = planFilm({ ...head, duration, intro: intro ? { ...intro, at: 0 } : false })
   const film: Patch = { ...head, duration }
   const settings: Patch = isObject(head.settings) ? { ...head.settings } : {}
@@ -548,7 +592,7 @@ export function writeFilm (source: unknown, input: unknown = {}): { film: Patch,
   const tracks: Patch = {}
 
   for (const [key, list] of ops) {
-    const kind = kindOf(key)
+    const kind = filmKindOf(key)
     const before = kind.home === 'speed' ? 1 : kind.home === 'fade' ? 0
       : (kind.home === 'settings' ? start.settings : start.params)[key as never] as unknown
     const written = writeKeys(key, kind, list, before, notes)
@@ -582,6 +626,35 @@ export function writeFilm (source: unknown, input: unknown = {}): { film: Patch,
   if (Object.keys(tracks).length > 0) film.tracks = tracks
   if (Object.keys(switches).length > 0) film.layers = switches
   if (cues.length > 0) film.cues = cues
+  if (captions.length > 0) film.captions = captions
+  if (shots.length > 0) film.shots = shots
+  return { film, marks, notes }
+}
+
+/**
+ * Runs a fractal film's script (fractal.ts) and returns the film it wrote, the seconds it marked and what it
+ * had to adjust. The same language: its words but those of the particle scene, and the values it moves are
+ * the fractal film's tracks and its fade.
+ */
+export function writeFractal (source: unknown, input: unknown = {}): { film: Patch, marks: Record<string, number>, notes: string[] } {
+  const { head, duration, ops, captions, shots, marks, notes } = playScript(source, input, FRACTAL_KIND)
+  const start = fractalStart(head)
+  const film: Patch = { ...head, duration }
+  const tracks: Patch = {}
+  for (const [key, list] of ops) {
+    const kind = fractalKindOf(key)
+    const written = writeKeys(key, kind, list, start[key as keyof typeof start], notes)
+    // A value with keys moves along the film from the value it holds; one only set at second 0 is the film's own
+    if (kind.home === 'fade') {
+      if (written.keys.length > 0) film.fade = written.keys
+      else if (written.changed) film.fade = written.first
+    } else if (written.keys.length > 0) {
+      tracks[key] = written.keys
+    } else if (written.changed) {
+      film[key] = written.first
+    }
+  }
+  if (Object.keys(tracks).length > 0) film.tracks = tracks
   if (captions.length > 0) film.captions = captions
   if (shots.length > 0) film.shots = shots
   return { film, marks, notes }
@@ -659,5 +732,35 @@ Example
     title('RINGDOWN', 3)
     fire('ringdown', 'gravityWave', { gravityWaveGain: 2 })
     to({ cameraZoom: 1 }, 4)
+  })
+  to({ fade: 1 }, 1.5)`
+
+export const FRACTAL_SCRIPT_GUIDE = `A fractal film as a script
+The same language as a film's script, playing a fractal film forward: give the script as a string wherever a fractal
+film is taken; fractal.script(source, input) returns the JSON it writes. Its words are the film's but those of the
+particle scene (opening, slow, hide, show, fire, title): ${FRACTAL_SCRIPT_WORDS.join(', ')}.
+
+  film({ target: 'triple', palette: 'ice', fps: 30 })   first and once, all optional: what the JSON sets once
+                             (${FRACTAL_HEAD_KEYS.join(', ')}). No duration: the film ends where the script does
+  to({ rate: 2 }, 5, 'in')   values move from where they are: ${FRACTAL_TRACK_KEYS.join(', ')} and fade
+  set({ rate: 0 })           the camera hovers at the depth it reached; to({ rate: -1 }, 2) pulls it back
+  drive({ glow: s => 0.3 + 0.3 * Math.sin(s) }, 10)
+  shot('dive', () => { ... }), wait, meanwhile, together, mark, at, caption, random, pick, spring, input
+                             as in a film's script; a caption's #{depth:0} shows the powers of ten reached
+
+Example
+  film({ target: 'spiral', palette: 'classic' })
+  set({ fade: 1, rate: 0 })
+  shot('arrival', () => {
+    to({ fade: 0 }, 2)
+    caption('The Mandelbrot set', 3, { at: 'top' })
+    wait(1)
+  })
+  shot('the fall', () => {
+    to({ rate: 1.5 }, 6, 'in')
+    caption('×10^{#{depth:0}}', { at: 'bottom', font: 'noto' })
+    meanwhile(() => { to({ spin: 6 }, 10) })
+    wait(14)
+    to({ rate: 0 }, 4, 'out')
   })
   to({ fade: 1 }, 1.5)`
