@@ -15,7 +15,7 @@ import {
 } from './particle_simulation'
 import { createParticleRenderer, type FrameInput, type ParticleRenderer } from './particle_renderer'
 import { createIntroFrame, getRingdownTiming, ringdownWobble, sampleIntro, type IntroFrame, type RingdownTiming } from './intro_timeline'
-import type { IntroLayer } from './intro_tracks'
+import { INTRO_LAYERS, type IntroLayer } from './intro_tracks'
 import type { IntroParams } from './intro_params'
 import type { SimulationSettings } from './simulation_presets'
 import { stepSpring, type Spring2D } from './black_hole_motion'
@@ -41,6 +41,24 @@ const MIN_HOLE_OVAL = 1e-4
 const GRAVITY_WAVE_FADES = 6
 // Two black holes becoming one ring this many times harder than one forming in the intro
 const MERGER_RING = 3
+// A fired effect is over once everything it shows is fainter than this
+const CUE_FADED = 0.002
+// One bit for each layer, for the set of layers a fired effect plays
+const LAYER_BIT = Object.fromEntries(INTRO_LAYERS.map((layer, index) => [layer, 1 << index])) as Record<IntroLayer, number>
+const STAR = LAYER_BIT.star
+const GLARE = LAYER_BIT.glare
+const LIGHT = LAYER_BIT.light
+const ECHO = LAYER_BIT.echo
+const SHOCKWAVE = LAYER_BIT.shockwave
+const BURST = LAYER_BIT.burst
+const REMNANT = LAYER_BIT.remnant
+const CAMERA = LAYER_BIT.camera
+const RINGDOWN = LAYER_BIT.ringdown
+const GRAVITY_WAVE = LAYER_BIT.gravityWave
+// What happens around the explosion plays on one clock, what the ringing horizon does on another, so a
+// new blast does not cut off a wave that is still crossing the frame
+const BLAST_LAYERS = STAR | GLARE | LIGHT | ECHO | SHOCKWAVE | BURST | REMNANT | CAMERA
+const RING_LAYERS = RINGDOWN | GRAVITY_WAVE
 
 // The centre of something `half` wide, moved as little as needed for it to lie between `inset` and
 // `size - inset`; centred when there is not enough room
@@ -95,6 +113,10 @@ export interface Scene {
   setTitle: (style: TitleStyle, fontTimeoutMs: number, force?: boolean) => Promise<void>
   // Starts again with a fresh particle field, at this moment of the intro
   restart: (input: SceneInput, introTime?: number) => void
+  // Plays layers of the opening again on their own, at the black hole and as the opening times them:
+  // the clock starts where the earliest of them starts. One blast and one ringing at a time; a new one
+  // takes over. Only CUE_LAYERS do anything, and only once the opening itself is over
+  fire: (layers: readonly IntroLayer[], input: SceneInput) => void
   // Puts the black hole where the intro happens, or at its resting place
   placeHole: (input: SceneInput, atRest?: boolean) => void
   // Makes every later random draw repeat for this seed
@@ -139,6 +161,9 @@ export function createScene (
 
   const intro = createIntroFrame()
   const ringTiming: RingdownTiming = { frequency: 1, decay: 1 }
+  // Layers of the opening fired again: which are playing and the moment of the opening each clock is at
+  const cue = { blastLayers: 0, blastTime: 0, ringLayers: 0, ringTime: 0 }
+  const cueFrame = createIntroFrame()
 
   const random = createRandom(seed)
   const ringEnergy = createRingEnergy()
@@ -350,8 +375,35 @@ export function createScene (
     spawn.radius = state.spawnRadius
   }
 
+  function fire (layers: readonly IntroLayer[], from: SceneInput) {
+    const p = from.params
+    let blast = 0
+    let ring = 0
+    let start = Infinity
+    for (const layer of layers) {
+      const bit = LAYER_BIT[layer]
+      if ((bit & RING_LAYERS) !== 0) {
+        ring |= bit
+        start = Math.min(start, p.horizonAt + p.horizonGrowth)
+      } else if ((bit & BLAST_LAYERS) !== 0) {
+        blast |= bit
+        start = Math.min(start, bit === STAR ? p.starChargeStart : p.collapseAt)
+      }
+    }
+    if (blast !== 0) {
+      cue.blastLayers = blast
+      cue.blastTime = start
+    }
+    if (ring !== 0) {
+      cue.ringLayers = ring
+      cue.ringTime = start
+    }
+  }
+
   function restart (from: SceneInput, introTime = 0) {
     scene.introTime = introTime
+    cue.blastLayers = 0
+    cue.ringLayers = 0
     fadeBacklog = 0
     field.count = 0
     clearOrbiters(orbiters)
@@ -454,10 +506,51 @@ export function createScene (
     if (hidden.burst) intro.speedBoost = 1
     if (hidden.remnant) intro.remnantGlow = 0
     if (hidden.title) intro.titleAlpha = 0
+    // A fired blast: the opening's own frame at the blast's clock stands in for what the opening shows of
+    // these layers, which by now is nothing, and the explosion's place is the black hole
+    const blastAtHole = cue.blastLayers !== 0
+    if (blastAtHole) {
+      const on = cue.blastLayers
+      cue.blastTime += dt
+      sampleIntro(cue.blastTime, false, params, ringTiming, cueFrame)
+      const glare = (on & GLARE) !== 0 && !hidden.glare
+      intro.starGlow = (on & STAR) !== 0 && !hidden.star ? cueFrame.starGlow : 0
+      intro.starRadius = cueFrame.starRadius
+      intro.sourcePower = glare ? cueFrame.sourcePower : 0
+      intro.exposure = glare ? cueFrame.exposure : 1
+      intro.lightFront = cueFrame.lightFront
+      intro.lightPower = (on & LIGHT) !== 0 && !hidden.light ? cueFrame.lightPower : 0
+      intro.echoPower = (on & ECHO) !== 0 && !hidden.echo ? cueFrame.echoPower : 0
+      intro.matterFront = cueFrame.matterFront
+      intro.waveStrength = (on & SHOCKWAVE) !== 0 && !hidden.shockwave ? cueFrame.waveStrength : 0
+      intro.dustShock = (on & ECHO) !== 0 ? cueFrame.dustShock : 0
+      intro.speedBoost = (on & BURST) !== 0 && !hidden.burst ? cueFrame.speedBoost : 1
+      intro.remnantGlow = (on & REMNANT) !== 0 && !hidden.remnant ? cueFrame.remnantGlow : 0
+      intro.remnantRedshift = cueFrame.remnantRedshift
+      let jolt = 0
+      if ((on & CAMERA) !== 0 && !hidden.camera) {
+        intro.cameraZoom *= 1 + cueFrame.cameraKick
+        intro.shake = cueFrame.shake
+        jolt = Math.max(cueFrame.cameraKick, cueFrame.shake)
+      }
+      const left = Math.max(
+        intro.starGlow, intro.sourcePower, intro.lightPower, intro.echoPower, intro.waveStrength,
+        intro.speedBoost - 1, intro.remnantGlow, jolt
+      )
+      // The core only starts to glow after the explosion, so nothing is called over before that
+      if (cue.blastTime > Math.max(params.remnantAt, params.collapseAt) + params.glareRise && left < CUE_FADED) cue.blastLayers = 0
+    }
+    // Seconds since a fired ringing began; negative while its clock is still at an earlier layer
+    let sinceCueRing = -1
+    if (cue.ringLayers !== 0) {
+      cue.ringTime += dt
+      sinceCueRing = cue.ringTime - (params.horizonAt + params.horizonGrowth)
+    }
     // The photon ring flickers with the ringdown wobble; the RINGDOWN layer removes both
     // Two black holes that have just become one ring as a newborn one does
     const sinceMerger = pair.mergedAt >= 0 ? scene.time - pair.mergedAt : -1
-    const ringdown = hidden.ringdown ? 0 : intro.ringdown + ringdownWobble(sinceMerger, params.ringdownAmplitude * MERGER_RING, ringTiming)
+    let ringdown = hidden.ringdown ? 0 : intro.ringdown + ringdownWobble(sinceMerger, params.ringdownAmplitude * MERGER_RING, ringTiming)
+    if ((cue.ringLayers & RINGDOWN) !== 0 && !hidden.ringdown) ringdown += ringdownWobble(sinceCueRing, params.ringdownAmplitude, ringTiming)
     const ringPower = intro.ringFade * Math.max(1 + params.ringFlicker * ringdown, 0)
     scene.ringdown = ringdown
 
@@ -667,8 +760,8 @@ export function createScene (
     composite.ringPhase = ringEnergy.phase
     composite.ringBase = ringFed ? state.ringBase : 1
     composite.ringFeed = ringFed ? state.ringFeed : 0
-    composite.centerX = originX
-    composite.centerY = originY
+    composite.centerX = blastAtHole ? hole.x : originX
+    composite.centerY = blastAtHole ? hole.y : originY
     composite.starGlow = intro.starGlow
     composite.starRadius = intro.starRadius * shortSide
     composite.sourcePower = intro.sourcePower
@@ -702,12 +795,15 @@ export function createScene (
     const waveLife = params.lightCrossTime / 1.15 + ringTiming.decay * GRAVITY_WAVE_FADES
     const introWave = intro.ringdownTime > 0 && intro.ringdownTime <= waveLife
     const mergerWave = !introWave && sinceMerger > 0 && sinceMerger <= waveLife
-    composite.gravityWaveAmplitude = hidden.gravityWave || !(introWave || mergerWave)
+    // A fired wave leaves the black hole as the newborn hole's did, once the other two are gone
+    const cueWave = !introWave && !mergerWave && (cue.ringLayers & GRAVITY_WAVE) !== 0 && sinceCueRing > 0 && sinceCueRing <= waveLife
+    if (sinceCueRing > Math.max(waveLife, ringTiming.decay * GRAVITY_WAVE_FADES)) cue.ringLayers = 0
+    composite.gravityWaveAmplitude = hidden.gravityWave || !(introWave || mergerWave || cueWave)
       ? 0
       : params.gravityWaveGain * params.ringdownAmplitude * shadowRadius * (mergerWave ? MERGER_RING * state.companionWaves : 1)
-    composite.gravityWaveTime = mergerWave ? sinceMerger : intro.ringdownTime
-    composite.gravityWaveX = mergerWave ? hole.x : originX
-    composite.gravityWaveY = mergerWave ? hole.y : originY
+    composite.gravityWaveTime = mergerWave ? sinceMerger : cueWave ? sinceCueRing : intro.ringdownTime
+    composite.gravityWaveX = mergerWave || cueWave ? hole.x : originX
+    composite.gravityWaveY = mergerWave || cueWave ? hole.y : originY
     composite.gravityWaveFrequency = ringTiming.frequency
     composite.gravityWaveDecay = ringTiming.decay
     composite.gravityWaveRadius = shadowRadius
@@ -768,6 +864,7 @@ export function createScene (
     resize,
     setTitle,
     restart,
+    fire,
     placeHole,
     reseed: (next) => seedRandom(random, next),
     advance,

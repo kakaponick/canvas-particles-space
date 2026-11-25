@@ -258,6 +258,16 @@ Each can be hidden on its own to see what it contributes, or to leave it out of 
 The last six are the scene's own features as the opening brings them in. Hiding `gravity` flies the
 particles straight through; hiding `camera` leaves the opening's zoom, shake and film stock out.
 
+A layer is one of two kinds, and the list of layers from the page says which, with a line on each:
+
+- An event happens once: `star`, `glare`, `light`, `echo`, `shockwave`, `burst`, `remnant`, `ringdown`,
+  `gravityWave`, `camera`. A film fires it again with a cue, at the black hole, after the opening is over.
+  Fired, `camera` is the jolt and shake of the blast alone.
+- A state is there or not: `stars`, `reveal`, `title`, `hole`, `lens`, `ring`, `gravity`, `doppler`.
+
+Every layer of either kind can be switched on and off along a film. What an event looks like when it is
+fired is its parameters in the table of section 13.
+
 ## 15. Presets, fonts, sizes, caption places
 
 - Simulation presets: `Default`, `Schwarzschild`.

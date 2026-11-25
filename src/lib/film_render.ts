@@ -11,7 +11,7 @@ import { SIMULATION_SETTING_SPECS } from './simulation_specs'
 import { getIntroDuration } from './intro_timeline'
 import type { TitleStyle } from './title_sprite'
 import type { StreamTargetChunk } from 'mediabunny'
-import { applyTracks, planFilm, type FilmPlan } from './film'
+import { applyTracks, filmSpeed, planFilm, type FilmPlan } from './film'
 import { drawCaptions, loadCaptionFonts } from './film_captions'
 import { clamp, fail } from './agent_values'
 
@@ -126,7 +126,7 @@ async function createFilmPlayer (plan: FilmPlan, pixel: number) {
       scene.advance(1, 1 / REFERENCE_FPS, input, false)
     }
   } else {
-    scene.restart(input, -plan.introAt)
+    scene.restart(input, plan.introTime)
   }
 
   // Motion is stepped at about the page's 60 Hz whatever the film's frame rate, so gravity and trails
@@ -135,6 +135,7 @@ async function createFilmPlayer (plan: FilmPlan, pixel: number) {
   const frameScale = REFERENCE_FPS / (plan.fps * steps)
   const dt = 1 / (plan.fps * steps)
   let drawn = -1
+  let nextCue = 0
 
   // Draws frame `index`, the film at index / fps seconds. Frames come in order; `show` false only moves
   // the scene on, for a contact sheet that skips to its next frame
@@ -144,11 +145,23 @@ async function createFilmPlayer (plan: FilmPlan, pixel: number) {
     const time = index / plan.fps
     applyTracks(plan, time)
     input.particleCount = plan.settings.numParticles
-    if (index === 0) {
-      // The first frame is the film at second 0: nothing has moved yet
+    while (nextCue < plan.cues.length && plan.cues[nextCue].at <= time) {
+      // A cue's parameters stay as it set them, unless a track moves the same one
+      const cue = plan.cues[nextCue++]
+      Object.assign(plan.params, cue.params)
+      scene.fire(cue.layers, input)
+    }
+    // Scene seconds this frame holds: the film's speed bends the scene's time, never the film's own
+    const pace = plan.speed ? filmSpeed(plan, time) / plan.fps : 0
+    if (index === 0 || (plan.speed && pace === 0)) {
+      // The first frame is the film at second 0: nothing has moved yet. A still frame moves nothing either
       scene.advance(0, 0, input, show)
-    } else {
+    } else if (!plan.speed) {
       for (let step = 1; step <= steps; step++) scene.advance(frameScale, dt, input, show && step === steps)
+    } else {
+      // Still stepped at about 60 Hz of the scene's time: slow motion takes finer steps, time-lapse more of them
+      const count = Math.max(1, Math.round(pace * REFERENCE_FPS))
+      for (let step = 1; step <= count; step++) scene.advance(pace * REFERENCE_FPS / count, pace / count, input, show && step === count)
     }
     if (!show) return
     ctx.drawImage(glCanvas, 0, 0)
@@ -467,6 +480,7 @@ export async function previewFilm (source: unknown, options: PreviewOptions = {}
         times: indices.map(index => Number((index / plan.fps).toFixed(2))),
         columns,
         film: { duration: plan.duration, fps: plan.fps, frames: plan.frames, width: plan.width * plan.scale, height: plan.height * plan.scale },
+        timeline: plan.timeline,
         notes: plan.notes
       }
     } finally {

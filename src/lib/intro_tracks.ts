@@ -12,6 +12,34 @@ export const INTRO_LAYERS = [
 
 export type IntroLayer = typeof INTRO_LAYERS[number]
 
+// The layers that are one event of the opening and can be played again on their own, at the black hole,
+// once the opening is over (scene.fire; a film's cues). The rest are states: they are switched, not fired
+export const CUE_LAYERS = ['star', 'glare', 'light', 'echo', 'shockwave', 'burst', 'remnant', 'ringdown', 'gravityWave', 'camera'] as const
+
+export type CueLayer = typeof CUE_LAYERS[number]
+
+// What each layer is, in a line an agent reads before it hides, switches or fires one
+export const INTRO_LAYER_NOTES: Record<IntroLayer, string> = {
+  star: 'the progenitor star brightening until it explodes',
+  glare: 'the blinding flash of the explosion and the dip of the exposure under it',
+  light: 'the light front racing outward at the speed of light',
+  echo: 'the dust that keeps glowing behind the light front',
+  stars: 'the background stars, as the dark opening lets them show',
+  shockwave: 'the matter front that bends what lies under it',
+  reveal: 'the particle field born behind the matter front',
+  burst: 'the rush of flight speed at the explosion',
+  remnant: 'the core left behind, white-hot and then reddening away',
+  ringdown: 'the newborn horizon wobbling as an oval, and the ring flickering with it',
+  gravityWave: 'the gravitational wave that carries the wobble outward and ripples the sky and the sheet',
+  title: 'the words of the opening',
+  hole: 'the shadow of the black hole',
+  lens: 'the bending of light around the black hole',
+  ring: 'the photon ring',
+  gravity: 'the pull and swirl on the particles',
+  doppler: 'the colour shift of fast flight',
+  camera: 'the opening\'s camera and film stock; fired, the jolt and shake of the blast alone'
+}
+
 // Live values the debugger shows beside a track; a subset of the readout the animation loop publishes
 export type IntroTrackReadout = 'sourcePower' | 'lightFront' | 'matterFront' | 'remnantRedshift' | 'holeScale' | 'ringdown' | 'titleAlpha' | 'speed'
 

@@ -82,6 +82,8 @@ export interface IntroFrame {
   titleFly: number
   // Zoom of the whole frame around the place of the explosion; 1 is none
   cameraZoom: number
+  // The blast's punch of zoom alone, as a share: it is already part of cameraZoom
+  cameraKick: number
   // How far the camera is jolted right now, CSS pixels
   shake: number
   // 1 while the film effects (fringe, vignette, grain, letterbox) are on; fades to 0 as the intro ends
@@ -135,6 +137,7 @@ export function createIntroFrame (): IntroFrame {
     titleBurn: 0,
     titleFly: 1,
     cameraZoom: 1,
+    cameraKick: 0,
     shake: 0,
     film: 0,
     vanishAtOrigin: 0,
@@ -260,6 +263,7 @@ function sampleFullIntro (t: number, p: IntroParams, ring: RingdownTiming, frame
   const zoomDone = 0.1 * progress(t, 0, p.collapseAt) + 0.9 * easeOutQuart(progress(t, p.collapseAt, p.cameraSettle))
   const kick = exploded ? p.cameraKick * Math.exp(-sinceCollapse / CAMERA_KICK_DECAY) : 0
   frame.cameraZoom = (1 + (p.cameraZoom - 1) * (1 - zoomDone)) * (1 + kick)
+  frame.cameraKick = kick
   frame.shake = exploded ? p.shakeAmount * Math.exp(-sinceCollapse / p.shakeDecay) : 0
   frame.film = 1 - smoothstep(progress(t, p.releaseAt, p.introEnd - p.releaseAt))
 
@@ -304,6 +308,7 @@ function sampleReducedIntro (t: number, frame: IntroFrame) {
   frame.titleBurn = 0
   frame.titleFly = 1
   frame.cameraZoom = 1
+  frame.cameraKick = 0
   frame.shake = 0
   frame.film = 0
   // Nothing explodes, so the field flies out of the screen centre from the start

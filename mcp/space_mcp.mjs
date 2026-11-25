@@ -271,7 +271,7 @@ const inPage = (call, ...args) => `window.space.${call}(${args.map(arg => JSON.s
 
 const round = (value) => typeof value === 'number' ? Number(value.toFixed(4)) : value
 
-function describeText (settings, intro, presets, introPresets, layers, filter) {
+function describeText (settings, intro, presets, introPresets, layerInfo, filter) {
   const full = Boolean(filter)
   const lines = []
   const about = entry => full ? entry.description : entry.hint ?? entry.description
@@ -306,10 +306,16 @@ function describeText (settings, intro, presets, introPresets, layers, filter) {
       lines.push(`  ${entry.key}  ${range}  ${entry.label}: ${about(entry)}`)
     }
   }
+  const word = filter?.toLowerCase()
+  const layers = layerInfo.layers.filter(layer => !word || layer.toLowerCase().includes(word) || layerInfo.about[layer].toLowerCase().includes(word))
+  if (layers.length > 0) {
+    lines.push('LAYERS  switch along the film in "layers" (true shows), hide for the whole film in "intro.hide"; an event is also fired again in "cues"')
+    for (const layer of layers) lines.push(`  ${layer}  ${layerInfo.events.includes(layer) ? 'event' : 'state'}  ${layerInfo.about[layer]}`)
+  }
   if (!full) {
     lines.push(`PRESETS  "preset": ${presets.map(preset => preset.name).join(' | ')}`)
     lines.push(`INTRO PRESETS  "intro.preset": ${introPresets.map(preset => preset.name).join(' | ')}`)
-    lines.push(`INTRO LAYERS  "intro.hide": ${layers.join(', ')}`)
+    lines.push('TIME  "speed": the pace of the scene\'s time along the film, 0 (a still frame) to 4, as keyframes or one number')
     lines.push('Give a filter word for the full meaning of the keys that match it.')
   }
   return lines.length > 0 ? lines.join('\n') : `Nothing matches "${filter}". Call space_describe without a filter for every key.`
@@ -323,14 +329,14 @@ async function runTool (name, args, report) {
 
   if (name === 'space_describe') {
     const filter = typeof args.filter === 'string' && args.filter.trim() !== '' ? args.filter.trim() : undefined
-    const [settings, intro, presets, introPresets, layers] = await Promise.all([
+    const [settings, intro, presets, introPresets, layerInfo] = await Promise.all([
       page.evaluate(filter ? inPage('describe', filter) : 'window.space.describe()'),
       page.evaluate(filter ? inPage('intro.describe', filter) : 'window.space.intro.describe()'),
       page.evaluate('window.space.preset.list().presets'),
       page.evaluate('window.space.intro.preset.list().presets'),
-      page.evaluate('window.space.intro.layers().layers')
+      page.evaluate('window.space.intro.layers()')
     ])
-    return text(describeText(settings, intro, presets, introPresets, layers, filter))
+    return text(describeText(settings, intro, presets, introPresets, layerInfo, filter))
   }
 
   if (name === 'space_preview') {
@@ -339,13 +345,15 @@ async function runTool (name, args, report) {
     if (typeof args.frames === 'number') options.frames = args.frames
     const sheet = await withProgress(page, report, () => page.evaluate(inPage('film.preview', args.film, options)))
     const note = sheet.notes.length > 0 ? `\nAdjusted: ${sheet.notes.join('; ')}` : ''
+    // The film as it was understood, so what was meant can be checked against it before a render
+    const timeline = `\nTimeline:\n${sheet.timeline.map(line => '  ' + line).join('\n')}`
     return {
       content: [
         { type: 'image', data: sheet.image, mimeType: sheet.mimeType },
         {
           type: 'text',
           text: `Frames at ${sheet.times.join(', ')} s, left to right, top to bottom. ` +
-            `The film: ${sheet.film.duration} s, ${sheet.film.fps} fps, ${sheet.film.width}x${sheet.film.height}.${note}`
+            `The film: ${sheet.film.duration} s, ${sheet.film.fps} fps, ${sheet.film.width}x${sheet.film.height}.${note}${timeline}`
         }
       ]
     }

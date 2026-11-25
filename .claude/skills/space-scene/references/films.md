@@ -15,6 +15,7 @@ that a viewer sees what was meant, and what has already gone wrong once.
 8. High frame rates
 9. Recipes that are not in the guide
 10. Films to start from
+11. The timeline: time, layers and events
 
 ## 1. Start from the picture, not from the keys
 
@@ -92,6 +93,8 @@ takes an audio file and lays it under the picture from the first second.
 
 ## 7. Checking before rendering
 
+- Read the timeline under the preview first: it is the film as it was understood, a line for each thing
+  that happens. Section 11 says what goes on it.
 - Preview at the seconds where something changes, and one frame shortly after each. An even spread misses
   the moment that went wrong. The label on a frame shows tenths of a second, so two frames on either
   side of a cut can carry the same label.
@@ -162,3 +165,47 @@ seconds to cross the frame.
 In `films/`: `showreel.json` is a 50-second tour with labels (the opening, a zoom, the lens by keyframes,
 orbits, the sheet, a merger); `exposure.json`, `rosette.json`, `graph_paper.json`, `rapid.json` and
 `waltz.json` are each built on one ability. Copy the nearest one and change it; they all pass the check.
+
+## 11. The timeline: time, layers and events
+
+A film is a timeline with five kinds of things on it, and each ability of the scene is one kind. A value
+that changes smoothly is keyframes in tracks. A layer that is there or not is a switch in layers. The
+opening is a clip, placed by intro. An event of the opening is fired again by a cue. The pace of the
+scene's own time is speed. Putting a thing in the wrong kind is what makes a film unreadable: a flash
+written as a curve, a value written as a cut.
+
+What the plan understood comes back as a timeline, one line for each thing in the order it happens, from
+the check on the page and under every preview. Read it before looking at the frames: a key at the wrong
+second shows there at once.
+
+Time:
+
+- Speed is scene seconds in a film second. Every second written in a film stays a second of the film:
+  keys, captions, cues, and the second the opening starts at. Only the scene slows.
+- Slow motion is real: at 0.1 the scene takes ten times finer steps, so trails and orbits stay smooth.
+  Ease into it and out of it over half a second, a cut in speed reads as a glitch.
+- At 0 the scene is one still picture. The camera can still move over it, but it is magnified, not
+  redrawn, so a long push-in on a still frame softens; hold the still short or keep the zoom below 2.
+- The opening runs on the scene's time, so a slowed opening ends later. The timeline says when.
+
+Layers:
+
+- A switch cuts. To fade something, keyframe the number behind it instead.
+- Switching the pull off flies the particles straight through the black hole's place; the dark gap around
+  it fills in over a few seconds. Switching the shadow off leaves that gap as well.
+- A layer hidden in intro is hidden for the whole film. A switch in layers replaces that for its layer,
+  and like any track it holds its first key's value before that key.
+
+Events:
+
+- A cue fires after the opening is over, or in a film without it. Inside the opening the check refuses
+  it and says when the opening ends.
+- Several events in one cue keep the opening's own order: the star takes its seconds to brighten, the
+  blast follows, the ringing comes later still. For two things at the same instant write two cues.
+- One blast and one ringing play at a time. A new blast replaces the one still playing; it does not cut
+  off a wave that is crossing the frame, which is on the other clock.
+- Events happen at the black hole, wherever tracks have moved it, and follow it while they play.
+- What an event looks like is the intro parameters. A cue's own parameters are set at its second and stay;
+  a track on the same parameter wins. A stronger wave: `gravityWaveGain` and `ringdownAmplitude` in the
+  cue. A wave shows on the sheet and the lensed grid, and barely on the particles alone.
+- A fired event leaves nothing behind: once it has faded, the frames are the film's without it.

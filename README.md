@@ -81,8 +81,10 @@ ripples the background stars, swallows the title and then drifts to your cursor.
 ## Films
 
 The scene can be rendered to a short mp4 (1-180 s, H.264, up to 4K and 240 fps) from one JSON description: its length and
-frame, a seed, starting settings, the opening as a clip, keyframes for any setting, captions and an optional
-audio track. The same film is the same video on any machine.
+frame, a seed, starting settings, and a timeline: keyframes for any setting, layers of the scene switched on
+and off, the opening as a clip, its events (the flash, the light front, the ringing, the gravitational wave)
+fired again at any second, slow motion and still frames, captions and an optional audio track. The same film
+is the same video on any machine.
 
 ```json
 {

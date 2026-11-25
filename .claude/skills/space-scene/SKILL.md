@@ -75,8 +75,11 @@ What trips an agent here:
 
 ### A video, or a picture that repeats: a film
 
-A film is one JSON object: frame and length, a seed, starting settings, the opening as a clip, keyframes
-for any number, switch or colour, captions. The same film is the same video on any machine. It plays in a
+A film is one JSON object: frame and length, a seed, starting settings, and a timeline. On the timeline
+any number, switch or colour moves along keyframes, the scene's layers switch on and off, the opening is a
+clip, its events (the flash, the fronts, the ringing, the gravitational wave) are fired again at any
+second, the scene's own time slows or stops, and captions lie over the picture. Everything the intro
+debugger does with time and layers, a film does. The same film is the same video on any machine. It plays in a
 scene of its own, from the page's defaults, so it never touches the page or anyone's saved settings.
 
 1. Read the format once: `space_guide`.

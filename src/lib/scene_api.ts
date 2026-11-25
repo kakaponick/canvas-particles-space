@@ -11,7 +11,7 @@ import { BUILT_IN_PRESETS, DEFAULT_PRESET, usePresetStore } from '../store/prese
 import { useIntroDebugStore, DEFAULT_TITLE_TEXT, type TitleText } from '../store/intro_debug_store'
 import { BUILT_IN_INTRO_PRESETS, useIntroPresetStore } from '../store/intro_preset_store'
 import { DEFAULT_INTRO_PARAMS, INTRO_PARAM_SPECS, colorToCss, introParamName, type IntroParamKey } from './intro_params'
-import { INTRO_LAYERS, type IntroLayer } from './intro_tracks'
+import { CUE_LAYERS, INTRO_LAYERS, INTRO_LAYER_NOTES, type IntroLayer } from './intro_tracks'
 import { TITLE_FONTS, type TitleFontKey } from './title_sprite'
 import {
   ALL_SETTING_KEYS, INTRO_KEYS, SETTING_KEYS, SLIDERS, TOGGLES, asBoolean, asNumber, clamp, fail, findPreset,
@@ -36,9 +36,11 @@ const HELP = `window.space: the scene for agents. Every call returns plain JSON-
   debug(open?)             open or close the intro debugger; the intro readout is live only while it is open
   readout()                fps, particles, pause state, intro time and phase
   frames(n)                wait for n drawn frames, e.g. after a change and before a screenshot
-  film.guide()             how to write a film: the scene as a 1-180 s video with keyframes and captions
+  film.guide()             how to write a film: the scene as a 1-180 s video on a timeline: keyframes for every
+                           setting, layers switched on and off, the opening's events fired again, slow motion, captions
   film.check(film) / film.preview(film, { at?, frames? }) / film.render(film, { quality?, audio?, download? })
-                           what the film will be, a contact sheet of its frames (base64 JPEG), the mp4 itself
+                           what the film will be with its timeline line by line, a contact sheet of its frames
+                           (base64 JPEG), the mp4 itself
   film.progress() / film.cancel()
 Colours take '#rrggbb'; choices take an option index or its name.`
 
@@ -145,7 +147,8 @@ function setLayers (change?: { hide?: string[], show?: string[], only?: string }
     debug.applySetup(debug.params, debug.title, INTRO_LAYERS.filter(layer => hidden[layer]))
   }
   const { hidden } = useIntroDebugStore.getState()
-  return { layers: INTRO_LAYERS, hidden: INTRO_LAYERS.filter(layer => hidden[layer]) }
+  // `events` are the layers a film can fire again with a cue; `about` says what each layer is
+  return { layers: INTRO_LAYERS, hidden: INTRO_LAYERS.filter(layer => hidden[layer]), events: CUE_LAYERS, about: INTRO_LAYER_NOTES }
 }
 
 function setTitle (patch?: Partial<TitleText>) {
@@ -298,8 +301,12 @@ export const sceneApi = {
         height: plan.height * plan.scale,
         seed: plan.seed,
         intro: plan.introAt === null ? 'left out' : 'starts at ' + plan.introAt + ' s',
-        tracks: plan.tracks.map(track => track.key),
+        tracks: plan.tracks.filter(track => track.target !== 'layers').map(track => track.key),
+        layers: plan.tracks.filter(track => track.target === 'layers').map(track => track.key),
+        cues: plan.cues.length,
         captions: plan.captions.length,
+        // What happens when, one line each, in the order it happens
+        timeline: plan.timeline,
         notes: plan.notes
       }
     },

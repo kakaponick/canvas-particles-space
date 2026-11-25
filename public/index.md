@@ -13,7 +13,7 @@ The page then has `window.space`, and everything is done by running JavaScript i
 - `space.help()` lists every command.
 - `space.describe()` and `space.intro.describe()` list every setting with its range, default and meaning.
 - `space.set({ gravityStrength: 5 })`, `space.reset()` and `space.preset.apply('Schwarzschild')` change the scene.
-- `space.film.guide()` is the format of a film: the scene as an mp4 with keyframes and captions.
+- `space.film.guide()` is the format of a film: the scene as an mp4 on a timeline. Every setting moves along keyframes, layers switch on and off, the opening's events (the flash, the light front, the ringing, the gravitational wave) are fired again at any second, time slows or stops, and captions lie over the picture. `space.film.check(film)` answers with the timeline it understood.
 
 With no browser of your own, write the calls for the person you work for: they open that address and paste them into the browser's console.
 

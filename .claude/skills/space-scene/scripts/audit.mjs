@@ -34,7 +34,7 @@ const source = file => JSON.stringify(path.join(root, 'src', file).replaceAll(pa
 const ENTRY = `
 export { SLIDERS, TOGGLES, SETTING_KEYS, DEVICE_KEYS, ALL_SETTING_KEYS, INTRO_KEYS, parseSettings, parseIntroValue } from ${source('lib/agent_values.ts')}
 export { INTRO_PARAM_SPECS, DEFAULT_INTRO_PARAMS } from ${source('lib/intro_params.ts')}
-export { INTRO_LAYERS, INTRO_TRACKS } from ${source('lib/intro_tracks.ts')}
+export { INTRO_LAYERS, CUE_LAYERS, INTRO_LAYER_NOTES, INTRO_TRACKS } from ${source('lib/intro_tracks.ts')}
 export { TITLE_FONTS } from ${source('lib/title_sprite.ts')}
 export { planFilm, FILM_SIZES, CAPTION_PLACES } from ${source('lib/film.ts')}
 export { useParticleStore } from ${source('store/particle_store.ts')}
@@ -71,7 +71,7 @@ const attempt = (what, work) => {
 const registries = await loadRegistries()
 const {
   SLIDERS, TOGGLES, SETTING_KEYS, DEVICE_KEYS, ALL_SETTING_KEYS, INTRO_KEYS, parseSettings, INTRO_PARAM_SPECS,
-  DEFAULT_INTRO_PARAMS, INTRO_LAYERS, INTRO_TRACKS, TITLE_FONTS, planFilm, FILM_SIZES, CAPTION_PLACES,
+  DEFAULT_INTRO_PARAMS, INTRO_LAYERS, CUE_LAYERS, INTRO_LAYER_NOTES, INTRO_TRACKS, TITLE_FONTS, planFilm, FILM_SIZES, CAPTION_PLACES,
   useParticleStore, BUILT_IN_PRESETS, DEFAULT_PRESET, BUILT_IN_INTRO_PRESETS
 } = registries
 
@@ -159,6 +159,38 @@ for (const key of INTRO_KEYS) {
 }
 attempt('film.intro.hide with every layer', () => planFilm({ duration: 1, intro: { hide: [...INTRO_LAYERS] } }))
 
+// 5b. The timeline: what the intro debugger does with time and layers, a film does too. Every layer is
+// switched along a film and read by the scene, every event of the opening is fired again by a cue and
+// played by the scene, and the scene's time slows, stops and runs ahead
+const stateLayers = INTRO_LAYERS.filter(layer => !CUE_LAYERS.includes(layer))
+for (const layer of INTRO_LAYERS) {
+  if (!INTRO_LAYER_NOTES[layer]) problem(`layer "${layer}" has no line in INTRO_LAYER_NOTES, so describe says nothing about it`)
+  if (!sceneSource.includes(`hidden.${layer}`)) problem(`layer "${layer}" is never read by scene.ts (hidden.${layer}), so switching it does nothing`)
+  const plan = attempt(`film.layers.${layer}`, () => planFilm({ duration: 2, intro: false, layers: { [layer]: [[0, true], [1, false]] } }))
+  if (plan && !plan.timeline.some(line => line.includes(`layer ${layer}`))) problem(`film.layers.${layer} is missing from the film's timeline`)
+}
+for (const layer of CUE_LAYERS) {
+  if (!INTRO_LAYERS.includes(layer)) problem(`event "${layer}" in CUE_LAYERS is not a layer`)
+  if (!sceneSource.includes(`LAYER_BIT.${layer}`)) problem(`event "${layer}" is never played by scene.ts (LAYER_BIT.${layer}), so firing it does nothing`)
+  const plan = attempt(`film.cues with ${layer}`, () => planFilm({ duration: 2, intro: false, cues: [{ at: 1, play: [layer] }] }))
+  if (plan && !plan.timeline.some(line => line.includes(`fires ${layer}`))) problem(`a cue with ${layer} is missing from the film's timeline`)
+}
+const refused = (what, film) => {
+  try {
+    planFilm(film)
+    problem(`${what} was taken, and should be refused with what to do instead`)
+  } catch {
+    // Refused, as it should be
+  }
+}
+for (const layer of stateLayers) refused(`a cue that fires the state "${layer}"`, { duration: 2, intro: false, cues: [{ at: 1, play: [layer] }] })
+refused('a cue inside the opening', { duration: 30, cues: [{ at: 1, play: [CUE_LAYERS[0]] }] })
+attempt('film.cues after the opening', () => planFilm({ duration: 60, cues: [{ at: 50, play: [...CUE_LAYERS], params: { ...DEFAULT_INTRO_PARAMS } }] }))
+for (const speed of [0, 0.1, 4, [[0, 1], [1, 0], [2, 4]]]) {
+  const plan = attempt(`film.speed ${JSON.stringify(speed)}`, () => planFilm({ duration: 2, intro: false, speed }))
+  if (plan && plan.notes.length > 0) problem(`film.speed ${JSON.stringify(speed)}: ${plan.notes.join('; ')}`)
+}
+
 // 6. Presets, sizes and fonts all load
 const presetNames = BUILT_IN_PRESETS.map(preset => preset.name)
 const introPresetNames = BUILT_IN_INTRO_PRESETS.map(preset => preset.name)
@@ -206,6 +238,8 @@ if (process.argv.includes('--keys')) {
   list('Intro choices (set, not keyframed)', choiceKeys)
   list('Intro parameters shadowed in film tracks by a setting of the same name', shadowed)
   list('Intro layers', [...INTRO_LAYERS])
+  list('Layers that are events a film fires again', [...CUE_LAYERS])
+  list('Layers that are states a film only switches', stateLayers)
   list('Presets', presetNames)
   list('Intro presets', introPresetNames)
 }
@@ -216,5 +250,6 @@ if (problems.length > 0) {
   process.exit(1)
 }
 console.log(`Every knob is within reach: ${sliderKeys.length} sliders, ${switchKeys.length} switches, ${otherKeys.length} other settings, ` +
-  `${INTRO_KEYS.length} intro parameters, ${INTRO_LAYERS.length} intro layers, ${presetNames.length} presets, ${introPresetNames.length} intro presets. ` +
+  `${INTRO_KEYS.length} intro parameters, ${INTRO_LAYERS.length} layers a film switches (${CUE_LAYERS.length} of them events it fires again), ` +
+  `${presetNames.length} presets, ${introPresetNames.length} intro presets. ` +
   `The scene reads ${sceneReads.length} settings, all of them settable; knobs.md names every one.`)
