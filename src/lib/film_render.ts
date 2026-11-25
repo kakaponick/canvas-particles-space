@@ -19,6 +19,8 @@ const FRAMES_PER_BREATH = 24
 // Bits per pixel per frame: the field is fine detail in motion, which costs more than ordinary video
 const QUALITY_BITS = { medium: 0.12, high: 0.25, max: 0.45 } as const
 export type FilmQuality = keyof typeof QUALITY_BITS
+// The fastest film the bits are counted for; see where the bitrate is set
+const BITRATE_FPS = 60
 const KEY_FRAME_SECONDS = 2
 const AUDIO_BITRATE = 160_000
 // Longest side of a contact sheet, the most an agent's image reader keeps
@@ -204,7 +206,11 @@ export async function renderFilm (source: unknown, options: RenderOptions = {}) 
     const media = await import('mediabunny')
     const player = await createFilmPlayer(plan, plan.scale)
     const { canvas } = player
-    const bitrate = Math.round(canvas.width * canvas.height * plan.fps * QUALITY_BITS[quality])
+    // The bits are counted for 60 frames a second at most. The browser's software H.264 encoder, the one
+    // that takes 4K and anything above 120 fps, gives every frame what a 60 fps frame gets whatever the
+    // rate, so the file grows with the rate by itself, and it refuses a budget above about 300 Mbit/s;
+    // a hardware encoder spreads the same budget over the faster frames
+    const bitrate = Math.round(canvas.width * canvas.height * Math.min(plan.fps, BITRATE_FPS) * QUALITY_BITS[quality])
 
     try {
       const format = new media.Mp4OutputFormat({ fastStart: 'in-memory' })

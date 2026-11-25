@@ -12,8 +12,9 @@ that a viewer sees what was meant, and what has already gone wrong once.
 5. Captions and titles
 6. Sound
 7. Checking before rendering
-8. Recipes that are not in the guide
-9. Films to start from
+8. High frame rates
+9. Recipes that are not in the guide
+10. Films to start from
 
 ## 1. Start from the picture, not from the keys
 
@@ -106,7 +107,23 @@ takes an audio file and lays it under the picture from the first second.
 - Rendered mp4 and audio files in `films/` are kept out of git; the json is the film. On Windows a render
   fails to replace an mp4 that a player still has open.
 
-## 8. Recipes that are not in the guide
+## 8. High frame rates
+
+`fps` goes up to 240. Web players stop at 60, so a faster film is for a display that fast or for slow
+motion: a 120 fps film played at 30 is the whole scene four times slower.
+
+- The scene is stepped once a frame there. It is the same motion as the 60 fps film, not the same
+  frames: stars and particles are born at other moments.
+- 4K and anything above 120 fps is encoded by the browser's software encoder, which is slow and gives
+  every frame the bits of a 60 fps frame. Measured on this machine at the default quality: 4K at 120 fps
+  is about 240 Mbit/s, 4K at 180 fps 320 to 365 Mbit/s, rendered at 20 to 30 frames a second. A 20 s film
+  in 4K at 180 fps took 168 s and came to 0.8 GB.
+- The file is put together in the tab's memory. 0.8 GB works; nothing larger was tried, so keep a 4K
+  film above 60 fps under half a minute, or render it at the `medium` quality.
+- The stream names H.264 level 5.2 though its rate is above that level. Chrome and desktop players play
+  it; a strict hardware decoder may refuse.
+
+## 9. Recipes that are not in the guide
 
 Long exposure, the hole drawing with its own pull:
 
@@ -136,7 +153,7 @@ The opening in slow motion: `lightCrossTime` at its top, `matterSpeed` low, and 
 (`remnantAt`, `horizonAt`, `dissolveAt`, `releaseAt`, `introEnd`) moved out to match, so the light takes
 seconds to cross the frame.
 
-## 9. Films to start from
+## 10. Films to start from
 
 In `films/`: `showreel.json` is a 50-second tour with labels (the opening, a zoom, the lens by keyframes,
 orbits, the sheet, a merger); `exposure.json`, `rosette.json`, `graph_paper.json`, `rapid.json` and

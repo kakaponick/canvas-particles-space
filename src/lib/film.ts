@@ -26,7 +26,8 @@ const FILM_SCALES = [0.5, 1, 1.5, 2]
 const MIN_DURATION = 0.5
 const MAX_DURATION = 180
 const MIN_FPS = 12
-const MAX_FPS = 60
+// Up to 60 for the web; above it for a fast display, or to slow the film down afterwards
+const MAX_FPS = 240
 const MIN_SIDE = 240
 const MAX_SIDE = 3840
 // Device pixels of one frame: 4K
@@ -383,7 +384,7 @@ export const FILM_GUIDE = `A film is one JSON object; the scene renders it to an
 
 {
   "duration": 12,            seconds, ${MIN_DURATION}-${MAX_DURATION}
-  "fps": 30,                 ${MIN_FPS}-${MAX_FPS}
+  "fps": 30,                 ${MIN_FPS}-${MAX_FPS}; above 60 for a fast display or slow motion, and the file grows with it
   "size": "1080p",           ${Object.keys(FILM_SIZES).join(' | ')}; or "width" and "height"
   "scale": 1,                video pixels per scene pixel: ${FILM_SCALES.join(' | ')} (2 on 1080p gives 4K)
   "seed": 1,                 another seed, another field of stars
