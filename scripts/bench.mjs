@@ -311,19 +311,23 @@ async function step (trees) {
 }
 
 // The films compared when none is named: every film of the scene in films/, which leaves out the zooms
-// into the Mandelbrot set and the reels
+// into the Mandelbrot set, by their names, and the reels, by their clips: a reel is named as its maker
+// likes, and its clips are compared as the films they are
 const SCENE_FILM = /\.(json|js)$/
 const OTHER_FILM = /mandelbrot|reel/
+const isReel = film => typeof film === 'object' && Array.isArray(film.clips)
 
 function readFilms (files) {
   const folder = path.join(root, 'films')
-  const named = files.length > 0
-    ? files.map(file => path.resolve(file))
-    : fs.readdirSync(folder).filter(name => SCENE_FILM.test(name) && !OTHER_FILM.test(name)).map(name => path.join(folder, name))
-  return named.map(file => {
+  const read = file => {
     const text = fs.readFileSync(file, 'utf8')
     return { name: path.relative(root, file).replaceAll(path.sep, '/'), film: file.endsWith('.json') ? JSON.parse(text) : text }
-  })
+  }
+  if (files.length > 0) return files.map(file => read(path.resolve(file)))
+  return fs.readdirSync(folder)
+    .filter(name => SCENE_FILM.test(name) && !OTHER_FILM.test(name))
+    .map(name => read(path.join(folder, name)))
+    .filter(({ film }) => !isReel(film))
 }
 
 // builds: [{ label, dist }], the commit before the change first when there are two
