@@ -7,7 +7,7 @@ import {
   DEFAULT_SHEET_FRAMES, MAX_SHEET_FRAMES, checkCancelled, createSheet, encodeVideo, exclusively, framesAt, progress,
   readQuality, sheetLayout, type PreviewOptions, type RenderOptions
 } from './film_render'
-import { drawCaptions, loadCaptionFonts, type CaptionFrame, type CaptionPlan } from './film_captions'
+import { drawCaptions, loadCaptionFonts, spotFrame, type CaptionPlan } from './film_captions'
 import { trackValue } from './film'
 import { FRACTAL_TRACK_KEYS, fractalView, planFractal, type FractalFrameView, type FractalPlan } from './fractal'
 import { magnification } from './fractal_catalog'
@@ -59,10 +59,7 @@ function captionPlan (plan: FractalPlan) {
     settings: numbers,
     params: {}
   }
-  const frame: CaptionFrame = {
-    letterbox: 0, cameraZoom: 1, holeX: plan.width / 2, holeY: plan.height / 2, horizon: plan.height * POINTER_RADIUS,
-    einstein: 0, companionRadius: 0, companionX: 0, companionY: 0, shakeX: 0, shakeY: 0, zoomX: 0, zoomY: 0
-  }
+  const frame = spotFrame(plan.width / 2, plan.height / 2, plan.height * POINTER_RADIUS)
   const update = (view: FractalFrameView) => {
     numbers.depth = view.depth
     numbers.steps = view.maxIter

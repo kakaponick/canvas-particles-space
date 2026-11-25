@@ -15,6 +15,15 @@ export type CaptionFrame = Pick<CompositeSettings, 'letterbox' | 'cameraZoom' | 
   'companionRadius' | 'companionX' | 'companionY' | 'shakeX' | 'shakeY' | 'zoomX' | 'zoomY'>
 import { captionLetters, writeNumber, type CaptionRun } from './caption_text'
 
+// The frame of a picture with no black hole: a caption that points aims at a round spot of `radius` pixels
+// at x, y, as a fractal film's captions aim at its target
+export function spotFrame (x: number, y: number, radius: number): CaptionFrame {
+  return {
+    letterbox: 0, cameraZoom: 1, holeX: x, holeY: y, horizon: radius,
+    einstein: 0, companionRadius: 0, companionX: 0, companionY: 0, shakeX: 0, shakeY: 0, zoomX: 0, zoomY: 0
+  }
+}
+
 const LINE_HEIGHT = 1.3
 // Shares of the frame's short side: room kept from the frame's edges, and how far a label stands from
 // what it points at
