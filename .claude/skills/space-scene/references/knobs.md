@@ -507,7 +507,12 @@ the wheel. They do nothing in a film, and the first three are in no preset.
 
 The opening is a star that explodes, light and matter fronts crossing the frame, a core that collapses, a
 black hole that forms, rings and sends a gravitational wave, and a title that the hole takes. Times are
-seconds from its start; everything after the explosion counts from `collapseAt`.
+seconds from its start. Only the explosion's own events count from `collapseAt`: the glare, the light and
+matter fronts, the echo, the camera's kick and shake. The moments after it are seconds of the opening too
+and stay where they are when `collapseAt` moves, so an explosion moved by some seconds takes `remnantAt`,
+`horizonAt`, `dissolveAt`, `releaseAt` and `introEnd` with it by as many (and `titleInAt`, when the title
+has an entrance of its own): left behind, the opening still ends at its old second, and the shadow can
+form before the star has exploded.
 
 | Track | Parameters |
 |---|---|

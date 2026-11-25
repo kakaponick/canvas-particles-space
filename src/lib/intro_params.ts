@@ -247,7 +247,7 @@ export const cssToColor = (css: string) => Number.parseInt(css.slice(1), 16) || 
 // Range, unit and meaning of every tunable number, keyed by parameter
 export const INTRO_PARAM_SPECS = Object.fromEntries([
   spoken(p('starChargeStart', 'Appears', 0, 3, 0.05, 's', 'When the star starts to brighten', 'When the star starts to brighten.'), 'Star Appears'),
-  p('collapseAt', 'Explosion', 0.1, 4, 0.05, 's', 'When the star explodes', 'When the star explodes. Every later event of the explosion counts from here.'),
+  p('collapseAt', 'Explosion', 0.1, 4, 0.05, 's', 'When the star explodes', 'When the star explodes. The glare, the light and matter fronts, the echo and the camera\'s kick and shake count from here. The core\'s fading, the shadow, the title\'s leaving, the release and the end keep their own seconds of the opening: to move the explosion, move them by as much.'),
   spoken(p('starPeakGlow', 'Peak Glow', 0, 5, 0.05, '×', 'Star brightness just before it explodes', 'Brightness of the star just before it explodes.'), 'Star Peak Glow'),
   spoken(p('starRadiusStart', 'Size at Start', 0, 0.05, 0.001, 'share', 'Glow radius at start, % of short side', 'Glow radius when the star appears.'), 'Star Size at Start'),
   spoken(p('starRadiusGrowth', 'Size Growth', 0, 0.05, 0.001, 'share', 'Glow growth to the blast, % of short side', 'How much the glow grows until the explosion.'), 'Star Size Growth'),
