@@ -79,23 +79,14 @@ Baseline at e9c18fc, measured with the method above:
 
 `window.space` (`src/lib/scene_api.ts`) reads and changes every simulation setting and intro parameter and drives the intro timeline. It is loaded in development, and on a deployed build only with `?agent` in the address, as a separate chunk that other visitors never download.
 
+How an agent uses it is the `space-scene` skill (`.claude/skills/space-scene/`): driving the page, making films, the map of every knob by the law it belongs to (`references/knobs.md`), film craft (`references/films.md`), the MCP tools from a shell (`scripts/space.mjs`) and the audit of what agents reach (`scripts/audit.mjs`). Each fact has one home, so nothing is written twice: ranges and meanings are in the specs and read through `describe`, the page's commands in `help()`, the film format in `FILM_GUIDE`, what belongs together and how to use it in the skill, the rules for the code here.
+
 The browser comes from the `chrome-devtools` MCP server in `.mcp.json` ([chrome-devtools-mcp](https://github.com/ChromeDevTools/chrome-devtools-mcp)). It opens its own Chrome window with a persistent profile, separate from the user's browser, so the agent's changes never touch the user's saved settings. Its flags keep the scene rendering while the window is covered or in the background.
-
-1. `navigate_page` to https://space.xn--c6t.net/?agent, or to `http://localhost:5173/` for the dev server, or to a Vercel preview with `?agent`.
-2. `evaluate_script` with `() => window.space.help()` lists every command. Call them the same way, for example:
-   - `() => window.space.describe('lens')`;
-   - `() => window.space.set({ blackHoleSize: 12 })`;
-   - `() => window.space.intro.preset.apply('Nebula')`;
-   - `async () => window.space.frames(60)` to let the change settle.
-3. `take_screenshot` shows the result: the scene, and the panels when they are open. `evaluate_script` and `click` reach the UI itself.
-
-To work in the user's own open Chrome instead, run the server with `--autoConnect` (Chrome 144+, after the user turns on remote debugging at `chrome://inspect/#remote-debugging`); changes then land in the user's own saved settings.
 
 - A setting or parameter is described once: simulation sliders in `src/lib/simulation_specs.ts` (the Settings panel builds from it), intro parameters in `INTRO_PARAM_SPECS`. A new setting goes there, and both the panel and the agent API pick it up.
 - Every length around the black hole is in black hole radii (Event Horizon, Gravity Reach, Einstein Radius, Orbit Size, the second black hole's Size and Distance), so Black Hole Size alone scales the hole and nothing has to be kept in step with it. A new such setting follows the same rule. `preset.apply('Schwarzschild')` is the physically faithful setup (`SCHWARZSCHILD_PRESET` in `src/store/preset_store.ts`): a point-mass lens with its mirrored image inside the Einstein ring, no twist, capture at the shadow's edge. Default is tuned for the look instead.
 - `set` and `intro.set` check every value, put it on its slider's step within range and apply the whole patch in one store update; an unknown key fails with the closest names. `reset` and `intro.reset` bring back the defaults.
-- `frames` needs a visible tab with the scene running; a paused scene draws no frames and the call fails with that reason. A paused intro timeline freezes the particle field: after `intro.seek` play or step before a screenshot of the particles at the new moment.
-- The intro readout in `readout()` is live only while the intro debugger is open (`debug(true)`).
+- **A change to the knobs ends with the audit.** After a setting, an intro parameter, a layer or a preset is added, renamed or removed, `node .claude/skills/space-scene/scripts/audit.mjs` must print no problem: it loads the registries and checks that `set` takes every key, that the scene reads no setting an agent cannot write, that a film takes every setting and moves every number, switch and colour along a track, and that the skill's map names every key and none that is gone.
 
 ## Films
 
@@ -103,6 +94,6 @@ A film is the scene as a 1-180 s mp4, described by one JSON object: frame and le
 
 - **The `space` MCP server** (`mcp/space_mcp.mjs`, in `.mcp.json`) is how an agent makes one: `space_guide`, `space_describe`, `space_preview` (a contact sheet of frames) and `space_render` (the mp4, with an optional audio file under it). It serves `dist/` from this machine and keeps one headless Chrome on it, so run `pnpm build` after changing the page. It has no dependencies: JSON-RPC lines on stdio, the browser over its DevTools socket. The page does the work through `window.space.film` (`check`, `preview`, `render`, `progress`, `cancel`), which also works from the console of any page with `?agent`.
 - **A film plays in a scene of its own** (`src/lib/film_render.ts`): a second `createScene` on a canvas of the film's size, stepped by a fixed `dt` with no clock, so the page's scene and its saved settings are never touched and a slow machine draws the same frames as a fast one. It starts from the page's defaults, never from this browser's settings. Motion is stepped at about 60 Hz whatever the film's frame rate (`frame.present` is false for the steps between two frames). The same seed gives the same frames; a preview frame is the frame the render makes.
-- **`planFilm` checks a film against the same registries as `window.space`** (`src/lib/agent_values.ts`): a new simulation setting or intro parameter is settable and animatable in films as soon as it is in its spec. A setting that is not a slider needs a line in `parseSettings`.
+- **`planFilm` checks a film against the same registries as `window.space`** (`src/lib/agent_values.ts`): a new simulation setting or intro parameter is settable and animatable in films as soon as it is in its spec. A setting that is not a slider needs a line in `parseSettings`, and one in `readTracks` to move along a track: a switch flips at its key's second (`TRACK_SWITCHES`), the palette is set and never moved.
 - **Captions are drawn over the finished frame** on a 2D canvas (`src/lib/film_captions.ts`), never in the scene: the page has no captions. Encoding is WebCodecs through `mediabunny`, imported only when a film is rendered, so visitors never download it.
 - Verify a film change by rendering: `space_preview` twice with one seed must give the same picture, and an mp4 must play (`<video>` in Chrome, or mediabunny's `Input` in Node for its tracks).

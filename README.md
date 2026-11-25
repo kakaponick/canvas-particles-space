@@ -98,6 +98,9 @@ audio track. The same film is the same video on any machine.
 - **For AI agents**: the `space` MCP server (`mcp/space_mcp.mjs`, listed in `.mcp.json`) has four tools:
   `space_guide` (the format and recipes), `space_describe` (what can be set), `space_preview` (frames of the film
   side by side) and `space_render` (the mp4). Run `pnpm build` first; it needs Node 22+ and Chrome, Chromium or Edge.
+  The `space-scene` skill in `.claude/skills/` is the manual that goes with them: every setting by the physical
+  law it belongs to, how to drive the live page through `window.space`, how to make a film that reads, the same
+  four tools from a shell (`scripts/space.mjs`) and a check that agents reach every knob (`scripts/audit.mjs`).
 - **By hand**: open the page with `?agent` and call `await space.film.render(film, { download: 'film.mp4' })`
   in the console; `space.film.guide()` prints the format.
 - **A film to start from**: `films/showreel.json` is a 50 s tour of what a film can do (the opening with its own

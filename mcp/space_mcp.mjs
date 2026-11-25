@@ -160,13 +160,14 @@ async function openStudio () {
     'about:blank'
   ], { stdio: ['ignore', 'ignore', 'pipe'] })
 
+  // The profile goes with the browser. The browser lets go of its files a moment after it is killed, so
+  // the removal retries, and it is done before this returns: the server exits right after closing, and a
+  // timer set here would never fire
   const close = () => {
     studio = null
     try { chrome.kill() } catch {}
     server.close()
-    setTimeout(() => {
-      try { fs.rmSync(profile, { recursive: true, force: true }) } catch {}
-    }, 500).unref()
+    try { fs.rmSync(profile, { recursive: true, force: true, maxRetries: 20, retryDelay: 150 }) } catch {}
   }
 
   try {
@@ -247,7 +248,7 @@ const inPage = (call, ...args) => `window.space.${call}(${args.map(arg => JSON.s
 
 const round = (value) => typeof value === 'number' ? Number(value.toFixed(4)) : value
 
-function describeText (settings, intro, presets, introPresets, filter) {
+function describeText (settings, intro, presets, introPresets, layers, filter) {
   const full = Boolean(filter)
   const lines = []
   const about = entry => full ? entry.description : entry.hint ?? entry.description
@@ -263,12 +264,12 @@ function describeText (settings, intro, presets, introPresets, filter) {
   }
   const toggles = settings.toggles.filter(entry => !filmless.includes(entry.key))
   if (toggles.length > 0) {
-    lines.push('SWITCHES  true or false, in "settings"')
+    lines.push('SWITCHES  true or false, in "settings"; in "tracks" a switch flips at its second')
     for (const entry of toggles) lines.push(`  ${entry.key}  default ${entry.default}  ${entry.description}`)
   }
   const other = settings.other.filter(entry => !filmless.includes(entry.key))
   if (other.length > 0) {
-    lines.push('OTHER  in "settings"')
+    lines.push('OTHER  in "settings"; the background channels also in "tracks"')
     for (const entry of other) lines.push(`  ${entry.key}  ${entry.description}`)
   }
   if (intro.length > 0) {
@@ -285,7 +286,7 @@ function describeText (settings, intro, presets, introPresets, filter) {
   if (!full) {
     lines.push(`PRESETS  "preset": ${presets.map(preset => preset.name).join(' | ')}`)
     lines.push(`INTRO PRESETS  "intro.preset": ${introPresets.map(preset => preset.name).join(' | ')}`)
-    lines.push(`INTRO LAYERS  "intro.hide": star, glare, light, echo, stars, shockwave, reveal, burst, remnant, ringdown, gravityWave, title, hole, lens, ring, gravity, doppler, camera`)
+    lines.push(`INTRO LAYERS  "intro.hide": ${layers.join(', ')}`)
     lines.push('Give a filter word for the full meaning of the keys that match it.')
   }
   return lines.length > 0 ? lines.join('\n') : `Nothing matches "${filter}". Call space_describe without a filter for every key.`
@@ -299,13 +300,14 @@ async function runTool (name, args, report) {
 
   if (name === 'space_describe') {
     const filter = typeof args.filter === 'string' && args.filter.trim() !== '' ? args.filter.trim() : undefined
-    const [settings, intro, presets, introPresets] = await Promise.all([
+    const [settings, intro, presets, introPresets, layers] = await Promise.all([
       page.evaluate(filter ? inPage('describe', filter) : 'window.space.describe()'),
       page.evaluate(filter ? inPage('intro.describe', filter) : 'window.space.intro.describe()'),
       page.evaluate('window.space.preset.list().presets'),
-      page.evaluate('window.space.intro.preset.list().presets')
+      page.evaluate('window.space.intro.preset.list().presets'),
+      page.evaluate('window.space.intro.layers().layers')
     ])
-    return text(describeText(settings, intro, presets, introPresets, filter))
+    return text(describeText(settings, intro, presets, introPresets, layers, filter))
   }
 
   if (name === 'space_preview') {

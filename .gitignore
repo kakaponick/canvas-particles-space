@@ -30,3 +30,6 @@ dist-ssr
 films/*.mp4
 films/*.wav
 films/voice/
+
+# Test runs of the agent skills; the skills themselves are tracked
+.claude/skills/*-workspace/

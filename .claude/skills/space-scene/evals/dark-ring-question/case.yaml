@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: dark-ring-question
+expected_outcome: |
+  An answer in Russian that names the ring's light knobs (ringBase, ringFeed or ringFeedEnabled, ringBrightness) and the particles' brightness knobs (speedGlow, baseBrightness), gives their real ranges as the scene describes them, says that a negative gravityStrength pushes particles away (range -20..50), and changes nothing.

@@ -11,7 +11,7 @@ import { DEFAULT_INTRO_PARAMS, INTRO_PARAM_SPECS, type IntroParamKey, type Intro
 import { INTRO_LAYERS, type IntroLayer } from './intro_tracks'
 import { TITLE_FONTS, type TitleFontKey } from './title_sprite'
 import {
-  INTRO_KEYS, SETTING_KEYS, SLIDERS, asBoolean, asNumber, clamp, fail, findPreset, parseIntroValue, parseSettings,
+  INTRO_KEYS, SETTING_KEYS, SLIDERS, TOGGLES, asBoolean, asNumber, clamp, fail, findPreset, parseIntroValue, parseSettings,
   unknownKey, type Patch
 } from './agent_values'
 
@@ -66,6 +66,8 @@ export interface FilmTrack {
   target: 'settings' | 'params'
   // A colour moves channel by channel
   color: boolean
+  // A switch: its values are 0 and 1, and it flips at a key's second instead of moving towards it
+  toggle: boolean
   times: number[]
   values: number[]
   // How the value arrives at each key from the one before
@@ -106,6 +108,8 @@ function takeKnown (source: Patch, known: readonly string[], where: string) {
 const FILM_KEYS = ['duration', 'fps', 'size', 'width', 'height', 'scale', 'seed', 'preset', 'settings', 'intro', 'warmup', 'tracks', 'captions']
 const INTRO_FILM_KEYS = ['at', 'preset', 'params', 'title', 'font', 'uppercase', 'hide']
 const CAPTION_KEYS = ['text', 'from', 'to', 'at', 'angle', 'size', 'color', 'font', 'fade']
+// The switches a film can flip along its tracks; it has no cursor for the black hole to follow
+const TRACK_SWITCHES = SETTING_KEYS.filter(key => key in TOGGLES && key !== 'blackHoleFollowing')
 
 function inRange (key: string, value: unknown, min: number, max: number, notes: string[]) {
   const number = asNumber(key, value)
@@ -173,16 +177,21 @@ function readKeyframes (key: string, source: unknown, duration: number, read: (v
 function readTracks (source: unknown, duration: number, notes: string[]): FilmTrack[] {
   if (source === undefined) return []
   if (!isObject(source)) fail('tracks take an object: { settingKey: [[seconds, value], ...] }')
-  const known = [...Object.keys(SLIDERS), 'backgroundR', 'backgroundG', 'backgroundB', ...INTRO_KEYS]
+  const known = [...Object.keys(SLIDERS), ...TRACK_SWITCHES, 'backgroundR', 'backgroundG', 'backgroundB', ...INTRO_KEYS]
   return Object.entries(source).map(([key, keyframes]) => {
     const slider = SLIDERS[key]
     if (slider) {
       const read = (value: unknown) => inRange(`tracks.${key}`, value, slider.min, slider.max, notes)
-      return { key, target: 'settings' as const, color: false, ...readKeyframes(key, keyframes, duration, read) }
+      return { key, target: 'settings' as const, color: false, toggle: false, ...readKeyframes(key, keyframes, duration, read) }
+    }
+    if (TRACK_SWITCHES.includes(key)) {
+      return { key, target: 'settings' as const, color: false, toggle: true, ...readKeyframes(key, keyframes, duration, value => asBoolean(`tracks.${key}`, value) ? 1 : 0) }
     }
     if (key === 'backgroundR' || key === 'backgroundG' || key === 'backgroundB') {
-      return { key, target: 'settings' as const, color: false, ...readKeyframes(key, keyframes, duration, value => inRange(`tracks.${key}`, value, 0, 255, notes)) }
+      return { key, target: 'settings' as const, color: false, toggle: false, ...readKeyframes(key, keyframes, duration, value => inRange(`tracks.${key}`, value, 0, 255, notes)) }
     }
+    if (key === 'colorPalette') fail('tracks.colorPalette: the palette cannot move along keyframes; set it in settings')
+    if (key === 'blackHoleFollowing') fail('tracks.blackHoleFollowing: a film has no cursor to follow; move the black hole with blackHoleX and blackHoleY')
     if (!(key in DEFAULT_INTRO_PARAMS)) unknownKey(key, known)
     const spec = INTRO_PARAM_SPECS[key as IntroParamKey]
     if (spec.options) fail(`tracks.${key}: a choice cannot move along keyframes; set it in intro.params`)
@@ -190,6 +199,7 @@ function readTracks (source: unknown, duration: number, notes: string[]): FilmTr
       key,
       target: 'params' as const,
       color: spec.color === true,
+      toggle: false,
       ...readKeyframes(key, keyframes, duration, value => parseIntroValue(key as IntroParamKey, value))
     }
   })
@@ -342,6 +352,7 @@ function trackValue (track: FilmTrack, time: number) {
   if (time >= times[last]) return values[last]
   let next = 1
   while (times[next] < time) next++
+  if (track.toggle) return time < times[next] ? values[next - 1] : values[next]
   const span = times[next] - times[next - 1]
   const share = easeShare(span > 0 ? (time - times[next - 1]) / span : 1, eases[next])
   return track.color
@@ -351,11 +362,12 @@ function trackValue (track: FilmTrack, time: number) {
 
 // Writes every track's value at this second of the film into the plan's settings and intro parameters
 export function applyTracks (plan: FilmPlan, time: number) {
-  const settings = plan.settings as unknown as Record<string, number>
+  const settings = plan.settings as unknown as Record<string, number | boolean>
   const params = plan.params as unknown as Record<string, number>
   for (const track of plan.tracks) {
     const value = trackValue(track, time)
-    if (track.target === 'settings') settings[track.key] = value
+    if (track.toggle) settings[track.key] = value === 1
+    else if (track.target === 'settings') settings[track.key] = value
     else params[track.key] = value
   }
 }
@@ -383,7 +395,9 @@ export const FILM_GUIDE = `A film is one JSON object; the scene renders it to an
                              film opens on the running scene; "title": false drops the words
   "tracks": { "blackHoleSize": [[0, 6], [4, 14], [9, 14, "linear"]] },
                              keyframes [seconds, value, ease?] for any numeric setting or intro parameter;
-                             ease is how the value arrives: ease (default) | linear | in | out | hold
+                             ease is how the value arrives: ease (default) | linear | in | out | hold.
+                             A switch takes true or false and flips at its second. "cameraZoom" here is the
+                             Zoom setting; the opening's own camera of that name is set in intro.params
   "captions": [{ "text": "Event horizon", "from": 2, "to": 6, "at": "hole" }]
                              at: bottom (default) | top | center | [x, y] shares of the frame | hole | einstein |
                              companion; the last three point a line at the shadow's edge, the Einstein ring

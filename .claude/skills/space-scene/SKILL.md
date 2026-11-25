@@ -1,0 +1,140 @@
+---
+name: space-scene
+description: The working manual for the black-hole particle scene of this repository, for agents. It maps every knob of the simulation's physics (flight, gravity, capture, the lens, the photon ring, orbiting stars, a second black hole and gravitational waves, the space grids, the camera, the opening) to the three ways an agent reaches it - window.space on the live page, films through the space MCP server, and the code. Use it whenever a task is to set up, change, screenshot or explain the scene from outside its UI, to pick values for a physical effect, to make, edit, preview or render a film or video ("ролик", "видео", "покажи", "настрой сцену"), or to add or rename a setting, an intro parameter, a layer or a preset - also when the request names none of these and only describes a picture or a motion it wants to see.
+---
+
+# The space scene, for agents
+
+The scene is a WebGL flight of particles through space around a black hole. Everything it can do is a
+number, a switch, a colour or a choice in one of two registries: simulation settings and the parameters of
+the opening. An agent reaches all of them, and this skill is how.
+
+## One home for each fact
+
+Do not answer from memory, and do not copy ranges into notes: the scene describes itself, and what it says
+is always current.
+
+| You need | Ask |
+|---|---|
+| A key's range, default, unit, full meaning | `describe` with a filter word: `window.space.describe('lens')` on the page, `space_describe` for films |
+| The commands of the live page | `window.space.help()` |
+| The film format and ready recipes | `space_guide`, or `window.space.film.guide()` |
+| Which keys belong to one physical effect, how they act on each other, the traps | [references/knobs.md](references/knobs.md) |
+| How to make a film that reads well, and what went wrong before | [references/films.md](references/films.md) |
+| The rules for changing the code (frame time, invariants, measuring) | `CLAUDE.md` at the repository root |
+
+## From a wish to a knob
+
+A request rarely names a key. It says "make the hole heavier", "show how light bends", "let two of them
+merge". Work from the effect:
+
+1. Find the law in [references/knobs.md](references/knobs.md): it is organised by what happens physically,
+   and each section lists the keys that take part and what they do to each other.
+2. Call `describe` with a word from that section to get the exact ranges and meanings.
+3. Set the values, look at the result, adjust. A picture is the only proof: a value that passed the check
+   can still show nothing, because another knob gates it (a lens on a black sky, a ring with nothing
+   falling in, particles that do not move and so are not drawn).
+
+Every length around the black hole is in black hole radii, so `blackHoleSize` alone scales it and nothing
+has to be kept in step.
+
+## Three ways in
+
+Pick by what the task leaves behind.
+
+### A look at the scene as it runs: the live page
+
+`window.space` reads and changes every setting and intro parameter and drives the opening's timeline. It is
+loaded in development and on any build opened with `?agent`.
+
+1. Open the page with a browser tool. The `chrome-devtools` MCP server of this repository opens its own
+   Chrome with its own profile: `navigate_page` to `http://localhost:5173/` (the dev server, `pnpm dev`)
+   or to `https://space.xn--c6t.net/?agent`.
+2. `evaluate_script` with `() => window.space.set({ blackHoleSize: 12 })`, and the same way for every
+   command `help()` lists. `set` and `intro.set` check every value, move it onto its slider's step and
+   report what they moved in `clamped`; an unknown key fails with the closest names.
+3. `async () => window.space.frames(60)` lets the change settle; `take_screenshot` shows it.
+
+What trips an agent here:
+
+- `frames` needs a visible tab with the scene running; a paused scene draws nothing and the call says so.
+- A paused intro timeline freezes the particle field. After `intro.seek`, play or step before a
+  screenshot of the particles at that moment.
+- The intro part of `readout()` is live only while the debugger is open: `debug(true)`.
+- Setting `blackHoleX` or `blackHoleY` anchors the hole; `blackHoleFollowing: true` hands it back to the
+  cursor.
+- The page saves its settings in the browser it runs in. In the MCP server's own Chrome that touches
+  nobody. To work in the user's own open Chrome instead, the server runs with `--autoConnect` (Chrome 144+,
+  after the user turns on remote debugging at `chrome://inspect/#remote-debugging`); changes then land in
+  their saved settings, so put back what you changed with `reset` and `intro.reset` unless the change was
+  the task.
+- If the browser tool reports that its browser is already running, somebody else holds that profile. Leave
+  it alone and use a film instead: it needs no shared browser.
+- The live scene has a random seed and a cursor. For a picture that must come out the same twice, make a
+  film.
+
+### A video, or a picture that repeats: a film
+
+A film is one JSON object: frame and length, a seed, starting settings, the opening as a clip, keyframes
+for any number, switch or colour, captions. The same film is the same video on any machine. It plays in a
+scene of its own, from the page's defaults, so it never touches the page or anyone's saved settings.
+
+1. Read the format once: `space_guide`.
+2. Write the film as a `.json` file. Films of this project live in `films/`; a throwaway goes to a temp
+   folder.
+3. `space_preview` draws its frames side by side. Ask for the seconds where something changes, not an even
+   spread, and look at the picture before rendering.
+4. `space_render` writes the mp4 and reports what it adjusted. Read that line: a value moved into range is
+   a value you got wrong.
+
+If the session has no `space_*` tools, the same four are a script away, run from anywhere in the
+repository:
+
+```
+node .claude/skills/space-scene/scripts/space.mjs guide
+node .claude/skills/space-scene/scripts/space.mjs describe orbit
+node .claude/skills/space-scene/scripts/space.mjs preview films/waltz.json out/waltz.jpg 4,12,29.5,31
+node .claude/skills/space-scene/scripts/space.mjs render films/waltz.json films/waltz.mp4 high
+```
+
+Both the server and the script serve `dist/`, so run `pnpm build` after any change to the page; without it
+they draw the old scene and reject keys the code already has.
+
+Read [references/films.md](references/films.md) before writing a film longer than a single shot.
+
+### A new ability: the code
+
+When the effect asked for is not a combination of existing knobs (section 16 of the map lists what is
+fixed in code), it is a code change, under the rules of `CLAUDE.md`. A knob is described once and
+everything else follows from that description:
+
+- A numeric simulation setting: a field with its default in `src/store/particle_store.ts`, its key in
+  `SIMULATION_SETTING_KEYS` (`src/lib/simulation_presets.ts`), its spec in `SIMULATION_SETTING_SPECS`
+  (`src/lib/simulation_specs.ts`: label, range, step, unit, a hint of at most 42 characters, the full
+  description). The Settings panel, `window.space`, presets and films all pick it up from there.
+- A switch, a colour or anything else that is not a slider also needs its line in `TOGGLES` or
+  `parseSettings` (`src/lib/agent_values.ts`), and in `readTracks` (`src/lib/film.ts`) if a film should
+  move it.
+- An intro parameter: its default in `DEFAULT_INTRO_PARAMS`, its spec in `INTRO_PARAM_SPECS`
+  (`src/lib/intro_params.ts`), its place on a track in `INTRO_TRACKS` (`src/lib/intro_tracks.ts`).
+- A length around the hole is in black hole radii, like the rest.
+- Add the key to [references/knobs.md](references/knobs.md), in the section of its law, with what it does
+  to its neighbours.
+
+Then prove that agents reach it:
+
+```
+node .claude/skills/space-scene/scripts/audit.mjs
+```
+
+The audit loads the registries themselves and checks that `set` takes every key, that every slider's
+default sits on its range, that the scene reads no setting an agent cannot write, that a film takes every
+setting, moves every number, switch and colour along a track and loads every preset, and that the map
+names every key and none that is gone. A change to the knobs is done when it prints no problem; `--keys`
+lists every key by kind.
+
+## What to report
+
+Say what was set and where the result is (the screenshot, the film's json and mp4 as paths), repeat
+anything the scene adjusted, and name what was not looked at. If the picture did not show the effect and a
+gating knob had to be raised, say which one: that is what the next request will need.
