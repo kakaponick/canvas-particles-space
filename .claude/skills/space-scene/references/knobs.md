@@ -413,6 +413,9 @@ and `frameDrag` above 0 and particles within a few radii; the sky's lean needs `
   no track for it. At 0, the default, `ringSide` and `ringDoppler` are what is set, and a film drives them
   along the tilt (films.md, section 10): the approaching side lies at 180° plus `spinAxis`, and the
   contrast a real hole shows grows as the sine of `spinTilt`. A hole without spin keeps the settings.
+  Under Follow Spin the contrast is still `ringDoppler` times that sine: at the default 0.2 the ring of a
+  fast-spinning hole stays nearly even, and about 0.9 shows a bright and a dim side. Raised from the start
+  of a film it lights the sides of holes that do not spin yet, so a merger raises it along a track.
 - The `Kerr` preset is the `Schwarzschild` preset (section 15 says what that sets) spinning near its
   fastest, seen nearly side-on, with the ring's bright side on the flat side.
 
@@ -456,7 +459,10 @@ should reach the shadow's edge is drawn with `lensingEnabled` false (or under th
   the lens stands where the 3D camera circles (section 11) and comes nearer as `cameraMoveIn` brings the
   camera in. A larger hole is then seen from nearer, with a smaller ring and a wider warp of the sky;
   `cameraZoom` is a longer lens and leaves the lens as it is. `lensingRadius` stays the switch.
-- On a dark sky the lens shows little. `gridSky` (section 9) shows exactly what it does.
+- On a dark sky the lens shows little, and a sky of point stars alone reads as a swirled field round the
+  hole. `gridSky` (section 9) shows exactly what the lens does; for the Einstein ring and its mirrored
+  image in the sky itself, a nebula (`nebula` about 0.6) behind denser, larger stars (`starCell` about 14,
+  `starsSize` about 2, `starsBrightness` about 2.5) draws its arcs.
 - `lensingBubble` shapes the bubble that `lensingReach` 0 shows: higher keeps the warp close round the ring
   and folds more rings inside it, which `lensingMaxBend` still caps; lower spreads it over the sky. The
   ring stays where it is. The second hole's lens takes the stylized shape at `companionLensStyle` above 0.
@@ -496,8 +502,9 @@ second needs `ringFeedEnabled` and matter captured or skimming past (gravity, a 
   swallowed star leaves `ringStarFlare`, spread by `ringStarSpread` with `ringStarSides` in each side:
   three points of light that the ring's flow then carries round.
 - `ringDoppler` turns the bright side toward `ringColorApproaching` and the dim side toward
-  `ringColorReceding` by the square of the contrast, so the tints show from about 0.5 up. The three
-  colours move along tracks.
+  `ringColorReceding` by the square of the contrast, so the tints show from about 0.5 up. The default
+  approaching colour is a pale blue near white, so the bright side reads white beside the reddened dim one;
+  a deeper blue shows the shift on both sides. The three colours move along tracks.
 - The second hole's ring takes `ringColor`, the line and the glow, along its own outline when it spins.
   `companionRingFeed` lights it with what falls into it, as a multiple of the main ring's feed, and
   `companionRingSides` gives it the main ring's Doppler sides at that multiple (section 8).
