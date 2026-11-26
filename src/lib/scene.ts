@@ -23,7 +23,6 @@ import { CLOSEST_CAMERA, CRITICAL_IMPACT, cameraFor, einsteinRatioAt, shadowAngl
 import { createShadowShape, updateShadowShape } from './kerr_shadow'
 import { createRandom, seedRandom } from './random'
 import { createSceneColor, readSceneColor } from './scene_color'
-import { SIMULATION_COLOR_SPECS } from './simulation_specs'
 
 // The crumbling title follows the black hole's gravity: at these settings (the defaults) the dust
 // travels Dust Pull and turns by this many radians at Dust Swirl 1
@@ -1244,8 +1243,8 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     // A fast flight tints the particles: from Flight Tint From, growing evenly to its fullest at Flight Tint Full
     const tintSpan = Math.max(state.flightTintFull - state.flightTintFrom, MIN_TINT_SPAN)
     frame.doppler = hidden.doppler ? 0 : Math.min(Math.max((speed - state.flightTintFrom) / tintSpan, 0), 1) * (reducedMotion ? 0.5 : 1)
-    readSceneColor(frame.tintAhead, state.flightTintAhead, SIMULATION_COLOR_SPECS.flightTintAhead.exact)
-    readSceneColor(frame.tintEdge, state.flightTintEdge, SIMULATION_COLOR_SPECS.flightTintEdge.exact)
+    readSceneColor(frame.tintAhead, state.flightTintAhead)
+    readSceneColor(frame.tintEdge, state.flightTintEdge)
     frame.tintGradient = state.flightTintGradient
     frame.tintLimit = state.flightTintLimit
     readBackground(state)
@@ -1433,8 +1432,8 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     composite.ringGlowCoreShare = state.ringGlowCoreShare
     composite.ringGlowSkirtShare = state.ringGlowSkirtShare
     readSceneColor(composite.ringColor, state.ringColor)
-    readSceneColor(composite.ringApproaching, state.ringColorApproaching, SIMULATION_COLOR_SPECS.ringColorApproaching.exact)
-    readSceneColor(composite.ringReceding, state.ringColorReceding, SIMULATION_COLOR_SPECS.ringColorReceding.exact)
+    readSceneColor(composite.ringApproaching, state.ringColorApproaching)
+    readSceneColor(composite.ringReceding, state.ringColorReceding)
     // The explosion as the camera sees it: its place, and its fronts as much larger as it stands nearer
     const frontScale = blastAtHole ? centreScale : blastScale
     composite.centerX = blastAtHole ? centreX : blastX
@@ -1543,8 +1542,8 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     composite.starTwinkle = state.starsTwinkle
     composite.starTwinkleSpeed = state.starsTwinkleSpeed
     composite.starFaintest = state.starsFaintest
-    readSceneColor(composite.starWarm, state.starsColorWarm, SIMULATION_COLOR_SPECS.starsColorWarm.exact)
-    readSceneColor(composite.starCool, state.starsColorCool, SIMULATION_COLOR_SPECS.starsColorCool.exact)
+    readSceneColor(composite.starWarm, state.starsColorWarm)
+    readSceneColor(composite.starCool, state.starsColorCool)
     composite.starFlareDecay = params.starFlareDecay
     composite.colorFlash = params.colorFlash
     composite.colorLight = params.colorLight
@@ -1583,7 +1582,7 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     composite.gridPull = state.gridSkyPull
     composite.gridHaze = state.gridSkyHaze
     composite.gridHazeSpan = state.gridSkyHazeSpan
-    readSceneColor(composite.gridColor, state.gridColor, SIMULATION_COLOR_SPECS.gridColor.exact)
+    readSceneColor(composite.gridColor, state.gridColor)
     composite.gridCell = gridCell
     composite.skyGridLine = state.gridSkyLine
     // The sheet was laid out before the particles were stepped (above); here is what only its drawing reads

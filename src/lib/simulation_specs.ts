@@ -3,7 +3,7 @@
 // API (scene_api.ts) describes and validates settings with it, so a setting is described in exactly one place.
 import { BASE_SPEED_MAX, BASE_SPEED_MIN, BASE_SPEED_STEP } from './base_speed'
 import { HORIZON_SCALE_MAX } from './simulation_presets'
-import { GRID_COLOR, GRID_LINES_PER_SIDE } from './space_grid'
+import { GRID_LINES_PER_SIDE } from './space_grid'
 import { LATTICE_LINES_PER_SIDE } from './space_lattice'
 import { FLOW_CAPACITY, FLOW_KEYS, type FlowColorKey, type FlowSliderKey } from './flows'
 
@@ -411,14 +411,10 @@ export interface SimulationColorSpec {
   // The full explanation, for the agent API
   description: string
   spokenName?: string
-  // The colour the scene drew while it was still a constant in the code, where a hex can only round it
-  // (a channel of 0.76 is no byte): while the setting stands at `hex`, its default, the scene draws `rgb`,
-  // so the films made before it was a setting keep their bytes
-  exact?: { hex: string, rgb: readonly [number, number, number] }
 }
 
-const color = (label: string, hint: string, description: string, spokenName?: string, exact?: SimulationColorSpec['exact']): SimulationColorSpec =>
-  ({ label, hint, description, spokenName, exact })
+const color = (label: string, hint: string, description: string, spokenName?: string): SimulationColorSpec =>
+  ({ label, hint, description, spokenName })
 
 const FLOW_COLOR_SPECS = Object.fromEntries(FLOW_KEYS.map(keys => [
   keys.color,
@@ -427,19 +423,18 @@ const FLOW_COLOR_SPECS = Object.fromEntries(FLOW_KEYS.map(keys => [
 
 export const SIMULATION_COLOR_SPECS = {
   flightTintAhead: color('Flight Tint Ahead', 'Color a fast flight turns the middle',
-    'The color a fast flight tints the particles ahead, round the point the field flies out of: the blue of light met head-on (the Doppler shift of the particles). It shows from Flight Tint From upward, and Flight Tint Limit caps how much of a particle\'s own color it replaces.',
-    undefined, { hex: '#99c2ff', rgb: [0.6, 0.76, 1.0] }),
+    'The color a fast flight tints the particles ahead, round the point the field flies out of: the blue of light met head-on (the Doppler shift of the particles). It shows from Flight Tint From upward, and Flight Tint Limit caps how much of a particle\'s own color it replaces.'),
   flightTintEdge: color('Flight Tint Edges', 'Color a fast flight turns the edges',
     'The color a fast flight tints the particles toward the edges of the frame: the red of light seen from the side. Flight Tint Gradient sets where it takes over from Flight Tint Ahead.',
-    'Flight Tint at the Edges', { hex: '#ff946b', rgb: [1.0, 0.58, 0.42] }),
+    'Flight Tint at the Edges'),
   ringColor: color('Color', 'Color of the photon ring',
     'The color of the photon ring and of its glow, of the second black hole\'s ring too. Doppler Contrast turns its two sides toward Approaching Side and Receding Side.', 'Ring Color'),
   ringColorApproaching: color('Approaching Side', 'Tint of the side coming toward you',
     'The color the bright, approaching side of the ring turns toward as Doppler Contrast rises: fully at a contrast of 1, a twenty-fifth of the way at 0.2.',
-    'Ring Approaching Side Color', { hex: '#cce6ff', rgb: [0.8, 0.9, 1.0] }),
+    'Ring Approaching Side Color'),
   ringColorReceding: color('Receding Side', 'Tint of the side moving away',
     'The color the dim, receding side of the ring turns toward as Doppler Contrast rises.',
-    'Ring Receding Side Color', { hex: '#ff6b29', rgb: [1.0, 0.42, 0.16] }),
+    'Ring Receding Side Color'),
   nebulaColor: color('Color', 'Main color of the nebula',
     'The color most of the nebula glows in. Nebula Brightness scales it, and its patches turn toward Nebula Second Color.', 'Nebula Color'),
   nebulaColorDeep: color('Second Color', 'Color of the nebula\'s other patches',
@@ -447,14 +442,13 @@ export const SIMULATION_COLOR_SPECS = {
   nebulaColorCore: color('Core Color', 'Color of the thickest clouds',
     'The color the thickest parts of the nebula\'s clouds turn toward, as far as Nebula Core Glow says: the bright knots of a real nebula.', 'Nebula Core Color'),
   gridColor: color('Grid Color', 'Color of the sheet, lattice and grid lines',
-    'The color of the lines of all three grids at full brightness: the sheet, the lattice (drawn Lattice Gain times brighter) and the Lensed Grid. Their brightness settings scale it.',
-    undefined, { hex: '#80bdff', rgb: GRID_COLOR }),
+    'The color of the lines of all three grids at full brightness: the sheet, the lattice (drawn Lattice Gain times brighter) and the Lensed Grid. Their brightness settings scale it.'),
   starsColorWarm: color('Warm Tint', 'Color of the warmest background stars',
     'The color of the warmest background stars. Each star\'s tint lies somewhere between this and Cool Tint.',
-    'Star Warm Tint', { hex: '#ffd19e', rgb: [1.0, 0.82, 0.62] }),
+    'Star Warm Tint'),
   starsColorCool: color('Cool Tint', 'Color of the coolest background stars',
     'The color of the coolest background stars. Each star\'s tint lies somewhere between Warm Tint and this.',
-    'Star Cool Tint', { hex: '#bfd9ff', rgb: [0.75, 0.85, 1.0] }),
+    'Star Cool Tint'),
   ...FLOW_COLOR_SPECS
 } satisfies Record<string, SimulationColorSpec>
 

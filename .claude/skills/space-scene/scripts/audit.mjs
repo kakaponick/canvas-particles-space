@@ -104,17 +104,11 @@ for (const [key, value] of Object.entries(state)) {
 for (const key of sliderKeys) {
   if (!ALL_SETTING_KEYS.includes(key)) problem(`slider "${key}" has a spec but is not in SIMULATION_SETTING_KEYS, so set() refuses it`)
 }
-// A colour setting is a '#rrggbb' in the store with a spec; one that stands for a colour the code once
-// held as a constant has its default at the hex that constant rounds to, so the scene still draws the constant
+// A colour setting is a '#rrggbb' in the store with a spec
 const HEX = /^#[0-9a-f]{6}$/
 for (const key of settingColorKeys) {
   if (!SETTING_KEYS.includes(key)) problem(`colour "${key}" has a spec but is not in SIMULATION_SETTING_KEYS, so set() refuses it`)
   if (!HEX.test(String(state[key]))) problem(`colour "${key}": its default ${JSON.stringify(state[key])} is not '#rrggbb' in lower case`)
-  const { exact } = COLORS[key]
-  if (!exact) continue
-  const rounded = '#' + exact.rgb.map(channel => Math.round(channel * 255).toString(16).padStart(2, '0')).join('')
-  if (exact.hex !== rounded) problem(`colour "${key}": the channels it stands for round to ${rounded}, not to its ${exact.hex}`)
-  if (state[key] !== exact.hex) problem(`colour "${key}": its default ${state[key]} is not the ${exact.hex} its exact channels stand for, so films from before it was a setting change`)
 }
 for (const [key, value] of Object.entries(state)) {
   if (typeof value === 'string' && !(key in COLORS)) problem(`store value "${key}" is a string with no spec in SIMULATION_COLOR_SPECS`)

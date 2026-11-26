@@ -13,9 +13,6 @@ export const GRID_SEGMENTS = 192
 export const GRID_INSTANCE_FLOATS = 4
 export const GRID_INSTANCE_COUNT = 2 * (2 * GRID_LINES_PER_SIDE + 1) * GRID_SEGMENTS
 
-// Colour of the lines of every grid at its default, which the Grid Color setting keeps exactly
-export const GRID_COLOR: readonly [number, number, number] = [0.5, 0.74, 1]
-
 // The well's bottom is never closer to the camera than this share of the camera's distance
 const MIN_CAMERA_SHARE = 0.05
 

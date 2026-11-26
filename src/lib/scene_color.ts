@@ -11,19 +11,10 @@ export interface SceneColor {
 
 export const createSceneColor = (): SceneColor => ({ source: '', r: 1, g: 1, b: 1 })
 
-/**
- * Reads the colour setting `hex` into `color`. `exact` is the spec's own (SimulationColorSpec): while the
- * setting stands at that hex, the scene draws the channels the code had before the colour was a setting.
- */
-export function readSceneColor (color: SceneColor, hex: string, exact?: { hex: string, rgb: readonly [number, number, number] }) {
+// Reads the colour setting `hex` into `color`
+export function readSceneColor (color: SceneColor, hex: string) {
   if (color.source === hex) return
   color.source = hex
-  if (exact && exact.hex === hex) {
-    color.r = exact.rgb[0]
-    color.g = exact.rgb[1]
-    color.b = exact.rgb[2]
-    return
-  }
   const value = Number.parseInt(hex.slice(1), 16) || 0
   color.r = (value >> 16 & 255) / 255
   color.g = (value >> 8 & 255) / 255
