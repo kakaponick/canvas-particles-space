@@ -282,7 +282,7 @@ export interface ParticleState extends FlowState {
   cameraCutZoom: number
   cameraCutShift: number
   cameraCutTurn: number
-  // The field as a volume in space (particle_simulation_3d.ts), with a camera that circles the black hole:
+  // The field as a volume in space (stepSpace in field_step.ts), with a camera that circles the black hole:
   // degrees around it, degrees above it, and degrees a second it turns on its own
   threeD: boolean
   cameraYaw: number
@@ -305,12 +305,8 @@ export interface ParticleState extends FlowState {
   threeDNearest: number
   frameRateCap: number
   measuredFps: number
-  // Lower the particle count automatically when the simulation overruns the frame
-  adaptiveParticles: boolean
   // Show the measured frame rate in the scene toolbar
   fpsCounter: boolean
-  // Particles actually simulated; below numParticles while the adaptive budget holds it back
-  activeParticles: number
   introComplete: boolean
 
   setBaseSpeed: (speed: number) => void
@@ -334,9 +330,7 @@ export interface ParticleState extends FlowState {
   toggleField: () => void
   setFrameRateCap: (fps: number) => void
   setMeasuredFps: (fps: number) => void
-  toggleAdaptiveParticles: () => void
   toggleFpsCounter: () => void
-  setActiveParticles: (count: number) => void
   setIntroComplete: (complete: boolean) => void
 }
 
@@ -537,9 +531,7 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   ...createFlowState(),
   frameRateCap: 0,
   measuredFps: 0,
-  adaptiveParticles: true,
   fpsCounter: false,
-  activeParticles: 0,
   introComplete: false,
   // Star colors by temperature, from ~3500 K amber to ~12000 K blue-white
   colorPalette: [
@@ -565,9 +557,7 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   toggleField: () => set((state) => ({ fieldEnabled: !state.fieldEnabled })),
   setFrameRateCap: (fps) => set({ frameRateCap: fps }),
   setMeasuredFps: (fps) => set({ measuredFps: fps }),
-  toggleAdaptiveParticles: () => set((state) => ({ adaptiveParticles: !state.adaptiveParticles })),
   toggleFpsCounter: () => set((state) => ({ fpsCounter: !state.fpsCounter })),
-  setActiveParticles: (count) => set({ activeParticles: count }),
   setIntroComplete: (complete) => set({ introComplete: complete }),
 
   addColor: (color) => set((state) => ({

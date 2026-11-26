@@ -17,7 +17,6 @@ const SAVE_IDLE_TIMEOUT_MS = 1000
 interface StoredSettings {
   settings?: Record<string, unknown>
   frameRateCap?: unknown
-  adaptiveParticles?: unknown
   fpsCounter?: unknown
   activePresetId?: unknown
 }
@@ -28,7 +27,6 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 // Captured before the stored values are applied
 const {
   frameRateCap: defaultFrameRateCap,
-  adaptiveParticles: defaultAdaptiveParticles,
   fpsCounter: defaultFpsCounter
 } = useParticleStore.getState()
 
@@ -45,11 +43,10 @@ function restoreSettings () {
   const stored = readStoredSettings()
   if (!stored) return
 
-  const { frameRateCap, adaptiveParticles, fpsCounter, activePresetId } = stored
+  const { frameRateCap, fpsCounter, activePresetId } = stored
   useParticleStore.setState({
     ...readSimulationSettings(isRecord(stored.settings) ? stored.settings : {}, DEFAULT_PRESET.settings),
     frameRateCap: typeof frameRateCap === 'number' && Number.isFinite(frameRateCap) && frameRateCap >= 0 ? frameRateCap : defaultFrameRateCap,
-    adaptiveParticles: typeof adaptiveParticles === 'boolean' ? adaptiveParticles : defaultAdaptiveParticles,
     fpsCounter: typeof fpsCounter === 'boolean' ? fpsCounter : defaultFpsCounter
   })
   if (typeof activePresetId === 'string' &&
@@ -66,7 +63,6 @@ function saveSettings () {
   const stored: StoredSettings = {}
   if (Object.keys(settings).length > 0) stored.settings = settings
   if (state.frameRateCap !== defaultFrameRateCap) stored.frameRateCap = state.frameRateCap
-  if (state.adaptiveParticles !== defaultAdaptiveParticles) stored.adaptiveParticles = state.adaptiveParticles
   if (state.fpsCounter !== defaultFpsCounter) stored.fpsCounter = state.fpsCounter
   if (activeId !== DEFAULT_PRESET_ID) stored.activePresetId = activeId
 
@@ -80,8 +76,7 @@ function saveSettings () {
 
 // Runs on every store write, the frame rate readout included, so it only compares values
 function settingsChanged (state: ParticleState, previous: ParticleState) {
-  if (state.frameRateCap !== previous.frameRateCap || state.adaptiveParticles !== previous.adaptiveParticles ||
-    state.fpsCounter !== previous.fpsCounter) return true
+  if (state.frameRateCap !== previous.frameRateCap || state.fpsCounter !== previous.fpsCounter) return true
   for (const key of SIMULATION_SETTING_KEYS) {
     if (state[key] !== previous[key]) return true
   }

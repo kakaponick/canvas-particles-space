@@ -8,7 +8,7 @@
 // orbits' traces live in, which the composite pass reads through the lens, so the lattice behind the hole
 // is bent by it and the shadow covers it. The buffer is made the first time the lattice is shown, and the
 // lattice costs the main thread a few numbers a frame while it is on and nothing while it is off.
-import { POSE_SLOTS } from './particle_simulation_3d'
+import { POSE_SLOTS } from './camera_pose'
 
 // Lines on each side of the black hole across each axis, and the pieces each line is drawn in
 export const LATTICE_LINES_PER_SIDE = 6

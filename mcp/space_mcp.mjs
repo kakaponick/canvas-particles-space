@@ -12,8 +12,6 @@
 //
 //   node mcp/space_mcp.mjs          after `pnpm build`; .mcp.json starts it for Claude Code
 //   SPACE_DIST=path                 another build of the page
-//   SPACE_PLAIN=1                   no isolation headers: films step their particles with the plain loop
-//                                   instead of the crew, which must give the same bytes
 //   CHROME_PATH=path                another Chrome, Chromium or Edge
 import http from 'node:http'
 import fs from 'node:fs'
@@ -31,7 +29,6 @@ const SERVER = { name: 'space-film', version: '1.0.0' }
 const PROTOCOL_VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05']
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const DIST = path.resolve(process.env.SPACE_DIST ?? path.join(ROOT, 'dist'))
-const ISOLATED = process.env.SPACE_PLAIN !== '1'
 const MIME = {
   '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.json': 'application/json',
   '.woff2': 'font/woff2', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp',
@@ -253,12 +250,7 @@ async function openStudio () {
     }
     let file = path.resolve(DIST, '.' + decodeURIComponent(url.pathname))
     if (!file.startsWith(DIST) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) file = path.join(DIST, 'index.html')
-    // The two isolation headers let the page share memory between threads, which is how a film's
-    // particles are stepped on several cores (src/lib/particle_crew.ts); SPACE_PLAIN leaves them out
-    response.writeHead(200, {
-      'content-type': MIME[path.extname(file).toLowerCase()] ?? 'application/octet-stream',
-      ...(ISOLATED ? { 'cross-origin-opener-policy': 'same-origin', 'cross-origin-embedder-policy': 'require-corp' } : {})
-    })
+    response.writeHead(200, { 'content-type': MIME[path.extname(file).toLowerCase()] ?? 'application/octet-stream' })
     fs.createReadStream(file).pipe(response)
   })
   await new Promise((resolve, reject) => server.once('error', reject).listen(0, '127.0.0.1', resolve))
@@ -498,7 +490,7 @@ function describeText (settings, intro, presets, introPresets, layerInfo, filter
   const lines = []
   const about = entry => full ? entry.description : entry.hint ?? entry.description
   // What a film cannot set: it has no cursor and no device of its own
-  const filmless = ['blackHoleFollowing', 'adaptiveParticles', 'fpsCounter', 'frameRateCap', 'scrollSpeedStep']
+  const filmless = ['blackHoleFollowing', 'fpsCounter', 'frameRateCap', 'scrollSpeedStep']
 
   const sliders = settings.sliders.filter(entry => !filmless.includes(entry.key))
   if (sliders.length > 0) {

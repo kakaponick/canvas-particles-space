@@ -1,6 +1,6 @@
 // Named snapshots of the simulation settings. A preset holds what shapes the scene, the black hole's
 // resting place and whether it follows the cursor included; runtime state and per-device choices
-// (pause, frame rate cap, adaptive budget) stay out of it.
+// (pause, frame rate cap) stay out of it.
 import type { ParticleColor, ParticleState } from '../store/particle_store'
 import { FLOW_SETTING_KEYS } from './flows'
 

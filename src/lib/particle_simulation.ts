@@ -1,6 +1,8 @@
+// The particle field as the scene makes it, and the numbers a step is given. The step itself runs on the
+// graphics card (field_step.ts, field_feedback.ts): this file makes a particle when the field grows and
+// holds what the step's shader is told.
 import type { ParticleColor } from '../store/particle_store'
-import { depositRingEnergy, type RingEnergy } from './ring_energy'
-import { readRide, rideStroke, ridden } from './sheet_ride'
+import type { RingEnergy } from './ring_energy'
 import { nextRandom, type Random } from './random'
 
 // Simulation runs in 60 Hz frame units: speeds and forces are tuned per 1/60 s
@@ -8,14 +10,7 @@ export const REFERENCE_FPS = 60
 
 // Longest step one frame may advance, so a stall does not teleport the field
 const MAX_FRAME_SCALE = 6
-// Segments are clipped to the viewport plus at least this margin, wide enough to hide their ends
-const MIN_CLIP_MARGIN = 4
-
-// Random spawns tried for a captured particle before it is placed right outside the event horizon
-const RESPAWN_TRIES = 4
-const RESPAWN_RIM_SPREAD = 0.5
-
-// Per-instance layout shared with the renderer: x0, y0, x1, y1, width, opacity, packed rgba
+// A stroke's record in an orbit's trace: x0, y0, x1, y1, width, opacity, packed rgba
 export const INSTANCE_FLOATS = 7
 
 export interface ParticleField {
@@ -123,8 +118,8 @@ export interface StepSettings {
   revealY: number
   revealFeather: number
   opacityScale: number
-  // 1 steps the field in three dimensions (particle_simulation_3d.ts), 0 with the flat loop below. The
-  // rest is read by the 3D loop alone: the two black holes in scene units, and the camera turned around
+  // 1 steps the field in three dimensions (stepSpace in field_step.ts), 0 with the flat step. The
+  // rest is read by the step in space alone: the two black holes in scene units, and the camera turned around
   // the point at holeDepth on the line of flight, in radians, now and in the frame before (where a stroke
   // starts), then where it stands and looks beyond that circle (cameraPose): its roll and the turn of its
   // head, in radians, and its move right, up and in, in scene units, now and in the frame before
@@ -154,7 +149,7 @@ export interface StepSettings {
   // Seen from the side, the 3D column fades over this share of Field Depth at both of its ends, so the
   // place particles are born and the place they leave are not hard edges
   endFade: number
-  // Particles on Sheet (sheet_ride.ts): the share of the way a stroke is moved from where the scene's camera
+  // Particles on Sheet (RIDE_GLSL in webgl_shaders.ts): the share of the way a stroke is moved from where the scene's camera
   // draws it to where the sheet lies under it; 0 leaves it alone and the rest unread. Then the sheet as its own
   // camera sees it this frame, in CSS pixels: the turn and scale that take a place around the hole, seen
   // straight on, to its place on the sheet (rideCos, rideSin); the point the camera looks at, its distance and
@@ -181,35 +176,12 @@ export interface StepSettings {
   sheetDepth2: number
 }
 
-export interface InstanceData {
-  capacity: number
-  floats: Float32Array
-  colors: Uint32Array
-}
-
-// What a part of the field leaves for later when a crew steps it (particle_crew.ts): the respawns, which
-// draw from the scene's one random sequence, and the light for the photon ring. Both are kept in particle
-// order from the part's first slot, so playing the parts back in order repeats the plain loop exactly
-export interface StepLater {
-  // Particle index * 4 + the kind of respawn
-  respawns: Int32Array
-  respawnCount: number
-  // x, y and amount of each deposit, as the numbers the loop computed
-  deposits: Float64Array
-  depositCount: number
-}
-
-// How fast the space round a spinning hole carries a particle, against how fast the hole pulls it in, at
-// the hole's radius and a spin of 1. Space turns at 2 J / r^3 (Lense-Thirring), which with J = spin / 4
-// in the hole's radii is a speed of spin / 2 across the pull at one radius
-export const DRAG_SHARE = 0.5
-
 // Inertia for one step: a push of the holes is a change of speed that lasts. Per 60 Hz frame the speed
 // keeps the share `inertia` and gains the push, so over a step of `frameScale` frames it keeps `keep`
 // and gains the push `gain` times, which at 0 is the push alone, the motion the scene had before
 // particles kept any speed. `velocityGain` turns the push of the step back into speed per 60 Hz frame.
 // One object, filled each step, so the step allocates nothing
-export const inertiaStep = { inertial: false, keep: 0, gain: 1, velocityGain: 0 }
+const inertiaStep = { inertial: false, keep: 0, gain: 1, velocityGain: 0 }
 export function fillInertiaStep (inertia: number, frameScale: number) {
   const inertial = inertia > 0 && frameScale > 0
   const keep = inertial ? (inertia < 1 ? Math.pow(inertia, frameScale) : 1) : 0
@@ -219,13 +191,6 @@ export function fillInertiaStep (inertia: number, frameScale: number) {
   inertiaStep.velocityGain = inertial ? inertiaStep.gain / frameScale : 0
   return inertiaStep
 }
-// A kept speed below a hundredth of a world unit a second (squared, per 60 Hz frame) is let go
-export const SPEED_FLOOR_SQ = (0.01 / 60) ** 2
-
-const RESPAWN_FAR = 0
-const RESPAWN_HOLE = 1
-const RESPAWN_COMPANION = 2
-
 const isLittleEndian = new Uint8Array(new Uint32Array([1]).buffer)[0] === 1
 
 // Packs a color so its bytes read r, g, b, a in memory, the order the GPU attribute expects
@@ -288,54 +253,27 @@ export function spawnParticle (field: ParticleField, i: number, z: number, spawn
   field.speedMultiplier[i] = 1 + spawn.speedVariance * (2 + r * r * r * r * r * 98)
 }
 
-// Brings a captured particle back outside the event horizon, so a horizon wider than the spawn disc
-// cannot swallow the whole field. The hole is given relative to the vanishing point
-function respawnBeyondHorizon (
-  field: ParticleField,
-  i: number,
-  spawn: SpawnSettings,
-  holeOffsetX: number,
-  holeOffsetY: number,
-  captureRadius: number,
-  spawnScale: number
-) {
-  const captureRadiusSq = captureRadius * captureRadius
-  for (let attempt = 0; attempt < RESPAWN_TRIES; attempt++) {
-    spawnParticle(field, i, spawn.farZ, spawn)
-    const dx = field.x[i] * spawnScale - holeOffsetX
-    const dy = field.y[i] * spawnScale - holeOffsetY
-    if (dx * dx + dy * dy >= captureRadiusSq) return
-  }
-  const angle = nextRandom(spawn.random) * Math.PI * 2
-  const radius = captureRadius * (1 + nextRandom(spawn.random) * RESPAWN_RIM_SPREAD)
-  field.x[i] = (holeOffsetX + Math.cos(angle) * radius) / spawnScale
-  field.y[i] = (holeOffsetY + Math.sin(angle) * radius) / spawnScale
-}
-
 function growFloats (source: Float32Array, capacity: number): Float32Array {
   const grown = new Float32Array(capacity)
   grown.set(source)
   return grown
 }
 
-// A field with `shared` above 0 holds that many particles in memory a crew's workers see as well, and
-// never grows
-export function createParticleField (shared = 0): ParticleField {
-  const floats = () => shared > 0 ? new Float32Array(new SharedArrayBuffer(shared * 4)) : new Float32Array(0)
+export function createParticleField (): ParticleField {
   return {
     count: 0,
-    capacity: shared,
-    x: floats(),
-    y: floats(),
-    z: floats(),
-    alpha: floats(),
-    pulsePhase: floats(),
-    pulseSpeed: floats(),
-    speedMultiplier: floats(),
-    color: shared > 0 ? new Uint32Array(new SharedArrayBuffer(shared * 4)) : new Uint32Array(0),
-    vx: floats(),
-    vy: floats(),
-    vz: floats()
+    capacity: 0,
+    x: new Float32Array(0),
+    y: new Float32Array(0),
+    z: new Float32Array(0),
+    alpha: new Float32Array(0),
+    pulsePhase: new Float32Array(0),
+    pulseSpeed: new Float32Array(0),
+    speedMultiplier: new Float32Array(0),
+    color: new Uint32Array(0),
+    vx: new Float32Array(0),
+    vy: new Float32Array(0),
+    vz: new Float32Array(0)
   }
 }
 
@@ -367,8 +305,7 @@ export function setParticleCount (field: ParticleField, requested: number, spawn
 }
 
 // The step's settings as the scene holds them before its first frame: no black hole, nothing lit, and the
-// numbers that were constants of the loops at the values they had. The scene fills them in every frame; a
-// benchmark sets what it measures over these, so a new setting reaches it with the value that changes nothing
+// numbers that were constants of the step at the values they had. The scene fills them in every frame
 export function createStepSettings (ringEnergy: RingEnergy | null = null): StepSettings {
   return {
     frameScale: 0,
@@ -459,407 +396,5 @@ export function createStepSettings (ringEnergy: RingEnergy | null = null): StepS
     sheetWell2Z: 0,
     sheetThroat2: 0,
     sheetDepth2: 0
-  }
-}
-
-export function createInstanceData (shared = 0): InstanceData {
-  const buffer = shared > 0 ? new SharedArrayBuffer(shared * INSTANCE_FLOATS * 4) : new ArrayBuffer(0)
-  return { capacity: shared, floats: new Float32Array(buffer), colors: new Uint32Array(buffer) }
-}
-
-export function ensureInstanceCapacity (data: InstanceData, requested: number) {
-  const capacity = Math.ceil(requested)
-  if (capacity <= data.capacity) return
-  const buffer = new ArrayBuffer(capacity * INSTANCE_FLOATS * 4)
-  data.capacity = capacity
-  data.floats = new Float32Array(buffer)
-  data.colors = new Uint32Array(buffer)
-}
-
-// Liang-Barsky clipping state, kept at module level so the hot loop allocates nothing
-let clipStart = 0
-let clipEnd = 1
-
-function clipAgainst (p: number, q: number): boolean {
-  if (p === 0) return q >= 0
-  const t = q / p
-  if (p < 0) {
-    if (t > clipEnd) return false
-    if (t > clipStart) clipStart = t
-  } else {
-    if (t < clipStart) return false
-    if (t < clipEnd) clipEnd = t
-  }
-  return true
-}
-
-/**
- * Advances every particle by one frame and writes the visible segments into `out`.
- * Returns the number of instances written.
- */
-export function stepParticles (
-  field: ParticleField,
-  settings: StepSettings,
-  spawn: SpawnSettings,
-  out: InstanceData
-): number {
-  return stepRange(field, settings, spawn, out, 0, field.count, null)
-}
-
-/**
- * The hot loop over the particles `from`..`to`. Their segments go into `out` from slot `from`, so
- * parts of one field never write over each other. With `later` the respawns and the ring's light are
- * written down instead of done, for settleLater.
- * Returns the number of instances written.
- */
-export function stepRange (
-  field: ParticleField,
-  settings: StepSettings,
-  spawn: SpawnSettings,
-  out: InstanceData,
-  from: number,
-  to: number,
-  later: StepLater | null
-): number {
-  const { x, y, z, alpha, pulsePhase, pulseSpeed, speedMultiplier, color, vx, vy } = field
-  const { floats, colors } = out
-  const {
-    frameScale, time, width, height, focal, vanishX, vanishY, holeX, holeY, holeRadius, holeDepth,
-    gravityStrength, orbitalStrength, farZ, depthFade, pulseIntensity, baseBrightness,
-    minOpacity, maxOpacity, revealRadius, revealFeather, opacityScale
-  } = settings
-
-  const step = settings.speed * frameScale
-  const pulseRate = settings.pulseSpeedMultiplier
-  const invFarZ = 1 / farZ
-  const hasHole = holeRadius > 0 && holeX === holeX && holeY === holeY
-  const reachSq = settings.gravityReach * settings.gravityReach
-  const holeRadiusSq = holeRadius * holeRadius
-  const captureRadius = settings.captureRadius
-  const captureRadiusSq = captureRadius * captureRadius
-  // Off the hole's centre only for a spinning hole; otherwise the distance to the hole is the one
-  const captureShiftX = settings.captureX - holeX
-  const captureShiftY = settings.captureY - holeY
-  const captureShifted = captureShiftX !== 0 || captureShiftY !== 0
-  const spawnScale = focal / spawn.farZ
-  const ringEnergy = settings.ringEnergy
-  const captureEnergy = settings.ringCaptureEnergy
-  const skimRadius = holeRadius * settings.ringSkimReach
-  const skimRadiusSq = skimRadius * skimRadius
-  const skimEnergy = settings.ringSkimEnergy * frameScale
-  // Gravity acts within a depth band around the hole's plane; particles far behind only get lensed,
-  // though the event horizon takes them at any depth.
-  // The band is a compact bell, (1 - u^2 / 4)^3, close to exp(-u^2) but zero beyond |u| = 2 and
-  // free of Math.exp, so most particles leave the gravity path after one subtraction
-  const depthBand = Math.max(settings.gravityDepth, 1e-6)
-  const holeDepthNear = holeDepth - depthBand * 2
-  const holeDepthFar = holeDepth + depthBand * 2
-  const invDepthBand = 1 / depthBand
-  const nearLineWidth = settings.lineWidth
-  const minLineWidth = settings.minLineWidth
-  // Gravity does not depend on the flight speed: at Base Speed 0 the particles it moves are the only
-  // ones that light up, and the rest of the field goes dark
-  const pullScale = gravityStrength * 0.6 * frameScale * holeRadiusSq
-  const orbitScale = orbitalStrength * 0.02
-  // Frame dragging: space turns about the spin's axis at a rate that falls as 1 / r^3, so it carries a
-  // particle across the pull one power of the distance more steeply than the pull itself falls. The share
-  // of spin toward the camera turns the particles in the screen, anticlockwise to the eye. The share that
-  // lies in the screen turns them about a line in it: those nearer than the hole's plane cross that line
-  // one way and those beyond it the other, as fast at the edge of a depth scale as the turn in the screen.
-  // What that share does along the line of sight is left out: it would only change how fast a particle
-  // flies. The drag is a share of the pull, so like the pull it does not depend on the flight speed
-  const dragScale = DRAG_SHARE * holeRadius
-  const dragToward = settings.spinToward * dragScale
-  const dragRight = settings.spinRight * dragScale
-  const dragUp = settings.spinUp * dragScale
-  const dragging = hasHole && (dragToward !== 0 || dragRight !== 0 || dragUp !== 0)
-  // Inertia (fillInertiaStep says how a push becomes kept speed)
-  const { inertial, keep, gain, velocityGain } = fillInertiaStep(settings.inertia, frameScale)
-  // The second black hole pulls in proportion to its size and reaches as far in its own radii
-  const companionRadius = settings.companionRadius
-  const hasCompanion = hasHole && companionRadius > 0
-  const companionX = settings.companionX
-  const companionY = settings.companionY
-  const companionCapture = settings.companionCapture
-  const companionCaptureSq = companionCapture * companionCapture
-  const companionShare = hasCompanion ? companionRadius / holeRadius : 0
-  const companionReachSq = reachSq * companionShare * companionShare
-  const companionPullScale = pullScale * companionShare * companionShare
-  const invFocal = 1 / focal
-  const revealing = revealRadius < Infinity
-  const revealX = settings.revealX
-  const revealY = settings.revealY
-  const pulsing = pulseIntensity !== 0
-  const revealRadiusSq = revealRadius * revealRadius
-  const invRevealFeather = 1 / Math.max(revealFeather, 1)
-  const clipMargin = Math.max(MIN_CLIP_MARGIN, nearLineWidth * 0.5 + 2)
-  const minX = -clipMargin
-  const minY = -clipMargin
-  const maxX = width + clipMargin
-  const maxY = height + clipMargin
-  const riding = readRide(settings)
-
-  let written = from
-
-  for (let i = from; i < to; i++) {
-    let px = x[i]
-    let py = y[i]
-    const startZ = z[i]
-    const startScale = focal / startZ
-    const startX = px * startScale + vanishX
-    const startY = py * startScale + vanishY
-
-    const pz = startZ - step * speedMultiplier[i]
-    if (pz <= 0) {
-      if (later) later.respawns[from + later.respawnCount++] = i * 4 + RESPAWN_FAR
-      else spawnParticle(field, i, farZ, spawn)
-      continue
-    }
-
-    // A particle the holes set moving drifts on with what it kept of that speed
-    let speedX = 0
-    let speedY = 0
-    if (inertial) {
-      speedX = vx[i] * keep
-      speedY = vy[i] * keep
-      if (speedX !== 0 || speedY !== 0) {
-        px += speedX * frameScale
-        py += speedY * frameScale
-        x[i] = px
-        y[i] = py
-      }
-    }
-
-    const endScale = focal / pz
-    let endX = px * endScale + vanishX
-    let endY = py * endScale + vanishY
-
-    if (hasHole) {
-      const dx = holeX - endX
-      const dy = holeY - endY
-      const distSq = dx * dx + dy * dy
-
-      if (distSq < reachSq) {
-        let captureSq = distSq
-        if (captureShifted) {
-          const cx = dx + captureShiftX
-          const cy = dy + captureShiftY
-          captureSq = cx * cx + cy * cy
-        }
-        if (captureSq < captureRadiusSq) {
-          if (later) {
-            if (ringEnergy) noteDeposit(later, from, -dx, -dy, captureEnergy)
-            later.respawns[from + later.respawnCount++] = i * 4 + RESPAWN_HOLE
-          } else {
-            if (ringEnergy) depositRingEnergy(ringEnergy, -dx, -dy, captureEnergy)
-            respawnBeyondHorizon(field, i, spawn, settings.captureX - vanishX, settings.captureY - vanishY, captureRadius, spawnScale)
-          }
-          continue
-        }
-
-        if (pz > holeDepthNear && pz < holeDepthFar) {
-          const depthOffset = (pz - holeDepth) * invDepthBand
-          const bell = 1 - depthOffset * depthOffset * 0.25
-          const depthWeight = bell * bell * bell
-
-          if (ringEnergy && distSq < skimRadiusSq) {
-            if (later) noteDeposit(later, from, -dx, -dy, skimEnergy * depthWeight)
-            else depositRingEnergy(ringEnergy, -dx, -dy, skimEnergy * depthWeight)
-          }
-
-          // Pull and orbit are screen-space pixels per frame, converted back to world units at this depth.
-          // Pull falls off as (radius / distance)^2, so it needs the squared distance, not the distance
-          const clampedSq = distSq > 1 ? distSq : 1
-          const invDistance = 1 / Math.sqrt(clampedSq)
-          const pull = pullScale / clampedSq * depthWeight
-          const toWorld = pz * invFocal * invDistance
-
-          let pushX
-          let pushY
-          if (dragging) {
-            const orbit = pull * (orbitScale + dragToward * invDistance)
-            const across = pull * depthOffset
-            pushX = (dx * pull - dy * orbit - across * dragUp) * toWorld
-            pushY = (dy * pull + dx * orbit - across * dragRight) * toWorld
-          } else {
-            const orbit = pull * orbitScale
-            pushX = (dx * pull - dy * orbit) * toWorld
-            pushY = (dy * pull + dx * orbit) * toWorld
-          }
-          if (inertial) {
-            speedX += pushX * velocityGain
-            speedY += pushY * velocityGain
-            pushX *= gain
-            pushY *= gain
-          }
-          px += pushX
-          py += pushY
-          x[i] = px
-          y[i] = py
-
-          endX = px * endScale + vanishX
-          endY = py * endScale + vanishY
-        }
-      }
-    }
-
-    // The second black hole takes and pulls particles the same way; the light they leave is not tracked
-    if (hasCompanion) {
-      const dx = companionX - endX
-      const dy = companionY - endY
-      const distSq = dx * dx + dy * dy
-
-      if (distSq < companionReachSq) {
-        if (distSq < companionCaptureSq) {
-          if (later) later.respawns[from + later.respawnCount++] = i * 4 + RESPAWN_COMPANION
-          else respawnBeyondHorizon(field, i, spawn, companionX - vanishX, companionY - vanishY, companionCapture, spawnScale)
-          continue
-        }
-
-        if (pz > holeDepthNear && pz < holeDepthFar) {
-          const depthOffset = (pz - holeDepth) * invDepthBand
-          const bell = 1 - depthOffset * depthOffset * 0.25
-          const clampedSq = distSq > 1 ? distSq : 1
-          const pull = companionPullScale / clampedSq * bell * bell * bell
-          const orbit = pull * orbitScale
-          const toWorld = pz * invFocal / Math.sqrt(clampedSq)
-
-          let pushX = (dx * pull - dy * orbit) * toWorld
-          let pushY = (dy * pull + dx * orbit) * toWorld
-          if (inertial) {
-            speedX += pushX * velocityGain
-            speedY += pushY * velocityGain
-            pushX *= gain
-            pushY *= gain
-          }
-          px += pushX
-          py += pushY
-          x[i] = px
-          y[i] = py
-
-          endX = px * endScale + vanishX
-          endY = py * endScale + vanishY
-        }
-      }
-    }
-
-    z[i] = pz
-    // Speed too small to move a particle a hundredth of a world unit in a second is let go, so a particle
-    // the holes no longer reach stops costing the drift above
-    if (inertial) {
-      const moving = speedX * speedX + speedY * speedY > SPEED_FLOOR_SQ
-      vx[i] = moving ? speedX : 0
-      vy[i] = moving ? speedY : 0
-    }
-
-    // A particle that did not move draws nothing, which also saves its stroke
-    if (endX === startX && endY === startY) continue
-
-    const distanceFactor = pz * invFarZ
-    const depthFactor = 1 - distanceFactor * depthFade
-    const depthWidth = (1 - distanceFactor) * nearLineWidth
-    const lineWidth = depthWidth > minLineWidth ? depthWidth : minLineWidth
-
-    // The sine is the costliest step of a particle that only flies, so it is skipped when it changes nothing
-    const pulseFactor = pulsing
-      ? 1 + Math.sin(time * pulseSpeed[i] * pulseRate + pulsePhase[i]) * pulseIntensity * distanceFactor
-      : 1
-
-    let opacity = depthFactor * alpha[i] * pulseFactor * baseBrightness
-    if (opacity > maxOpacity) opacity = maxOpacity
-    if (opacity < minOpacity) opacity = minOpacity
-    opacity *= opacityScale
-
-    if (revealing) {
-      const rx = endX - revealX
-      const ry = endY - revealY
-      const radialSq = rx * rx + ry * ry
-      if (radialSq > revealRadiusSq) continue
-      const edge = (revealRadius - Math.sqrt(radialSq)) * invRevealFeather
-      if (edge < 1) opacity *= edge
-    }
-    if (opacity <= 0) continue
-
-    let x0 = startX
-    let y0 = startY
-    let x1 = endX
-    let y1 = endY
-    // On the sheet the stroke lies where the sheet does under the particle, which stands around the hole
-    // where the screen shows it
-    if (riding) {
-      if (!rideStroke(x0 - holeX, y0 - holeY, x1 - holeX, y1 - holeY, x0, y0, x1, y1)) continue
-      x0 = ridden[0]
-      y0 = ridden[1]
-      x1 = ridden[2]
-      y1 = ridden[3]
-    }
-
-    const startInside = x0 >= minX && x0 <= maxX && y0 >= minY && y0 <= maxY
-    const endInside = x1 >= minX && x1 <= maxX && y1 >= minY && y1 <= maxY
-    if (!startInside || !endInside) {
-      const dx = x1 - x0
-      const dy = y1 - y0
-      clipStart = 0
-      clipEnd = 1
-      if (
-        !clipAgainst(-dx, x0 - minX) ||
-        !clipAgainst(dx, maxX - x0) ||
-        !clipAgainst(-dy, y0 - minY) ||
-        !clipAgainst(dy, maxY - y0)
-      ) continue
-
-      x1 = x0 + clipEnd * dx
-      y1 = y0 + clipEnd * dy
-      x0 += clipStart * dx
-      y0 += clipStart * dy
-    }
-
-    const o = written * INSTANCE_FLOATS
-    floats[o] = x0
-    floats[o + 1] = y0
-    floats[o + 2] = x1
-    floats[o + 3] = y1
-    floats[o + 4] = lineWidth
-    floats[o + 5] = opacity
-    colors[o + 6] = color[i]
-    written++
-  }
-
-  return written - from
-}
-
-// A particle leaves at most one deposit a step, so a part's deposits fit in its own slots
-function noteDeposit (later: StepLater, from: number, x: number, y: number, amount: number) {
-  const o = (from + later.depositCount++) * 3
-  later.deposits[o] = x
-  later.deposits[o + 1] = y
-  later.deposits[o + 2] = amount
-}
-
-// Does what stepRange wrote down for the part that starts at `from`: the ring's light, then the respawns
-export function settleLater (
-  field: ParticleField,
-  settings: StepSettings,
-  spawn: SpawnSettings,
-  later: StepLater,
-  from: number
-) {
-  const { ringEnergy, vanishX, vanishY } = settings
-  const { respawns, deposits } = later
-  if (ringEnergy) {
-    const end = (from + later.depositCount) * 3
-    for (let o = from * 3; o < end; o += 3) depositRingEnergy(ringEnergy, deposits[o], deposits[o + 1], deposits[o + 2])
-  }
-  const spawnScale = settings.focal / spawn.farZ
-  for (let slot = from; slot < from + later.respawnCount; slot++) {
-    const i = respawns[slot] >> 2
-    const kind = respawns[slot] & 3
-    if (kind === RESPAWN_FAR) {
-      spawnParticle(field, i, settings.farZ, spawn)
-    } else if (kind === RESPAWN_HOLE) {
-      respawnBeyondHorizon(field, i, spawn, settings.captureX - vanishX, settings.captureY - vanishY, settings.captureRadius, spawnScale)
-    } else {
-      respawnBeyondHorizon(field, i, spawn, settings.companionX - vanishX, settings.companionY - vanishY, settings.companionCapture, spawnScale)
-    }
   }
 }

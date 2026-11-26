@@ -77,8 +77,8 @@ What follows from how it is drawn:
   the other outward (the turn lies 1 / it of the way to the corner; at 1 and below the frame is all
   `flightTintAhead`), and `flightTintLimit` the most of a particle's colour the tint replaces: at 1 a
   fast flight is two flat colours. The two colours take a hex string and can be keyframed.
-- On the page the count is trimmed by the particle budget; in a film `numParticles` is exact, up to
-  200 000, and costs render time in proportion.
+- `numParticles` is exact on the page and in a film, up to 200 000: the graphics card steps and draws
+  them all.
 - `fieldEnabled` false takes the field away: none of its particles is stepped or drawn, and the flows below,
   the grids, the stars and the lens are the whole scene. Turned on again the field is made anew at every depth.
 
@@ -585,8 +585,8 @@ come, as around a real black hole.
 
 ## 12. The page only
 
-`frameRateCap`, `adaptiveParticles`, `fpsCounter` and `scrollSpeedStep` belong to a device or to a hand on
-the wheel. They do nothing in a film, and the first three are in no preset.
+`frameRateCap`, `fpsCounter` and `scrollSpeedStep` belong to a device or to a hand on the wheel. They do
+nothing in a film, and the first two are in no preset.
 
 ## 13. The opening: every parameter by its track
 
@@ -753,7 +753,7 @@ The cost of a knob, in the last column:
 
 - **frame**: read once a frame, or handed to a shader as a uniform in place of the constant. Free.
 - **birth**: read once when a star or a title is made. Free.
-- **particle**, **pixel**: adds work to every particle of the hot loop or to every pixel of the composite
+- **particle**, **pixel**: adds work to every particle of the field's step or to every pixel of the composite
   pass, so CLAUDE.md's Measuring decides.
 - **has one**: a value of nature whose multiple is a knob already, named in the line. Nothing to bring out.
 - **machine**: held by frame time, memory or the precision of the arithmetic. It stays.
@@ -762,11 +762,11 @@ The cost of a knob, in the last column:
 
 | Fixed | File in src/lib | Cost |
 |---|---|---|
-| How the pull falls with distance, as (radius / distance)^2, and the bell of the depth band (in 3D the true distance, out to the sphere of Gravity Reach) | particle_simulation.ts, particle_simulation_3d.ts | particle |
-| The spin's drag, spin / 2 at one radius | particle_simulation.ts, particle_simulation_3d.ts | has one: `frameDrag` |
-| How the drag falls: one power of the distance faster than the pull, so `frameDrag` makes the vortex stronger and never wider | particle_simulation.ts, particle_simulation_3d.ts | particle |
-| What spin lying in the screen does along the line of sight: nothing, so both sides of a tilted hole fall alike | particle_simulation.ts | particle |
-| A captured particle is reborn in four tries, else on the rim, up to half a capture radius outside it | particle_simulation.ts, particle_simulation_3d.ts | machine |
+| How the pull falls with distance, as (radius / distance)^2, and the bell of the depth band (in 3D the true distance, out to the sphere of Gravity Reach) | field_step.ts | particle |
+| The spin's drag, spin / 2 at one radius | field_step.ts | has one: `frameDrag` |
+| How the drag falls: one power of the distance faster than the pull, so `frameDrag` makes the vortex stronger and never wider | field_step.ts | particle |
+| What spin lying in the screen does along the line of sight: nothing, so both sides of a tilted hole fall alike | field_step.ts | particle |
+| A captured particle is reborn in four tries, else on the rim, up to half a capture radius outside it | field_step.ts | machine |
 | Motion capped at six reference frames a step; a stall treated as one frame | particle_simulation.ts, frame_pacing.ts | machine |
 
 ### The flows
@@ -827,7 +827,7 @@ The cost of a knob, in the last column:
 | How deep the sheet lies at a distance: the slowing of time where light passing there comes nearest | webgl_shaders.ts | has one: `gridDepth` |
 | The sheet's 225 lines each way, in 192 pieces each, where `gridSpan` ends at a small `gridCell` | space_grid.ts | machine |
 | Where the sheet's rings stand: at equal steps of the well's depth, so their radii follow from `gridRings` alone | webgl_shaders.ts | frame: a shape, not a number |
-| The sheet's waves do not carry the particles `gridRide` lays on it | sheet_ride.ts | particle: the wave's height at each particle |
+| The sheet's waves do not carry the particles `gridRide` lays on it | webgl_shaders.ts | particle: the wave's height at each particle |
 | The lattice's 13 lines each way along each of the three axes, in 48 pieces each: the top of `gridLatticeReach` | space_lattice.ts | machine |
 | A star's own twinkle, 2 to 5 radians a second, the brighter the faster, and its brightness, the square of an even draw | webgl_shaders.ts | has one: `starsTwinkleSpeed`, `starsFaintest` |
 | One star at most in a cell, placed in its middle 0.6 and drawn inside that cell alone, which cuts a large `starsSize` off at its edge | webgl_shaders.ts | pixel |
@@ -859,5 +859,5 @@ The cost of a knob, in the last column:
 | Fixed | File in src/lib | Cost |
 |---|---|---|
 | The picture is drawn into 4.5 million device pixels at most, 2 to a CSS pixel | particle_canvas.tsx | machine |
-| The 3D camera's nearest, 1 scene unit: a hole nearer than that, or behind the camera, is not drawn, and a stroke is cut there | scene.ts, particle_simulation_3d.ts | machine |
+| The 3D camera's nearest, 1 scene unit: a hole nearer than that, or behind the camera, is not drawn, and a stroke is cut there | scene.ts, field_step.ts | machine |
 | The orbits' traces are set in perspective around the hole's own place on the screen, not each point on its own, which a camera that looks far aside or comes very near shows as a slight misfit | webgl_shaders.ts | pixel: each point projected alone, which changes the bytes of 3D films with orbits |

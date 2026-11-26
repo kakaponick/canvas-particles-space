@@ -3,17 +3,8 @@
 // a film (film_render.ts) calls it in a plain loop with a fixed step. Everything a frame depends on arrives
 // in SceneInput, so the scene reads no store and no window, and with the same seed and the same inputs it
 // draws the same frames.
-import {
-  createParticleField,
-  createInstanceData,
-  createPaletteSampler,
-  createStepSettings,
-  ensureInstanceCapacity,
-  setParticleCount,
-  stepParticles,
-  type SpawnSettings
-} from './particle_simulation'
-import { POSE_SLOTS, cameraPose, cameraTurn, stepParticles3d } from './particle_simulation_3d'
+import { createParticleField, createPaletteSampler, createStepSettings, setParticleCount, type SpawnSettings } from './particle_simulation'
+import { POSE_SLOTS, cameraPose, cameraTurn } from './camera_pose'
 import { createParticleRenderer, type FrameInput, type ParticleRenderer } from './particle_renderer'
 import { createIntroFrame, getRingdownTiming, ringdownWobble, sampleIntro, type IntroFrame, type RingdownTiming } from './intro_timeline'
 import { INTRO_LAYERS, type IntroLayer } from './intro_tracks'
@@ -33,7 +24,6 @@ import { createShadowShape, updateShadowShape } from './kerr_shadow'
 import { createRandom, seedRandom } from './random'
 import { createSceneColor, readSceneColor } from './scene_color'
 import { SIMULATION_COLOR_SPECS } from './simulation_specs'
-import type { ParticleCrew } from './particle_crew'
 
 // The crumbling title follows the black hole's gravity: at these settings (the defaults) the dust
 // travels Dust Pull and turns by this many radians at Dust Swirl 1
@@ -104,8 +94,6 @@ export interface SceneInput {
   params: IntroParams
   hidden: Record<IntroLayer, boolean>
   reducedMotion: boolean
-  // Particles simulated: what the adaptive budget allows on the page, the setting itself in a film
-  particleCount: number
 }
 
 // Where the black hole heads, in CSS pixels, while it follows a pointer or is carried by one
@@ -131,10 +119,9 @@ export interface Scene {
   introTime: number
   // Seconds the scene has run
   time: number
-  // Readouts of the last frame: flight speed, ringdown wobble, milliseconds its simulation took
+  // Readouts of the last frame: flight speed, ringdown wobble
   speed: number
   ringdown: number
-  simulationMs: number
   // How far from its place in the scene the black hole shows on the screen, CSS pixels: the camera
   // looking beside it. The page lays a pointer over the hole with it
   holeShiftX: number
@@ -169,13 +156,7 @@ export interface Scene {
   dispose: () => void
 }
 
-// With a `crew` the particle field is stepped on several cores (particle_crew.ts); the frames are the same
-export function createScene (
-  gl: WebGL2RenderingContext,
-  seed: number,
-  input: SceneInput,
-  crew: ParticleCrew | null = null
-): Scene | null {
+export function createScene (gl: WebGL2RenderingContext, seed: number, input: SceneInput): Scene | null {
   let renderer: ParticleRenderer | null = createParticleRenderer(gl)
   if (!renderer) return null
 
@@ -210,12 +191,12 @@ export function createScene (
   const random = createRandom(seed)
   const ringEnergy = createRingEnergy()
   let ringWasFed = true
-  const field = crew ? crew.field : createParticleField()
+  // The particles as they are born; once sent to the graphics card they are stepped there
+  const field = createParticleField()
   const orbiters = createOrbiters(random)
   const orbitTuning = createOrbitTuning()
   const pair = createPair()
   const shadowShape = createShadowShape()
-  const instances = crew ? crew.instances : createInstanceData()
   const spawn: SpawnSettings = {
     random,
     palette: createPaletteSampler(input.settings.colorPalette),
@@ -223,7 +204,7 @@ export function createScene (
     speedVariance: input.settings.speedVariance,
     radius: input.settings.spawnRadius
   }
-  setParticleCount(field, input.settings.fieldEnabled ? input.particleCount : 0, spawn)
+  setParticleCount(field, input.settings.fieldEnabled ? input.settings.numParticles : 0, spawn)
 
   const settings = createStepSettings(ringEnergy)
   // The 3D camera: how far it has eased from the flat view (0) to its place (1), the radians it has turned
@@ -244,10 +225,17 @@ export function createScene (
     updateScene: true,
     present: true,
     fadeAlpha: 0,
-    instances: instances.floats,
-    instanceCount: 0,
-    instanceRuns: crew ? crew.runs : new Int32Array(0),
-    instanceRunCount: 0,
+    field,
+    fieldCount: 0,
+    fieldBorn: 0,
+    fieldSeed: seed,
+    fieldTick: 0,
+    palette: spawn.palette,
+    spawnRadius: spawn.radius,
+    speedVariance: spawn.speedVariance,
+    ringTurned: 0,
+    ringKeep: 1,
+    ringClear: false,
     orbitCount: 0,
     orbitRow: orbiters.row,
     orbitRowNew: true,
@@ -543,11 +531,14 @@ export function createScene (
     shakeLead = 0
     view.spin = 0
     field.count = 0
+    frame.fieldBorn = 0
+    frame.fieldTick = 0
+    frame.ringClear = true
     clearOrbiters(orbiters)
     clearRingEnergy(ringEnergy)
     for (let slot = 0; slot < frame.flows.length; slot++) resetFlow(frame.flows[slot])
     syncSpawn(from.settings)
-    setParticleCount(field, from.settings.fieldEnabled ? from.particleCount : 0, spawn)
+    setParticleCount(field, from.settings.fieldEnabled ? from.settings.numParticles : 0, spawn)
     placeHole(from)
     renderer?.clearScene(readBackground(from.settings))
   }
@@ -609,7 +600,9 @@ export function createScene (
 
   function drawIdle () {
     if (!renderer) return
-    frame.instanceCount = 0
+    // Nothing is stepped and the ring's light keeps what it has: only the picture is put together again
+    frame.fieldCount = 0
+    frame.ringKeep = 1
     frame.orbitCount = 0
     frame.fadeAlpha = 0
     frame.present = true
@@ -749,9 +742,16 @@ export function createScene (
 
     syncSpawn(state)
     // With the field off none of its particles is kept; turned on again it is made anew at every depth
-    const fieldCount = state.fieldEnabled ? from.particleCount : 0
-    if (fieldCount !== field.count) setParticleCount(field, fieldCount, spawn)
-    ensureInstanceCapacity(instances, field.capacity)
+    const fieldCount = state.fieldEnabled ? state.numParticles : 0
+    if (fieldCount !== field.count) {
+      // The newborn go to the graphics card with the next step
+      if (fieldCount > field.count) frame.fieldBorn = Math.min(frame.fieldBorn, field.count)
+      setParticleCount(field, fieldCount, spawn)
+    }
+    frame.fieldCount = field.count
+    frame.palette = spawn.palette
+    frame.spawnRadius = spawn.radius
+    frame.speedVariance = spawn.speedVariance
 
     // The black hole: born where the intro happens, then pulled toward its target on a spring.
     // An anchored hole rests at its saved position, which a slider or a preset may have just moved
@@ -908,7 +908,10 @@ export function createScene (
     settings.spinToward = sceneToward * dragShare
     // With the feed off the simulation stops collecting light, and old light does not return later
     const ringFed = state.ringEnabled && state.ringFeedEnabled
-    if (ringWasFed && !ringFed) clearRingEnergy(ringEnergy)
+    if (ringWasFed && !ringFed) {
+      clearRingEnergy(ringEnergy)
+      frame.ringClear = true
+    }
     ringWasFed = ringFed
     settings.ringEnergy = ringFed ? ringEnergy : null
     settings.ringCaptureEnergy = state.ringFeedCapture
@@ -1124,13 +1127,11 @@ export function createScene (
     frame.updateScene = frameScale > 0
     frame.present = present
     if (frame.updateScene) {
-      const simStart = performance.now()
-      if (crew) {
-        frame.instanceCount = crew.step(settings, spawn)
-        frame.instanceRunCount = crew.runCount
-      } else {
-        frame.instanceCount = (threeD ? stepParticles3d : stepParticles)(field, settings, spawn, instances)
-      }
+      // The renderer steps the field on the graphics card (field_step.ts) with the numbers gathered above;
+      // what it leaves in the photon ring lands where the ring's pattern has turned to, and fades with it
+      frame.fieldTick++
+      frame.ringTurned = ringEnergy.phase
+      frame.ringKeep = Math.exp(-dt / Math.max(state.ringAfterglow, 0.01))
       view.yaw = settings.cameraYaw
       view.pitch = settings.cameraPitch
       view.roll = settings.cameraRoll
@@ -1163,8 +1164,6 @@ export function createScene (
       frame.orbitUnit = shadowRadius / SHADOW_RADII
       frame.orbitWidth = state.orbitStarSize
       if (ringFed) stepRingEnergy(ringEnergy, dt, state.ringAfterglow, reducedMotion ? 0 : state.ringFlowSpeed)
-      frame.instances = instances.floats
-      scene.simulationMs = performance.now() - simStart
     }
     // The flows turn round the main hole in the plane the orbiting stars circle in, at the size the hole has
     // now; without a hole they keep the lattice's stand-in for its radius. Around moves a flow to the centre
@@ -1629,7 +1628,6 @@ export function createScene (
     time: 0,
     speed: 0,
     ringdown: 0,
-    simulationMs: 0,
     holeShiftX: 0,
     holeShiftY: 0,
     ready: () => renderer !== null,
@@ -1640,7 +1638,10 @@ export function createScene (
     restart,
     fire,
     placeHole,
-    reseed: (next) => seedRandom(random, next),
+    reseed: (next) => {
+      seedRandom(random, next)
+      frame.fieldSeed = next
+    },
     advance,
     drawIdle,
     loseContext: () => {
@@ -1649,6 +1650,8 @@ export function createScene (
     restoreContext: (from) => {
       renderer = createParticleRenderer(gl)
       if (renderer && titleSprite) renderer.setTitle(titleSprite)
+      // The field's particles were on the card that was lost: they go up again as they were born
+      frame.fieldBorn = 0
       resize(scene.width, scene.height, scene.pixelRatio, from, true)
     },
     dispose: () => {

@@ -21,12 +21,11 @@ export const TOGGLES: Record<string, string> = {
   lensingEnabled: 'Gravitational lensing around the black hole.',
   lensingTraced: 'Ray Traced lens, the default: every pixel follows the exact path of light past the black hole (a Kerr hole when blackHoleSpin is above 0, which drags the light round and leans the rings), so the Einstein ring, the mirrored image inside it and the thin rings of light that circled the hole come from the physics. lensingRadius then sets how far the camera stands (1.32 at 2 Schwarzschild radii, the nearest; 2.13 at 10; 2.86 at 21; 8 at about 200), lensingAbsorption still darkens, and lensingReach, lensingFalloff, lensingPivot, lensingRotation, lensingTwistLimit, lensingMaxBend and lensingCore do nothing. false = the stylized lens, which those shape.',
   threeD: 'The field as a volume in space, stepped with gravity along the true distance, seen by a camera that circles the black hole (cameraYaw, cameraPitch, cameraSpin; dragging the scene turns it). Straight on it looks like the flat mode; false is the flat mode, where gravity pulls where particles land on the screen. The camera eases between the two in about a second.',
-  adaptiveParticles: 'Particle budget: trims the particle count when the processor falls behind (per device, not in presets).',
   fpsCounter: 'Shows the measured frame rate in the scene toolbar at the top right (per device, not in presets).'
 }
 export const SETTING_KEYS: readonly string[] = SIMULATION_SETTING_KEYS
 // Kept per device, so they are in no preset and no film
-export const DEVICE_KEYS = ['frameRateCap', 'adaptiveParticles', 'fpsCounter']
+export const DEVICE_KEYS = ['frameRateCap', 'fpsCounter']
 export const ALL_SETTING_KEYS = [...SETTING_KEYS, ...DEVICE_KEYS]
 export const INTRO_KEYS = Object.keys(DEFAULT_INTRO_PARAMS) as IntroParamKey[]
 

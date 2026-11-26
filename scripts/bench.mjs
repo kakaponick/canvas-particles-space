@@ -3,27 +3,25 @@
 // them compared. Needs Node 22+ and Chrome, Chromium or Edge.
 //
 //   node scripts/bench.mjs page [<dist> ...] [--against <commit>] [--runs 2] [--debug]
-//   node scripts/bench.mjs step [--against <commit>] [--runs 2] [--spin 0.99] [--inertia 0.9] [--3d]
-//   node scripts/bench.mjs films [<film> ...] [--against <commit>] [--at 1.5,4,8,12] [--crew]
+//   node scripts/bench.mjs films [<film> ...] [--against <commit>] [--at 1.5,4,8,12]
 //
 // --against <commit> measures that commit beside this checkout: it is checked out into a temporary
-// worktree (pnpm install --offline there, then pnpm build for page and films) and removed afterwards; for
-// page and films this checkout is built too, so both builds are current. Without it page measures the dist
+// worktree (pnpm install --offline there, then pnpm build) and removed afterwards; this checkout is built
+// too, so both builds are current. Without it page measures the dist
 // folders it is given, or this checkout's dist/ as it was last built, and films prints this build's hashes.
 //
 // Each command ends in a line that begins VERDICT, and that line is the check's answer. One command runs
 // at a time on this machine, in turn with the film server's previews and renders (turn.mjs): a
 // measurement taken beside another one measures the other.
 //
-// page and step with --against compare the two builds by their ranges. Ranges that touch are "within
+// page with --against compares the two builds by their ranges. Ranges that touch are "within
 // noise". Ranges apart after the first runs get as many runs again, once, since two runs of each of two
 // equal builds come out apart one time in three, and four of each one time in thirty-five; the verdict then
 // says how far apart the means are.
 //
 // films draws a preview of each film on both builds and compares the pictures' hashes: the films named,
 // or every film of the scene in films/ (not the fractal ones, not the reels), at the seconds of --at.
-// --crew sends the isolation headers, so the particles are stepped by the crew and not the plain loop. A
-// film whose hashes differ is drawn once more on both builds, which tells three things apart: a first
+// A film whose hashes differ is drawn once more on both builds, which tells three things apart: a first
 // draw that was off (the second pair agrees), a film that is not deterministic on the commit before the
 // change, and a picture the change moved.
 //
@@ -31,12 +29,6 @@
 // to end and counts rAF ticks over 4 s; main thread a frame is CDP's TaskDuration over that time divided by
 // the ticks. The builds take turns run by run, so a busy machine weighs on both alike. --debug loads the
 // page with ?debug, which opens the intro debugger.
-//
-// step bundles the hot loop from src/ and times stepParticles alone: 300 warm-up steps, then 1500 timed
-// steps at 1920x1080, for 24 000 particles with the black hole and 24 000 and 10 000 without it. It sets
-// the frame, the hole and the look over createStepSettings, so a new step setting comes in with the value
-// that changes nothing; --spin turns the hole, its axis at 45° to the camera, and --inertia lets the
-// particles keep the speed the hole gives them; --3d times the 3D loop, its camera 40° round and 20° up.
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -44,8 +36,7 @@ import process from 'node:process'
 import { createServer } from 'node:http'
 import { createHash } from 'node:crypto'
 import { execFileSync, execSync, spawn } from 'node:child_process'
-import { createRequire } from 'node:module'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { fileURLToPath } from 'node:url'
 import { takeTurn } from './turn.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -57,20 +48,15 @@ const flag = name => {
   return value
 }
 const runs = Number(flag('--runs') ?? 2)
-const spin = Number(flag('--spin') ?? 0)
-const inertia = Number(flag('--inertia') ?? 0)
 const against = flag('--against')
 // The seconds of a film whose frames are compared; a film that ends sooner gives its last frame
 const at = (flag('--at') ?? '1.5,4,8,12').split(',').map(Number)
 const taken = name => args.includes(name) ? (args.splice(args.indexOf(name), 1), true) : false
-const threeD = taken('--3d')
 const debug = taken('--debug')
-const crew = taken('--crew')
 const [command, ...rest] = args
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 const USAGE = 'node scripts/bench.mjs page [<dist> ...] [--against <commit>] [--runs 2] [--debug]\n' +
-  'node scripts/bench.mjs step [--against <commit>] [--runs 2] [--spin 0.99] [--inertia 0.9] [--3d]\n' +
-  'node scripts/bench.mjs films [<film> ...] [--against <commit>] [--at 1.5,4,8,12] [--crew]'
+  'node scripts/bench.mjs films [<film> ...] [--against <commit>] [--at 1.5,4,8,12]'
 
 // The temporary folder by its long name: git records a worktree's path as given, and Windows hands out
 // the short form (KAKAPO~1) that git then cannot match
@@ -140,16 +126,15 @@ function findBrowser () {
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.json': 'application/json', '.md': 'text/markdown', '.png': 'image/png' }
 
 // Serves a build. `pictures` is the folder a film's pictures are read from, as the film server reads them
-// from its checkout; `isolated` sends the headers that let a film step its particles with the crew
-function serve (dist, { pictures = null, isolated = false } = {}) {
+// from its checkout
+function serve (dist, { pictures = null } = {}) {
   const missing = file => !fs.existsSync(file) || fs.statSync(file).isDirectory()
-  const headers = isolated ? { 'cross-origin-opener-policy': 'same-origin', 'cross-origin-embedder-policy': 'require-corp' } : {}
   const server = createServer((request, response) => {
     const name = decodeURIComponent(new URL(request.url, 'http://x').pathname)
     let file = path.join(dist, name)
     if (name !== '/' && missing(file) && pictures && !missing(path.join(pictures, name))) file = path.join(pictures, name)
     if (name === '/' || missing(file)) file = path.join(dist, 'index.html')
-    response.writeHead(200, { 'content-type': TYPES[path.extname(file)] ?? 'application/octet-stream', ...headers })
+    response.writeHead(200, { 'content-type': TYPES[path.extname(file)] ?? 'application/octet-stream' })
     fs.createReadStream(file).pipe(response)
   })
   return new Promise(resolve => server.listen(0, '127.0.0.1', () => resolve(server)))
@@ -256,60 +241,6 @@ async function page (builds) {
   }
 }
 
-const stepEntry = tree => `
-import * as simulation from ${JSON.stringify(path.join(tree, 'src/lib/particle_simulation.ts').replaceAll(path.sep, '/'))}
-import { createRandom, seedRandom } from ${JSON.stringify(path.join(tree, 'src/lib/random.ts').replaceAll(path.sep, '/'))}
-${threeD ? `import { stepParticles3d } from ${JSON.stringify(path.join(tree, 'src/lib/particle_simulation_3d.ts').replaceAll(path.sep, '/'))}` : 'const stepParticles3d = null'}
-
-export function run (count, hole, spin, inertia) {
-  const { createParticleField, createInstanceData, createPaletteSampler, setParticleCount } = simulation
-  const stepParticles = stepParticles3d ?? simulation.stepParticles
-  const random = createRandom()
-  seedRandom(random, 7)
-  const spawn = { random, palette: createPaletteSampler([{ r: 255, g: 255, b: 255, enabled: true, percent: 100 }]), farZ: 5000, speedVariance: 0.2, radius: 1.2 }
-  const field = createParticleField()
-  setParticleCount(field, count, spawn)
-  const out = createInstanceData()
-  const horizon = 86.4
-  // A tree older than createStepSettings gets the settings it knew, all of which are set here
-  const settings = Object.assign(simulation.createStepSettings ? simulation.createStepSettings(null) : {}, {
-    frameScale: 1, time: 0, speed: 8, width: 1920, height: 1080, focal: 960, vanishX: 960, vanishY: 540,
-    holeX: hole ? 960 : NaN, holeY: hole ? 540 : NaN, holeRadius: hole ? horizon : 0, captureRadius: horizon,
-    captureX: 960, captureY: 540, companionX: 0, companionY: 0, companionRadius: 0, companionCapture: 0,
-    ringEnergy: null, gravityReach: horizon * 5, holeDepth: 2500, gravityDepth: 900, lineWidth: 3, gravityStrength: 2.5,
-    orbitalStrength: 0.5, farZ: 5000, depthFade: 0.5, pulseSpeedMultiplier: 1, pulseIntensity: 0.2, baseBrightness: 1,
-    minOpacity: 0.1, maxOpacity: 1, revealRadius: Infinity, revealX: 960, revealY: 540, revealFeather: 80, opacityScale: 1
-  }, spin > 0 ? { spinRight: 0, spinUp: spin * Math.SQRT1_2, spinToward: spin * Math.SQRT1_2 } : {}, inertia > 0 ? { inertia } : {},
-    stepParticles3d ? { threeD: 1, holeWorldX: 0, holeWorldY: 0, holeWorldZ: 2500, cameraYaw: 0.7, cameraPitch: 0.35, cameraYawFrom: 0.7, cameraPitchFrom: 0.35 } : {})
-  for (let i = 0; i < 300; i++) { settings.time += 1 / 60; stepParticles(field, settings, spawn, out) }
-  const start = performance.now()
-  for (let i = 0; i < 1500; i++) { settings.time += 1 / 60; stepParticles(field, settings, spawn, out) }
-  return (performance.now() - start) / 1500
-}
-`
-
-async function bundleStep (tree) {
-  const fromRoot = createRequire(path.join(root, 'package.json'))
-  const esbuild = createRequire(fromRoot.resolve('vite'))('esbuild')
-  const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'space-step-')), 'step.mjs')
-  await esbuild.build({ stdin: { contents: stepEntry(tree), resolveDir: tree, loader: 'ts' }, bundle: true, format: 'esm', platform: 'node', outfile: out, logLevel: 'silent' })
-  const { run } = await import(pathToFileURL(out).href)
-  fs.rmSync(path.dirname(out), { recursive: true, force: true })
-  return run
-}
-
-// trees: [{ label, tree }]
-async function step (trees) {
-  const loops = await Promise.all(trees.map(({ tree }) => bundleStep(tree)))
-  // The verdict is on the first number, the full field with the hole, which every law of the loop takes part in
-  await compare(trees.map(({ label }) => label), 'ms/step for 24000 with the hole', 3, async (index, round) => {
-    const run = loops[index]
-    const withHole = run(24000, true, spin, inertia)
-    console.log(`${trees[index].label}  run ${round}: 24000 with the hole ${withHole.toFixed(3)} ms/step · 24000 without ${run(24000, false, 0, 0).toFixed(3)} ms · 10000 without ${run(10000, false, 0, 0).toFixed(3)} ms`)
-    return withHole
-  })
-}
-
 // The films compared when none is named: every film of the scene in films/, which leaves out the zooms
 // into the Mandelbrot set, by their names, and the reels, by their clips: a reel is named as its maker
 // likes, and its clips are compared as the films they are
@@ -336,7 +267,7 @@ async function films (builds, files) {
     if (!fs.existsSync(path.join(dist, 'index.html'))) throw new Error(`${dist} has no index.html; run pnpm build`)
   }
   const list = readFilms(files)
-  const servers = await Promise.all(builds.map(({ dist }) => serve(dist, { pictures: root, isolated: crew })))
+  const servers = await Promise.all(builds.map(({ dist }) => serve(dist, { pictures: root })))
   const { send, close } = await openBrowser()
   const evaluate = async expression => {
     const reply = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true })
@@ -418,23 +349,19 @@ async function films (builds, files) {
   }
 }
 
-const here = { label: 'this checkout', tree: root, dist: path.join(root, 'dist') }
-if (command === 'page' || command === 'step' || command === 'films') {
+const here = { label: 'this checkout', dist: path.join(root, 'dist') }
+if (command === 'page' || command === 'films') {
   const release = await takeTurn(`bench.mjs ${command}`)
   let base = null
   try {
     base = against ? checkout(against) : null
-    if (command === 'step') {
-      await step(base ? [{ label: base.label, tree: base.tree }, here] : [here])
-    } else {
-      if (base) {
-        build(base.tree)
-        build(root)
-      }
-      const both = base ? [{ label: base.label, dist: path.join(base.tree, 'dist') }, here] : null
-      if (command === 'films') await films(both ?? [here], rest)
-      else await page(both ?? (rest.length > 0 ? rest.map(dist => ({ label: dist, dist })) : [here]))
+    if (base) {
+      build(base.tree)
+      build(root)
     }
+    const both = base ? [{ label: base.label, dist: path.join(base.tree, 'dist') }, here] : null
+    if (command === 'films') await films(both ?? [here], rest)
+    else await page(both ?? (rest.length > 0 ? rest.map(dist => ({ label: dist, dist })) : [here]))
   } finally {
     base?.remove()
     release()

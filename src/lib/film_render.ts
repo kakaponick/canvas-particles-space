@@ -6,8 +6,6 @@ import { useParticleStore } from '../store/particle_store'
 import { REFERENCE_FPS } from './particle_simulation'
 import { getRenderingContext } from './particle_renderer'
 import { createScene, type SceneInput } from './scene'
-import { createParticleCrew } from './particle_crew'
-import { SIMULATION_SETTING_SPECS } from './simulation_specs'
 import { getIntroDuration } from './intro_timeline'
 import type { TitleSprite, TitleStyle } from './title_sprite'
 import type { StreamTargetChunk } from 'mediabunny'
@@ -85,20 +83,12 @@ export async function createFilmPlayer (plan: FilmPlan, pixel: number, imageUrls
     settings: plan.settings,
     params: plan.params,
     hidden: plan.hidden,
-    reducedMotion: false,
-    particleCount: plan.settings.numParticles
+    reducedMotion: false
   }
-  // The field is stepped on several cores where the page may share memory between threads; a track may
-  // raise the particle count, so the crew has room for the most a film can ask for
-  const crew = await createParticleCrew(SIMULATION_SETTING_SPECS.numParticles.max)
-  const scene = createScene(gl, plan.seed, input, crew)
-  if (!scene) {
-    crew?.dispose()
-    fail('The scene could not start: its shaders did not build')
-  }
+  const scene = createScene(gl, plan.seed, input)
+  if (!scene) fail('The scene could not start: its shaders did not build')
   const dispose = () => {
     scene.dispose()
-    crew?.dispose()
     gl.getExtension('WEBGL_lose_context')?.loseContext()
   }
   scene.resize(plan.width, plan.height, pixel, input, true)
@@ -153,7 +143,6 @@ export async function createFilmPlayer (plan: FilmPlan, pixel: number, imageUrls
     drawn = index
     const time = index / plan.fps
     applyTracks(plan, time)
-    input.particleCount = plan.settings.numParticles
     while (nextCue < plan.cues.length && plan.cues[nextCue].at <= time) {
       // A cue's parameters stay as it set them, unless a track moves the same one
       const words = cueTitles[nextCue]
@@ -176,10 +165,7 @@ export async function createFilmPlayer (plan: FilmPlan, pixel: number, imageUrls
       const scale = plan.speed ? pace * REFERENCE_FPS / count : frameScale
       const seconds = plan.speed ? pace / count : dt
       for (let step = 1; step <= count; step++) {
-        if (count > 1) {
-          applyTracks(plan, (index - 1 + step / count) / plan.fps)
-          input.particleCount = plan.settings.numParticles
-        }
+        if (count > 1) applyTracks(plan, (index - 1 + step / count) / plan.fps)
         scene.advance(scale, seconds, input, show && step === count)
       }
     }

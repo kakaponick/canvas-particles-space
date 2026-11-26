@@ -9,7 +9,6 @@ import { useIntroDebugStore } from '../store/intro_debug_store'
 import { createSpeedDial, turnSpeedDial, wheelPixels, SWIPE_GAIN } from '../lib/base_speed'
 import { createFramePacer, pacedFrameMs } from '../lib/frame_pacing'
 import type { TitleStyle } from '../lib/title_sprite'
-import { createParticleBudget, updateParticleBudget } from '../lib/particle_budget'
 import { randomSeed } from '../lib/random'
 import { cameraKeyChange, describeCamera, CAMERA_KEYS_HELP, CAMERA_KEY_SHORTCUTS } from '../lib/camera_keys'
 import { useFractalStore } from '../store/fractal_store'
@@ -71,14 +70,12 @@ function ParticleCanvas () {
     const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
     const initialState = useParticleStore.getState()
     const initialDebug = useIntroDebugStore.getState()
-    const particleBudget = createParticleBudget(initialState.numParticles)
     // What the scene draws a frame from: the stores as they are, read again for every frame
     const input: SceneInput = {
       settings: initialState,
       params: initialDebug.params,
       hidden: initialDebug.hidden,
-      reducedMotion: motionQuery.matches,
-      particleCount: particleBudget.active
+      reducedMotion: motionQuery.matches
     }
 
     const gl = getRenderingContext(canvas)
@@ -137,7 +134,6 @@ function ParticleCanvas () {
       input.settings = useParticleStore.getState()
       input.params = debug.params
       input.hidden = debug.hidden
-      input.particleCount = particleBudget.active
       return input
     }
 
@@ -267,12 +263,6 @@ function ParticleCanvas () {
       const shownRing = debug.ringTiming
       if (debugging && (Math.abs(shownRing.frequency - ringTiming.frequency) > ringTiming.frequency * 1e-3 ||
         Math.abs(shownRing.decay - ringTiming.decay) > ringTiming.decay * 1e-3)) debug.setRingTiming(ringTiming)
-      if (scene.frame.updateScene) {
-        const active = updateParticleBudget(
-          particleBudget, state.numParticles, scene.simulationMs, elapsedMs, now, state.adaptiveParticles
-        )
-        if (active !== state.activeParticles) state.setActiveParticles(active)
-      }
 
       if (debugging && now - lastReadoutTime >= READOUT_INTERVAL_MS) {
         lastReadoutTime = now
@@ -288,7 +278,7 @@ function ParticleCanvas () {
           ringdown: scene.ringdown,
           titleAlpha: scene.frame.title.alpha,
           speed: scene.speed,
-          particlesDrawn: scene.frame.instanceCount
+          particlesDrawn: scene.frame.fieldCount
         })
       }
     }

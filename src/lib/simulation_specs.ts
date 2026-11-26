@@ -64,7 +64,7 @@ const FLOW_SPECS = Object.fromEntries(FLOW_KEYS.flatMap(keys => {
 
 export const SIMULATION_SETTING_SPECS = {
   numParticles: spoken(spec('Count', 500, 200000, 500, count, 'How many particles fly at once',
-    'Total number of particles rendered in the scene. Higher values create denser visuals but may impact performance; with Particle Budget ON the count is trimmed to what your processor keeps up with.'), 'Particle Count'),
+    'Total number of particles of the field. Higher values create denser visuals; the graphics card steps and draws them all.'), 'Particle Count'),
   farZ: spec('Field Depth', 500, 50000, 500, count, 'How deep the field reaches, in scene units',
     'How deep the particle field reaches, in scene units: how far particles fly before they are recycled. Larger values feel deeper.'),
   baseSpeed: spec('Base Speed', BASE_SPEED_MIN, BASE_SPEED_MAX, BASE_SPEED_STEP, fixed(1), 'How fast the field flies',

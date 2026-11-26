@@ -15,7 +15,8 @@ import {
   latticeVertexShaderSource,
   flowVertexShaderSource
 } from './webgl_shaders'
-import { INSTANCE_FLOATS, type StepSettings } from './particle_simulation'
+import { INSTANCE_FLOATS } from './particle_simulation'
+import { RING_LIGHT_TEXTURE_UNIT, createFieldFeedback, type FieldFeedback, type FieldInput } from './field_feedback'
 import type { SceneColor } from './scene_color'
 import { MAX_ORBITERS, STRETCH_SECONDS } from './orbiters'
 import type { TitleSprite } from './title_sprite'
@@ -364,19 +365,13 @@ export interface TitleSettings {
   burnEdge: number
 }
 
-export interface FrameInput {
+export interface FrameInput extends FieldInput {
   background: readonly [number, number, number]
   // False keeps the scene texture as it is (a frozen frame) and only recomposites it
   updateScene: boolean
   // False draws into the scene only and shows nothing: a film's extra step between two of its frames
   present: boolean
   fadeAlpha: number
-  instances: Float32Array
-  instanceCount: number
-  // Where the segments lie in `instances`: a start slot and a count for each of `instanceRunCount` runs,
-  // drawn in that order. No runs, as on the page: the segments lie together from slot 0
-  instanceRuns: Int32Array
-  instanceRunCount: number
   // Stars in orbit: `orbitRow` holds the stretch each of the `orbitCount` stars is flying, in
   // Schwarzschild radii from the black hole. The renderer keeps the stretches and draws the traces from them
   orbitCount: number
@@ -429,8 +424,6 @@ export interface FrameInput {
   // The flows (flows.ts), drawn into that layer too: one record for each slot. In 3D they lie where the
   // orbits do (orbitTurn)
   flows: FlowSettings[]
-  // The numbers the particles were stepped with, the sheet as Particles on Sheet sees it among them
-  step: StepSettings
 }
 
 export interface ParticleRenderer {
@@ -558,12 +551,22 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     return null
   }
 
+  // The particle field: its buffers and the passes that step it
+  const madeField = createFieldFeedback(gl)
+  if (!madeField) {
+    for (const program of programs) gl.deleteProgram(program)
+    return null
+  }
+  const field: FieldFeedback = madeField
+  // Whether the composite pass reads the ring's light from the field this frame
+  let ringLit = false
+
   const fadeUniforms = getUniforms(gl, fadeProgram, ['color'] as const)
   const particleUniforms = getUniforms(gl, particleProgram, ['resolution', 'pixelRatio', 'center', 'doppler', 'speedGlow', 'speedKnee', 'tintAhead', 'tintEdge', 'tint', 'frameScale', 'zoom', 'zoomFrom'] as const)
   const orbitUniforms = getUniforms(gl, orbitProgram, ['resolution', 'zoom', 'orbit', 'dimmed', 'turnX', 'turnY'] as const)
   const compositeUniforms = getUniforms(gl, compositeProgram, [
     'resolution', 'pixelRatio', 'time', 'hole', 'horizon', 'einstein', 'falloff', 'falloffPivot', 'lensCore', 'maxBend', 'lensReach', 'twistLimit', 'swirl', 'absorption', 'trace', 'spin', 'ring',
-    'ringWidth', 'ringGlow', 'ringDoppler', 'ringSide', 'ringPhase', 'ringBase', 'ringFeed', 'ringLine', 'ringGlowShape', 'ringColor', 'ringApproaching', 'ringReceding',
+    'ringWidth', 'ringGlow', 'ringDoppler', 'ringSide', 'ringPhase', 'ringField', 'ringBase', 'ringFeed', 'ringLine', 'ringGlowShape', 'ringColor', 'ringApproaching', 'ringReceding',
     'center', 'starGlow', 'starRadius', 'sourcePower', 'glareRadius', 'exposure',
     'lightRadius', 'lightWidth', 'lightPower', 'lightSpeed', 'echoPower', 'echoDecay',
     'waveRadius', 'waveStrength', 'waveWidth', 'remnantGlow', 'remnantRedshift', 'remnantRadius',
@@ -596,6 +599,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   gl.uniform1i(gl.getUniformLocation(compositeProgram, 'u_ringEnergy'), RING_TEXTURE_UNIT)
   gl.uniform1i(gl.getUniformLocation(compositeProgram, 'u_orbitTrails'), ORBIT_TEXTURE_UNIT)
   gl.uniform1i(gl.getUniformLocation(compositeProgram, 'u_shadowShape'), SHADOW_TEXTURE_UNIT)
+  gl.uniform1i(gl.getUniformLocation(compositeProgram, 'u_ringLight'), RING_LIGHT_TEXTURE_UNIT)
 
   // Shared quad at location 0, bound once for every program
   const quadBuffer = gl.createBuffer()
@@ -604,18 +608,14 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   gl.enableVertexAttribArray(ATTRIBUTE_LOCATIONS.position)
   gl.vertexAttribPointer(ATTRIBUTE_LOCATIONS.position, 2, gl.FLOAT, false, 0, 0)
 
-  // Per-particle attributes read one record per instance from the interleaved buffer
-  const instanceBuffer = gl.createBuffer()
-  let instanceCapacity = 0
-  // Points the per-instance attributes at the record `offset` bytes into the instance buffer, which
-  // must be bound
+  // A stroke is read one record an instance: the field's from the buffer its step wrote (field_feedback.ts),
+  // an orbit's trace from the ring of rows. Points the three attributes at the trace `offset` bytes into
+  // the trace buffer, which must be bound
   function pointInstances (offset: number) {
     gl.vertexAttribPointer(ATTRIBUTE_LOCATIONS.segment, 4, gl.FLOAT, false, INSTANCE_STRIDE, offset)
     gl.vertexAttribPointer(ATTRIBUTE_LOCATIONS.style, 2, gl.FLOAT, false, INSTANCE_STRIDE, offset + 16)
     gl.vertexAttribPointer(ATTRIBUTE_LOCATIONS.color, 4, gl.UNSIGNED_BYTE, true, INSTANCE_STRIDE, offset + 24)
   }
-  gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuffer)
-  pointInstances(0)
   for (const location of INSTANCED_ATTRIBUTES) gl.vertexAttribDivisor(location, 1)
 
   // The lines of the space sheet never change: the grid vertex shader places them
@@ -778,32 +778,6 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     gl.activeTexture(gl.TEXTURE0 + SCENE_TEXTURE_UNIT)
   }
 
-  // One upload for the frame's particles
-  function uploadInstances (frame: FrameInput) {
-    const count = frame.instanceCount
-    if (count === 0) return
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuffer)
-    if (count > instanceCapacity) {
-      instanceCapacity = Math.ceil(count * 1.5)
-      gl.bufferData(gl.ARRAY_BUFFER, instanceCapacity * INSTANCE_STRIDE, gl.DYNAMIC_DRAW)
-    }
-    // A range of the array goes up as it is, with no view made for it
-    if (frame.instanceRunCount === 0) {
-      gl.bufferSubData(gl.ARRAY_BUFFER, 0, frame.instances, 0, count * INSTANCE_FLOATS)
-      return
-    }
-    // A crew's runs go up one after another, which closes the gaps between them
-    const runs = frame.instanceRuns
-    let slot = 0
-    for (let run = 0; run < frame.instanceRunCount; run++) {
-      const segments = runs[run * 2 + 1]
-      if (segments === 0) continue
-      gl.bufferSubData(gl.ARRAY_BUFFER, slot * INSTANCE_STRIDE, frame.instances, runs[run * 2] * INSTANCE_FLOATS, segments * INSTANCE_FLOATS)
-      slot += segments
-    }
-  }
-
   // Stamps `count` segments into the bound target, keeping the brighter of a segment and what is already
   // there, so stamps do not add up
   function stampSegments (count: number) {
@@ -815,7 +789,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   }
 
   function drawParticles (frame: FrameInput) {
-    if (frame.instanceCount === 0) return
+    if (field.count() === 0) return
     gl.useProgram(particleProgram)
     setUniform1f(gl, particleUniforms.doppler, frame.doppler)
     setUniform1f(gl, particleUniforms.speedGlow, frame.speedGlow)
@@ -827,7 +801,8 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     setUniform2f(gl, particleUniforms.center, frame.vanishX, frame.vanishY)
     setUniform4f(gl, particleUniforms.zoom, layerZoomX * ratio, layerZoomY * ratio, layerZoom, 0)
     setUniform4f(gl, particleUniforms.zoomFrom, fromZoomX * ratio, fromZoomY * ratio, fromZoom, 0)
-    stampSegments(frame.instanceCount)
+    field.bindStrokes()
+    stampSegments(field.count())
   }
 
   // Forgets every trace
@@ -916,8 +891,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
       pointInstances(0)
       stampSegments(to)
     }
-    gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuffer)
-    pointInstances(0)
+    gl.bindBuffer(gl.ARRAY_BUFFER, null)
   }
 
   // The lattice is drawn anew every frame into the layer of lines, bent towards the holes and seen by the
@@ -951,7 +925,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     gl.drawArraysInstanced(gl.TRIANGLES, 0, QUAD_VERTEX_COUNT, LATTICE_INSTANCE_COUNT)
     gl.blendEquation(gl.FUNC_ADD)
     gl.disableVertexAttribArray(ATTRIBUTE_LOCATIONS.latticeLine)
-    gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuffer)
+    gl.bindBuffer(gl.ARRAY_BUFFER, null)
   }
 
   // The flows are drawn anew every frame into the layer of lines: every particle and its trail are placed by
@@ -1002,7 +976,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     gl.blendEquation(gl.FUNC_ADD)
     gl.disableVertexAttribArray(ATTRIBUTE_LOCATIONS.flowCorner)
     gl.disableVertexAttribArray(ATTRIBUTE_LOCATIONS.flowSeed)
-    gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuffer)
+    gl.bindBuffer(gl.ARRAY_BUFFER, null)
   }
 
   function composite (settings: CompositeSettings, title: TitleSettings) {
@@ -1092,6 +1066,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     setUniform1f(gl, u.ringDoppler, settings.ringDoppler)
     setUniform1f(gl, u.ringSide, settings.ringSide)
     setUniform1f(gl, u.ringPhase, settings.ringPhase)
+    setUniform1f(gl, u.ringField, ringLit ? 1 : 0)
     setUniform1f(gl, u.ringBase, settings.ringBase)
     setUniform1f(gl, u.ringFeed, settings.ringFeed)
     setUniform4f(gl, u.ringLine, settings.ringLineMin, settings.ringOffset, settings.ringReach, settings.ringSoftness)
@@ -1270,13 +1245,17 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
         fromZoomX = layerZoomX
         fromZoomY = layerZoomY
       }
+      // The field is stepped on the graphics card, and what it left lights the photon ring
+      field.step(frame)
+      field.lightRing(frame)
+      ringLit = field.ringKept && frame.step.ringEnergy !== null
+      gl.viewport(0, 0, width, height)
       gl.bindFramebuffer(gl.FRAMEBUFFER, sceneFramebuffer)
       if (frame.fadeAlpha > 0) {
         gl.useProgram(fadeProgram)
         setUniform4f(gl, fadeUniforms.color, r / 255, g / 255, b / 255, frame.fadeAlpha)
         gl.drawArrays(gl.TRIANGLES, 0, QUAD_VERTEX_COUNT)
       }
-      uploadInstances(frame)
       drawParticles(frame)
       // The orbits' traces, the lattice and the flows share one layer of lines
       const latticeShown = frame.lattice.brightness > 0
@@ -1344,7 +1323,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     gl.deleteTexture(ringTexture)
     gl.deleteTexture(shadowTexture)
     gl.deleteBuffer(quadBuffer)
-    gl.deleteBuffer(instanceBuffer)
+    field.dispose()
     gl.deleteBuffer(traceBuffer)
     gl.deleteBuffer(gridBuffer)
     gl.deleteBuffer(latticeBuffer)

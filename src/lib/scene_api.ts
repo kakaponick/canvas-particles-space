@@ -26,7 +26,7 @@ import { REEL_GUIDE, isReel } from './reel'
 import { checkReel, previewReel, renderReel, type ReelOptions } from './reel_render'
 
 // Defaults of the switches that are kept per device and so are not in the Default preset
-const DEVICE_TOGGLE_DEFAULTS: Record<string, boolean> = { adaptiveParticles: true, fpsCounter: false }
+const DEVICE_TOGGLE_DEFAULTS: Record<string, boolean> = { fpsCounter: false }
 
 const HELP = `window.space: the scene for agents. Every call returns plain JSON-safe data; errors are thrown with a reason.
   describe(filter?)        simulation settings: key, label, value, default, range, description; sliders, switches, colours
@@ -302,7 +302,7 @@ export const sceneApi = {
     const debug = useIntroDebugStore.getState()
     return {
       fps: state.measuredFps,
-      particles: { active: state.activeParticles, target: state.numParticles, adaptive: state.adaptiveParticles },
+      particles: state.fieldEnabled ? state.numParticles : 0,
       paused: state.isPaused,
       introComplete: state.introComplete,
       debugOpen: debug.open,

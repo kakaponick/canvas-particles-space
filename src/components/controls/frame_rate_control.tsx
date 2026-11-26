@@ -55,42 +55,11 @@ function FpsCounterRow () {
   )
 }
 
-function ParticleBudgetRow () {
-  const adaptiveParticles = useParticleStore(state => state.adaptiveParticles)
-  const activeParticles = useParticleStore(state => state.activeParticles)
-  const numParticles = useParticleStore(state => state.numParticles)
-  const toggleAdaptiveParticles = useParticleStore(state => state.toggleAdaptiveParticles)
-  const trimmed = adaptiveParticles && activeParticles > 0 && activeParticles < numParticles
-
-  return (
-    <SettingsRow
-      label="Particle Budget"
-      help="ON drops particles to hold the frame rate"
-    >
-      {(describedBy) => (
-        <>
-          {/* Only while the budget is trimming; otherwise the switch says all there is. Count already shows the total */}
-          {trimmed && (
-            <span
-              className="font-mono text-xs tabular-nums text-text-light/70"
-              title={`Particles drawn now, of ${numParticles.toLocaleString('en-US')} set in Count`}
-            >
-              {`${activeParticles.toLocaleString('en-US')} drawn`}
-            </span>
-          )}
-          <SettingsSwitch on={adaptiveParticles} onToggle={toggleAdaptiveParticles} label="Particle budget" describedBy={describedBy} />
-        </>
-      )}
-    </SettingsRow>
-  )
-}
-
 function FrameRateControl () {
   return (
     <>
       <FrameRateSlider />
       <FpsCounterRow />
-      <ParticleBudgetRow />
     </>
   )
 }

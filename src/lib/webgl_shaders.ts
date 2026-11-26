@@ -3,6 +3,7 @@
 // and are still written in GLSL ES 1.00, which WebGL2 compiles as it is.
 
 import { SHADOW_SAMPLES } from './kerr_shadow'
+import { RING_BINS } from './ring_energy'
 import { KERR_GLSL } from './kerr_glsl'
 import { LATTICE_SEGMENTS } from './space_lattice'
 import { FLOW_EDGE, FLOW_NEAR_FADE, FLOW_NEAR_GONE, FLOW_SEGMENTS } from './flows'
@@ -16,7 +17,11 @@ export const ATTRIBUTE_LOCATIONS = {
   gridLine: 4,
   latticeLine: 5,
   flowCorner: 6,
-  flowSeed: 7
+  flowSeed: 7,
+  fieldPlace: 8,
+  fieldDrift: 9,
+  fieldLook: 10,
+  fieldDeposit: 11
 } as const
 
 // How deep the sheet lies, how far a node of the lattice is pulled in and how far the Lensed Grid is drawn in,
@@ -96,6 +101,16 @@ export const particleVertexShaderSource = `
   const float PI = 3.14159265359;
 
   void main () {
+    // A particle that draws nothing this frame has no opacity
+    if (a_style.y <= 0.0) {
+      v_ends = vec2(0.0);
+      v_across = 0.0;
+      v_halfWidth = 0.0;
+      v_color = vec4(0.0);
+      gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+      return;
+    }
+
     // The camera's zoom is applied to the segment itself, not to the finished picture, so a magnified
     // particle is drawn anew at its larger size and keeps a sharp edge. The stroke starts where the
     // particle stood in the last frame's picture, through that frame's camera, so its trail stays one
@@ -283,7 +298,9 @@ export const compositeFragmentShaderSource = `
   uniform float u_ringGlow;      // strength of the soft light around the line; 0 leaves the bare line
   uniform float u_ringDoppler;   // contrast between the approaching and the receding side
   uniform float u_ringSide;      // direction of the approaching side, radians
-  uniform sampler2D u_ringEnergy; // light left around the ring by infalling matter
+  uniform sampler2D u_ringEnergy; // light left around the ring by the orbiting stars and the flows
+  uniform sampler2D u_ringLight;  // light the particle field left there, a bin a direction, neither spread nor saturated
+  uniform float u_ringField;      // 1 while the field's light is kept
   uniform float u_ringPhase;     // radians the energy pattern has turned
   uniform float u_ringBase;      // share of the ring's light that shines with nothing falling in
   uniform float u_ringFeed;      // share of the ring's light that infalling matter adds
@@ -1044,7 +1061,16 @@ ${DENT_GLSL}
 
         // The ring burns brighter where the simulation drops matter into the hole
         float ringAngle = atan(offset.y, offset.x);
-        float infall = texture2D(u_ringEnergy, vec2((ringAngle - u_ringPhase) / (2.0 * PI), 0.5)).r;
+        float ringTurn = (ringAngle - u_ringPhase) / (2.0 * PI);
+        float infall = texture2D(u_ringEnergy, vec2(ringTurn, 0.5)).r;
+        if (u_ringField > 0.0) {
+          // The field's light is spread over a bin's neighbours here and joins what the stars and the flows
+          // left, before the whole saturates softly
+          float bin = 1.0 / ${RING_BINS}.0;
+          float left = infall / max(1.0 - infall, 0.004) + 0.5 * texture2D(u_ringLight, vec2(ringTurn, 0.5)).r +
+            0.25 * (texture2D(u_ringLight, vec2(ringTurn - bin, 0.5)).r + texture2D(u_ringLight, vec2(ringTurn + bin, 0.5)).r);
+          infall = left / (1.0 + left);
+        }
         line *= u_ringBase + u_ringFeed * infall;
 
         // Doppler beaming: light moving towards the viewer is brighter and bluer, the far side dimmer and redder
@@ -1311,7 +1337,9 @@ export function createProgram (
   gl: WebGL2RenderingContext,
   vertexSource: string,
   fragmentSource: string,
-  attributes: Record<string, number>
+  attributes: Record<string, number>,
+  // What a transform feedback keeps of the vertex shader's outputs, in the order they are written
+  feedback?: readonly string[]
 ): WebGLProgram | null {
   const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexSource)
   const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentSource)
@@ -1323,6 +1351,7 @@ export function createProgram (
     for (const [name, location] of Object.entries(attributes)) {
       gl.bindAttribLocation(program, location, name)
     }
+    if (feedback) gl.transformFeedbackVaryings(program, [...feedback], gl.INTERLEAVED_ATTRIBS)
     gl.linkProgram(program)
     gl.detachShader(program, vertexShader)
     gl.detachShader(program, fragmentShader)
@@ -1463,10 +1492,10 @@ ${DENT_GLSL}
   }
 `
 
-// Particles on Sheet for what the graphics card places: rideStroke of sheet_ride.ts and onScreen of the grid
-// vertex shader said once more, so a change to how the sheet is placed, dented, turned or rolled goes into
-// all three. Lengths are CSS pixels
-const RIDE_GLSL = `  uniform vec4 u_ride;        // the share of the way a stroke is moved onto the sheet (0 = none), the turn and scale that take a place round the hole to the sheet (cosine, sine), the nearest the sheet is drawn
+// Particles on Sheet: onScreen of the grid vertex shader said once more for what is laid on the sheet, the
+// particle field (field_step.ts) and the flows, so a change to how the sheet is placed, dented, turned or
+// rolled goes into both. Lengths are CSS pixels
+export const RIDE_GLSL = `  uniform vec4 u_ride;        // the share of the way a stroke is moved onto the sheet (0 = none), the turn and scale that take a place round the hole to the sheet (cosine, sine), the nearest the sheet is drawn
   uniform vec4 u_sheetView;   // the point the sheet's camera looks at, its distance, device pixels in a CSS pixel
   uniform vec4 u_sheetTilt;   // sine and cosine of the sheet's tilt, cosine and sine of a 3D camera's roll
   uniform vec4 u_sheetWell;   // the main hole's well from that point (across, away), the radius it ends at, its depth

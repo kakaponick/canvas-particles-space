@@ -94,7 +94,7 @@ const settingColorKeys = Object.keys(COLORS)
 const otherKeys = ALL_SETTING_KEYS.filter(key => !(key in SLIDERS) && !(key in TOGGLES) && !(key in COLORS))
 // What the page keeps about itself rather than about the scene; window.space reaches it by pause(),
 // play() and readout()
-const RUNTIME = ['isPaused', 'measuredFps', 'activeParticles', 'introComplete']
+const RUNTIME = ['isPaused', 'measuredFps', 'introComplete']
 
 // 1. Nothing in the store is out of reach: every value it holds is a setting the API takes or runtime state
 for (const [key, value] of Object.entries(state)) {

@@ -47,7 +47,6 @@ pnpm lint
 
 # Frame time against an earlier commit (see CLAUDE.md, Measuring)
 node scripts/bench.mjs page --against HEAD
-node scripts/bench.mjs step --against HEAD
 ```
 
 ## Opening
@@ -101,8 +100,7 @@ and meaning; `window.space.describe()` reads the same text. The groups:
   at 0.99, seen side-on. Save your own setups under a name; they stay in this browser. Every length around the
   hole is in black hole radii, so Black Hole Size alone scales it
 - **Playback**: Scene Motion (freeze the scene), **FPS Limit** (AUTO follows the display, or a cap of 30-240;
-  motion speed does not depend on the frame rate), FPS Counter, and **Particle Budget**, which lowers the particle
-  count while the processor cannot keep up and raises it again once it can
+  motion speed does not depend on the frame rate) and FPS Counter
 - **3D View**: the ON/OFF switch at the head of the section. The field becomes a column of particles flowing
   through space past the black hole, stepped with gravity along the true distance, and a camera circles the
   hole: **Orbit Angle** around it, **Elevation** above or below it, **Auto Orbit** in degrees a second. Straight
@@ -281,7 +279,7 @@ Save MP4 renders the fall from where the camera is as a 15, 30 or 60 s video on 
 ```
 src/
 ├── components/
-│   ├── particle_canvas.tsx      # Animation loop, frame-rate cap, particle budget, pointer and touch input
+│   ├── particle_canvas.tsx      # Animation loop, frame-rate cap, pointer and touch input
 │   ├── control_panel.tsx        # Scene toolbar and the Settings panel
 │   ├── film_mode.tsx            # The film mode: a film played live, opened and saved
 │   ├── settings_body.tsx        # Every setting, built once with the page
@@ -290,10 +288,10 @@ src/
 │   └── ui/                      # shadcn/ui components
 ├── lib/
 │   ├── scene.ts                 # The scene apart from the page: one frame from its inputs
-│   ├── particle_simulation.ts   # Particle state and the per-frame step
-│   ├── particle_simulation_3d.ts # The same field stepped in 3D, seen by a camera circling the hole
-│   ├── particle_budget.ts       # Trims and restores the particle count to fit the frame
-│   ├── particle_crew.ts         # Steps a film's particles on several cores (with particle_pieces.ts and the worker)
+│   ├── particle_simulation.ts   # The particle field as it is born, and the numbers a step is given
+│   ├── field_step.ts            # The field's step, a vertex shader: flat and in 3D
+│   ├── field_feedback.ts        # The field's buffers on the graphics card, the step's pass, the ring's light
+│   ├── camera_pose.ts           # The 3D camera: where it stands and looks
 │   ├── particle_renderer.ts     # WebGL passes: trails, particles, orbits, composite, space sheet
 │   ├── webgl_shaders.ts         # GLSL sources and program helpers
 │   ├── simulation_specs.ts      # Name, range, unit and meaning of every setting
