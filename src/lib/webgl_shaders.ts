@@ -78,51 +78,117 @@ ${DENT_GLSL}
   }
 `
 
-// In 3D what lies nearer the camera than the nearer black hole is drawn where it is, over the holes, and
+/// In 3D what lies nearer the camera than the nearer black hole is drawn where it is, over the holes, and
 // what lies far behind it is seen through the lens. Between the two the share seen through the lens grows
 // with the depth behind the hole as a thin lens's bend does, d / (D + d) of the sky's for light from d
-// behind a lens D from the camera, scaled to be whole at Front Depth: the share of a thing "away" from the
-// camera, with the hole's plane "plane" from it and that depth "depth" behind the plane, all in one
+// behind a lens D from the camera, scaled to be whole at Front Depth and raised to Front Curve: the share of
+// a thing "away" from the camera, with the hole "plane" from it and that depth behind the plane, all in one
 // measure. 0 depth is a hard plane. Whatever lies behind the hole and is seen within a shadow ("main" and
-// "second": the centre on the screen, where "at" is measured, and the radius; 0 for no hole) is the lens's
-// whole, which the shadow covers. The field's step and the line shaders read this one text
-export const BEHIND_GLSL = `  // The share of a thing "away" from the camera, seen at "at" on the picture, that is behind one hole:
-  // its shadow's centre and radius there, and how far the hole itself stands from the camera
-  float behindHole (float away, float depth, vec2 at, vec4 hole) {
-    float behind = away - hole.w;
-    if (hole.z <= 0.0 || behind <= 0.0) return 0.0;
+// "second": the centre on the screen, where "at" is measured, and the radius; 0 for no hole), a spinning
+// hole's outline for the main one, is the lens's whole, which the shadow covers. Front Bend and Between Bend
+// draw a share of that matter once instead, in front, where a point mass bent by its share of the lens shows
+// it. The field's step and the line shaders read this one text
+export const BEHIND_GLSL = `  uniform sampler2D u_behindShape;  // a spinning main hole's shadow (kerr_shadow.ts): its radius all the way round, in round-shadow radii
+
+  // How far a shadow of "radius" reaches toward "from" on the picture: round, or while "spin.x" is 1 the
+  // outline of a spinning hole whose axis is turned "spin.y" on the picture (the second hole does not spin)
+  float shadowToward (vec2 from, float radius, vec2 spin) {
+    if (spin.x <= 0.0) return radius;
+    float around = (atan(-from.y, from.x) - spin.y) / 6.2831853;
+    return radius * texture(u_behindShape, vec2(around + HALF_SAMPLE, 0.5)).r;
+  }
+
+  // The thin lens's share of a thing "behind" the plane of a hole "plane" from the camera, whole at "depth"
+  // behind it, raised to "power"
+  float lensShare (float behind, float plane, float depth, float power) {
+    if (behind <= 0.0) return 0.0;
     if (behind >= depth) return 1.0;
+    float share = behind * (plane + depth) / ((plane + behind) * depth);
+    return power == 1.0 ? share : pow(share, power);
+  }
+
+  // Where a hole's lens shows a thing seen at "at" without it, bent by a share of the lens: a point mass's
+  // outer image, beta (1 + sqrt(1 + 4 share E^2 / beta^2)) / 2, for "einstein" its Einstein radius
+  vec2 imageOf (vec2 at, vec4 hole, float einstein, float share) {
     vec2 from = at - hole.xy;
-    if (dot(from, from) < hole.z * hole.z) return 1.0;
-    return behind * (hole.w + depth) / ((hole.w + behind) * depth);
+    float b = max(dot(from, from), 0.00000001);
+    return hole.xy + from * (0.5 + 0.5 * sqrt(1.0 + 4.0 * share * einstein * einstein / b));
   }
 
-  // The share seen through the lens. Behind both holes it is all the lens's. What stands behind the
-  // nearer hole and before the farther is the nearer one's alone to bend, which the layer behind cannot
-  // draw (it is read through both lenses): it goes there only where the nearer hole's lens reaches it on
-  // the picture, within "reach" of its shadow's radii and fading out by twice that, and is drawn where it
-  // is elsewhere, so the matter round the farther hole is not bent by its own hole's lens
-  float seenBehind (float away, float depth, float reach, vec2 at, vec4 main, vec4 second) {
-    float one = behindHole(away, depth, at, main);
-    if (second.z <= 0.0) return one;
-    float two = behindHole(away, depth, at, second);
-    vec4 nearer = main.w <= second.w ? main : second;
-    float reached = 1.0 - smoothstep(reach, 2.0 * reach, length(at - nearer.xy) / nearer.z);
-    return max(min(one, two), max(one, two) * reached);
+  // 1 when a hole's shadow covers a point of the picture
+  float shadowed (vec2 at, vec4 hole, vec2 spin) {
+    vec2 from = at - hole.xy;
+    return length(from) < shadowToward(from, hole.z, spin) ? 1.0 : 0.0;
   }
-`
 
-// The line shaders take the side of a piece's middle: the composite pass lays the front layer over the
+  // The sides of a thing "away" from the camera seen at "at" (main, second: each hole's shadow there and its
+  // distance from the camera): x the share of it seen through the layer behind the holes, y the share of
+  // the lens the rest is bent by where it is drawn in front, z 1 when that lens is the second hole's.
+  // band: Front Depth, how far the nearer hole's lens reaches on the picture in its shadow's radii, the
+  // multiple of that by which it lets go, Front Curve. bend: Front Bend and Between Bend, the two holes'
+  // Einstein radii. spin: 1 while the main hole spins, its axis's turn on the picture.
+  // Behind both holes it is all the lens's. What stands behind the nearer hole and before the farther is the
+  // nearer one's alone to bend, which the layer behind cannot draw (it is read through both lenses): it goes
+  // there only where the nearer hole's lens reaches it on the picture, and is drawn where it is elsewhere,
+  // so the matter round the farther hole is not bent by its own hole's lens. Front Bend draws a share of the
+  // band behind the nearer hole, and Between Bend of what stands between the two, once and in front, where
+  // the nearer hole's lens alone shows it, and hides what its shadow covers there
+  vec3 behindShares (float away, vec2 at, vec4 main, vec4 second, vec4 band, vec4 bend, vec2 spin) {
+    float rawOne = main.z > 0.0 ? lensShare(away - main.w, main.w, band.x, band.w) : 0.0;
+    float one = rawOne > 0.0 && rawOne < 1.0 ? max(rawOne, shadowed(at, main, spin)) : rawOne;
+    if (second.z <= 0.0) {
+      if (bend.x <= 0.0 || rawOne <= 0.0 || rawOne >= 1.0) return vec3(one, 0.0, 0.0);
+      float share = rawOne * bend.x;
+      return vec3(mix(one, shadowed(imageOf(at, main, bend.z, share), main, spin), bend.x), share, 0.0);
+    }
+    float rawTwo = lensShare(away - second.w, second.w, band.x, band.w);
+    float two = rawTwo > 0.0 && rawTwo < 1.0 ? max(rawTwo, shadowed(at, second, vec2(0.0))) : rawTwo;
+    bool mainNearer = main.w <= second.w;
+    vec4 nearer = mainNearer ? main : second;
+    float reached = 1.0 - smoothstep(band.y, band.z * band.y, length(at - nearer.xy) / nearer.z);
+    float split = max(min(one, two), max(one, two) * reached);
+    float rawNear = mainNearer ? rawOne : rawTwo;
+    float law = mix(bend.x, bend.y, rawNear);
+    if ((mainNearer ? rawTwo : rawOne) > 0.0 || rawNear <= 0.0 || law <= 0.0) return vec3(split, 0.0, 0.0);
+    float share = rawNear * law;
+    vec2 nearSpin = mainNearer ? spin : vec2(0.0);
+    float hidden = shadowed(imageOf(at, nearer, mainNearer ? bend.z : bend.w, share), nearer, nearSpin);
+    return vec3(mix(split, hidden, law), share, mainNearer ? 0.0 : 1.0);
+  }
+
+  // Where a thing seen at "at", whose sides behindShares gave, is drawn in front of the holes
+  vec2 bentBy (vec2 at, vec3 sides, vec4 main, vec4 second, vec4 bend) {
+    if (sides.y <= 0.0) return at;
+    return sides.z > 0.5 ? imageOf(at, second, bend.w, sides.y) : imageOf(at, main, bend.z, sides.y);
+  }
+`.replace('HALF_SAMPLE', (0.5 / SHADOW_SAMPLES).toFixed(8))
+
+// The line shaders take the side of each end of a piece: the composite pass lays the front layer over the
 // holes unbent and reads the other through the lens. One draw writes both (the stroke fragment shader),
-// a piece in the band behind the hole into both at their shares
-const SIDE_GLSL = `  uniform vec3 u_side;        // x: 1 while something can stand in front of the black holes (0: all of it is behind them); y: Front Depth, in the shader's own measure of depth; z: how far the nearer hole's lens reaches on the picture, in its shadow's radii
+// a piece in the band behind the hole into both at their shares, which run from the one end's to the
+// other's along it, so a piece that crosses the boundary passes from one layer into the other where it does
+const SIDE_GLSL = `  uniform vec4 u_side;        // x: 1 while something can stand in front of the black holes (0: all of it is behind them); y: Front Depth, in the shader's own measure of depth; z: how far the nearer hole's lens reaches on the picture, in its shadow's radii; w: the multiple of that by which it lets go
   uniform vec4 u_sideMain;    // the main hole's shadow in the layer: its centre and radius, device pixels at the camera's zoom; the hole's distance from the camera, in the shader's own measure
   uniform vec4 u_sideSecond;  // the second hole's (radius 0 without one)
+  uniform vec4 u_sideBend;    // Front Bend, Between Bend, the main hole's and the second's Einstein radii in the layer
+  uniform vec3 u_sideShape;   // Front Curve; 1 while the main hole spins, its axis's turn on the picture
   varying float v_front;      // the share of a piece drawn in front of the holes, the rest seen through the lens
+  varying vec2 v_cut;         // where a particle's stroke crosses the boundary (the field's alone; none here)
 ${BEHIND_GLSL}
-  // The share in front of a piece "away" from the camera whose middle lands at "at" in the layer
-  float inFront (float away, vec2 at) {
-    return u_side.x > 0.0 ? 1.0 - seenBehind(away, u_side.y, u_side.z, at, u_sideMain, u_sideSecond) : 0.0;
+  // The sides of an end of a piece "away" from the camera that lands at "at" in the layer: x the share in
+  // front, y and z the lens it is bent by there (behindShares)
+  vec3 sideOf (float away, vec2 at) {
+    if (u_side.x <= 0.0) return vec3(0.0);
+    vec3 sides = behindShares(away, at, u_sideMain, u_sideSecond, vec4(u_side.yzw, u_sideShape.x), u_sideBend, u_sideShape.yz);
+    return vec3(1.0 - sides.x, sides.yz);
+  }
+
+  // Where an end of a piece at "at" is drawn, as its sides say ("side", and "other" those of the other end):
+  // bent by its share of the nearer lens while any of it is in front, or as the other end is while only
+  // that is, so a piece that crosses does not reach from the one place to the other
+  vec2 placedBy (vec2 at, vec3 side, vec3 other) {
+    vec3 by = side.x > 0.0 ? side : other;
+    return by.x > 0.0 ? bentBy(at, vec3(0.0, by.yz), u_sideMain, u_sideSecond, u_sideBend) : at;
   }
 `
 
@@ -168,7 +234,7 @@ export const fadeFragmentShaderSource = `#version 300 es
 export const particleVertexShaderSource = MODERN_VERTEX + `
   attribute vec2 a_position;  // quad corner: x picks the segment end, y the side
   attribute vec4 a_segment;   // x0, y0, x1, y1 in CSS pixels, top-left origin
-  attribute vec2 a_style;     // line width in CSS pixels, opacity, its speed's glow already in it (field_step.ts); below 0 in front of the holes
+  attribute vec3 a_style;     // line width in CSS pixels, opacity, its speed's glow already in it (field_step.ts), below 0 when its start is in front of the holes; the share of the way along it crosses to the other side (0: it does not)
   attribute vec4 a_color;     // rgb as normalized bytes
 
   uniform vec2 u_resolution;  // drawing buffer size in device pixels
@@ -187,7 +253,8 @@ export const particleVertexShaderSource = MODERN_VERTEX + `
   varying float v_across;     // signed distance from the segment axis
   varying float v_halfWidth;
   varying vec4 v_color;
-  varying float v_front;      // the share of a stroke drawn in front of the black holes: a particle's is 0 or 1
+  varying float v_front;      // the share of a stroke drawn in front of the black holes: a particle's is 0 or 1, at its start
+  varying vec2 v_cut;         // how far past the point the stroke crosses to the other side, device pixels along it; 1 while it does
 
   const float PI = 3.14159265359;
 
@@ -195,6 +262,7 @@ export const particleVertexShaderSource = MODERN_VERTEX + `
     // A particle that draws nothing this frame has no opacity; one in front of the holes has it below 0
     float opacity = abs(a_style.y);
     v_front = a_style.y < 0.0 ? 1.0 : 0.0;
+    v_cut = vec2(0.0);
     if (opacity <= 0.0) {
       v_ends = vec2(0.0);
       v_across = 0.0;
@@ -245,6 +313,8 @@ export const particleVertexShaderSource = MODERN_VERTEX + `
       tinted = mix(tinted, shift > 0.0 ? u_tintAhead : edge, min(abs(shift), u_tint.y));
     }
 
+    // A stroke that crosses the boundary of the holes passes to the other layer where it does
+    if (a_style.z > 0.0) v_cut = vec2(along - a_style.z * len, 1.0);
     v_ends = vec2(along, len - along);
     v_across = across;
     v_halfWidth = halfWidth;
@@ -270,6 +340,7 @@ export const orbitVertexShaderSource = MODERN_VERTEX + `
   uniform vec4 u_turnX;       // 3D: where the camera turns the scene's x axis, and its focal length in device pixels (0 = flat)
   uniform vec4 u_turnY;       // where it turns the scene's y axis, and the black hole's distance in device pixels (below 0: behind the camera, not drawn)
   uniform vec3 u_turnZ;       // where it turns the scene's z axis
+  uniform vec2 u_orbitFrom;   // 3D: the black hole's place from the vanishing point, device pixels
 ${SIDE_GLSL}
   varying vec2 v_ends;
   varying float v_across;
@@ -278,10 +349,16 @@ ${SIDE_GLSL}
 
   const float PI = 3.14159265359;
 
-  // A point of an orbit, in device pixels from the black hole, as the 3D camera sees it
+  // A point of an orbit, in device pixels from the black hole, as the 3D camera sees it: each point in its
+  // own perspective, the hole standing off the line of sight by its place from the vanishing point
   vec2 seenOrbit (vec3 point) {
     vec3 turned = u_turnX.xyz * point.x + u_turnY.xyz * point.y + u_turnZ * point.z;
-    return turned.xy * u_turnX.w / max(u_turnY.w + turned.z, 1.0);
+    return (turned.xy * u_turnX.w - u_orbitFrom * turned.z) / max(u_turnY.w + turned.z, 1.0);
+  }
+
+  // How far a point of an orbit stands from the camera along its line of sight, device pixels
+  float awayOf (vec3 point) {
+    return u_turnY.w + u_turnX.z * point.x + u_turnY.z * point.y + u_turnZ.z * point.z;
   }
 
   void main () {
@@ -303,13 +380,18 @@ ${SIDE_GLSL}
       return;
     }
     v_front = 0.0;
+    v_cut = vec2(0.0);
     if (u_turnX.w > 0.0) {
-      // The stretch's middle, device pixels from the camera along its line of sight
-      vec3 middle = (a_from.xyz + a_to.xyz) * (0.5 * u_orbit.z);
-      vec2 first = seenOrbit(a_from.xyz * u_orbit.z);
-      start = u_zoom.xy + (u_orbit.xy + first - u_zoom.xy) * u_zoom.z;
-      delta = (seenOrbit(a_to.xyz * u_orbit.z) - first) * u_zoom.z;
-      v_front = inFront(u_turnY.w + u_turnX.z * middle.x + u_turnY.z * middle.y + u_turnZ.z * middle.z, start + 0.5 * delta);
+      // Each end takes its side of the holes, and the stretch runs from the one share to the other
+      vec3 from = a_from.xyz * u_orbit.z;
+      vec3 to = a_to.xyz * u_orbit.z;
+      vec2 first = u_zoom.xy + (u_orbit.xy + seenOrbit(from) - u_zoom.xy) * u_zoom.z;
+      vec2 last = u_zoom.xy + (u_orbit.xy + seenOrbit(to) - u_zoom.xy) * u_zoom.z;
+      vec3 sideFirst = sideOf(awayOf(from), first);
+      vec3 sideLast = sideOf(awayOf(to), last);
+      start = placedBy(first, sideFirst, sideLast);
+      delta = placedBy(last, sideLast, sideFirst) - start;
+      v_front = a_position.x < 0.0 ? sideFirst.x : sideLast.x;
     } else {
       // Flat, the orbits are seen straight on, down the scene's z
       start = u_zoom.xy + (u_orbit.xy + a_from.xy * u_orbit.z - u_zoom.xy) * u_zoom.z;
@@ -346,6 +428,7 @@ export const particleFragmentShaderSource = `#version 300 es
   in float v_halfWidth;
   in vec4 v_color;
   in float v_front;
+  in vec2 v_cut;
   // What lies behind the black holes, which the lens reads, and what stands in front of them (3D): one
   // draw writes each stroke into the two targets at its shares, a whole stroke into one and nothing into
   // the other, which the brighter-of-two blend leaves as it was
@@ -359,8 +442,10 @@ export const particleFragmentShaderSource = `#version 300 es
     // Premultiplied, the form the brighter-of-two blend compares
     float alpha = v_color.a * coverage;
     vec4 light = vec4(v_color.rgb * alpha, alpha);
-    behind = light * (1.0 - v_front);
-    before = light * v_front;
+    // A particle's stroke that crosses the boundary turns to the other side a pixel past the crossing
+    float front = v_cut.y > 0.5 ? abs(v_front - clamp(v_cut.x + 0.5, 0.0, 1.0)) : v_front;
+    behind = light * (1.0 - front);
+    before = light * front;
   }
 `
 
@@ -482,7 +567,7 @@ export const compositeFragmentShaderSource = `
   uniform float u_orbits;          // 1 while there are orbiting stars; 0 leaves their layer unread
   uniform sampler2D u_frontImage;  // 3D: the particles nearer the camera than the black holes, a scene texture of their own
   uniform sampler2D u_frontLines;  // and the traces, the lattice and the flows nearer than them
-  uniform vec2 u_front;            // 1 while something can stand in front of the holes (0 leaves both layers unread), 1 while the second holds lines
+  uniform vec4 u_front;            // 1 while something can stand in front of the holes (0 leaves both layers unread), 1 while the second holds lines; Front Add, the share of the light in front added to what is there instead of the brighter of the two; Front Waves, the share of the waves' and the matter front's slide the light in front takes
   uniform float u_skyGrid;        // brightness of the flat grid on the sky behind the hole; 0 turns it off
   uniform float u_gridCell;        // CSS pixels per cell of that grid
   uniform float u_skyGridLine;     // half the width of a line of that grid, CSS pixels
@@ -1002,6 +1087,8 @@ ${DENT_GLSL}
     // 1 where a traced ray fell into a spinning hole outside the outline drawn, which is only ever a hair
     float fallen = 0.0;
     vec2 samplePx = frag;
+    // How far the waves and the matter front slide the picture here, which Front Waves gives the light in front
+    vec2 waveMoved = vec2(0.0);
 
     // Gravitational wave: the horizon's wobble carried outward at the speed of light. Each point shows the
     // wobble the horizon had when the wave left it, u_gravityWaveTime - r / c ago. A gravitational wave
@@ -1041,6 +1128,7 @@ ${DENT_GLSL}
         float across = -(2.0 * planeQuad(t, c) + planeQuad(n, c));
         float strength = u_gravityWaveAmplitude * exp(-max(emitted, 0.0) * u_gravityWaveInvDecay) * waveReach(waveDist, u_gravityWaveRadius);
         // Reading the scene from further round shows it slid back along the circle
+        waveMoved += t * strength * across;
         samplePx += t * strength * across;
       }
     }
@@ -1060,6 +1148,7 @@ ${DENT_GLSL}
       float across = -(2.0 * planeQuad(t, c) + planeQuad(n, c));
       float strength = u_pairWave.x * waveReach(pairDist, u_pairWave.w);
       if (u_pairFront.x >= 0.0) strength *= smoothstep(-u_pairFront.z, u_pairFront.z, pairDist / u_pairFront.y - u_pairFront.x);
+      waveMoved += t * strength * across;
       samplePx += t * strength * across;
     }
 
@@ -1161,7 +1250,9 @@ ${DENT_GLSL}
     // The matter front refracts what lies under it
     if (u_waveStrength > 0.0) {
       float front = (sourceDist - u_waveRadius) / u_waveWidth;
-      samplePx -= sourceOffset / max(sourceDist, 0.0001) * u_waveStrength * front * exp(-front * front);
+      vec2 refracted = sourceOffset / max(sourceDist, 0.0001) * u_waveStrength * front * exp(-front * front);
+      waveMoved -= refracted;
+      samplePx -= refracted;
     }
 
     vec2 layerPx = layerPoint(samplePx);
@@ -1455,18 +1546,21 @@ ${DENT_GLSL}
     // What stands between the camera and the black holes (3D): its light comes straight to the camera, so
     // it is read where the pixel is, through the camera's zoom and jolt and not along the bent ray, and is
     // laid over the shadows, the lenses and the rings, the brighter of it and what is there, as the layers
-    // keep the brighter of two. The waves, the matter front, the absorption and the second hole's bend are
-    // the holes' and the blast's doing on the light that passes them, and leave it alone. The camera's own
-    // lens splits its colours and its exposure scales it as they do the rest, and the film below acts on it
+    // keep the brighter of two, or added to it by Front Add. The absorption and the second hole's bend are
+    // the holes' doing on the light that passes them, and leave it alone; the waves and the matter front,
+    // which pass between the holes and the camera too, slide it by Front Waves of what they slide the rest.
+    // The camera's own lens splits its colours and its exposure scales it as they do the rest, and the film
+    // below acts on it
     if (u_front.x > 0.0) {
-      vec2 frontPx = layerPoint(frag);
+      vec2 frontPx = layerPoint(u_front.w > 0.0 ? frag + waveMoved * u_front.w : frag);
       vec3 front = drawnInFront(frontPx);
       if (u_lensFringe > 0.0) {
         vec2 split = fringeSplit(screen);
         front.r = drawnInFront(frontPx - split).r;
         front.b = drawnInFront(frontPx + split).b;
       }
-      color = max(color, front * u_exposure);
+      front *= u_exposure;
+      color = u_front.z > 0.0 ? mix(max(color, front), color + front, u_front.z) : max(color, front);
     }
 
     // Light from the source itself reaches the camera directly: the progenitor and the blast glare
@@ -1847,9 +1941,15 @@ ${DENT_GLSL}
       return;
     }
 
-    vec2 startPx = onLayer(first);
-    vec2 delta = onLayer(last) - startPx;
-    v_front = inFront(0.5 * (first.z + last.z), startPx + 0.5 * delta);
+    // Each end takes its side of the holes, and the piece runs from the one share to the other
+    vec2 firstPx = onLayer(first);
+    vec2 lastPx = onLayer(last);
+    vec3 sideFirst = sideOf(first.z, firstPx);
+    vec3 sideLast = sideOf(last.z, lastPx);
+    vec2 startPx = placedBy(firstPx, sideFirst, sideLast);
+    vec2 delta = placedBy(lastPx, sideLast, sideFirst) - startPx;
+    v_front = a_position.x < 0.0 ? sideFirst.x : sideLast.x;
+    v_cut = vec2(0.0);
     float len = length(delta);
     vec2 direction = len > 0.0001 ? delta / len : vec2(1.0, 0.0);
     vec2 normal = vec2(-direction.y, direction.x);
@@ -1930,6 +2030,7 @@ export const flowVertexShaderSource = MODERN_VERTEX + `
   uniform vec4 u_path;          // the radii matter appears and leaves at, each to the fall's power; the band's width as a share of the first; radians turned at the first radius in a life
   uniform vec3 u_age;           // the flow's clock in lives: the share of the life now running, the whole lives before; the share of a life one piece of trail spans
   uniform vec4 u_light;         // colour, brightness
+  uniform vec2 u_flowFrom;      // 3D: the black hole's place from the vanishing point, device pixels
 ${RIDE_GLSL}${SIDE_GLSL}
   varying vec2 v_ends;
   varying float v_across;
@@ -1941,7 +2042,8 @@ ${RIDE_GLSL}${SIDE_GLSL}
 
   // A point of the flow, in device pixels from the black hole along its own three directions, where the
   // camera draws it, and how far from the camera it lies as a share of the black hole's distance (1 in the
-  // flat mode, which sees it straight on)
+  // flat mode, which sees it straight on). Each point is seen in its own perspective, the hole standing off
+  // the line of sight by its place from the vanishing point
   vec3 seen (vec3 point) {
     vec3 turned = u_turnX.xyz * point.x + u_turnY.xyz * point.y + u_turnZ.xyz * point.z;
     float away = 1.0;
@@ -1949,7 +2051,7 @@ ${RIDE_GLSL}${SIDE_GLSL}
     if (u_turnX.w > 0.0) {
       float depth = u_turnY.w + turned.z;
       away = depth / u_turnY.w;
-      at = turned.xy * u_turnX.w / max(depth, 1.0);
+      at = (turned.xy * u_turnX.w - u_flowFrom * turned.z) / max(depth, 1.0);
     }
     return vec3(u_place.xy + at, away);
   }
@@ -2027,8 +2129,9 @@ ${RIDE_GLSL}${SIDE_GLSL}
     vec3 from = seen(placeOlder);
     vec3 to = seen(placeNewer);
     float nearest = min(from.z, to.z);
-    // The middle of the stroke, as a share of the black hole's distance, which the side is told by
-    float middle = 0.5 * (from.z + to.z);
+    // How far each end stands, as a share of the black hole's distance, which its side is told by
+    float awayOlder = from.z;
+    float awayNewer = to.z;
     if (u_ride.x > 0.0) {
       // Particles on Sheet: a particle of the flow is laid from its place in the scene, its tilt and its
       // height in the disc with it, as one of the field is: dropped onto the equator, ridden by its height
@@ -2054,7 +2157,8 @@ ${RIDE_GLSL}${SIDE_GLSL}
         float laidOlder = mix(fromAway, mix(fromAway, laidFrom.z, u_ride.w), shareOlder) / holeAway;
         float laidNewer = mix(toAway, mix(toAway, laidTo.z, u_ride.w), shareNewer) / holeAway;
         nearest = min(laidOlder, laidNewer);
-        middle = 0.5 * (laidOlder + laidNewer);
+        awayOlder = laidOlder;
+        awayNewer = laidNewer;
       }
     }
     if (nearest <= u_style.w) {
@@ -2063,9 +2167,17 @@ ${RIDE_GLSL}${SIDE_GLSL}
     }
     // The camera's zoom is applied to the stroke itself, so it is drawn anew at its larger size
     vec2 start = u_zoom.xy + (from.xy - u_zoom.xy) * u_zoom.z;
-    vec2 delta = (to.xy - from.xy) * u_zoom.z;
-    // A particle goes wholly to one side, past a share of its own, as the field's do
-    v_front = inFront(middle, start + 0.5 * delta) > fract(a_flowSeed.w * 29.0 + a_flowSeed.x * 17.0) ? 1.0 : 0.0;
+    vec2 finish = u_zoom.xy + (to.xy - u_zoom.xy) * u_zoom.z;
+    // A particle goes wholly to one side, past a share of its own, as the field's do, each end of its stroke
+    // by its own depth, and an end in front is drawn where its share of the nearer lens shows it
+    float own = fract(a_flowSeed.w * 29.0 + a_flowSeed.x * 17.0);
+    vec3 sideOlder = sideOf(awayOlder, start);
+    vec3 sideNewer = sideOf(awayNewer, finish);
+    float frontOlder = sideOlder.x > own ? 1.0 : 0.0;
+    float frontNewer = sideNewer.x > own ? 1.0 : 0.0;
+    start = placedBy(start, sideOlder * frontOlder, sideNewer * frontNewer);
+    vec2 delta = placedBy(finish, sideNewer * frontNewer, sideOlder * frontOlder) - start;
+    v_cut = vec2(0.0);
     float len = length(delta);
     vec2 direction = len > 0.0001 ? delta / len : vec2(1.0, 0.0);
     vec2 normal = vec2(-direction.y, direction.x);
@@ -2076,6 +2188,7 @@ ${RIDE_GLSL}${SIDE_GLSL}
     float halfWidth = drawWidth * 0.5;
     float extent = halfWidth + 1.0;
     float toNewer = 1.0 - a_flowCorner.x;
+    v_front = mix(frontOlder, frontNewer, toNewer);
     float along = mix(-extent, len + extent, toNewer);
     float across = a_flowCorner.y * extent;
     vec2 pixel = start + direction * along + normal * across;

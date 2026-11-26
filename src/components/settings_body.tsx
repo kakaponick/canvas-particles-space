@@ -164,8 +164,9 @@ function SettingsBody () {
         <SettingSlider field="cameraPitch" />
         <SettingSlider field="cameraSpin" />
         <SettingsFine id="three-d">
-          {/* Where the camera stands and looks beyond its circle, the column and how deep behind the holes the
-              lens takes it over, then how the camera gets to its place and what counts as its cut */}
+          {/* Where the camera stands and looks beyond its circle, the column, how the lens takes over what lies
+              behind the holes and how what stands in front of them is laid over them, then how the camera
+              gets to its place and what counts as its cut */}
           <SettingSlider field="cameraRoll" />
           <SettingSlider field="cameraLookYaw" />
           <SettingSlider field="cameraLookPitch" />
@@ -174,6 +175,14 @@ function SettingsBody () {
           <SettingSlider field="cameraMoveIn" />
           <SettingSlider field="threeDEndFade" />
           <SettingSlider field="threeDFrontDepth" />
+          <SettingSlider field="threeDFrontCurve" />
+          <SettingSlider field="threeDFrontBend" />
+          <SettingSlider field="threeDFrontBetween" />
+          <SettingSlider field="threeDFrontReach" />
+          <SettingSlider field="threeDFrontReachBare" />
+          <SettingSlider field="threeDFrontLetGo" />
+          <SettingSlider field="threeDFrontAdd" />
+          <SettingSlider field="threeDFrontWaves" />
           <SettingSlider field="threeDNearest" />
           <SettingSlider field="threeDEase" />
           <SettingSlider field="cameraCutTurn" />

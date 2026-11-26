@@ -17,6 +17,8 @@ import {
 
 // The texture unit the ring's light from the field keeps
 export const RING_LIGHT_TEXTURE_UNIT = 5
+// The one a spinning hole's shadow outline is on (kerr_shadow.ts), which the step reads in the band behind it
+export const SHADOW_TEXTURE_UNIT = 4
 
 // What a frame says about the field
 export interface FieldInput {
@@ -95,6 +97,8 @@ export function createFieldFeedback (gl: WebGL2RenderingContext): FieldFeedback 
     sheetWell: uniform('u_sheetWell'),
     sheetWell2: uniform('u_sheetWell2')
   }
+  gl.useProgram(stepProgram)
+  gl.uniform1i(uniform('u_behindShape'), SHADOW_TEXTURE_UNIT)
   const setUniform4 = gl.uniform4f.bind(gl)
   const depositPhase = gl.getUniformLocation(depositProgram, 'u_phase')
 
@@ -306,7 +310,7 @@ export function createFieldFeedback (gl: WebGL2RenderingContext): FieldFeedback 
   function bindStrokes () {
     gl.bindBuffer(gl.ARRAY_BUFFER, buffers[current])
     gl.vertexAttribPointer(ATTRIBUTE_LOCATIONS.segment, 4, gl.FLOAT, false, FIELD_STRIDE, FIELD_SEGMENT_OFFSET)
-    gl.vertexAttribPointer(ATTRIBUTE_LOCATIONS.style, 2, gl.FLOAT, false, FIELD_STRIDE, FIELD_STYLE_OFFSET)
+    gl.vertexAttribPointer(ATTRIBUTE_LOCATIONS.style, 3, gl.FLOAT, false, FIELD_STRIDE, FIELD_STYLE_OFFSET)
     gl.vertexAttribPointer(ATTRIBUTE_LOCATIONS.color, 4, gl.UNSIGNED_BYTE, true, FIELD_STRIDE, FIELD_COLOR_OFFSET)
   }
 

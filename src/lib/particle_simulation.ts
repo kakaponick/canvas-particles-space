@@ -186,8 +186,22 @@ export interface StepSettings {
   holeFront: number
   companionFront: number
   // How far from the nearer hole's centre on the picture, in radii of its shadow, its lens takes what stands
-  // behind it and before the farther hole; it lets go by twice that
+  // behind it and before the farther hole, and the multiple of that by which it lets go
   frontReach: number
+  frontLetGo: number
+  // The power the thin lens's share across Front Depth is raised to (Front Curve)
+  frontPower: number
+  // The share of the band behind the nearer hole (Front Bend), and of what stands between two holes (Between
+  // Bend), drawn once in front where the nearer lens alone, bent by its share, shows it; the two holes'
+  // Einstein radii on the screen, CSS pixels (0 without a lens)
+  frontBend: number
+  frontBetween: number
+  holeEinstein: number
+  companionEinstein: number
+  // 1 while the main hole spins and something can stand in front of it: the band reads its shadow's
+  // outline (kerr_shadow.ts), turned spinTurn radians on the picture
+  spinShape: number
+  spinTurn: number
   // Particles on Sheet (RIDE_GLSL in webgl_shaders.ts): the share of the way a particle in the slab round
   // the main hole's equator is laid on the sheet, 0 leaving it alone and the rest unread; the slab's half
   // thickness, CSS pixels at the hole's distance; the sheet as it is laid out this frame (space_grid.ts)
@@ -413,6 +427,14 @@ export function createStepSettings (ringEnergy: RingEnergy | null = null): StepS
     holeFront: 0,
     companionFront: 0,
     frontReach: 1.5,
+    frontLetGo: 2,
+    frontPower: 1,
+    frontBend: 0,
+    frontBetween: 0,
+    holeEinstein: 0,
+    companionEinstein: 0,
+    spinShape: 0,
+    spinTurn: 0,
     ride: 0,
     rideDepth: 1,
     sheet: createGridSettings()

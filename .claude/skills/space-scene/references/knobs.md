@@ -697,7 +697,10 @@ that precess, faster the closer they come, as around a real black hole.
 | Where the 3D camera stands: around the hole, above or below it, and how fast it circles on its own | `cameraYaw`, `cameraPitch`, `cameraSpin` |
 | The 3D camera off its circle: its roll, its head turned right and up from the hole, and its move right, up and in, in radii | `cameraRoll`, `cameraLookYaw`, `cameraLookPitch`, `cameraMoveRight`, `cameraMoveUp`, `cameraMoveIn` |
 | How much of the 3D column fades at each of its ends, as a share of `farZ` | `threeDEndFade` |
-| How deep behind the nearer hole, in radii, what lies there passes from drawn where it is to seen through the lens | `threeDFrontDepth` |
+| How deep behind the nearer hole, in radii, what lies there passes from drawn where it is to seen through the lens, and the curve of that passage | `threeDFrontDepth`, `threeDFrontCurve` |
+| What lies in that band, and between two holes, drawn once where the nearer lens alone shows it | `threeDFrontBend`, `threeDFrontBetween` |
+| How far over the picture the nearer of two holes takes what stands between them: Einstein rings, shadow radii without a lens, how it lets go | `threeDFrontReach`, `threeDFrontReachBare`, `threeDFrontLetGo` |
+| How the light in front of the holes is laid over them: the brighter of two or added, and how far the waves slide it | `threeDFrontAdd`, `threeDFrontWaves` |
 | The 3D camera: seconds it takes into and out of 3D, and the nearest point it circles, as a share of `farZ` | `threeDEase`, `threeDNearest` |
 | What counts as a cut of the camera, where the trails start afresh: a zoom, a move of the picture and, in 3D, a turn, each in one frame | `cameraCutZoom`, `cameraCutShift`, `cameraCutTurn` |
 
@@ -785,9 +788,22 @@ that precess, faster the closer they come, as around a real black hole.
   before. So a camera circled to the side sees the column pass in front of the hole on its near side and
   behind it on its far side, and a fly-by (`cameraMoveIn`) sees the particles it passes cross the shadow.
   The camera's zoom, jolt, lens fringe, exposure and the film act on what is in front; the waves and the
-  opening's matter front do not. With two holes, what lies between them is behind the nearer one alone: its lens bends it and its
-  shadow covers it where it passes on the picture, and elsewhere it is drawn where it is, so the
-  matter round the farther hole keeps its shape while the other circles. The flat mode has none of this, since its horizon takes whatever covers the hole.
+  opening's matter front slide it by `threeDFrontWaves` of what they slide the rest (0: not at all, the
+  light in front comes from nearer than they pass; 1: as much, a wave crossing between the holes and the
+  camera). It is laid over the shadow, the lens and the ring as the brighter of it and what is there, so a
+  faint particle crossing the ring leaves the ring as it is; `threeDFrontAdd` at 1 adds the two, and what
+  crosses the ring brightens it. With two holes, what lies between them is behind the nearer one alone: its lens bends it and its
+  shadow covers it where it passes on the picture, within `threeDFrontReach` of its Einstein rings (2) or
+  `threeDFrontReachBare` of its shadow's radii (1.5), whichever is wider, letting go by `threeDFrontLetGo`
+  times that (2), and elsewhere it is drawn where it is, so the
+  matter round the farther hole keeps its shape while the other circles. That matter is read through both
+  lenses, the farther hole's own too; `threeDFrontBetween` draws that share of it once, in front, where the
+  nearer lens alone shows it, a point mass bent by the share its depth gives, hidden where the nearer
+  shadow covers it there, so the reach and its let-go matter only for the rest. The flat mode has none of this, since its horizon takes whatever covers the hole.
+- A stroke or a piece takes its side end by end: one that crosses the boundary passes from one layer
+  into the other where it does. A particle that changes side leaves its trail where it was drawn, which
+  fades as a trail does. When the front ends (3D eased out, the hole gone or behind the camera) the
+  trails in front fade on as the others do; when it begins they start black.
 - The boundary is not a plane. Over `threeDFrontDepth` radii behind the hole (2) the share seen through
   the lens grows from none to all, as a thin lens's bend grows with the depth of what it bends, and
   whatever there is seen within the shadow stays hidden by it. A particle of the field or of a flow goes
@@ -795,7 +811,16 @@ that precess, faster the closer they come, as around a real black hole.
   the one the lens bends over the shadow; a star's trace or a line of the lattice is drawn in both at those
   shares. At 0 the light just behind the hole is bent as hard as the sky's and the lens empties a half disc
   round the shadow with a straight edge, the hole's plane; past 3 most of a disc near the hole is drawn
-  where it is and its far side is no longer lifted over the shadow.
+  where it is and its far side is no longer lifted over the shadow. `threeDFrontCurve` bends that growth:
+  1 is the thin lens's d / (D + d), above 1 more of the band stays where it is and the lens takes it near
+  the band's far end, below 1 the lens takes most of it just behind the hole. A spinning hole hides the
+  band within its outline, not a circle.
+- `threeDFrontBend` draws a share of the band once instead of in two places: in front, where a point mass
+  bent by the band's share of the lens shows it, so at 1 a disc's far side rises smoothly from where it is
+  into the lens's ring as it lies deeper, and what the shadow covers there is hidden. Past
+  `threeDFrontDepth` the lens takes it as before. The point mass is the plain lens, without the stylized
+  lens's falloff, core or twist, so with those far from their defaults the band's far edge shows a seam.
+  With two holes it blends with `threeDFrontBetween` by how deep in the nearer hole's band a thing lies.
 - The circle is where the camera starts; six keys take it anywhere from there, all in 3D only and all at
   0 the circle alone, number for number. `cameraRoll` turns the whole picture about the middle of the
   screen (positive anticlockwise), the sky, the sheet and the ring's bright side (`ringSide`) with it;

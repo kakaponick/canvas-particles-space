@@ -335,6 +335,21 @@ export interface ParticleState extends FlowState {
   // Black hole radii behind the nearer hole over which what lies there passes from being drawn where it is
   // to being seen through the lens (0: a hard plane at the hole's depth)
   threeDFrontDepth: number
+  // The power the thin lens's share across Front Depth is raised to (1: the thin lens's d / (D + d))
+  threeDFrontCurve: number
+  // The share of the band behind the nearer hole, and of what stands between two holes, drawn once in front
+  // where the nearer lens alone, bent by its share, shows it (0: drawn in two places, the lens's and its own)
+  threeDFrontBend: number
+  threeDFrontBetween: number
+  // How far the nearer of two holes takes what stands between them on the picture: Einstein rings, shadow
+  // radii while there is no lens (the wider of the two), and the multiple of that by which it lets go
+  threeDFrontReach: number
+  threeDFrontReachBare: number
+  threeDFrontLetGo: number
+  // The share of the light in front of the holes added to what is there instead of the brighter of the two,
+  // and the share of the waves' and the matter front's slide it takes
+  threeDFrontAdd: number
+  threeDFrontWaves: number
   // Seconds the 3D camera takes between the flat view and its place, and the nearest point it circles, as
   // a share of Field Depth
   threeDEase: number
@@ -551,6 +566,14 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   cameraMoveIn: 0,
   threeDEndFade: 0.12,
   threeDFrontDepth: 2,
+  threeDFrontCurve: 1,
+  threeDFrontBend: 0,
+  threeDFrontBetween: 0,
+  threeDFrontReach: 2,
+  threeDFrontReachBare: 1.5,
+  threeDFrontLetGo: 2,
+  threeDFrontAdd: 0,
+  threeDFrontWaves: 0,
   threeDEase: 1.2,
   threeDNearest: 0.05,
   cameraCutZoom: 0.08,

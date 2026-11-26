@@ -14,17 +14,18 @@ import { RING_BINS } from './ring_energy'
 import { fillInertiaStep, type PaletteSampler, type StepSettings } from './particle_simulation'
 
 // A particle's record in the buffer, in floats: its state (place and speed multiplier; kept speed and
-// alpha; pulse phase, pulse speed and colour), then what it draws this frame (the stroke's ends, its width
-// and opacity, whose sign is the side of the black holes it is on: below 0 in front of them) and the light
+// alpha; pulse phase, pulse speed and colour), then what it draws this frame (the stroke's ends, its width,
+// its opacity, whose sign is the side of the black holes its start is on: below 0 in front of them, and the
+// share of the way along it crosses to the other side, 0 when it does not) and the light
 // it leaves in the ring (where round the hole, how much)
-export const FIELD_FLOATS = 20
+export const FIELD_FLOATS = 21
 export const FIELD_STRIDE = FIELD_FLOATS * 4
 
 // Where in the record the colour's four bytes, the stroke, its style and the ring's light lie, in bytes
 export const FIELD_COLOR_OFFSET = 40
 export const FIELD_SEGMENT_OFFSET = 44
 export const FIELD_STYLE_OFFSET = 60
-export const FIELD_DEPOSIT_OFFSET = 68
+export const FIELD_DEPOSIT_OFFSET = 72
 // What the feedback writes, in the record's order
 export const FIELD_VARYINGS = ['v_place', 'v_drift', 'v_look', 'v_segment', 'v_style', 'v_deposit']
 // The most colours of the palette the card samples from
@@ -42,7 +43,8 @@ const STEP_KEYS = [
   'gravityDepth', 'lineWidth', 'minLineWidth', 'gravityStrength', 'orbitalStrength', 'gravityFalloff', 'gravityBell', 'dragFalloff', 'dragSight', 'swirlX', 'swirlY', 'swirlZ', 'farZ', 'depthFade',
   'pulseSpeedMultiplier', 'pulseIntensity', 'baseBrightness', 'minOpacity', 'maxOpacity', 'speedGlow', 'speedKnee', 'revealRadius', 'revealX',
   'revealY', 'revealFeather', 'opacityScale', 'threeD', 'holeWorldX', 'holeWorldY', 'holeWorldZ', 'companionWorldX',
-  'companionWorldY', 'companionWorldZ', 'endFade', 'frontAway', 'frontDepth', 'frontReach', 'holeSeen', 'companionSeen', 'holeFront', 'companionFront'
+  'companionWorldY', 'companionWorldZ', 'endFade', 'frontAway', 'frontDepth', 'frontReach', 'holeSeen', 'companionSeen', 'holeFront', 'companionFront',
+  'frontLetGo', 'frontPower', 'frontBend', 'frontBetween', 'holeEinstein', 'companionEinstein', 'spinShape', 'spinTurn'
 ] as const satisfies readonly (keyof StepSettings)[]
 const DERIVED_KEYS = ['hasHole', 'ringFed', 'revealing', 'inertial', 'keep', 'gain', 'velocityGain', 'spawnRadius', 'speedVariance'] as const
 const STEP_NAMES: readonly string[] = [...STEP_KEYS, ...DERIVED_KEYS]
@@ -120,7 +122,7 @@ ${ride}${behind}
   out vec4 v_drift;
   out vec3 v_look;
   out vec4 v_segment;   // the stroke: where it starts and ends, CSS pixels
-  out vec2 v_style;     // its width in CSS pixels, its opacity; 0 draws nothing, below 0 it is in front of the holes
+  out vec3 v_style;     // its width in CSS pixels, its opacity (0 draws nothing, below 0 its start is in front of the holes), the share of the way along it crosses to the other side (0: it does not)
   out vec3 v_deposit;   // light for the photon ring: where round the hole it lands, how much
 
 ${STEP_DEFINES}
@@ -144,7 +146,7 @@ ${STEP_DEFINES}
   vec4 drift;
   vec3 look;
   vec4 segment;
-  vec2 style;
+  vec3 style;
   vec3 deposit;
   uint seed;
   // What became of the particle this step: 0 it flies on, 1 it left the field and is made anew, 2 a horizon
@@ -262,13 +264,14 @@ ${STEP_DEFINES}
   // two ends (CSS pixels seen straight on), "distanceFactor" of the way to the far end of the field. On the
   // sheet it lies where the surface does over its two places in the main hole's equator ("inFrom", "inTo"),
   // as far as it rides there. "own" is how far the particle itself moved on the screen, whatever the camera
-  // did, and "fromBlast" its distance from the opening's blast, both in CSS pixels. A stroke whose middle is
-  // nearer the camera than the nearer black hole (s_frontAway, 0 in the flat mode) is in front of the holes:
-  // its opacity is written below 0, and the renderer draws it into the layer the lens does not bend. Within
-  // Front Depth behind that a stroke stays in front while the share seen through the lens there is below
-  // the particle's own (ownShare)
+  // did, and "fromBlast" its distance from the opening's blast, both in CSS pixels. An end of a stroke nearer
+  // the camera than the nearer black hole (s_frontAway, 0 in the flat mode) is in front of the holes, and
+  // within Front Depth behind that it stays in front while the share seen through the lens there is below
+  // the particle's own (ownShare). The renderer draws what is in front into the layer the lens does not
+  // bend: the opacity is written below 0 when the start is in front, and a stroke whose two ends are on two
+  // sides crosses to the other layer where the boundary passes between them. An end in front that Front
+  // Bend or Between Bend takes is drawn where the nearer lens shows it (behindShares in BEHIND_GLSL)
   void stroke (vec2 start, vec2 end, vec2 away, float distanceFactor, vec3 inFrom, vec3 inTo, float shown, float own, float fromBlast) {
-    float middleAway = 0.5 * (away.x + away.y);
     float depthFactor = 1.0 - distanceFactor * s_depthFade;
     float lineWidth = max((1.0 - distanceFactor) * s_lineWidth, s_minLineWidth);
     float pulse = s_pulseIntensity != 0.0
@@ -294,7 +297,7 @@ ${STEP_DEFINES}
         start = laidOn(start, away.x, laidFrom, shareFrom);
         end = laidOn(end, away.y, laidTo, shareTo);
         // A ridden stroke stands as far away as laidOn sets it
-        middleAway = 0.5 * (mix(away.x, mix(away.x, laidFrom.z, u_ride.w), shareFrom) + mix(away.y, mix(away.y, laidTo.z, u_ride.w), shareTo));
+        away = vec2(mix(away.x, mix(away.x, laidFrom.z, u_ride.w), shareFrom), mix(away.y, mix(away.y, laidTo.z, u_ride.w), shareTo));
         // Both ends of a ridden stroke are seen through the sheet as it lies now, so its length is the move
         own = mix(own, length(sheetScreen(laidTo) - sheetScreen(laidFrom)), 0.5 * (shareFrom + shareTo));
       }
@@ -316,15 +319,33 @@ ${STEP_DEFINES}
         !clipAgainst(-delta.y, start.y - low.y, span) || !clipAgainst(delta.y, high.y - start.y, span)) return;
       end = start + delta * span.y;
       start += delta * span.x;
+      away = mix(away.xx, away.yy, span);
+    }
+    bool front = false;
+    float cut = 0.0;
+    if (s_frontAway > 0.0) {
+      vec4 mainHole = vec4(s_holeX, s_holeY, s_holeSeen, s_holeFront);
+      vec4 secondHole = vec4(s_companionX, s_companionY, s_companionSeen, s_companionFront);
+      vec4 band = vec4(s_frontDepth, s_frontReach, s_frontLetGo, s_frontPower);
+      vec4 bend = vec4(s_frontBend, s_frontBetween, s_holeEinstein, s_companionEinstein);
+      vec2 spin = vec2(s_spinShape, s_spinTurn);
+      vec3 first = behindShares(away.x, start, mainHole, secondHole, band, bend, spin);
+      vec3 last = behindShares(away.y, end, mainHole, secondHole, band, bend, spin);
+      // Below 0 at an end in front; between two ends on two sides the boundary is where this passes 0
+      float ownSide = max(ownShare(), 0.000001);
+      float before = first.x - ownSide;
+      float after = last.x - ownSide;
+      front = before < 0.0;
+      if (front != (after < 0.0)) cut = clamp(before / (before - after), 0.001, 0.999);
+      // A stroke any of which is in front is drawn where the nearer lens shows it, an end behind bent as the
+      // other end is, so a stroke that crosses does not reach from the one place to the other
+      if (min(before, after) < 0.0) {
+        start = bentBy(start, before < 0.0 ? first : last, mainHole, secondHole, bend);
+        end = bentBy(end, after < 0.0 ? last : first, mainHole, secondHole, bend);
+      }
     }
     segment = vec4(start, end);
-    bool front = false;
-    if (s_frontAway > 0.0) {
-      float behind = seenBehind(middleAway, s_frontDepth, s_frontReach, 0.5 * (start + end), vec4(s_holeX, s_holeY, s_holeSeen, s_holeFront),
-        vec4(s_companionX, s_companionY, s_companionSeen, s_companionFront));
-      front = behind <= 0.0 || (behind < 1.0 && behind < ownShare());
-    }
-    style = vec2(lineWidth, front ? -opacity : opacity);
+    style = vec3(lineWidth, front ? -opacity : opacity, cut);
   }
 
   // The flat loop: the holes pull a particle where it lands on the screen, inside a layer of depth round
@@ -629,7 +650,7 @@ ${STEP_DEFINES}
     drift = a_drift;
     look = a_look;
     segment = vec4(0.0);
-    style = vec2(0.0);
+    style = vec3(0.0);
     deposit = vec3(0.0);
     reborn = 0;
     moved = false;

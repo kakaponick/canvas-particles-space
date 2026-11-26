@@ -385,6 +385,8 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       companionY: 0,
       companionRadius: 0,
       companionEinstein: 0,
+      frontAdd: 0,
+      frontWaves: 0,
       pairX: 0,
       pairY: 0,
       pairWave: 0,
@@ -1268,9 +1270,20 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     settings.holeFront = frontAway > 0 ? holeAway * settings.focal / pivot : 0
     settings.companionFront = secondBefore ? companionAway * settings.focal / pivot : 0
     // What stands between the two is the nearer hole's alone to bend, as far over the picture as its lens
-    // moves things: two Einstein rings, or a little past its shadow while there is no lens
+    // moves things: Front Reach of its Einstein rings, or Bare Reach of its shadow's radii while there is no
+    // lens, whichever is wider, and it lets go by Front Let Go times that
     const lensOn = state.lensingEnabled && !hidden.lens && einsteinRatio > 0
-    settings.frontReach = lensOn ? Math.max(2 * einsteinRatio, 1.5) : 1.5
+    const bareReach = Math.max(state.threeDFrontReachBare, 0.01)
+    settings.frontReach = lensOn ? Math.max(state.threeDFrontReach * einsteinRatio, bareReach) : bareReach
+    settings.frontLetGo = Math.max(state.threeDFrontLetGo, 1.01)
+    // Front Curve bends the thin lens's share across Front Depth; Front Bend and Between Bend draw a share
+    // of the band, and of what stands between two holes, once where the nearer lens shows it, with the
+    // lenses' Einstein radii set below; a spinning hole's outline is what hides the band behind it
+    settings.frontPower = Math.max(state.threeDFrontCurve, 0.01)
+    settings.frontBend = frontAway > 0 ? state.threeDFrontBend : 0
+    settings.frontBetween = frontAway > 0 ? state.threeDFrontBetween : 0
+    settings.spinShape = frontAway > 0 && spin > 0 ? 1 : 0
+    settings.spinTurn = spinAxis
     // The plane the waves and the ringing oval lie in, as the camera sees its two directions (right and
     // down on the picture): the pair's while there is one. A hole alone has no orbit, and its ringing and
     // a wave fired at it keep the plane across the line of flight, the one the opening is seen in
@@ -1623,6 +1636,13 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     composite.companionY = settings.companionY
     composite.companionRadius = companionRadius * companionScale
     composite.companionEinstein = companionRadius > 0 ? einstein * companionScale * pair.companion / pair.growth : 0
+    // The lenses the band behind the nearer hole is bent by where Front Bend or Between Bend draws it, in the
+    // step's measure, CSS pixels on the screen
+    settings.holeEinstein = settings.frontAway > 0 ? composite.einstein : 0
+    settings.companionEinstein = settings.companionSeen > 0 ? composite.companionEinstein : 0
+    // How the light in front of the holes is laid over the rest, and how far the waves slide it
+    composite.frontAdd = state.threeDFrontAdd
+    composite.frontWaves = state.threeDFrontWaves
     composite.pairX = centreX
     composite.pairY = centreY
     composite.pairScale = centreScale
