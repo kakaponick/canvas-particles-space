@@ -1,0 +1,21 @@
+{
+  "version": 2,
+  "skills": {
+    "postiz": {
+      "source": "gitroomhq/postiz-agent",
+      "commit": "b4f8a1133b9b452e856251b38240612451657855",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "2219804e42287557b77fbf03ec609e54f23d1c858d4bf583275c16ea90d991f0",
+      "installMode": "copy"
+    },
+    "youtube-seo": {
+      "source": "kostja94/marketing-skills",
+      "commit": "ac823a127782355339f21aef6c87f1ccff751c84",
+      "sourceType": "github",
+      "skillPath": "skills/platforms/youtube/SKILL.md",
+      "computedHash": "b08c0f7b689ddf0a7ac350952a54e01e2392dbd2ec96fc09df7a7e7d0999c127",
+      "installMode": "copy"
+    }
+  }
+}

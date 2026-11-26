@@ -1,4 +1,7 @@
 {
+  "env": {
+    "POSTIZ_API_URL": "https://postiz.xn--c6t.net/api"
+  },
   "skillOverrides": {
     "evolve": "off",
     "fsloop": "off",
