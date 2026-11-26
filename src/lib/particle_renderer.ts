@@ -13,7 +13,10 @@ import {
   gridVertexShaderSource,
   gridFragmentShaderSource,
   latticeVertexShaderSource,
-  flowVertexShaderSource
+  flowVertexShaderSource,
+  NEBULA_LAYERS,
+  STARS_PER_CELL,
+  STAR_RINGS
 } from './webgl_shaders'
 import { RING_LIGHT_TEXTURE_UNIT, SHADOW_TEXTURE_UNIT, createFieldFeedback, type FieldFeedback, type FieldInput } from './field_feedback'
 import type { SceneColor } from './scene_color'
@@ -113,6 +116,25 @@ export interface CompositeSettings {
   horizonCells: number
   horizonLine: number
   horizonHaze: number
+  // The cell size in CSS pixels below which its lines start to turn to haze and that at which the haze is
+  // whole; its cells round the equator; the share of the shift the horizon's turn gives its light; the share
+  // of its brightness the second hole's grid has, seen at companionGridScale pixels of tan(angle / 2) from
+  // that hole (CSS pixels) by a camera 1 / companionGridU of its Schwarzschild radii away, about an axis tilted
+  // companionGridTilt from the line to the camera and turned companionGridAxis on the screen, with the
+  // camera's meridian at companionGridTurn less the turn its horizon has made, its spin companionGridSpin and
+  // that horizon turning at companionGridRate radians per M
+  horizonHazeFrom: number
+  horizonHazeTo: number
+  horizonCellsAround: number
+  horizonShift: number
+  horizonCompanion: number
+  companionGridScale: number
+  companionGridTurn: number
+  companionGridU: number
+  companionGridRate: number
+  companionGridSpin: number
+  companionGridTilt: number
+  companionGridAxis: number
   ring: number
   // In black hole radii
   ringWidth: number
@@ -247,9 +269,25 @@ export interface CompositeSettings {
   // How far the sky has turned from the flat mode's backdrop (0) to the sphere round the 3D camera (1): the
   // share the 3D camera has eased in by
   skySphere: number
+  // The sky's centre, as a share of the way from the middle of the screen to the field's vanishing point
+  // (skyVanishX, skyVanishY, CSS pixels); its sphere's radius in CSS pixels, 0 the focal length; the share by
+  // which the flat backdrop is read on the plane ahead while 3D eases in
+  skyCenter: number
+  skyVanishX: number
+  skyVanishY: number
+  skySize: number
+  skyBend: number
   backgroundStars: number
   starCell: number
   starDensity: number
+  // The share of its cell a star may stand in, the stars a cell may hold, the rings of neighbouring cells a
+  // star is drawn from; the 3D sky's cells from equal lengths on a face (0) to equal angles (1), and how far
+  // a cell's chance follows the share of sky it covers
+  starPlacement: number
+  starsPerCell: number
+  starNeighbors: number
+  starCellWarp: number
+  starSkyEven: number
   starFlare: number
   // The nebula's brightness (0 turns it off) and its colours
   nebula: number
@@ -273,6 +311,17 @@ export interface CompositeSettings {
   nebulaPatchSoftness: number
   nebulaCore: number
   nebulaCoreFrom: number
+  // The CSS pixels of space the 3D sky's clouds have been read further along so far
+  nebulaSpaceX: number
+  nebulaSpaceY: number
+  nebulaSpaceZ: number
+  // Its layers of noise: how many, each how many times finer, with what share of the light of the one before;
+  // the curling noise's size as a share of the clouds', the grain's as a multiple of the finest layer's
+  nebulaDetail: number
+  nebulaLacunarity: number
+  nebulaRoughness: number
+  nebulaCurlSize: number
+  nebulaGrainSize: number
   // A background star: the two colours its tint lies between, the spread of its bell of light (the square
   // of its radius, CSS pixels), the share of its light that twinkles and the rate of that as a multiple of
   // its own, and the brightness of the faintest star as a share of the brightest
@@ -323,6 +372,10 @@ export interface CompositeSettings {
   gridHazeSpan: number
   // The width of that grid's lines in CSS pixels
   skyGridLine: number
+  // The share by which it lies on the sky's sphere in latitudes and longitudes rather than on its box, and the
+  // power of the slant its lines keep their width by
+  gridSphere: number
+  gridSlant: number
   // Colours of the intro, 0xRRGGBB
   colorFlash: number
   colorLight: number
@@ -644,19 +697,19 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   const particleUniforms = getUniforms(gl, particleProgram, ['resolution', 'pixelRatio', 'center', 'flight', 'doppler', 'tintAhead', 'tintEdge', 'tintBehind', 'tint', 'zoom', 'zoomFrom'] as const)
   const orbitUniforms = getUniforms(gl, orbitProgram, ['resolution', 'zoom', 'orbit', 'dimmed', 'turnX', 'turnY', 'turnZ', 'orbitFrom', 'side', 'sideMain', 'sideSecond', 'sideBend', 'sideShape'] as const)
   const compositeUniforms = getUniforms(gl, compositeProgram, [
-    'resolution', 'pixelRatio', 'time', 'hole', 'horizon', 'einstein', 'falloff', 'falloffPivot', 'lensCore', 'maxBend', 'lensReach', 'lensBubble', 'twistLimit', 'swirl', 'absorption', 'trace', 'spin', 'horizonGrid', 'horizonAxis', 'horizonTurn', 'ring',
+    'resolution', 'pixelRatio', 'time', 'hole', 'horizon', 'einstein', 'falloff', 'falloffPivot', 'lensCore', 'maxBend', 'lensReach', 'lensBubble', 'twistLimit', 'swirl', 'absorption', 'trace', 'spin', 'horizonGrid', 'horizonAxis', 'horizonTurn', 'horizonLook', 'companionGrid', 'companionHole', 'ring',
     'ringWidth', 'ringGlow', 'ringDoppler', 'ringSide', 'ringPhase', 'ringField', 'ringBase', 'ringFeed', 'ringLine', 'ringGlowShape', 'ringColor', 'ringApproaching', 'ringReceding',
     'center', 'starGlow', 'starRadius', 'sourcePower', 'glareRadius', 'exposure',
     'lightRadius', 'lightWidth', 'lightPower', 'lightSpeed', 'echoPower', 'echoDecay',
     'waveRadius', 'waveStrength', 'waveWidth', 'remnantGlow', 'remnantRedshift', 'remnantRadius',
-    'holeOval', 'gravityWaveAmplitude', 'gravityWaveTime', 'gravityWaveOmega', 'gravityWaveInvDecay', 'gravityWaveRadius', 'gravityWaveCenter', 'gravityWaveTurn', 'companion', 'companionLens', 'companionSpin', 'companionRing', 'waveLens', 'pair', 'pairWave', 'pairFront', 'pairDepth', 'pairPlane', 'turnRight', 'turnDown', 'turnAhead', 'skySphere', 'backgroundStars',
-    'starCell', 'starDensity', 'starFlare', 'starWarm', 'starCool', 'starLook', 'dustScale', 'dustThreshold', 'lightDustContrast',
+    'holeOval', 'gravityWaveAmplitude', 'gravityWaveTime', 'gravityWaveOmega', 'gravityWaveInvDecay', 'gravityWaveRadius', 'gravityWaveCenter', 'gravityWaveTurn', 'companion', 'companionLens', 'companionSpin', 'companionRing', 'waveLens', 'pair', 'pairWave', 'pairFront', 'pairDepth', 'pairPlane', 'turnRight', 'turnDown', 'turnAhead', 'skySphere', 'skyLens', 'skyBend', 'backgroundStars',
+    'starCell', 'starDensity', 'starGrid', 'starSphere', 'starFlare', 'starWarm', 'starCool', 'starLook', 'dustScale', 'dustThreshold', 'lightDustContrast',
     'titleCenter', 'titleHalfSize', 'titleAlpha', 'titleReveal', 'titleDissolve', 'titleDrift', 'titleGlow',
     'titleFlash', 'titleCooling', 'titleDust', 'titlePull', 'titleSwirl', 'titleReach', 'titleCapture', 'titleScale',
     'titleFringe', 'titleHalo', 'titleRedshift', 'titleGrain', 'titleBurn', 'titleFall', 'titleTidal', 'titleSpiral', 'titleSpread', 'titleStream', 'titleOrder', 'titleTrail', 'titleTrailShape', 'titleHeat', 'dustSweep', 'echoFloor', 'dustShock', 'dustBlow', 'dustDrift',
     'titleSpeck', 'titleWinkRest', 'titleWind', 'titleBurnShape', 'titleBurnRimWidth', 'titleFallShape', 'titleDustShape', 'titleDustCut', 'titleBurnEdge',
     'echoShape', 'echoSwell', 'dustMotion', 'dustFlare', 'dustNoise', 'dustWarp', 'echoTintEase', 'starFlareRate', 'remnantShape', 'vignetteSpan', 'knee',
-    'skyGrid', 'gridCell', 'skyGridLine', 'orbits', 'front', 'nebula', 'nebulaColor', 'nebulaColorDeep', 'nebulaColorCore', 'nebulaShape', 'nebulaLook', 'nebulaPatch', 'nebulaDrift', 'gridPull', 'gridColor', 'gridHaze',
+    'skyGrid', 'gridCell', 'skyGridLine', 'orbits', 'front', 'nebula', 'nebulaColor', 'nebulaColorDeep', 'nebulaColorCore', 'nebulaShape', 'nebulaLook', 'nebulaPatch', 'nebulaDrift', 'nebulaSpace', 'nebulaNoise', 'nebulaNorm', 'gridPull', 'gridColor', 'gridHaze', 'gridShape',
     'colorFlash', 'colorLight', 'colorDust', 'colorTitle', 'colorEmber',
     'cameraZoom', 'zoomCenter', 'layerZoom', 'shake', 'lensFringe', 'lensFringeEase', 'vignette', 'filmGrain', 'letterbox'
   ] as const)
@@ -1270,7 +1323,14 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     if (settings.horizonGrid > 0) {
       const cellsPerRadian = settings.horizonCells / Math.PI
       setUniform4f(gl, u.horizonAxis, Math.cos(settings.horizonTilt), Math.sin(settings.horizonTilt), settings.horizonAxis, settings.horizonHaze)
-      setUniform4f(gl, u.horizonTurn, settings.horizonTurn, settings.horizonRate, cellsPerRadian, 2 * settings.horizonCells)
+      // Cells round the equator: Horizon Cells Around, or twice those from pole to pole, which keeps them square there
+      const around = settings.horizonCellsAround > 0 ? Math.max(Math.round(settings.horizonCellsAround), 1) : 2 * settings.horizonCells
+      setUniform4f(gl, u.horizonTurn, settings.horizonTurn, settings.horizonRate, cellsPerRadian, around)
+      const hazeFrom = Math.max(settings.horizonHazeFrom, 0.02)
+      setUniform4f(gl, u.horizonLook, hazeFrom * ratio, Math.min(Math.max(settings.horizonHazeTo, 0), hazeFrom - 0.01) * ratio,
+        settings.horizonShift, settings.horizonCompanion)
+      setUniform4f(gl, u.companionGrid, Math.max(settings.companionGridScale * ratio, 0.0001), settings.companionGridAxis, settings.companionGridTurn, settings.companionGridRate)
+      setUniform4f(gl, u.companionHole, settings.companionGridSpin, Math.cos(settings.companionGridTilt), Math.sin(settings.companionGridTilt), settings.companionGridU)
     }
     if (settings.shadowShape.version !== shadowVersion) {
       shadowVersion = settings.shadowShape.version
@@ -1343,6 +1403,16 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     setUniform3f(gl, u.turnDown, settings.turn[3], settings.turn[4], settings.turn[5])
     setUniform3f(gl, u.turnAhead, settings.turn[6], settings.turn[7], settings.turn[8])
     setUniform1f(gl, u.skySphere, settings.skySphere)
+    // The sky's centre, moved from the middle of the screen toward the field's vanishing point by Sky Centre, the
+    // focal length it is seen through, half the long side, and its sphere's radius, all CSS pixels
+    const skyMiddleX = 0.5 * width / ratio
+    const skyMiddleY = 0.5 * height / ratio
+    const skyFocal = Math.max(skyMiddleX, skyMiddleY)
+    const skyRadius = settings.skySize > 0 ? settings.skySize : skyFocal
+    setUniform4f(gl, u.skyLens, skyMiddleX + (settings.skyVanishX - skyMiddleX) * settings.skyCenter,
+      skyMiddleY + (settings.skyVanishY - skyMiddleY) * settings.skyCenter, skyFocal, skyRadius)
+    // The flat backdrop is bent onto the plane ahead only while both skies are drawn
+    setUniform1f(gl, u.skyBend, settings.skySphere > 0 && settings.skySphere < 1 ? settings.skyBend : 0)
     if (settings.pairWave > 0) {
       const pairRatio = Math.max(ratio * settings.pairScale, 0.0001)
       setUniform4f(gl, u.pairWave, settings.pairWave * pairRatio, settings.pairPhase, settings.pairPitch / pairRatio, Math.max(settings.gravityWaveRadius * pairRatio, 1))
@@ -1370,6 +1440,18 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
       const middle = 1 + soft / 2 - settings.nebulaPatchShare * (1 + soft)
       setUniform3f(gl, u.nebulaPatch, Math.max(settings.nebulaPatch * settings.nebulaScale, 1), middle - soft / 2, middle + soft / 2)
       setUniform2f(gl, u.nebulaDrift, settings.nebulaDriftX, settings.nebulaDriftY)
+      setUniform3f(gl, u.nebulaSpace, settings.nebulaSpaceX, settings.nebulaSpaceY, settings.nebulaSpaceZ)
+      // Its layers, and what brings their sum to the 0.875 of three halving ones, the span Sparseness is cut in
+      const layers = Math.min(Math.max(settings.nebulaDetail, 1), NEBULA_LAYERS)
+      const roughness = Math.min(Math.max(settings.nebulaRoughness, 0.05), 0.95)
+      let sum = 0
+      let amplitude = 0.5
+      for (let layer = 0; layer < NEBULA_LAYERS && layers > layer; layer++) {
+        sum += amplitude * Math.min(layers - layer, 1)
+        amplitude *= roughness
+      }
+      setUniform4f(gl, u.nebulaNoise, layers, Math.max(settings.nebulaLacunarity, 1.01), roughness, Math.max(settings.nebulaCurlSize, 0.01))
+      setUniform2f(gl, u.nebulaNorm, Math.max(settings.nebulaGrainSize, 0.01), 0.875 / sum)
     }
     if (settings.backgroundStars > 0) {
       const warm = settings.starWarm
@@ -1377,6 +1459,11 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
       setUniform4f(gl, u.starWarm, warm.r, warm.g, warm.b, settings.starFaintest)
       setUniform4f(gl, u.starCool, cool.r, cool.g, cool.b, 1 - settings.starFaintest)
       setUniform4f(gl, u.starLook, settings.starSpread, 1 - settings.starTwinkle, settings.starTwinkle, settings.starTwinkleSpeed)
+      setUniform3f(gl, u.starGrid, Math.min(Math.max(settings.starPlacement, 0), 1), Math.min(Math.max(Math.round(settings.starsPerCell), 1), STARS_PER_CELL),
+        Math.min(Math.max(Math.round(settings.starNeighbors), 0), STAR_RINGS))
+      // Half a face's angle, scaled by the warp, and its tangent
+      const warp = Math.min(Math.max(settings.starCellWarp, 0.01), 1) * Math.PI / 4
+      setUniform3f(gl, u.starSphere, warp, Math.tan(warp), Math.min(Math.max(settings.starSkyEven, 0), 1))
     }
     setUniform1f(gl, u.starFlareRate, decayRate(Math.max(settings.starFlareDecay, 0.001)))
     setUniform1f(gl, u.dustScale, Math.max(settings.dustScale, 1))
@@ -1406,6 +1493,11 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
         setUniform2f(gl, u.gridHaze, haze, haze * (1 - Math.min(Math.max(settings.gridHazeSpan, 0.05), 0.95)))
       }
       setUniform1f(gl, u.skyGridLine, settings.skyGridLine * 0.5)
+      // On the sphere a latitude is a cell of the sky's sphere apart, a longitude as near that as a whole
+      // number of them round the equator allows
+      const gridCell = Math.max(settings.gridCell, 1)
+      const around = Math.max(Math.round(2 * Math.PI * skyRadius / gridCell), 1)
+      setUniform4f(gl, u.gridShape, Math.min(Math.max(settings.gridSphere, 0), 1), Math.max(settings.gridSlant, 0), gridCell / skyRadius, 2 * Math.PI / around)
     }
     gl.drawArrays(gl.TRIANGLES, 0, QUAD_VERTEX_COUNT)
   }

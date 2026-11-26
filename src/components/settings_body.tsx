@@ -542,11 +542,18 @@ function SettingsBody () {
             <SettingSlider field="gridSkyLine" />
             <SettingSlider field="gridSkyHaze" />
             <SettingSlider field="gridSkyHazeSpan" />
+            <SettingSlider field="gridSkySphere" />
+            <SettingSlider field="gridSkySlant" />
           </div>
           <div className="mt-3 flex flex-col gap-1">
             <SettingSlider field="gridHorizonPace" />
             <SettingSlider field="gridHorizonLine" />
             <SettingSlider field="gridHorizonHaze" />
+            <SettingSlider field="gridHorizonHazeFrom" />
+            <SettingSlider field="gridHorizonHazeTo" />
+            <SettingSlider field="gridHorizonCellsAround" />
+            <SettingSlider field="gridHorizonShift" />
+            <SettingSlider field="gridHorizonCompanion" />
           </div>
         </SettingsFine>
       </SettingsSection>
@@ -556,7 +563,7 @@ function SettingsBody () {
         <SettingSlider field="starDensity" />
         <SettingSlider field="starCell" />
         <SettingsFine id="stars">
-          {/* A star's tints, its size and spread of brightness, then its twinkle */}
+          {/* A star's tints, its size and spread of brightness, then its twinkle; how stars fill their cells; the sky's centre, its sphere and how the flat backdrop turns into it */}
           <SettingColor field="starsColorWarm" />
           <SettingColor field="starsColorCool" />
           <div className="mt-3 flex flex-col gap-1">
@@ -564,6 +571,18 @@ function SettingsBody () {
             <SettingSlider field="starsFaintest" />
             <SettingSlider field="starsTwinkle" />
             <SettingSlider field="starsTwinkleSpeed" />
+          </div>
+          <div className="mt-3 flex flex-col gap-1">
+            <SettingSlider field="starsPlacement" />
+            <SettingSlider field="starsPerCell" />
+            <SettingSlider field="starsNeighbors" />
+            <SettingSlider field="starsCellWarp" />
+            <SettingSlider field="starsSkyEven" />
+          </div>
+          <div className="mt-3 flex flex-col gap-1">
+            <SettingSlider field="skyCenter" />
+            <SettingSlider field="skySize" />
+            <SettingSlider field="skyEaseBend" />
           </div>
         </SettingsFine>
       </SettingsSection>
@@ -580,17 +599,25 @@ function SettingsBody () {
           <SettingSlider field="nebulaCore" />
         </div>
         <SettingsFine id="nebula">
-          {/* The clouds' look, their drift, the second colour's patches, where the core colour starts */}
+          {/* The clouds' look, their drift, the second colour's patches, where the core colour starts, then the layers of noise they are made of */}
           <SettingSlider field="nebulaEdge" />
           <SettingSlider field="nebulaWarp" />
           <SettingSlider field="nebulaContrast" />
           <SettingSlider field="nebulaGrain" />
           <SettingSlider field="nebulaDrift" />
           <SettingSlider field="nebulaDriftAngle" />
+          <SettingSlider field="nebulaDriftFollow" />
           <SettingSlider field="nebulaPatch" />
           <SettingSlider field="nebulaPatchShare" />
           <SettingSlider field="nebulaPatchSoftness" />
           <SettingSlider field="nebulaCoreFrom" />
+          <div className="mt-3 flex flex-col gap-1">
+            <SettingSlider field="nebulaDetail" />
+            <SettingSlider field="nebulaLacunarity" />
+            <SettingSlider field="nebulaRoughness" />
+            <SettingSlider field="nebulaCurlSize" />
+            <SettingSlider field="nebulaGrainSize" />
+          </div>
         </SettingsFine>
       </SettingsSection>
     </div>

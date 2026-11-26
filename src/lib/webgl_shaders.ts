@@ -247,6 +247,13 @@ ${BEHIND_GLSL}
 const MODERN_VERTEX = '#version 300 es\n#define attribute in\n#define varying out\n'
 
 // Two triangles covering clip space; the particle program reuses them as segment corners
+// The most layers of noise a nebula is made of (the top of Nebula Detail), the most stars a cell of the sky
+// holds and the most rings of neighbouring cells a star is drawn from (the tops of Stars per Cell and Star
+// Neighbours): the composite shader's loops stop there
+export const NEBULA_LAYERS = 8
+export const STARS_PER_CELL = 4
+export const STAR_RINGS = 2
+
 export const QUAD_VERTICES = new Float32Array([
   -1, -1,
   1, -1,
@@ -536,7 +543,10 @@ export const compositeFragmentShaderSource = `
   uniform sampler2D u_shadowShape; // a spinning hole's shadow: its radius all the way round, in round-shadow radii, from the axis's right toward its up; the main hole's in the first row, the second hole's in the second
   uniform vec4 u_horizonGrid;    // the grid on the horizon: its brightness (0 turns it off), 1 / the camera's distance in Schwarzschild radii, pixels of tan(angle / 2) from the hole, half the width of a line in pixels of the screen
   uniform vec4 u_horizonAxis;    // the axis it is drawn about: cosine and sine of its angle to the line to the camera, its turn on screen from up toward the left; and the most light lines too dense to draw give
-  uniform vec4 u_horizonTurn;    // the longitude of the camera's meridian less the turn the horizon has made, the horizon's rate of turn per M, cells per radian, cells round the equator
+  uniform vec4 u_horizonTurn;    // the longitude of the camera's meridian less the turn the horizon has made, the horizon's rate of turn per M, cells per radian of latitude, cells round the equator
+  uniform vec4 u_horizonLook;    // the cell size in pixels of the screen below which its lines start to turn to haze and that at which the haze is whole, the share of the shift the horizon's turn gives its light, the share of its brightness the second hole's grid has
+  uniform vec4 u_companionGrid;  // the second hole's grid, as horizonCells's look: pixels of tan(angle / 2) from it, its axis's turn on screen, the camera's meridian less its horizon's turn, its rate of turn per M
+  uniform vec4 u_companionHole;  // and as its hole: its spin, the cosine and sine of its axis's angle to the line to the camera, 1 / the camera's distance in its Schwarzschild radii
   uniform float u_ring;          // photon ring brightness
   uniform float u_ringWidth;     // thickness of the line beyond its floor, in black hole radii
   uniform vec4 u_ringLine;       // the line: its floor in screen pixels, how far outside the shadow's edge it stands in its own widths, how far from the hole the ring is drawn in shadow radii, the width of its bell of light as a share of its own
@@ -597,9 +607,13 @@ export const compositeFragmentShaderSource = `
   uniform vec3 u_turnDown;       // its down
   uniform vec3 u_turnAhead;      // and its line of sight point in the scene; the scene's own axes in the flat view
   uniform float u_skySphere;     // how far the sky has turned from the flat mode's backdrop (0) to the sphere round the 3D camera (1)
+  uniform vec4 u_skyLens;        // the sky's centre on the picture and the focal length the camera sees it through, then the radius of its sphere, CSS pixels
+  uniform float u_skyBend;       // while 3D eases in, the share by which the flat backdrop is read where the camera's ray meets the plane ahead rather than on the screen
   uniform float u_backgroundStars;
   uniform float u_starCell;        // CSS pixels per background-star cell
   uniform float u_starDensity;     // share of cells holding a star
+  uniform vec3 u_starGrid;         // the share of its cell a star may stand in, the stars a cell may hold, the rings of neighbouring cells whose stars are drawn here
+  uniform vec3 u_starSphere;       // the 3D sky's cells: half a face's angle times their warp (pi / 4 for equal angles), its tangent, and how far a cell's chance follows the share of sky it covers
   uniform float u_starFlare;
   uniform vec4 u_starWarm;         // a background star: the warmest tint, and the brightness of the faintest star
   uniform vec4 u_starCool;         // the coolest tint, and what the brightest star adds to the faintest
@@ -634,8 +648,12 @@ export const compositeFragmentShaderSource = `
   uniform vec4 u_nebulaLook;       // how much denser the middle of a cloud is, its grain, how far the thickest cloud turns to the core colour, and the thickness that starts at
   uniform vec3 u_nebulaPatch;      // patches of the second colour: CSS pixels across, the two levels of a noise they turn over between
   uniform vec2 u_nebulaDrift;      // CSS pixels a second the clouds are read further along, so they drift the other way
+  uniform vec3 u_nebulaSpace;      // the 3D sky's clouds: CSS pixels of space they have been read further along so far
+  uniform vec4 u_nebulaNoise;      // its layers of noise: how many (the last by its fraction), each this many times finer, with this share of the light of the one before, and the size of the curling noise as a share of the clouds'
+  uniform vec2 u_nebulaNorm;       // the grain's size as a multiple of the finest layer's fineness, and what brings the layers' sum to the span three halving layers have
   uniform float u_gridPull;        // how far the Lensed Grid is drawn in towards the hole, the Pull; 0 leaves it flat
   uniform vec2 u_gridHaze;         // device pixels a cell of it pulled in shrinks to before its lines start to merge into a haze, and those at which the haze is whole
+  uniform vec4 u_gridShape;        // its shape: the share by which it lies on the sky's sphere in latitudes and longitudes rather than on its box, the power of the slant its lines keep their width by, and on the sphere the radians between two latitudes and between two longitudes
   uniform vec3 u_gridColor;        // colour of its lines
 
   uniform vec2 u_titleCenter;
@@ -706,6 +724,9 @@ export const compositeFragmentShaderSource = `
   // Halvings that find the node the Lensed Grid's pull brings to a point; a straight line across the last
   // one leaves it well under a pixel off
   const int GRID_PULL_STEPS = 8;
+  const int NEBULA_LAYERS = ${NEBULA_LAYERS};
+  const int STARS_PER_CELL = ${STARS_PER_CELL};
+  const int STAR_RINGS = ${STAR_RINGS};
   // Impact parameter of the photon sphere, Schwarzschild radii: a ray aimed closer falls in
   const float CRITICAL_IMPACT = 2.5980762;
   // Farthest a traced ray reads the scene, in units of the projection: near the direction straight behind
@@ -772,6 +793,18 @@ ${DENT_GLSL}
     return away * away / (away + wish);
   }
 
+  // How bright the Lensed Grid's line is at a point miss CSS pixels of the screen from it, in cells of
+  // cellSeen CSS pixels, drawn squeeze times smaller by its pull: its lines keep their width, and where the
+  // pulled cells shrink to a few pixels they merge into a haze of the light they share
+  float gridLineLight (float miss, float cellSeen, float squeeze) {
+    float line = clamp((u_skyGridLine - miss * u_cameraZoom / squeeze) * u_pixelRatio + 0.5, 0.0, 1.0);
+    if (squeeze > 1.0) {
+      float cellPx = cellSeen * u_cameraZoom * u_pixelRatio / squeeze;
+      line = mix(line, min(4.0 * u_skyGridLine * u_pixelRatio / cellPx, 1.0), smoothstep(u_gridHaze.x, u_gridHaze.y, cellPx));
+    }
+    return line;
+  }
+
   // The value noise of a place in space, for the sky round the 3D camera
   float hash13 (vec3 p) {
     vec3 p3 = fract(p * 0.1031);
@@ -828,51 +861,85 @@ ${DENT_GLSL}
     return tint * density;
   }
 
-  // The flat mode's nebula, a backdrop: its noise is read at the CSS pixel
-  vec3 nebulaFlat (vec2 cssPx) {
-    vec2 p = cssPx / u_nebulaShape.x;
-    p += u_nebulaShape.w * (vec2(valueNoise(p * 0.8 + 3.1), valueNoise(p * 0.8 + 17.4)) - 0.5);
+  // The layers of noise the nebula's clouds are made of (Detail, u_nebulaNoise.x), read at p, which they leave
+  // at the finest layer's place: each u_nebulaNoise.y times finer and turned, each with u_nebulaNoise.z of the
+  // light of the one before, the last by the fraction of Detail it stands for, so Detail moves smoothly along
+  // a track. Three whole layers, the default, are read in a loop of a fixed length
+  float nebulaLayers (inout vec2 p) {
     mat2 turn = mat2(0.8, 0.6, -0.6, 0.8);
     float n = 0.0;
     float amplitude = 0.5;
-    for (int i = 0; i < 3; i++) {
-      n += amplitude * valueNoise(p);
-      p = turn * p * 2.1 + 11.7;
-      amplitude *= 0.5;
+    if (u_nebulaNoise.x == 3.0) {
+      for (int i = 0; i < 3; i++) {
+        n += amplitude * valueNoise(p);
+        p = turn * p * u_nebulaNoise.y + 11.7;
+        amplitude *= u_nebulaNoise.z;
+      }
+      return n;
     }
-    return nebulaShade(n, valueNoise(p * 1.7), valueNoise(cssPx / u_nebulaPatch.x + 23.0));
+    for (int i = 0; i < NEBULA_LAYERS; i++) {
+      float share = clamp(u_nebulaNoise.x - float(i), 0.0, 1.0);
+      if (share <= 0.0) break;
+      n += amplitude * share * valueNoise(p);
+      p = turn * p * u_nebulaNoise.y + 11.7;
+      amplitude *= u_nebulaNoise.z;
+    }
+    return n;
   }
 
-  // The 3D camera's nebula, on the sphere of the sky: the same clouds made of a noise of space, read where a
-  // direction meets a sphere as many CSS pixels round as the focal length, so straight ahead they are as
-  // large as the flat mode's and they are the same size and grain in every direction. Each layer is turned
-  // in space, so no axis of the noise's cells shows
-  vec3 nebulaSphere (vec3 onSphere) {
-    vec3 p = onSphere / u_nebulaShape.x;
-    p += u_nebulaShape.w * (valueNoise33(p * 0.8 + 3.1) - 0.5);
+  // The same in space, each layer turned in space, so no axis of the noise's cells shows
+  float nebulaLayers3 (inout vec3 p) {
     mat3 turn = mat3(0.0, 0.8, 0.6, -0.8, 0.36, -0.48, -0.6, -0.48, 0.64);
     float n = 0.0;
     float amplitude = 0.5;
-    for (int i = 0; i < 3; i++) {
-      n += amplitude * valueNoise3(p);
-      p = turn * p * 2.1 + 11.7;
-      amplitude *= 0.5;
+    if (u_nebulaNoise.x == 3.0) {
+      for (int i = 0; i < 3; i++) {
+        n += amplitude * valueNoise3(p);
+        p = turn * p * u_nebulaNoise.y + 11.7;
+        amplitude *= u_nebulaNoise.z;
+      }
+      return n;
     }
-    return nebulaShade(n, clamp(valueNoise3(p * 1.7), 0.0, 1.0), valueNoise3(turn * onSphere / u_nebulaPatch.x + 23.0));
+    for (int i = 0; i < NEBULA_LAYERS; i++) {
+      float share = clamp(u_nebulaNoise.x - float(i), 0.0, 1.0);
+      if (share <= 0.0) break;
+      n += amplitude * share * valueNoise3(p);
+      p = turn * p * u_nebulaNoise.y + 11.7;
+      amplitude *= u_nebulaNoise.z;
+    }
+    return n;
+  }
+
+  // The flat mode's nebula, a backdrop: its noise is read at the CSS pixel. The layers' sum is brought to the
+  // span three halving layers have (u_nebulaNorm.y), so Sparseness cuts the clouds at the same level
+  vec3 nebulaFlat (vec2 cssPx) {
+    vec2 p = cssPx / u_nebulaShape.x;
+    p += u_nebulaShape.w * (vec2(valueNoise(p * u_nebulaNoise.w + 3.1), valueNoise(p * u_nebulaNoise.w + 17.4)) - 0.5);
+    float n = nebulaLayers(p);
+    return nebulaShade(n * u_nebulaNorm.y, valueNoise(p * u_nebulaNorm.x), valueNoise(cssPx / u_nebulaPatch.x + 23.0));
+  }
+
+  // The 3D camera's nebula, on the sphere of the sky: the same clouds made of a noise of space, read where a
+  // direction meets the sky's sphere, as many CSS pixels round as the focal length unless Sky Size sets it,
+  // so straight ahead they are as large as the flat mode's and they are the same size and grain in every
+  // direction
+  vec3 nebulaSphere (vec3 onSphere) {
+    vec3 p = onSphere / u_nebulaShape.x;
+    p += u_nebulaShape.w * (valueNoise33(p * u_nebulaNoise.w + 3.1) - 0.5);
+    float n = nebulaLayers3(p);
+    mat3 turn = mat3(0.0, 0.8, 0.6, -0.8, 0.36, -0.48, -0.6, -0.48, 0.64);
+    return nebulaShade(n * u_nebulaNorm.y, clamp(valueNoise3(p * u_nebulaNorm.x), 0.0, 1.0), valueNoise3(turn * onSphere / u_nebulaPatch.x + 23.0));
   }
 
   // The sky is infinitely far round the scene, and the 3D camera turns inside it: the stars and the nebula lie
-  // on a sphere, the Lensed Grid on the faces of a box, where its lines are straight. Straight on the camera
-  // looks at the middle of the box's face 0, which is the flat sky, CSS pixel for CSS pixel. The middle of
-  // the screen and the focal length, CSS pixels
-  vec3 skyLens () {
-    vec2 middle = 0.5 * u_resolution / u_pixelRatio;
-    return vec3(middle, max(middle.x, middle.y));
-  }
-
+  // on a sphere, the Lensed Grid on the faces of a box, where its lines are straight, or on the sphere in
+  // latitudes and longitudes. Straight on the camera looks at the middle of the box's face 0, which is the flat
+  // sky, CSS pixel for CSS pixel. The sky's centre and focal length come in u_skyLens.xyz: the middle of the
+  // screen and half its long side, the centre moved toward the field's vanishing point by Sky Centre. The
+  // sphere is u_skyLens.w CSS pixels round (the focal length unless Sky Size sets it).
   // The direction in the scene a point of the picture, CSS pixels, looks along
-  vec3 skyRay (vec2 cssPx, vec3 lens) {
-    vec3 ray = vec3(cssPx - lens.xy, lens.z);
+  vec3 skyRay (vec2 cssPx) {
+    vec3 ray = vec3(cssPx - u_skyLens.xy, u_skyLens.z);
     return ray.x * u_turnRight + ray.y * u_turnDown + ray.z * u_turnAhead;
   }
 
@@ -894,6 +961,21 @@ ${DENT_GLSL}
     return vec3(onFace.x, side, onFace.y);
   }
 
+  // Where the flat mode's backdrop is read at a point of the picture: on the screen, or while the camera eases
+  // into 3D, by Ease Bend (u_skyBend), where the camera's ray meets the plane of the box's face ahead, so the
+  // backdrop turns with the camera as the sphere comes in, as the Lensed Grid does. A point of that plane seen
+  // at a slant is farther, and its light falls as a star's does with the square of its distance; nothing of
+  // it is behind the plane. shown is the share of its light kept
+  vec2 flatAt (vec2 cssPx, out float shown) {
+    shown = 1.0;
+    if (u_skyBend <= 0.0) return cssPx;
+    vec3 ray = skyRay(cssPx);
+    float ahead = ray.z / length(ray);
+    shown = 1.0 - u_skyBend + u_skyBend * max(ahead, 0.0) * max(ahead, 0.0);
+    if (ray.z <= 0.0) return cssPx;
+    return mix(cssPx, u_skyLens.xy + ray.xy * (u_skyLens.z / ray.z), u_skyBend);
+  }
+
   // The light of a star, by the key of its cell, the draw that put it there, and its distance from the
   // point, CSS pixels; it flares as the light front passes
   vec3 starShade (vec2 key, float presence, float d, float flare) {
@@ -903,46 +985,97 @@ ${DENT_GLSL}
     return tint * exp(-d * d / u_starLook.x) * (u_starWarm.a + u_starCool.a * brightness * brightness) * twinkle * (1.0 + flare);
   }
 
-  // The flat mode's stars, a backdrop: one at most per square cell of the screen
-  vec3 flatStar (vec2 cssPx, float flare) {
-    vec2 cell = floor(cssPx / u_starCell);
-    float presence = hash12(cell);
+  // The flat mode's stars, a backdrop: up to Stars per Cell (u_starGrid.y) per square cell of the screen, each
+  // somewhere in the middle Star Placement (x) of it, and drawn from its own cell and the rings of cells
+  // round it Star Neighbours (z) gives, so a star larger than its cell is whole. One cell holding one star,
+  // the default, is read straight; the loops stop at the counts the knobs give
+  vec3 flatCellStar (vec2 cssPx, vec2 cell, float k, float flare) {
+    vec2 key = cell + k * vec2(419.0, 631.0);
+    float presence = hash12(key);
     if (presence > u_starDensity) return vec3(0.0);
-    vec2 position = (cell + 0.2 + 0.6 * vec2(hash12(cell + 7.3), hash12(cell + 13.1))) * u_starCell;
+    vec2 position = (cell + 0.5 + u_starGrid.x * (vec2(hash12(key + 7.3), hash12(key + 13.1)) - 0.5)) * u_starCell;
     // A star is a point of light: the zoom moves the stars apart and leaves each the size it was
-    return starShade(cell, presence, length(cssPx - position) * u_cameraZoom, flare);
+    return starShade(key, presence, length(cssPx - position) * u_cameraZoom, flare);
+  }
+
+  vec3 flatStar (vec2 cssPx, float flare) {
+    vec2 home = floor(cssPx / u_starCell);
+    if (u_starGrid.y < 1.5 && u_starGrid.z < 0.5) return flatCellStar(cssPx, home, 0.0, flare);
+    float rings = u_starGrid.z;
+    vec3 light = vec3(0.0);
+    for (int y = 0; y <= 2 * STAR_RINGS; y++) {
+      if (float(y) > 2.0 * rings) break;
+      for (int x = 0; x <= 2 * STAR_RINGS; x++) {
+        if (float(x) > 2.0 * rings) break;
+        vec2 cell = home + vec2(float(x), float(y)) - rings;
+        for (int k = 0; k < STARS_PER_CELL; k++) {
+          if (float(k) >= u_starGrid.y) break;
+          light += flatCellStar(cssPx, cell, float(k), flare);
+        }
+      }
+    }
+    return light;
   }
 
   // The 3D camera's stars, on the sphere of the sky. Its directions are cut by the faces of a cube, and each
-  // face into cells of equal angles both ways, a whole number of them across, so an edge of a face is an edge
-  // of cells on both sides and a cell covers much the same patch of sky everywhere: from 1 in the middle of
-  // a face to 1 / sqrt(2) in the middle of an edge. A cell holds its star by that share, so there are as
-  // many stars to a patch of sky in every direction, and as many straight ahead as in the flat mode
-  vec3 sphereStar (vec2 cssPx, float flare) {
-    vec3 lens = skyLens();
-    vec3 onFace = skyFace(skyRay(cssPx, lens), 1.0);
-    float quarter = 0.5 * PI;
-    float cells = max(floor(quarter * lens.z / u_starCell + 0.5), 1.0);
-    vec2 cell = min(floor((atan(onFace.xy) / quarter + 0.5) * cells), cells - 1.0);
-    vec2 key = cell + onFace.z * vec2(1543.0, 2741.0);
-    vec2 middle = tan(((cell + 0.5) / cells - 0.5) * quarter);
-    vec2 slope = 1.0 + middle * middle;
-    float area = slope.x * slope.y / pow(slope.x + slope.y - 1.0, 1.5);
+  // face into cells, a whole number of them across, so an edge of a face is an edge of cells on both sides.
+  // A face's coordinate x, -1..1, lies at tan(w x pi / 4) / tan(w pi / 4) on it, w the Cell Warp
+  // (u_starSphere.xy): at 1 the cells are of equal angles both ways and cover much the same patch of sky
+  // everywhere, from 1 in the middle of a face to 1 / sqrt(2) in the middle of an edge; toward 0 they are of
+  // equal lengths on the face and shrink toward its edges. A cell holds its star by the share of sky it covers
+  // as far as Even Sky (z) says, so at 1 there are as many stars to a patch of sky in every direction, and as
+  // many straight ahead as in the flat mode. Neighbouring cells are those of the same face: a star larger
+  // than its cell is still cut where two faces meet. The star k of a cell of a face, of cells across it
+  vec3 sphereCellStar (vec2 cssPx, vec2 cell, float face, float cells, float k, float flare) {
+    float halfAngle = u_starSphere.x;
+    float tangent = u_starSphere.y;
+    vec2 key = cell + face * vec2(1543.0, 2741.0) + k * vec2(419.0, 631.0);
     float presence = hash12(key);
-    if (presence > u_starDensity * area) return vec3(0.0);
-    vec2 place = tan(((cell + 0.2 + 0.6 * vec2(hash12(key + 7.3), hash12(key + 13.1))) / cells - 0.5) * quarter);
+    if (presence > u_starDensity) return vec3(0.0);
+    vec2 middle = tan(((cell + 0.5) / cells * 2.0 - 1.0) * halfAngle) / tangent;
+    vec2 slope = 1.0 + middle * middle * tangent * tangent;
+    float area = slope.x * slope.y / pow(1.0 + dot(middle, middle), 1.5);
+    if (presence > u_starDensity * mix(1.0, area, u_starSphere.z)) return vec3(0.0);
+    vec2 at = cell + 0.5 + u_starGrid.x * (vec2(hash12(key + 7.3), hash12(key + 13.1)) - 0.5);
+    vec2 place = tan((at / cells * 2.0 - 1.0) * halfAngle) / tangent;
     // The star is set where the camera sees its direction, so it stays round wherever it is
-    vec3 star = faceRay(place, onFace.z, 1.0);
+    vec3 star = faceRay(place, face, 1.0);
     vec3 seen = vec3(dot(u_turnRight, star), dot(u_turnDown, star), dot(u_turnAhead, star));
     if (seen.z <= 0.0) return vec3(0.0);
-    return starShade(key, presence, length(cssPx - lens.xy - seen.xy * (lens.z / seen.z)) * u_cameraZoom, flare);
+    return starShade(key, presence, length(cssPx - u_skyLens.xy - seen.xy * (u_skyLens.z / seen.z)) * u_cameraZoom, flare);
+  }
+
+  vec3 sphereStar (vec2 cssPx, float flare) {
+    vec3 onFace = skyFace(skyRay(cssPx), 1.0);
+    float cells = max(floor(2.0 * u_starSphere.x * u_skyLens.w / (u_starSphere.y * u_starCell) + 0.5), 1.0);
+    vec2 home = min(floor((atan(onFace.xy * u_starSphere.y) / u_starSphere.x * 0.5 + 0.5) * cells), cells - 1.0);
+    if (u_starGrid.y < 1.5 && u_starGrid.z < 0.5) return sphereCellStar(cssPx, home, onFace.z, cells, 0.0, flare);
+    float rings = u_starGrid.z;
+    vec3 light = vec3(0.0);
+    for (int y = 0; y <= 2 * STAR_RINGS; y++) {
+      if (float(y) > 2.0 * rings) break;
+      for (int x = 0; x <= 2 * STAR_RINGS; x++) {
+        if (float(x) > 2.0 * rings) break;
+        vec2 cell = home + vec2(float(x), float(y)) - rings;
+        if (cell.x < 0.0 || cell.y < 0.0 || cell.x > cells - 1.0 || cell.y > cells - 1.0) continue;
+        for (int k = 0; k < STARS_PER_CELL; k++) {
+          if (float(k) >= u_starGrid.y) break;
+          light += sphereCellStar(cssPx, cell, onFace.z, cells, float(k), flare);
+        }
+      }
+    }
+    return light;
   }
 
   // Static distant stars: the flat mode's backdrop, the 3D camera's sphere, and while the camera eases from
   // one to the other both, in its share
   vec3 backgroundStar (vec2 cssPx, float flare) {
     vec3 light = vec3(0.0);
-    if (u_skySphere < 1.0) light = (1.0 - u_skySphere) * flatStar(cssPx, flare);
+    if (u_skySphere < 1.0) {
+      float shown;
+      vec2 at = flatAt(cssPx, shown);
+      light = (1.0 - u_skySphere) * shown * flatStar(at, flare);
+    }
     if (u_skySphere > 0.0) light += u_skySphere * sphereStar(cssPx, flare);
     return light;
   }
@@ -1110,21 +1243,79 @@ ${DENT_GLSL}
   // The ray past a spinning hole (kerr_glsl.ts): kerrRay(psi, chi, hole, out dir)
   ${KERR_GLSL}
 
-  // The grid on the horizon seen through a point of the shadow, offset from the hole and dist from it in
-  // the shadow's own measure: the ray through it is followed back to where it left the horizon
-  // (kerrHorizonFrom), and the latitude and longitude there are returned in cells. The longitude is the
-  // horizon's own: the camera's meridian's, plus how far round the ray took it, less how far the horizon
-  // has turned by the time the light left it, Omega_H times the camera's time less the light's delay
-  vec2 horizonCells (vec2 offset, float dist) {
-    float slope = dist / u_horizonGrid.z;
-    vec2 psi = vec2(2.0 * slope, 1.0 - slope * slope) / (1.0 + slope * slope);
+  // The ray through a point of a shadow, offset from its hole and dist from it in the shadow's own measure,
+  // seen at scale pixels of tan(angle / 2) from the hole about an axis turned axisTurn on the screen: psi
+  // from the line to the hole and chi round it from the axis, each as (sine, cosine)
+  void horizonAim (vec2 offset, float dist, float scale, float axisTurn, out vec2 psi, out vec2 chi) {
+    float slope = dist / scale;
+    psi = vec2(2.0 * slope, 1.0 - slope * slope) / (1.0 + slope * slope);
     vec2 across = vec2(offset.x, -offset.y) / max(length(offset), 0.0001);
-    vec2 axis = vec2(cos(u_horizonAxis.z), sin(u_horizonAxis.z));
-    vec2 chi = vec2(across.y * axis.x - across.x * axis.y, across.x * axis.x + across.y * axis.y);
-    vec4 left = kerrHorizonFrom(psi, chi, vec4(u_spin.x, u_horizonAxis.xy, u_horizonGrid.y));
+    vec2 axis = vec2(cos(axisTurn), sin(axisTurn));
+    chi = vec2(across.y * axis.x - across.x * axis.y, across.x * axis.x + across.y * axis.y);
+  }
+
+  // The grid on a horizon seen through a point of its shadow: the ray through it is followed back to where
+  // it left the horizon (kerrHorizonFrom), and the latitude and longitude there are returned in cells, each
+  // of its own size (u_horizonTurn.z a radian of latitude, u_horizonTurn.w round the equator). The longitude
+  // is the horizon's own: the camera's meridian's, plus how far round the ray took it, less how far the
+  // horizon has turned by the time the light left it, Omega_H times the camera's time less the light's
+  // delay. hole = (spin, cosine and sine of the axis's angle to the line to the camera, 1 / the camera's
+  // distance in Schwarzschild radii); look = (pixels of tan(angle / 2) from the hole, the axis's turn on
+  // screen, the camera's meridian less the horizon's turn, Omega_H)
+  vec2 horizonCells (vec2 offset, float dist, vec4 hole, vec4 look) {
+    vec2 psi;
+    vec2 chi;
+    horizonAim(offset, dist, look.x, look.y, psi, chi);
+    vec4 left = kerrHorizonFrom(psi, chi, hole);
     float latitude = atan(length(left.xy), left.z);
-    float longitude = atan(left.y, left.x) + u_horizonTurn.x + u_horizonTurn.y * left.w;
-    return vec2(latitude, longitude) * u_horizonTurn.z;
+    float longitude = atan(left.y, left.x) + look.z + look.w * left.w;
+    return vec2(latitude * u_horizonTurn.z, longitude * u_horizonTurn.w / (2.0 * PI));
+  }
+
+  // How much of the line light of a horizon's grid a point of its shadow shows. Its lines keep a width in
+  // pixels of the screen: how many cells a pixel spans is read from two more rays a pixel to the right and a
+  // pixel down, the derivative the width is measured by. Where the cells shrink to a few pixels, toward the
+  // shadow's edge where the rays wind round the hole ever more times and toward the poles, the lines give
+  // way to the light they would share, up to a ceiling, as a cell shrinks from u_horizonLook.x pixels of the
+  // screen to u_horizonLook.y
+  float horizonLines (vec2 offset, float dist, float oval, float px, vec4 hole, vec4 look) {
+    vec2 toRight = offset + vec2(px, 0.0);
+    vec2 toBelow = offset + vec2(0.0, px);
+    vec2 here = horizonCells(offset, dist, hole, look);
+    vec2 alongX = horizonCells(toRight, length(toRight) * oval, hole, look) - here;
+    vec2 alongY = horizonCells(toBelow, length(toBelow) * oval, hole, look) - here;
+    alongX.y -= u_horizonTurn.w * floor(alongX.y / u_horizonTurn.w + 0.5);
+    alongY.y -= u_horizonTurn.w * floor(alongY.y / u_horizonTurn.w + 0.5);
+    vec2 perPixel = max(vec2(length(vec2(alongX.x, alongY.x)), length(vec2(alongX.y, alongY.y))), 0.000001);
+    vec2 fromLine = abs(fract(here + 0.5) - 0.5) / perPixel;
+    vec2 line = clamp(u_horizonGrid.w - fromLine + 0.5, 0.0, 1.0);
+    vec2 haze = min(2.0 * u_horizonGrid.w * perPixel, u_horizonAxis.w);
+    line = mix(haze, line, smoothstep(u_horizonLook.y, u_horizonLook.x, 1.0 / perPixel));
+    return max(line.x, line.y);
+  }
+
+  // The shift of the light leaving a turning horizon toward the camera, its frequency there over its own:
+  // 1 / (1 - Omega_H lambda), lambda the ray's angular momentum about the axis over its energy. That is the
+  // part the horizon's turn gives, the side turning toward the camera blue, the other red; the part its
+  // depth gives would redden all of it without end, since no light leaves a real horizon, and is left out
+  float horizonShift (vec2 offset, float dist) {
+    vec2 psi;
+    vec2 chi;
+    horizonAim(offset, dist, u_horizonGrid.z, u_horizonAxis.z, psi, chi);
+    float radial;
+    vec4 aim = kerrAim(psi, chi, u_spin.x, u_horizonAxis.x, max(u_horizonAxis.y, 1e-5), u_horizonGrid.y, radial);
+    return 1.0 / max(1.0 - u_horizonTurn.y * aim.x, 0.2);
+  }
+
+  // A colour as light shifted by g: its three channels taken as a spectrum of three bins and moved toward
+  // blue for g above 1, toward red below, a bin an octave at most, and brightened as g^4, the light of every
+  // frequency together; all of it by the share given, 0 leaving the colour as it is
+  vec3 shiftedLight (vec3 c, float g, float share) {
+    float t = clamp(log2(g), -1.0, 1.0) * share;
+    vec3 moved = t > 0.0
+      ? vec3(c.r * (1.0 - t), c.g * (1.0 - t) + c.r * t, c.b + c.g * t)
+      : vec3(c.r - c.g * t, c.g * (1.0 + t) - c.b * t, c.b * (1.0 + t));
+    return moved * pow(g, 4.0 * share);
   }
 
   // How strong a gravitational wave is at a distance from where it left: its strain falls as 1 / r, since
@@ -1435,19 +1626,23 @@ ${DENT_GLSL}
     if (u_nebula > 0.0) {
       // Behind the stars and read where the bent ray comes from, like them, and drifting on its own: the flat
       // mode's backdrop, the 3D camera's sphere, both while it eases in. The sphere's clouds drift through
-      // space the way the flat ones drift on the screen straight on
+      // space (u_nebulaSpace, which the main thread moves along the scene's right and down, or the camera's
+      // by Drift Follows Camera)
       vec3 nebula = vec3(0.0);
-      if (u_skySphere < 1.0) nebula = (1.0 - u_skySphere) * nebulaFlat(cssPx + u_nebulaDrift * u_time);
+      if (u_skySphere < 1.0) {
+        float shown;
+        vec2 at = flatAt(cssPx, shown);
+        nebula = (1.0 - u_skySphere) * shown * nebulaFlat(at + u_nebulaDrift * u_time);
+      }
       if (u_skySphere > 0.0) {
-        vec3 lens = skyLens();
-        nebula += u_skySphere * nebulaSphere(normalize(skyRay(cssPx, lens)) * lens.z + vec3(u_nebulaDrift * u_time, 0.0));
+        nebula += u_skySphere * nebulaSphere(normalize(skyRay(cssPx)) * u_skyLens.w + u_nebulaSpace);
       }
       emitted += nebula * u_nebula;
     }
     if (u_skyGrid > 0.0) {
-      // A square grid on the sky, with a line through the middle of the screen. It is read where the
-      // bent ray comes from, so the lens, the gravitational wave and the matter front bend it like the
-      // stars, and it widens where the lens magnifies
+      // A square grid on the sky, with a line through the sky's centre. It is read where the bent ray comes
+      // from, so the lens, the gravitational wave and the matter front bend it like the stars, and it widens
+      // where the lens magnifies
       vec2 gridAt = cssPx;
       // How many times smaller than on the flat sky the grid is drawn here
       float squeeze = 1.0;
@@ -1472,21 +1667,33 @@ ${DENT_GLSL}
         // their width against the tighter one
         squeeze = max(slope, node / seen);
       }
-      // The grid lies on the faces of the sky's box, with a line through the middle of each
-      vec3 lens = skyLens();
-      vec3 onFace = skyFace(skyRay(gridAt, lens), lens.z);
-      vec2 fromLine = abs(fract(onFace.xy / u_gridCell - 0.5) - 0.5) * u_gridCell;
-      // A face seen at a slant is drawn smaller: CSS pixels of the screen per CSS pixel of the face, the
-      // geometric mean of its two ways, the screen's stretch over the face's (both gnomonic), so its lines
-      // keep their width; 1 straight on
-      vec2 fromMiddle = (gridAt - lens.xy) / lens.z;
-      vec2 faceShare = onFace.xy / lens.z;
-      float slant = pow((1.0 + dot(fromMiddle, fromMiddle)) / (1.0 + dot(faceShare, faceShare)), 0.75);
-      float line = clamp((u_skyGridLine - min(fromLine.x, fromLine.y) * slant * u_cameraZoom / squeeze) * u_pixelRatio + 0.5, 0.0, 1.0);
-      if (squeeze > 1.0) {
-        // Where the cells shrink to a few pixels their lines merge into a haze of the light they share
-        float cellPx = u_gridCell * slant * u_cameraZoom * u_pixelRatio / squeeze;
-        line = mix(line, min(4.0 * u_skyGridLine * u_pixelRatio / cellPx, 1.0), smoothstep(u_gridHaze.x, u_gridHaze.y, cellPx));
+      vec3 ray = skyRay(gridAt);
+      // The screen's stretch at this point over the middle's (gnomonic): its radial way 1 + m^2, the way
+      // across its root. Raised to Grid Slant, 0.75 the geometric mean of the two, it keeps the lines' width
+      vec2 fromMiddle = (gridAt - u_skyLens.xy) / u_skyLens.z;
+      float stretch = 1.0 + dot(fromMiddle, fromMiddle);
+      float line = 0.0;
+      if (u_gridShape.x < 1.0) {
+        // On the faces of the sky's box, with a line through the middle of each: a face seen at a slant is
+        // drawn smaller, by the screen's stretch over the face's
+        vec3 onFace = skyFace(ray, u_skyLens.w);
+        vec2 fromLine = abs(fract(onFace.xy / u_gridCell - 0.5) - 0.5) * u_gridCell;
+        vec2 faceShare = onFace.xy / u_skyLens.w;
+        float slant = pow(stretch / (1.0 + dot(faceShare, faceShare)), u_gridShape.y) * u_skyLens.z / u_skyLens.w;
+        line = (1.0 - u_gridShape.x) * gridLineLight(min(fromLine.x, fromLine.y) * slant, u_gridCell * slant, squeeze);
+      }
+      if (u_gridShape.x > 0.0) {
+        // On the sphere, in latitudes about the scene's up and longitudes from straight ahead, a cell's
+        // angle apart; toward a pole every other longitude gives way each time the cells halve
+        vec3 dir = normalize(ray);
+        float latitude = asin(clamp(-dir.y, -1.0, 1.0));
+        float longitude = atan(dir.x, dir.z);
+        float across = cos(latitude);
+        float apart = u_gridShape.w * exp2(floor(log2(1.0 / max(across, 0.001))));
+        float latMiss = abs(fract(latitude / u_gridShape.z - 0.5) - 0.5) * u_gridShape.z;
+        float lonMiss = abs(fract(longitude / apart - 0.5) - 0.5) * apart * across;
+        float slant = pow(stretch, u_gridShape.y) * u_skyLens.z;
+        line += u_gridShape.x * gridLineLight(min(latMiss, lonMiss) * slant, u_gridShape.z * slant, squeeze);
       }
       emitted += u_gridColor * u_skyGrid * line;
     }
@@ -1550,25 +1757,22 @@ ${DENT_GLSL}
       if (u_spin.x > 0.0) besideHole *= 1.0 - fallen * u_trace.z;
       color *= besideHole;
 
-      // The grid on the horizon, in the shadow it fills. Its lines keep a width in pixels of the screen: how
-      // many cells a pixel spans is read from two more rays a pixel to the right and a pixel down. Where the
-      // cells shrink to a few pixels, toward the shadow's edge where the rays wind round the hole ever more
-      // times and toward the poles, the lines give way to the light they would share, up to a ceiling
+      // The grid on the horizon, in the shadow it fills (horizonLines), in Grid Color shifted as far as Horizon
+      // Shift says by the horizon's turn (horizonShift)
       if (u_horizonGrid.x > 0.0 && (dist < shadowEdge + px || fallen > 0.0)) {
         float oval = dist / max(length(offset), 0.0001);
-        vec2 toRight = offset + vec2(px, 0.0);
-        vec2 toBelow = offset + vec2(0.0, px);
-        vec2 here = horizonCells(offset, dist);
-        vec2 alongX = horizonCells(toRight, length(toRight) * oval) - here;
-        vec2 alongY = horizonCells(toBelow, length(toBelow) * oval) - here;
-        alongX.y -= u_horizonTurn.w * floor(alongX.y / u_horizonTurn.w + 0.5);
-        alongY.y -= u_horizonTurn.w * floor(alongY.y / u_horizonTurn.w + 0.5);
-        vec2 perPixel = max(vec2(length(vec2(alongX.x, alongY.x)), length(vec2(alongX.y, alongY.y))), 0.000001);
-        vec2 fromLine = abs(fract(here + 0.5) - 0.5) / perPixel;
-        vec2 line = clamp(u_horizonGrid.w - fromLine + 0.5, 0.0, 1.0);
-        vec2 haze = min(2.0 * u_horizonGrid.w * perPixel, u_horizonAxis.w);
-        line = mix(haze, line, smoothstep(1.5, 4.0, 1.0 / perPixel));
-        color += u_gridColor * u_horizonGrid.x * max(line.x, line.y) * (1.0 - besideHole) * besideCompanion;
+        float lines = horizonLines(offset, dist, oval, px, vec4(u_spin.x, u_horizonAxis.xy, u_horizonGrid.y),
+          vec4(u_horizonGrid.z, u_horizonAxis.z, u_horizonTurn.x, u_horizonTurn.y));
+        vec3 gridLight = u_gridColor;
+        if (u_horizonLook.z > 0.0 && u_horizonTurn.y > 0.0) gridLight = shiftedLight(u_gridColor, horizonShift(offset, dist), u_horizonLook.z);
+        color += gridLight * u_horizonGrid.x * lines * (1.0 - besideHole) * besideCompanion;
+      }
+      // The second hole's horizon carries the same grid, about its own spin's axis (the main grid's while it does
+      // not spin), twisted and turning as its spin gives; the main hole's shadow covers it as its covers the
+      // main one's
+      if (u_horizonGrid.x > 0.0 && u_horizonLook.w > 0.0 && u_companion.z > 0.0 && companionDist < companionEdge + px) {
+        float lines = horizonLines(fromCompanion, companionDist, 1.0, px, u_companionHole, u_companionGrid);
+        color += u_gridColor * u_horizonGrid.x * u_horizonLook.w * lines * (1.0 - besideCompanion) * besideHole;
       }
 
       // The second black hole's ring: the main ring's line along its own outline, lit by what falls into it

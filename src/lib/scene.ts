@@ -61,6 +61,43 @@ const NEAR_DEPTH = 1
 const STAR_SIZE = 1.55
 const STAR_SPREAD = 0.6
 const FULL_TURN = Math.PI * 2
+
+// The longitude of the camera's meridian on a horizon whose axis the camera sees along (right, up, toward), a
+// unit vector, counted from a meridian that stands in the scene: the one toward the scene's right, or its up
+// while the axis lies along the right. axisTurn is the axis's turn on the screen, from up toward the left
+function meridianLongitude (pose: ArrayLike<number>, threeD: boolean, axisRight: number, axisUp: number, axisToward: number, axisTurn: number): number {
+  // The scene's right, and its up, as the camera sees them
+  let refRight = threeD ? pose[0] : 1
+  let refUp = threeD ? -pose[3] : 0
+  let refToward = threeD ? -pose[6] : 0
+  let along = refRight * axisRight + refUp * axisUp + refToward * axisToward
+  if (Math.abs(along) > 0.999) {
+    refRight = threeD ? -pose[1] : 0
+    refUp = threeD ? pose[4] : 1
+    refToward = threeD ? pose[7] : 0
+    along = refRight * axisRight + refUp * axisUp + refToward * axisToward
+  }
+  // The camera's meridian runs toward it from the axis: the line to the camera, (0, 0, 1), less its part
+  // along the axis. Looking straight down the axis the ray tracer takes it opposite the way the axis
+  // points on the screen, and so does this
+  let meridianRight = -axisToward * axisRight
+  let meridianUp = -axisToward * axisUp
+  let meridianToward = 1 - axisToward * axisToward
+  if (meridianToward < 1e-9) {
+    meridianRight = Math.sin(axisTurn)
+    meridianUp = -Math.cos(axisTurn)
+    meridianToward = 0
+  }
+  // Its longitude: along the reference's part across the axis, and along the axis times that
+  const firstRight = refRight - along * axisRight
+  const firstUp = refUp - along * axisUp
+  const firstToward = refToward - along * axisToward
+  return Math.atan2(
+    meridianRight * (axisUp * firstToward - axisToward * firstUp) + meridianUp * (axisToward * firstRight - axisRight * firstToward) + meridianToward * (axisRight * firstUp - axisUp * firstRight),
+    meridianRight * firstRight + meridianUp * firstUp + meridianToward * firstToward
+  )
+}
+
 // One bit for each layer, for the set of layers a fired effect plays
 const LAYER_BIT = Object.fromEntries(INTRO_LAYERS.map((layer, index) => [layer, 1 << index])) as Record<IntroLayer, number>
 const STAR = LAYER_BIT.star
@@ -216,6 +253,10 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
   let ringWasFed = true
   // Radians the horizon has turned, Omega_H times the hole's own time (Horizon Pace M a second)
   let horizonTurned = 0
+  // The radians the second hole's horizon has turned
+  let companionTurned = 0
+  // CSS pixels of space the 3D sky's clouds have been read further along so far
+  const nebulaSpace = [0, 0, 0]
   // The particles as they are born; once sent to the graphics card they are stepped there
   const field = createParticleField()
   const orbiters = createOrbiters(random)
@@ -343,6 +384,18 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       horizonCells: 6,
       horizonLine: 1.5,
       horizonHaze: 0.3,
+      horizonHazeFrom: 4,
+      horizonHazeTo: 1.5,
+      horizonCellsAround: 0,
+      horizonShift: 0,
+      horizonCompanion: 0,
+      companionGridScale: 1,
+      companionGridTurn: 0,
+      companionGridU: FAR_CAMERA,
+      companionGridRate: 0,
+      companionGridSpin: 0,
+      companionGridTilt: 0,
+      companionGridAxis: 0,
       ring: 0,
       ringWidth: 0,
       ringGlow: 0,
@@ -421,6 +474,11 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       pairPlane: new Float32Array([1, 0, 0, 1]),
       turn: new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]),
       skySphere: 0,
+      skyCenter: 0,
+      skyVanishX: 0,
+      skyVanishY: 0,
+      skySize: 0,
+      skyBend: 0,
       gravityWaveX: 0,
       gravityWaveY: 0,
       companionX: 0,
@@ -437,6 +495,11 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       backgroundStars: 0,
       starCell: 26,
       starDensity: 0,
+      starPlacement: 0.6,
+      starsPerCell: 1,
+      starNeighbors: 0,
+      starCellWarp: 1,
+      starSkyEven: 1,
       starFlare: 0,
       nebula: 0,
       nebulaColor: createSceneColor(),
@@ -455,6 +518,14 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       nebulaPatchSoftness: 0,
       nebulaCore: 0,
       nebulaCoreFrom: 0,
+      nebulaSpaceX: 0,
+      nebulaSpaceY: 0,
+      nebulaSpaceZ: 0,
+      nebulaDetail: 3,
+      nebulaLacunarity: 2.1,
+      nebulaRoughness: 0.5,
+      nebulaCurlSize: 0.8,
+      nebulaGrainSize: 1.7,
       starWarm: createSceneColor(),
       starCool: createSceneColor(),
       starSpread: STAR_SPREAD,
@@ -489,6 +560,8 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       gridHazeSpan: 0.5,
       gridColor: createSceneColor(),
       skyGridLine: 1.5,
+      gridSphere: 0,
+      gridSlant: 0.75,
       colorFlash: 0xffffff,
       colorLight: 0xffffff,
       colorDust: 0xffffff,
@@ -1029,37 +1102,10 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     axisRight /= axisLength
     axisUp /= axisLength
     axisToward /= axisLength
-    // The scene's right, and its up, as the camera sees them
-    let refRight = threeD ? pose[0] : 1
-    let refUp = threeD ? -pose[3] : 0
-    let refToward = threeD ? -pose[6] : 0
-    let along = refRight * axisRight + refUp * axisUp + refToward * axisToward
-    if (Math.abs(along) > 0.999) {
-      refRight = threeD ? -pose[1] : 0
-      refUp = threeD ? pose[4] : 1
-      refToward = threeD ? pose[7] : 0
-      along = refRight * axisRight + refUp * axisUp + refToward * axisToward
-    }
-    // The camera's meridian runs toward it from the axis: the line to the camera, (0, 0, 1), less its part
-    // along the axis. Looking straight down the axis the ray tracer takes it opposite the way the axis
-    // points on the screen, and so does this
+    // The camera's meridian runs toward it from the axis; looking straight down the axis the ray tracer takes it
+    // opposite the way the axis points on the screen
     const horizonAxis = axisRight !== 0 || axisUp !== 0 ? Math.atan2(-axisRight, axisUp) : ownAxis
-    let meridianRight = -axisToward * axisRight
-    let meridianUp = -axisToward * axisUp
-    let meridianToward = 1 - axisToward * axisToward
-    if (meridianToward < 1e-9) {
-      meridianRight = Math.sin(horizonAxis)
-      meridianUp = -Math.cos(horizonAxis)
-      meridianToward = 0
-    }
-    // Its longitude: along the reference's part across the axis, and along the axis times that
-    const firstRight = refRight - along * axisRight
-    const firstUp = refUp - along * axisUp
-    const firstToward = refToward - along * axisToward
-    const cameraLongitude = Math.atan2(
-      meridianRight * (axisUp * firstToward - axisToward * firstUp) + meridianUp * (axisToward * firstRight - axisRight * firstToward) + meridianToward * (axisRight * firstUp - axisUp * firstRight),
-      meridianRight * firstRight + meridianUp * firstUp + meridianToward * firstToward
-    )
+    const cameraLongitude = meridianLongitude(pose, threeD, axisRight, axisUp, axisToward, horizonAxis)
     // Where the camera stands: the Ray Traced lens and the shadow's outline see the hole from there. A hole
     // still growing, or grown by a merger, is a lighter or heavier one seen from the same place, and a 3D
     // camera that moves nearer sees it from nearer
@@ -1760,6 +1806,11 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       composite.horizonCells = state.gridHorizonCells
       composite.horizonLine = state.gridHorizonLine
       composite.horizonHaze = state.gridHorizonHaze
+      composite.horizonHazeFrom = state.gridHorizonHazeFrom
+      composite.horizonHazeTo = state.gridHorizonHazeTo
+      composite.horizonCellsAround = state.gridHorizonCellsAround
+      composite.horizonShift = state.gridHorizonShift
+      composite.horizonCompanion = state.gridHorizonCompanion
     }
     composite.falloff = state.lensingFalloff
     composite.falloffPivot = state.lensingPivot / 100 * shortSide
@@ -1773,6 +1824,27 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     composite.companionX = settings.companionX
     composite.companionY = settings.companionY
     composite.companionRadius = companionRadius * companionScale
+    // The second hole's horizon grid: seen from the same place at its own size and mass, about its own spin's
+    // axis, or the main grid's while it does not spin, its horizon turning at its own rate
+    const companionRate = companionSpin / (2 * (1 + Math.sqrt(1 - companionSpin * companionSpin)))
+    companionTurned = (companionTurned + companionRate * (reducedMotion ? 0 : state.gridHorizonPace) * dt) % FULL_TURN
+    if (composite.horizonGrid > 0 && composite.companionRadius > 0) {
+      const companionU = Math.min(cameraU * pair.companion / pair.growth, 1 / CLOSEST_CAMERA)
+      composite.companionGridScale = composite.companionRadius / Math.tan(0.5 * shadowAngle(companionU))
+      composite.companionGridU = companionU
+      composite.companionGridRate = companionRate
+      composite.companionGridSpin = companionSpin
+      if (companionSpin > 0) {
+        const length = Math.sqrt(seenRight * seenRight + seenUp * seenUp + seenToward * seenToward)
+        composite.companionGridTilt = companionSpinTilt
+        composite.companionGridAxis = companionSpinAxis
+        composite.companionGridTurn = meridianLongitude(pose, threeD, seenRight / length, seenUp / length, seenToward / length, companionSpinAxis) - companionTurned
+      } else {
+        composite.companionGridTilt = composite.horizonTilt
+        composite.companionGridAxis = horizonAxis
+        composite.companionGridTurn = cameraLongitude
+      }
+    }
     composite.companionEinstein = companionRadius > 0 ? einstein * companionScale * pair.companion / pair.growth : 0
     // The lenses the band behind the nearer hole is bent by where Front Bend or Between Bend draws it, in the
     // step's measure, CSS pixels on the screen
@@ -1935,6 +2007,17 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     composite.backgroundStars = intro.backgroundStars * state.starsBrightness
     composite.starCell = state.starCell
     composite.starDensity = state.starDensity
+    composite.starPlacement = state.starsPlacement
+    composite.starsPerCell = state.starsPerCell
+    composite.starNeighbors = state.starsNeighbors
+    composite.starCellWarp = state.starsCellWarp
+    composite.starSkyEven = state.starsSkyEven
+    // The sky's centre, its sphere and how the flat backdrop turns into it
+    composite.skyCenter = state.skyCenter
+    composite.skyVanishX = settings.vanishX
+    composite.skyVanishY = settings.vanishY
+    composite.skySize = state.skySize
+    composite.skyBend = state.skyEaseBend
     composite.starFlare = params.starFlare
     // The nebula is part of the sky: it shows as the opening lets the stars show
     composite.nebula = intro.backgroundStars * state.nebula
@@ -1955,6 +2038,22 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     composite.nebulaPatchSoftness = state.nebulaPatchSoftness
     composite.nebulaCore = state.nebulaCore
     composite.nebulaCoreFrom = state.nebulaCoreFrom
+    composite.nebulaDetail = state.nebulaDetail
+    composite.nebulaLacunarity = state.nebulaLacunarity
+    composite.nebulaRoughness = state.nebulaRoughness
+    composite.nebulaCurlSize = state.nebulaCurlSize
+    composite.nebulaGrainSize = state.nebulaGrainSize
+    // The 3D sky's clouds are read further along through space by the drift, along the scene's own right and
+    // down or, by Drift Follows Camera, along the camera's, kept as the way they have come so the camera's
+    // turn moves them on from where they are
+    const driftFollow = state.nebulaDriftFollow
+    const driftTurn = composite.turn
+    nebulaSpace[0] += (composite.nebulaDriftX * (1 - driftFollow + driftFollow * driftTurn[0]) + composite.nebulaDriftY * driftFollow * driftTurn[3]) * dt
+    nebulaSpace[1] += (composite.nebulaDriftX * driftFollow * driftTurn[1] + composite.nebulaDriftY * (1 - driftFollow + driftFollow * driftTurn[4])) * dt
+    nebulaSpace[2] += (composite.nebulaDriftX * driftFollow * driftTurn[2] + composite.nebulaDriftY * driftFollow * driftTurn[5]) * dt
+    composite.nebulaSpaceX = nebulaSpace[0]
+    composite.nebulaSpaceY = nebulaSpace[1]
+    composite.nebulaSpaceZ = nebulaSpace[2]
     const starSize = state.starsSize / STAR_SIZE
     composite.starSpread = STAR_SPREAD * starSize * starSize
     composite.starTwinkle = state.starsTwinkle
@@ -2007,6 +2106,8 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     readSceneColor(composite.gridColor, state.gridColor)
     composite.gridCell = gridCell
     composite.skyGridLine = state.gridSkyLine
+    composite.gridSphere = state.gridSkySphere
+    composite.gridSlant = state.gridSkySlant
     // The sheet was laid out before the particles were stepped (above); here is what only its drawing reads
     grid.brightness = state.gridSheet
     if (state.gridSheet > 0) {

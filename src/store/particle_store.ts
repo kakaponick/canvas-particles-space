@@ -121,6 +121,12 @@ export interface ParticleState extends FlowState {
   nebulaPatchSoftness: number
   nebulaCore: number
   nebulaCoreFrom: number
+  nebulaDriftFollow: number
+  nebulaDetail: number
+  nebulaLacunarity: number
+  nebulaRoughness: number
+  nebulaCurlSize: number
+  nebulaGrainSize: number
   // A background star: its width in CSS pixels, the two colours its tint lies between, '#rrggbb', how much
   // of its light the twinkle takes, the twinkle's rate as a multiple of its own, and the brightness of the
   // faintest star as a share of the brightest
@@ -130,6 +136,14 @@ export interface ParticleState extends FlowState {
   starsTwinkle: number
   starsTwinkleSpeed: number
   starsFaintest: number
+  starsPlacement: number
+  starsPerCell: number
+  starsNeighbors: number
+  starsCellWarp: number
+  starsSkyEven: number
+  skyCenter: number
+  skySize: number
+  skyEaseBend: number
   pulseIntensity: number
   blackHoleFollowing: boolean
   // Where the black hole rests when it does not follow the cursor, as shares of the viewport's width
@@ -253,6 +267,8 @@ export interface ParticleState extends FlowState {
   gridSkyLine: number
   gridSkyHaze: number
   gridSkyHazeSpan: number
+  gridSkySphere: number
+  gridSkySlant: number
   // The grid on the horizon, seen through the shadow: brightness (0 = off), its cells from pole to pole, the
   // hole's own time that passes in a second, in M (0 holds it still), the width of its lines in CSS pixels
   // and the most light lines too dense to draw give
@@ -261,6 +277,11 @@ export interface ParticleState extends FlowState {
   gridHorizonPace: number
   gridHorizonLine: number
   gridHorizonHaze: number
+  gridHorizonHazeFrom: number
+  gridHorizonHazeTo: number
+  gridHorizonCellsAround: number
+  gridHorizonShift: number
+  gridHorizonCompanion: number
   // The space lattice (space_lattice.ts): brightness (0 = off), its cell in black hole radii, and how
   // strongly its nodes are pulled in, in shadow radii of the slowing of time
   gridLattice: number
@@ -502,12 +523,26 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   nebulaPatchSoftness: 0.4,
   nebulaCore: 0,
   nebulaCoreFrom: 0.6,
+  nebulaDriftFollow: 0,
+  nebulaDetail: 3,
+  nebulaLacunarity: 2.1,
+  nebulaRoughness: 0.5,
+  nebulaCurlSize: 0.8,
+  nebulaGrainSize: 1.7,
   starsSize: 1.55,
   starsColorWarm: '#ffd19e',
   starsColorCool: '#bfd9ff',
   starsTwinkle: 0.15,
   starsTwinkleSpeed: 1,
   starsFaintest: 0.25,
+  starsPlacement: 0.6,
+  starsPerCell: 1,
+  starsNeighbors: 0,
+  starsCellWarp: 1,
+  starsSkyEven: 1,
+  skyCenter: 0,
+  skySize: 0,
+  skyEaseBend: 0,
   pulseIntensity: 1,
   blackHoleFollowing: true,
   blackHoleX: 0.5,
@@ -589,11 +624,18 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   gridSkyLine: 1.5,
   gridSkyHaze: 6,
   gridSkyHazeSpan: 0.5,
+  gridSkySphere: 0,
+  gridSkySlant: 0.75,
   gridHorizon: 0,
   gridHorizonCells: 6,
   gridHorizonPace: 1,
   gridHorizonLine: 1.5,
   gridHorizonHaze: 0.3,
+  gridHorizonHazeFrom: 4,
+  gridHorizonHazeTo: 1.5,
+  gridHorizonCellsAround: 0,
+  gridHorizonShift: 0,
+  gridHorizonCompanion: 1,
   gridLatticeLine: 1.5,
   gridLatticeGain: 1.6,
   gridLatticeReach: 6,

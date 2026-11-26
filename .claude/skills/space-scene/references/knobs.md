@@ -563,6 +563,9 @@ that precess, faster the closer they come, as around a real black hole.
 | A flat grid on the sky read through the lens (0 is off), how far it is drawn in towards the hole (0 is flat), and the width of its lines | `gridSky`, `gridSkyPull`, `gridSkyLine` |
 | A grid of latitudes and longitudes on the event horizon, seen through the shadow (0 is off), and its cells from pole to pole | `gridHorizon`, `gridHorizonCells` |
 | The horizon grid's turn, its lines and where crowded lines turn to haze: how much of the hole's own time passes in a second, in M (0 holds it still), the width of its lines, the most light the haze gives | `gridHorizonPace`, `gridHorizonLine`, `gridHorizonHaze` |
+| The cell sizes on the screen at which the horizon grid's lines start to turn to haze and are wholly haze | `gridHorizonHazeFrom`, `gridHorizonHazeTo` |
+| The horizon grid's cells round the equator (0 keeps them square), the shift its light takes from the horizon's turn, and its brightness on the second hole | `gridHorizonCellsAround`, `gridHorizonShift`, `gridHorizonCompanion` |
+| The lensed grid on the sky's box or on its sphere, and the power of the slant its lines keep their width by | `gridSkySphere`, `gridSkySlant` |
 | The colour of all four, and how many times brighter the lattice draws it | `gridColor`, `gridLatticeGain` |
 | The sheet's lines: their width, the most they widen near its camera, and where they stop round a hole | `gridLine`, `gridLineNear`, `gridClearing`, `gridClearingEdge` |
 | The flat mode's sheet camera: its distance, and how near it the sheet is cut off; how far the sheet reaches and the share of that it fades over | `gridDistance`, `gridNear`, `gridSpan`, `gridFade` |
@@ -708,7 +711,38 @@ that precess, faster the closer they come, as around a real black hole.
   where light leaves the horizon; caption it as the horizon's own map, not as something the eye would see,
   since no light leaves a real horizon.
 - The horizon grid costs the composite pass three traced rays a pixel of the shadow, a pixel's worth of
-  frame time only while it is on and a hole is shown.
+  frame time only while it is on and a hole is shown, and three more a pixel of the second hole's shadow
+  while `gridHorizonCompanion` is above 0.
+- Its lines keep their width from two more rays a pixel to the right and a pixel down; where a cell
+  shrinks below `gridHorizonHazeFrom` screen pixels, 4, they start to give way to the haze
+  (`gridHorizonHaze`), wholly at `gridHorizonHazeTo`, 1.5. Raise both to dissolve more of the crowded rim
+  into a glow; bring them together for an abrupt turn. They scale with the line width at any pixel ratio.
+- `gridHorizonCells` counts cells from pole to pole and `gridHorizonCellsAround` round the equator; at 0
+  the second is twice the first and the cells are square at the equator. A few meridians over many
+  latitudes (6 round, 18 up) reads as a striped globe; many meridians as a comb that the spin twists.
+- `gridHorizonShift` gives the lines the shift the horizon's turn gives light leaving it toward the
+  camera, 1 / (1 - Omega_H lambda): blue and brighter on the side turning toward the camera, red and
+  dimmer on the other, as the photon ring's `ringDoppler` does for the matter round it. At 1 the colour
+  moves a channel an octave and the brightness goes as the fourth power of the shift; it needs a spinning
+  hole. Toward the approaching rim of a fast spinner the shift reaches several times, so at 1 that rim burns
+  out to the colour's bluest channel and the far side goes dark; a share of it keeps the grid readable. The
+  redshift the horizon's depth would add is without end and is left out, so the grid stays a map.
+- `gridHorizonCompanion` paints the same grid on the second hole, seen from the same place at its own
+  size and mass, about its own spin's axis (`companionOwnSpin`, `companionSpinTilt`, `companionSpinAxis`),
+  twisted and turning at its own rate as the main hole's is by its spin; while it does not spin, about the
+  main grid's axis and still. The default 1 shows both horizons alike; each shadow covers the other's grid
+  where they overlap. `gridHorizonShift` acts on the main hole's grid alone.
+- `gridSkySphere` moves the lensed grid off the faces of the sky's box onto its sphere: latitudes about
+  the scene's up and longitudes from straight ahead, a cell apart. On the box the lines are straight and
+  turn a corner where two faces meet, which a strongly bent ray, a zoom below 1 or a 3D camera that turns
+  shows; on the sphere there are no corners but a pole above and below, where every other longitude gives
+  way each time the cells halve. Straight ahead the two match. Between 0 and 1 both are drawn in their
+  shares, so moving it along a track cross-fades them, at the cost of both.
+- `gridSkySlant` is the power of the screen's stretch the lensed grid's lines are thinned by away from the
+  sky's centre: the default 0.75 is the geometric mean of the stretch toward the centre and across it, so
+  a line keeps about its width; 0 lets lines widen toward the frame's edges with the sky, as a wide lens
+  shows a real grid. The sky's centre and size (`skyCenter`, `skySize`, section 10) place and scale the
+  grid's box and sphere too.
 - `gridColor` is one colour for all four grids. The lattice draws it `gridLatticeGain` times brighter,
   each channel stopping at full, so a high gain turns the lattice white while the sheet keeps the colour.
 - In the flat mode the sheet has a camera of its own, apart from the scene's: `gridDistance` long screen
@@ -739,12 +773,35 @@ that precess, faster the closer they come, as around a real black hole.
 | One star: its width, and the faintest as a share of the brightest | `starsSize`, `starsFaintest` |
 | The two colours a star's tint lies between | `starsColorWarm`, `starsColorCool` |
 | The twinkle: the share of a star's light that swings, and how fast | `starsTwinkle`, `starsTwinkleSpeed` |
+| How stars fill their cells: the share of a cell a star stands in, the most stars a cell holds, the rings of neighbouring cells a star is drawn from | `starsPlacement`, `starsPerCell`, `starsNeighbors` |
+| The 3D sky's star cells: from equal lengths to equal angles on a face, and how far a cell's chance follows the sky it covers | `starsCellWarp`, `starsSkyEven` |
+| The sky itself: its centre from the middle of the screen to the field's vanishing point, its sphere's radius (0 the focal length), and whether the flat backdrop turns with the camera while 3D eases in | `skyCenter`, `skySize`, `skyEaseBend` |
 
 - Fixed stars behind everything, bent by the lens and rippled by the waves. They keep their size at any
   zoom.
-- A star lives in its own cell of the star grid, in the middle of it: a `starsSize` of more than a quarter
-  of `starCell` is cut off square at the cell's edge, so raise the two together. In 3D the cells lie on the
-  sphere of the sky and are up to 0.7 times as narrow in some directions, so the cut comes a little sooner.
+- A star lives in a cell of the star grid, somewhere in the middle `starsPlacement` of it (0.6): 1
+  scatters the stars freely, 0 sets them on a square lattice. A cell holds up to `starsPerCell` stars, each
+  by the chance `starDensity` gives, so above 1 stars stand in pairs and clusters. At `starsNeighbors` 0 a
+  star is drawn inside its own cell alone, so a `starsSize` of more than a quarter of `starCell` is cut off
+  square at the cell's edge; 1 draws stars up to a cell wide whole, 2 up to two. Both multiply the stars'
+  work of the composite pass (9 cells at 1 neighbour, 25 at 2, times the stars a cell holds): keep them at
+  their defaults unless the shot needs large stars or clusters. In 3D a star larger than its cell is
+  still cut where two faces of the cube the sky is divided by meet.
+- In 3D a face of that cube is cut into a whole number of cells, the nearest to `starCell` straight
+  ahead. At `starsCellWarp` 1 they are of equal angles, from 1 in the middle of a face to 0.7 in the middle
+  of an edge, and a cell holds its star by the share of sky it covers (`starsSkyEven` 1), so the sky is even
+  in every direction. Lower `starsSkyEven` and stars crowd where the cells are smaller in angle: along the
+  cube's edges, the more so at a low `starsCellWarp`, where the cells are of equal lengths on the face.
+- `skyCenter` moves the sky's centre from the middle of the screen (0) to the field's vanishing point (1),
+  which `fieldAtHole` moves toward the hole: the lensed grid's middle lines cross there, and its box and
+  the 3D sky are seen from there. In 3D the scene's camera looks out of the vanishing point, so with the
+  field moved toward a hole away from the middle, 1 keeps the sky and the scene turning about the same
+  point. The flat stars and clouds are a backdrop and do not move with it.
+- `skySize` is the radius of the 3D sky's sphere, and the distance of the box the lensed grid lies on, in
+  CSS pixels. At 0 it is the focal length, half the frame's long side, so straight ahead the 3D sky matches
+  the flat one, but a frame of another size has other clouds and larger cells in CSS pixels. Set it (half
+  the long side of the size the film renders at keeps that size's look) and the sky is the same in angle at
+  every frame size, a preview and a render alike; larger values show its cells and clouds smaller.
 - In 3D the stars lie on a sphere round the camera, as many to a patch of sky in every direction and as
   many straight ahead as the flat mode has; a 90° camera spreads a patch wider at the frame's sides than in
   its middle, so there they stand further apart on the screen. The flat mode's stars are a backdrop, even
@@ -759,7 +816,8 @@ that precess, faster the closer they come, as around a real black hole.
 |---|---|
 | How bright (0 is off) | `nebula` |
 | Its clouds: size, how much of the sky they fill, edges, curl, how much denser in the middle, grain | `nebulaScale`, `nebulaSparseness`, `nebulaEdge`, `nebulaWarp`, `nebulaContrast`, `nebulaGrain` |
-| Their drift: speed and direction on the screen | `nebulaDrift`, `nebulaDriftAngle` |
+| Their drift: speed and direction on the screen, and in 3D whether it follows the camera | `nebulaDrift`, `nebulaDriftAngle`, `nebulaDriftFollow` |
+| The noise they are made of: how many layers, each how many times finer, with what share of the light of the one before; the curling noise's size and the grain's | `nebulaDetail`, `nebulaLacunarity`, `nebulaRoughness`, `nebulaCurlSize`, `nebulaGrainSize` |
 | Its colours: main, the second in patches (size, share of the sky, softness), the core of the thickest cloud (how far, from what thickness) | `nebulaColor`, `nebulaColorDeep`, `nebulaPatch`, `nebulaPatchShare`, `nebulaPatchSoftness`, `nebulaColorCore`, `nebulaCore`, `nebulaCoreFrom` |
 
 - Clouds of gas and dust behind the stars, bent and rippled like them. They are made as the opening's dust
@@ -777,7 +835,22 @@ that precess, faster the closer they come, as around a real black hole.
   its shape and its place among the stars at any turn, and the clouds are of one size and grain in every
   direction, `nebulaScale` straight ahead as in the flat mode. They are other clouds than the flat mode's,
   which switching `threeD` turns into them over `threeDEase`. Their drift runs through space the way the
-  flat ones drift on the screen, so it is that way on the screen only straight on.
+  flat ones drift on the screen, so at `nebulaDriftFollow` 0 it is that way on the screen only straight on;
+  at 1 it runs along the camera's right and up, so it keeps its way on the screen wherever the camera
+  looks. The drift is kept as the way the clouds have come, so a turn of the camera, a change of the speed
+  or of the follow along a track moves them on from where they are, with no jump.
+- `skyEaseBend` (section 10's sky row) decides how the two skies meet while `threeD` eases: at 0 the flat
+  stars and clouds stay on the screen as the camera turns and cross-fade into the sphere's; at 1 they lie
+  on the plane ahead, where the lensed grid's first face lies, and turn with the camera, so the whole sky
+  moves as one and the flat clouds stream off toward that plane's edge, dimming as a star there would.
+- The clouds are `nebulaDetail` layers of noise, 3 by default, each `nebulaLacunarity` (2.1) times finer
+  and turned, each with `nebulaRoughness` (0.5) of the light of the one before; a fraction fades the last
+  layer in, so Detail moves smoothly along a track. Their sum is kept to the same span, so
+  `nebulaSparseness` cuts the clouds at the same level at any count. 1 gives soft blobs, 5 to 8 fine
+  filaments, at a noise more of the composite pass's work a layer; a high Roughness makes those filaments
+  ragged and bright. The slower noise that curls them is read at `nebulaCurlSize` (0.8) of their
+  fineness, so it is 1.25 cloud sizes: higher curls them in tighter twists, and `nebulaWarp` sets how hard.
+  The grain is `nebulaGrainSize` (1.7) times as fine as the finest layer, and `nebulaGrain` sets its share.
 
 ## 11. Where the black hole is, and the camera
 
