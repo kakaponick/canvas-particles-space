@@ -32,7 +32,7 @@
         "kind": "black",
         "seconds": 2
       },
-      "input": {"lines":{"line":4.47,"circle":12.28,"test":11.32,"ruler":16.7,"photon":9.06,"answers":14.16,"question":16.51,"hypothesis":8.28},"cues":{"circle":{"inward":3.52,"circle":5.1,"w":7.16,"cube":10.62},"test":{"clock":5.7,"millimetre":9.98},"ruler":{"ruler":4.46,"coil":6.58,"second":15.86},"photon":{"earth":1.36,"space":4.62,"time":8.42},"answers":{"relativity":0,"hypothesis":4.9,"more":12.6},"question":{"question":6.48,"coil":8.64,"photon":11.32,"second":13.28}}}
+      "input": {"lines":{"line":4.47,"circle":12.28,"test":11.32,"ruler":19.74,"photon":9.06,"answers":14.16,"question":6.88,"one":4.99,"hypothesis":8.28},"cues":{"circle":{"inward":3.52,"circle":5.1,"w":7.16,"cube":10.62},"test":{"clock":5.7,"millimetre":9.98},"ruler":{"ruler":4.08,"coil":6.26,"kilometres":10.8,"moon":15.08,"second":18.96},"photon":{"earth":1.36,"space":4.62,"time":8.42},"answers":{"relativity":0,"hypothesis":4.9,"more":12.6},"question":{"question":6.04},"one":{"coil":0.3,"photon":1.76,"second":3.24}}}
     },
     {
       "name": "the fall",

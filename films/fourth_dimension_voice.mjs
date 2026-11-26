@@ -7,8 +7,10 @@
 //                                                  words differ from the line
 //   node films/fourth_dimension_voice.mjs mix      lays the takes at the seconds the clips marked and writes
 //                                                  films/fourth_dimension.wav: give it to space_render as "audio"
-// Takes are kept in films/voice/, so only a changed line is spoken again. VOICESTUDIO_URL=http://host:port
-// names another VoiceStudio.
+// A second word names another voice of VOICES below: "speak omnivoice" writes a copy of the reel paced by that
+// voice's takes, films/fourth_dimension_omnivoice.json, and "mix omnivoice" its sound; the film itself stays
+// as it is. Takes are kept in films/voice/, so only a changed line is spoken again.
+// VOICESTUDIO_URL=http://host:port names another VoiceStudio.
 import { Buffer } from 'node:buffer'
 import { execFileSync } from 'node:child_process'
 import crypto from 'node:crypto'
@@ -23,6 +25,25 @@ const LANGUAGE = 'English'
 const SEED = 7
 // The delivery: without it the profile speaks at 220 words a minute, with it at about 155
 const DELIVERY = 'Speak slowly and calmly, in a low voice full of wonder, like the narrator of a space documentary. Pause between sentences.'
+
+// The engines the film is spoken by: the one VoiceStudio is asked for, what it is told beside the line, and
+// what tells its takes and files from the film's own. The film's voice is the first.
+const VOICES = {
+  // CosyVoice 3 takes its delivery in words
+  cosyvoice: { engine: 'cosyvoice', fields: { instruct: DELIVERY }, own: true },
+  // OmniVoice takes only tags for a delivery. It speaks this profile at 250 words a minute; speed 0.6 brings
+  // that to the narrator's 150 and keeps the pauses it makes between sentences. A line spoken sentence by
+  // sentence lost the ends of its one-word sentences ("Length." was heard as "link"). 48 steps is the
+  // setting the profile's owner rated best by ear. A take can begin with the last words of the profile's own
+  // sample ("verify" shows them, heard before the line): such a line is given a seed of its own in `seeds`
+  // and is spoken again
+  omnivoice: { engine: 'omnivoice', fields: { num_step: '48', speed: '0.6' }, seeds: { falling: 11 } }
+}
+const VOICE_NAME = process.argv[3] ?? 'cosyvoice'
+const VOICE = VOICES[VOICE_NAME]
+if (!VOICE) throw new Error(`No voice "${VOICE_NAME}": ${Object.keys(VOICES).join(', ')}`)
+// What this voice's files end in: nothing for the film's own
+const OF_VOICE = VOICE.own ? '' : '_' + VOICE_NAME
 
 // What is said, by the name the clips call it by. Words are spelled the way they are spoken
 const LINES = {
@@ -62,10 +83,12 @@ const LINES = {
   nothing: 'So nothing has to break. The singularity. The wormhole. The white hole. In our nature, most likely, none of them is possible. There is only a well, and a simple object resting at the bottom of it.',
   // the experiment
   test: 'Is there a way to test this? In twenty twenty-one, an atomic clock caught time running at different speeds across a single millimetre of height.',
-  ruler: 'If we can build an atomic clock, we can build an atomic ruler. Picture a coil of superconductor, almost three hundred thousand kilometres long. Exactly the distance light travels in one second.',
+  ruler: 'If we can build an atomic clock, we can build an atomic ruler. Picture a coil of superconductor, almost three hundred thousand kilometres long. More than three quarters of the way to the Moon. Exactly the distance light travels in one second.',
   photon: 'Send a photon through it on Earth, deep in the well. Then far out in space, where the well is almost flat. And time it.',
   answers: 'Relativity says: one second, both times. The hypothesis says: out there, where matter is no longer squeezed along W, the photon needs more than one second.',
-  question: 'Would matter really shrink? Even the author of the hypothesis calls that an open question. One coil. One photon. One second, or a little more.',
+  question: 'Would matter really shrink? Even the author of the hypothesis calls that an open question.',
+  // A line of its own, so that the picture can hold the author's notes for as long as they take to read
+  one: 'One coil. One photon. One second, or a little more.',
   // the fall
   hypothesis: 'For now, this is only a hypothesis. It still has to face the equations, and the experiments.',
   falling: 'But the next time you feel your own weight, remember. There may be a direction you cannot point to. And you are already falling into it.'
@@ -95,12 +118,13 @@ const CUES = {
   proton: ['proton'],
   star: ['neutron|new'],
   object: ['deeper', 'light', 'black', 'object'],
-  nothing: ['singularity', 'wormhole', 'white', 'likely', 'well', 'simple'],
+  nothing: ['singularity', 'wormhole', 'white|whitehole', 'likely', 'well', 'simple'],
   test: ['clock', 'millimetre|millimeter'],
-  ruler: ['ruler', 'coil', 'second'],
+  ruler: ['ruler', 'coil', 'kilometres|kilometers', 'moon', 'second'],
   photon: ['earth', 'space', 'time'],
   answers: ['relativity', 'hypothesis', 'more'],
-  question: ['question', 'coil', 'photon', 'second'],
+  question: ['question'],
+  one: ['coil', 'photon', 'second'],
   falling: ['remember', 'falling']
 }
 
@@ -112,8 +136,11 @@ const PEAK = 0.95
 const here = path.dirname(fileURLToPath(import.meta.url))
 const root = path.dirname(here)
 const takes = path.join(here, 'voice')
-const reelFile = path.join(here, 'fourth_dimension.json')
-const lengthsFile = path.join(takes, 'fourth_dimension_lines.json')
+// The film, whose clips every voice plays, and the reel this voice paces: the film itself for its own voice,
+// a copy beside it for another
+const filmFile = path.join(here, 'fourth_dimension.json')
+const reelFile = path.join(here, `fourth_dimension${OF_VOICE}.json`)
+const lengthsFile = path.join(takes, `fourth_dimension${OF_VOICE}_lines.json`)
 
 // ---- wav ----
 
@@ -204,9 +231,14 @@ async function studio (route, options) {
   }
 }
 
-const takeFile = (profile, text) => path.join(takes, 'fd_' + crypto.createHash('sha1').update(JSON.stringify([profile, LANGUAGE, SEED, DELIVERY, text])).digest('hex').slice(0, 12) + '.wav')
+// A take is named by what made it. The film's own takes keep the names they had before there were voices
+const NAMED = new Map(Object.entries(LINES).map(([name, text]) => [text, name]))
+const seedOf = text => VOICE.seeds?.[NAMED.get(text)] ?? SEED
+const madeBy = (profile, text) => VOICE.own ? [profile, LANGUAGE, SEED, DELIVERY, text] : [profile, LANGUAGE, seedOf(text), VOICE.engine, VOICE.fields, text]
+const takeFile = (profile, text) => path.join(takes, 'fd_' + crypto.createHash('sha1').update(JSON.stringify(madeBy(profile, text))).digest('hex').slice(0, 12) + '.wav')
 
-// One take: a line is spoken once and read from films/voice/ after that
+// One take: a line is spoken once and read from films/voice/ after that. The engine is named in the request,
+// which leaves the one chosen in VoiceStudio as it is
 async function take (profile, name, text) {
   const file = takeFile(profile, text)
   if (fs.existsSync(file)) return file
@@ -214,8 +246,9 @@ async function take (profile, name, text) {
   form.set('text', text)
   form.set('language', LANGUAGE)
   form.set('profile_id', profile)
-  form.set('seed', String(SEED))
-  form.set('instruct', DELIVERY)
+  form.set('seed', String(seedOf(text)))
+  form.set('engine', VOICE.engine)
+  for (const [field, value] of Object.entries(VOICE.fields)) form.set(field, value)
   const started = Date.now()
   const response = await studio('/generate', { method: 'POST', body: form })
   if (!response.ok) throw new Error(`VoiceStudio refused "${name}": ${response.status} ${(await response.text()).slice(0, 300)}`)
@@ -288,8 +321,10 @@ async function speak () {
   }
   fs.writeFileSync(lengthsFile, JSON.stringify({ lines: lengths, cues }, null, 1) + '\n')
   console.log(`${Object.keys(LINES).length} lines, ${total.toFixed(1)} s of speech. Wrote ${lengthsFile}`)
-  if (fs.existsSync(reelFile)) {
-    const reel = JSON.parse(fs.readFileSync(reelFile, 'utf8'))
+  if (fs.existsSync(filmFile)) {
+    // Another voice's reel is the film's clips over again with that voice's lengths, so a change to the
+    // film's clips reaches the copy the next time it is spoken
+    const reel = JSON.parse(fs.readFileSync(filmFile, 'utf8'))
     // Each clip is given the lines its own script names, written on one line of the reel
     const given = []
     for (const clip of reel.clips) {
@@ -378,7 +413,7 @@ async function mix () {
   for (const sample of sound) peak = Math.max(peak, Math.abs(sample))
   const gain = peak > 0 ? PEAK / peak : 0
   for (let frame = 0; frame < sound.length; frame++) sound[frame] *= gain
-  const out = path.join(here, 'fourth_dimension.wav')
+  const out = path.join(here, `fourth_dimension${OF_VOICE}.wav`)
   writeWav(out, sound)
   console.log(`Wrote ${out}: ${order.length} lines over ${duration.toFixed(1)} s`)
 }

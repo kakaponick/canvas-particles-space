@@ -445,7 +445,8 @@ shot('a flat creature', () => {
   })
   // "It cannot look down into the well": we can, so the camera comes down beside it
   at(lookAt + 3.2, () => {
-    cap('what it cannot see', slideAt - 0.2 - now(), { at: [0.5, 0.86], size: 0.034, font: 'unbounded', color: INK, plate: 0.6 })
+    // A voice that goes on to the next sentence at once leaves this caption no time to be read: it is left out
+    if (slideAt - 0.2 - now() > 1.2) cap('what it cannot see', slideAt - 0.2 - now(), { at: [0.5, 0.86], size: 0.034, font: 'unbounded', color: INK, plate: 0.6 })
   })
   // Everything slides the same way, and the matter of the sheet hardest of all
   at(slideAt, () => { to({ gravityStrength: 7, baseBrightness: 0.8 }, 2.6) })

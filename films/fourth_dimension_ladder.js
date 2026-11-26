@@ -262,7 +262,12 @@ shot('every direction is taken', () => {
   // The camera whips so that the stream of particles runs the way each word says: up the frame, across it,
   // and straight at the viewer
   const views = { up: { cameraYaw: 0, cameraPitch: 80 }, sideways: { cameraYaw: 90, cameraPitch: 0 }, forward: { cameraYaw: 0, cameraPitch: 0 } }
-  for (const [word, , , guess] of ways) at(start + heard('taken', word, guess) - 0.35, () => { to(views[word], 0.7) })
+  // A voice that says the three words close together leaves a whip less than its 0.7 s: it takes what there is
+  const whips = ways.map(([word, , , guess]) => [word, start + heard('taken', word, guess) - 0.35])
+  whips.forEach(([word, second], index) => {
+    const room = index + 1 < whips.length ? whips[index + 1][1] - second : 0.7
+    at(second, () => { to(views[word], Math.max(Math.min(0.7, room), 0.1)) })
+  })
   for (const [word, way, color, guess] of ways) {
     at(start + heard('taken', word, guess), () => {
       draw(stroke([cube(corner), cube(corner.map((part, index) => part + way[index]))], color, { arrow: 'end', width: 0.009, draw: 0.35, fade: 0.35 }), 1.5)

@@ -321,6 +321,13 @@ longer moves everything after it by itself; in the JSON every later second is re
 - Sound: `space_check` lists the seconds the script marked (`mark`, and the start of every shot). A
   soundtrack is laid on those seconds; a narration goes the other way, the length of each spoken line
   given as `input` and the shot waiting that long.
+- Text to be read is held by the script, not by the voice. A sentence spoken over two dated notes left
+  them 3 s on screen once a faster voice said it: the sentence that follows became a line of its own, said
+  when the notes had been up for as long as they take to read (`films/fourth_dimension_experiment.js`, its
+  last shot). A caption whose seconds come out of two spoken words is checked for the short case, and left
+  out under about 1.2 s: shorter, it is a flash.
+- Inside an `at` block `to` moves that block's clock: a caption's seconds worked out before the `to` are
+  the `to` too long.
 - A film of a set length is not added up by hand: `to`, `drive` and `opening` move time as `wait` does,
   `meanwhile` does not, and sums of them go wrong. The last shot waits for what is left,
   `wait(60 - 3 - now())` before a closing `to({ fade: 1 }, 3)`, and the film is 60 s however the shots
@@ -390,7 +397,13 @@ kind.
   beside it.
 - An image is read before the first frame. Through the film server its `src` may be a path, from the
   folder the server runs in (the repository); in the page it is a URL or a data URL. Say in a caption
-  what a picture is when it is not the scene's own: a diagram, an observation, a simulation.
+  what a picture is when it is not the scene's own: a diagram, an observation, a simulation. It is a
+  raster file (png, jpeg, webp, gif, avif): an SVG is refused.
+- A body that is not a black hole (a planet, a star seen as a disc) is a picture over the hole: an image
+  centred at `{ hole: [0, 0] }`, a little wider than the shadow, with `lensingEnabled` and `ringEnabled`
+  false. The hole under it still makes the well and pulls the particles, and the picture rides the hole,
+  the zoom and the pan. `films/fourth_dimension_experiment.js` stands the Earth so: NASA's photograph cut
+  out on a clear ground, its disc 0.78 of the half side, drawn 2.62 radii wide.
 - Shapes lie over `fade` and under the captions, so a chart can stand on black.
 
 ## 15. A reel: several films in one video
@@ -511,6 +524,11 @@ What goes wrong on the sheet:
   of a well seen from the side. No look mends that.
 - With `particleSizeMin` at its default the well looks empty: what the hole took is a hairline now.
 - With `fieldAtHole` 0 the well fills on one wall, since over a tilted sheet the hole stands low.
+- Close to the hole, many wide white strokes cover the far wall of the well like a veil and hide its
+  rings: the eye goes to the veil, not to what stands in the well. For a shot about something beside the
+  hole they are few, thin and of the sheet's colour: `numParticles` 10000, `particleSize` and
+  `particleSizeMin` 1.2 at `cameraZoom` 3 and 1.8 from afar, `colorPalette` near `gridColor`,
+  `trailIntensity` 0.2. The rings then show through strokes that run down them.
 - The lens bends the particles round the hole on the screen, off the surface: `lensingEnabled` false.
 - The sheet's waves do not lift the particles on it. A ripple is filmed on a sheet without them
   (knobs.md, section 8).
