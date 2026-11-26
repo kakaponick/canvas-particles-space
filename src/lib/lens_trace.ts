@@ -14,7 +14,7 @@ export const CRITICAL_IMPACT = Math.sqrt(27) / 2
 export const CLOSEST_CAMERA = 2
 const FARTHEST_CAMERA = 1e5
 
-function carlsonRF (x: number, y: number, z: number) {
+export function carlsonRF (x: number, y: number, z: number) {
   for (let i = 0; i < 7; i++) {
     const sx = Math.sqrt(x)
     const sy = Math.sqrt(y)
