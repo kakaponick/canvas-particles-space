@@ -25,9 +25,12 @@ const DENT_GLSL = `  // How deep the sheet lies at a distance from a black hole 
   // well, rs / 2r. At the shadow's edge the light skims the photon sphere, 1.5 rs, where a clock runs at
   // 1 / sqrt(3) of its rate, and the sheet stands vertical: light any closer does not come back. The
   // nearest approach of light seen at b is the largest root of r^3 = b^2 (r - rs), and the edge is at
-  // b = sqrt(27) / 2 rs, which leaves rs / nearest = x / (3 cos(acos(-x) / 3)) with x = edge / b
+  // b = sqrt(27) / 2 rs, which leaves rs / nearest = x / (3 cos(acos(-x) / 3)) with x = edge / b.
+  // Inside the shadow x is edge / edge, which a GPU may round a hair above 1: acos has no answer there, the
+  // root is taken of nothing, and the bottom of the well is drawn 2.366 times too deep for that frame. So x
+  // stops at 1
   float dent (float away, float edge) {
-    float x = edge / max(away, edge);
+    float x = min(edge / max(away, edge), 1.0);
     float slowed = 1.0 - sqrt(max(1.0 - x / (3.0 * cos(acos(-x) / 3.0)), 0.0));
     return slowed * 2.3660254;
   }
