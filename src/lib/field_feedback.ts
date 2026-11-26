@@ -4,7 +4,7 @@
 // them again with the rest.
 // The scene still makes a particle when the field grows, with its own random generator (spawnParticle);
 // those newborns go up once (`fieldBorn`). After that a particle is the card's: nothing of it is read back.
-import { ATTRIBUTE_LOCATIONS, RIDE_GLSL, createProgram } from './webgl_shaders'
+import { ATTRIBUTE_LOCATIONS, BEHIND_GLSL, RIDE_GLSL, createProgram } from './webgl_shaders'
 import { RING_BINS } from './ring_energy'
 import { POSE_SLOTS, cameraPose } from './camera_pose'
 import { sendSheet } from './space_grid'
@@ -64,7 +64,7 @@ const COVER_VERTEX = `#version 300 es
 `
 
 export function createFieldFeedback (gl: WebGL2RenderingContext): FieldFeedback | null {
-  const stepProgram = createProgram(gl, fieldStepVertexShaderSource(RIDE_GLSL), fieldStepFragmentShaderSource, {
+  const stepProgram = createProgram(gl, fieldStepVertexShaderSource(RIDE_GLSL, BEHIND_GLSL), fieldStepFragmentShaderSource, {
     a_place: ATTRIBUTE_LOCATIONS.fieldPlace,
     a_drift: ATTRIBUTE_LOCATIONS.fieldDrift,
     a_look: ATTRIBUTE_LOCATIONS.fieldLook

@@ -307,6 +307,9 @@ export interface ParticleState extends FlowState {
   cameraMoveIn: number
   // Share of Field Depth over which the 3D column of particles fades at both its ends, seen from the side
   threeDEndFade: number
+  // Black hole radii behind the nearer hole over which what lies there passes from being drawn where it is
+  // to being seen through the lens (0: a hard plane at the hole's depth)
+  threeDFrontDepth: number
   // Seconds the 3D camera takes between the flat view and its place, and the nearest point it circles, as
   // a share of Field Depth
   threeDEase: number
@@ -511,6 +514,7 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   cameraMoveUp: 0,
   cameraMoveIn: 0,
   threeDEndFade: 0.12,
+  threeDFrontDepth: 2,
   threeDEase: 1.2,
   threeDNearest: 0.05,
   cameraCutZoom: 0.08,

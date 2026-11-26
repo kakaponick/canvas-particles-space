@@ -42,7 +42,7 @@ const STEP_KEYS = [
   'gravityDepth', 'lineWidth', 'minLineWidth', 'gravityStrength', 'orbitalStrength', 'swirlX', 'swirlY', 'swirlZ', 'farZ', 'depthFade',
   'pulseSpeedMultiplier', 'pulseIntensity', 'baseBrightness', 'minOpacity', 'maxOpacity', 'speedGlow', 'speedKnee', 'revealRadius', 'revealX',
   'revealY', 'revealFeather', 'opacityScale', 'threeD', 'holeWorldX', 'holeWorldY', 'holeWorldZ', 'companionWorldX',
-  'companionWorldY', 'companionWorldZ', 'endFade', 'frontAway'
+  'companionWorldY', 'companionWorldZ', 'endFade', 'frontAway', 'frontDepth', 'holeSeen', 'companionSeen'
 ] as const satisfies readonly (keyof StepSettings)[]
 const DERIVED_KEYS = ['hasHole', 'ringFed', 'revealing', 'inertial', 'keep', 'gain', 'velocityGain', 'spawnRadius', 'speedVariance'] as const
 const STEP_NAMES: readonly string[] = [...STEP_KEYS, ...DERIVED_KEYS]
@@ -98,8 +98,9 @@ export const fieldStepFragmentShaderSource = `#version 300 es
   }
 `
 
-// "ride" is RIDE_GLSL of webgl_shaders.ts, the sheet for what the card places
-export const fieldStepVertexShaderSource = (ride: string) => `#version 300 es
+// "ride" is RIDE_GLSL of webgl_shaders.ts, the sheet for what the card places, and "behind" BEHIND_GLSL,
+// the share of a stroke behind the holes that is seen through the lens
+export const fieldStepVertexShaderSource = (ride: string, behind: string) => `#version 300 es
   precision highp float;
   precision highp int;
 
@@ -114,7 +115,7 @@ export const fieldStepVertexShaderSource = (ride: string) => `#version 300 es
   uniform vec2 u_paletteSize;   // how many colours, their whole weight
   uniform uint u_tick;          // the step's own number, mixed with the scene's seed
   uniform vec3 u_equator[3];    // Particles on Sheet in space: the main hole's equator, its two directions and the way it faces
-${ride}
+${ride}${behind}
   out vec4 v_place;
   out vec4 v_drift;
   out vec3 v_look;
@@ -165,12 +166,24 @@ ${STEP_DEFINES}
   vec2 strokeLook;
   vec2 strokeMeasure;
 
+  // A number in [0, 1) drawn from a word
+  float drawn (uint word) {
+    word = ((word >> ((word >> 28u) + 4u)) ^ word) * 277803737u;
+    word = (word >> 22u) ^ word;
+    return float(word >> 8u) / 16777216.0;
+  }
+
   // The next number in [0, 1) of this particle in this step
   float chance () {
     seed = seed * 747796405u + 2891336453u;
-    uint word = ((seed >> ((seed >> 28u) + 4u)) ^ seed) * 277803737u;
-    word = (word >> 22u) ^ word;
-    return float(word >> 8u) / 16777216.0;
+    return drawn(seed);
+  }
+
+  // A number in [0, 1) of this particle alone, the same in every step: the share seen through the lens
+  // past which it goes behind the holes, so in the band behind them the field thins from one layer into
+  // the other and no particle flickers between the two
+  float ownShare () {
+    return drawn(uint(gl_VertexID) * 747796405u + 2891336453u);
   }
 
   // A new particle at the far end of the field: somewhere in the birth disc, with a colour of the palette
@@ -239,7 +252,9 @@ ${STEP_DEFINES}
   // as far as it rides there. "own" is how far the particle itself moved on the screen, whatever the camera
   // did, and "fromBlast" its distance from the opening's blast, both in CSS pixels. A stroke whose middle is
   // nearer the camera than the nearer black hole (s_frontAway, 0 in the flat mode) is in front of the holes:
-  // its opacity is written below 0, and the renderer draws it into the layer the lens does not bend
+  // its opacity is written below 0, and the renderer draws it into the layer the lens does not bend. Within
+  // Front Depth behind that a stroke stays in front while the share seen through the lens there is below
+  // the particle's own (ownShare)
   void stroke (vec2 start, vec2 end, vec2 away, float distanceFactor, vec3 inFrom, vec3 inTo, float shown, float own, float fromBlast) {
     float middleAway = 0.5 * (away.x + away.y);
     float depthFactor = 1.0 - distanceFactor * s_depthFade;
@@ -291,7 +306,13 @@ ${STEP_DEFINES}
       start += delta * span.x;
     }
     segment = vec4(start, end);
-    style = vec2(lineWidth, s_frontAway > 0.0 && middleAway < s_frontAway ? -opacity : opacity);
+    bool front = false;
+    if (s_frontAway > 0.0) {
+      float behind = seenBehind(middleAway, s_frontAway, s_frontDepth, 0.5 * (start + end), vec3(s_holeX, s_holeY, s_holeSeen),
+        vec3(s_companionX, s_companionY, s_companionSeen));
+      front = behind <= 0.0 || (behind < 1.0 && behind < ownShare());
+    }
+    style = vec2(lineWidth, front ? -opacity : opacity);
   }
 
   // The flat loop: the holes pull a particle where it lands on the screen, inside a layer of depth round

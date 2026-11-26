@@ -15,7 +15,7 @@ export const SIMULATION_SETTING_KEYS = [
   'blackHoleSize', 'horizonScale', 'blackHoleSpin', 'spinTilt', 'spinAxis', 'frameDrag', 'frameDragSweep', 'gravityReach', 'gravityStrength', 'orbitalStrength', 'orbitalSpinFollow', 'gravityInertia', 'followFrequency',
   'blackHoleFollowing', 'blackHoleX', 'blackHoleY', 'cameraZoom', 'cameraX', 'cameraY', 'cameraPair', 'cameraCutZoom', 'cameraCutShift',
   'threeD', 'cameraYaw', 'cameraPitch', 'cameraSpin', 'cameraRoll', 'cameraLookYaw', 'cameraLookPitch',
-  'cameraMoveRight', 'cameraMoveUp', 'cameraMoveIn', 'threeDEndFade', 'threeDEase', 'threeDNearest', 'cameraCutTurn',
+  'cameraMoveRight', 'cameraMoveUp', 'cameraMoveIn', 'threeDEndFade', 'threeDFrontDepth', 'threeDEase', 'threeDNearest', 'cameraCutTurn',
   'companionSize', 'companionDistance', 'companionSpeed', 'companionWaves', 'companionTilt', 'companionNode', 'companionClosest', 'companionSpin', 'companionOval', 'companionHandover',
   'ringEnabled', 'ringFeedEnabled', 'ringBrightness', 'ringGlow', 'ringWidth', 'ringDoppler', 'ringSide', 'ringSpinFollow', 'ringBase', 'ringFeed', 'ringAfterglow', 'ringFlowSpeed',
   'ringColor', 'ringColorApproaching', 'ringColorReceding', 'ringWidthMin', 'ringOffset', 'ringSoftness', 'ringGlowCore', 'ringGlowCoreShare', 'ringGlowSkirt', 'ringGlowSkirtShare',

@@ -586,6 +586,7 @@ that precess, faster the closer they come, as around a real black hole.
 | Where the 3D camera stands: around the hole, above or below it, and how fast it circles on its own | `cameraYaw`, `cameraPitch`, `cameraSpin` |
 | The 3D camera off its circle: its roll, its head turned right and up from the hole, and its move right, up and in, in radii | `cameraRoll`, `cameraLookYaw`, `cameraLookPitch`, `cameraMoveRight`, `cameraMoveUp`, `cameraMoveIn` |
 | How much of the 3D column fades at each of its ends, as a share of `farZ` | `threeDEndFade` |
+| How deep behind the nearer hole, in radii, what lies there passes from drawn where it is to seen through the lens | `threeDFrontDepth` |
 | The 3D camera: seconds it takes into and out of 3D, and the nearest point it circles, as a share of `farZ` | `threeDEase`, `threeDNearest` |
 | What counts as a cut of the camera, where the trails start afresh: a zoom, a move of the picture and, in 3D, a turn, each in one frame | `cameraCutZoom`, `cameraCutShift`, `cameraCutTurn` |
 
@@ -673,6 +674,14 @@ that precess, faster the closer they come, as around a real black hole.
   The camera's zoom, jolt, lens fringe, exposure and the film act on what is in front; the waves and the
   opening's matter front do not. With two holes the nearer one decides: what lies between them counts as
   behind both. The flat mode has none of this, since its horizon takes whatever covers the hole.
+- The boundary is not a plane. Over `threeDFrontDepth` radii behind the hole (2) the share seen through
+  the lens grows from none to all, as a thin lens's bend grows with the depth of what it bends, and
+  whatever there is seen within the shadow stays hidden by it. A particle of the field or of a flow goes
+  wholly to one side past a share of its own, so a disc's far side thins from the picture where it is into
+  the one the lens bends over the shadow; a star's trace or a line of the lattice is drawn in both at those
+  shares. At 0 the light just behind the hole is bent as hard as the sky's and the lens empties a half disc
+  round the shadow with a straight edge, the hole's plane; past 3 most of a disc near the hole is drawn
+  where it is and its far side is no longer lifted over the shadow.
 - The circle is where the camera starts; six keys take it anywhere from there, all in 3D only and all at
   0 the circle alone, number for number. `cameraRoll` turns the whole picture about the middle of the
   screen (positive anticlockwise), the sky, the sheet and the ring's bright side (`ringSide`) with it;
@@ -997,7 +1006,10 @@ The cost of a knob, in the last column:
 | The picture is drawn into 4.5 million device pixels at most, 2 to a CSS pixel | particle_canvas.tsx | machine |
 | The 3D camera's nearest, 1 scene unit: a hole nearer than that, or behind the camera, is not drawn, and a stroke and a line of the sheet are cut there | scene.ts, field_step.ts, space_grid.ts | machine |
 | The orbits' traces are set in perspective around the hole's own place on the screen, not each point on its own, which a camera that looks far aside or comes very near shows as a slight misfit | webgl_shaders.ts | pixel: each point projected alone |
-| In 3D, which side of the holes a thing is on: the middle of its stroke or piece, by its depth along the camera's line of sight against the hole's, a hard edge; a stroke that crosses that depth is wholly on one side, and a particle that changes side leaves its old trail fading where it was drawn | field_step.ts, webgl_shaders.ts | particle: a stroke cut at the boundary and drawn into both layers |
+| In 3D, which side of the holes a thing is on: the middle of its stroke or piece, by its depth along the camera's line of sight against the hole's; a stroke that spans the band of `threeDFrontDepth` takes the share at its middle, and a particle that changes side leaves its old trail fading where it was drawn | field_step.ts, webgl_shaders.ts | particle: a stroke cut at the boundary and drawn into both layers |
+| In the band behind the holes a thing is drawn in two places, where it is and where the lens shows it, never bent by a share of the lens: a particle of the field or a flow on one side past a share of its own, a trace or a lattice line in both at their shares | field_step.ts, webgl_shaders.ts | pixel: a layer per depth, or the depth kept per pixel and the lens read again at its share |
+| How the share seen through the lens grows across the band: a thin lens's d / (D + d), scaled to be whole at `threeDFrontDepth`, D the nearer hole's distance from the camera | webgl_shaders.ts | frame: a curve, not a number |
+| In the band, what is seen within a shadow is the lens's whole: the shadow as a circle of its radius round the hole's place, not a spinning hole's outline | webgl_shaders.ts, field_step.ts | particle: the outline read per stroke |
 | With two holes the boundary is the nearer one: what lies between them is behind both, so the nearer hole's shadow covers it and the farther one's lens does not see it in front of itself | scene.ts | pixel: a third layer between the two, read through the farther hole's lens alone |
 | Light in front of the holes is laid over them as the brighter of it and what is there, as the layers keep theirs, not added to the ring's | webgl_shaders.ts | frame: a law, not a number |
 | The gravitational waves and the opening's matter front move what lies behind the holes and leave what is in front alone, though both pass between them and the camera | webgl_shaders.ts | pixel: the front layers read through the waves too |

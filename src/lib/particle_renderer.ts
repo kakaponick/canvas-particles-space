@@ -17,6 +17,7 @@ import {
 } from './webgl_shaders'
 import { RING_LIGHT_TEXTURE_UNIT, createFieldFeedback, type FieldFeedback, type FieldInput } from './field_feedback'
 import type { SceneColor } from './scene_color'
+import type { StepSettings } from './particle_simulation'
 import { MAX_ORBITERS, STRETCH_FLOATS, STRETCH_SECONDS } from './orbiters'
 import type { TitleSprite } from './title_sprite'
 import { RING_BINS } from './ring_energy'
@@ -579,7 +580,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
 
   const fadeUniforms = getUniforms(gl, fadeProgram, ['color'] as const)
   const particleUniforms = getUniforms(gl, particleProgram, ['resolution', 'pixelRatio', 'center', 'flight', 'doppler', 'tintAhead', 'tintEdge', 'tint', 'zoom', 'zoomFrom'] as const)
-  const orbitUniforms = getUniforms(gl, orbitProgram, ['resolution', 'zoom', 'orbit', 'dimmed', 'turnX', 'turnY', 'turnZ', 'side'] as const)
+  const orbitUniforms = getUniforms(gl, orbitProgram, ['resolution', 'zoom', 'orbit', 'dimmed', 'turnX', 'turnY', 'turnZ', 'side', 'sideMain', 'sideSecond'] as const)
   const compositeUniforms = getUniforms(gl, compositeProgram, [
     'resolution', 'pixelRatio', 'time', 'hole', 'horizon', 'einstein', 'falloff', 'falloffPivot', 'lensCore', 'maxBend', 'lensReach', 'twistLimit', 'swirl', 'absorption', 'trace', 'spin', 'ring',
     'ringWidth', 'ringGlow', 'ringDoppler', 'ringSide', 'ringPhase', 'ringField', 'ringBase', 'ringFeed', 'ringLine', 'ringGlowShape', 'ringColor', 'ringApproaching', 'ringReceding',
@@ -603,11 +604,11 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   ] as const)
 
   const latticeUniforms = getUniforms(gl, latticeProgram, [
-    'resolution', 'zoom', 'row0', 'row1', 'row2', 'shift', 'vanish', 'hole', 'companion', 'lattice', 'anchor', 'color', 'fade', 'side'
+    'resolution', 'zoom', 'row0', 'row1', 'row2', 'shift', 'vanish', 'hole', 'companion', 'lattice', 'anchor', 'color', 'fade', 'side', 'sideMain', 'sideSecond'
   ] as const)
 
   const flowUniforms = getUniforms(gl, flowProgram, [
-    'resolution', 'zoom', 'place', 'turnX', 'turnY', 'turnZ', 'thick', 'path', 'age', 'light', 'ride', 'sheetU', 'sheetV', 'sheetN', 'sheetO', 'sheetWell', 'sheetWell2', 'inPlaneU', 'inPlaneV', 'inPlaneH', 'side'
+    'resolution', 'zoom', 'place', 'turnX', 'turnY', 'turnZ', 'thick', 'path', 'age', 'light', 'ride', 'sheetU', 'sheetV', 'sheetN', 'sheetO', 'sheetWell', 'sheetWell2', 'inPlaneU', 'inPlaneV', 'inPlaneH', 'side', 'sideMain', 'sideSecond'
   ] as const)
   // The sheet's surface and pose go to the grid and flow programs through the same setter
   const setSheetUniform = (uniform: CachedUniform, x: number, y: number, z: number, w: number) => setUniform4f(gl, uniform, x, y, z, w)
@@ -930,6 +931,21 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     }
   }
 
+  // The two shadows where the layers of lines hold them, at the camera's zoom, for the side a piece in the
+  // band behind the holes takes: what is seen within one is the lens's (BEHIND_GLSL)
+  function sendShadows (main: CachedUniform, second: CachedUniform, step: StepSettings) {
+    const x = layerZoomX * ratio
+    const y = layerZoomY * ratio
+    const scale = ratio * layerZoom
+    if (step.holeSeen > 0) setUniform3f(gl, main, x + (step.holeX * ratio - x) * layerZoom, y + (step.holeY * ratio - y) * layerZoom, step.holeSeen * scale)
+    else setUniform3f(gl, main, 0, 0, 0)
+    if (step.companionSeen > 0) {
+      setUniform3f(gl, second, x + (step.companionX * ratio - x) * layerZoom, y + (step.companionY * ratio - y) * layerZoom, step.companionSeen * scale)
+    } else {
+      setUniform3f(gl, second, 0, 0, 0)
+    }
+  }
+
   // The orbiting stars' layer is drawn anew every frame from the stretches kept (keepRow, once a frame): each
   // is a line placed around the black hole as it is now and at the camera's zoom, dimmed by its age in the
   // vertex shader, so the traces are sharp at any zoom, follow the hole and all reach black. `front` is 1
@@ -937,7 +953,8 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   function drawOrbits (frame: FrameInput, front: number) {
     gl.useProgram(orbitProgram)
     // The nearer hole's distance in the device pixels the stars' depth is measured in
-    setUniform2f(gl, orbitUniforms.side, front, frame.step.frontAway * ratio)
+    setUniform3f(gl, orbitUniforms.side, front, frame.step.frontAway * ratio, frame.step.frontDepth * ratio)
+    sendShadows(orbitUniforms.sideMain, orbitUniforms.sideSecond, frame.step)
     setUniform4f(gl, orbitUniforms.zoom, layerZoomX * ratio, layerZoomY * ratio, layerZoom, 0)
     setUniform4f(gl, orbitUniforms.orbit, frame.orbitX * ratio, frame.orbitY * ratio, frame.orbitUnit * ratio, frame.orbitWidth * ratio)
     setUniform1f(gl, orbitUniforms.dimmed, frame.orbitDimmed)
@@ -965,8 +982,9 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
 
   // The lattice is drawn anew every frame into the layer of lines, bent towards the holes and seen by the
   // camera at its zoom, the brighter of a line and what is there so crossings do not add up; `front` as for
-  // the orbits, with the nearer hole `frontAway` CSS pixels seen straight on from the camera
-  function drawLattice (lattice: LatticeSettings, color: SceneColor, front: number, frontAway: number) {
+  // the orbits, with the nearer hole `frontAway` CSS pixels seen straight on from the camera and Front Depth
+  // `frontDepth` of them behind it
+  function drawLattice (lattice: LatticeSettings, color: SceneColor, front: number, step: StepSettings) {
     gl.bindBuffer(gl.ARRAY_BUFFER, latticeBuffer)
     if (!latticeFilled) {
       latticeFilled = true
@@ -989,7 +1007,9 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     setUniform4f(gl, u.anchor, lattice.anchorX, lattice.anchorY, lattice.anchorZ, 0)
     setUniform3f(gl, u.fade, lattice.fadeFrom, lattice.farthest, lattice.gone)
     // The lattice's depth is in scene units, pivot / focal of them in a CSS pixel
-    setUniform2f(gl, u.side, front, frontAway * lattice.pivot / Math.max(lattice.focal, 1))
+    const sceneUnits = lattice.pivot / Math.max(lattice.focal, 1)
+    setUniform3f(gl, u.side, front, step.frontAway * sceneUnits, step.frontDepth * sceneUnits)
+    sendShadows(u.sideMain, u.sideSecond, step)
     const light = lattice.brightness * lattice.gain
     setUniform4f(gl, u.color, Math.min(color.r * light, 1), Math.min(color.g * light, 1), Math.min(color.b * light, 1), 1)
     gl.enableVertexAttribArray(ATTRIBUTE_LOCATIONS.latticeLine)
@@ -1041,7 +1061,8 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
       setUniform4f(gl, u.turnY, turn[3], turn[4], turn[5], frame.orbitFocal > 0 ? flow.depth * ratio : 1)
       setUniform4f(gl, u.turnZ, turn[6], turn[7], turn[8], ratio)
       // A flow's depth is a share of its centre's distance from the camera
-      setUniform2f(gl, u.side, front, flow.depth > 0 ? step.frontAway / flow.depth : 0)
+      setUniform3f(gl, u.side, front, flow.depth > 0 ? step.frontAway / flow.depth : 0, flow.depth > 0 ? step.frontDepth / flow.depth : 0)
+      sendShadows(u.sideMain, u.sideSecond, step)
       if (riding) {
         // Where its own places fall in the equator: a device pixel of the flow is a CSS pixel over the ratio
         const plane = flow.plane
@@ -1377,7 +1398,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
         }
         const front = inFront ? 1 : 0
         if (frame.orbitCount > 0) drawOrbits(frame, front)
-        if (latticeShown) drawLattice(frame.lattice, frame.composite.gridColor, front, frontAway)
+        if (latticeShown) drawLattice(frame.lattice, frame.composite.gridColor, front, frame.step)
         if (flowsLaid) drawFlows(frame, front)
       }
       gl.bindFramebuffer(gl.FRAMEBUFFER, null)
@@ -1412,7 +1433,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
         if (inFront && !frontLines.lit) openLayer(frontLines)
         gl.bindFramebuffer(gl.FRAMEBUFFER, inFront ? linesBoth : lines.framebuffer)
         const front = inFront ? 1 : 0
-        if (fresh && frame.lattice.brightness > 0) drawLattice(frame.lattice, frame.composite.gridColor, front, frame.step.frontAway)
+        if (fresh && frame.lattice.brightness > 0) drawLattice(frame.lattice, frame.composite.gridColor, front, frame.step)
         drawFlows(frame, front)
         gl.bindFramebuffer(gl.FRAMEBUFFER, null)
         flowsLaid = true

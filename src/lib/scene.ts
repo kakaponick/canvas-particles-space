@@ -1169,6 +1169,11 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       frontAway = nearest * settings.focal / pivot
     }
     settings.frontAway = frontAway
+    // Behind that plane the share seen through the lens grows over Front Depth, in radii of the hole, but
+    // what is seen within a shadow is the lens's whole
+    settings.frontDepth = frontAway > 0 ? state.threeDFrontDepth * horizon : 0
+    settings.holeSeen = frontAway > 0 ? horizon * holeScale : 0
+    settings.companionSeen = frontAway > 0 && companionRadius > 0 ? companionRadius * companionScale : 0
     // The plane the waves and the ringing oval lie in, as the camera sees its two directions (right and
     // down on the picture): the pair's while there is one. A hole alone has no orbit, and its ringing and
     // a wave fired at it keep the plane across the line of flight, the one the opening is seen in

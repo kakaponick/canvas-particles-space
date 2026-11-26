@@ -166,6 +166,13 @@ export interface StepSettings {
   // front of the holes and is drawn into the layer the lens does not bend. 0 while nothing can be in front
   // (the flat mode, no hole, a hole behind the camera)
   frontAway: number
+  // How deep behind that, in the same measure, a stroke passes from in front to behind (Front Depth): the
+  // share of it seen through the lens grows over this depth. 0 is a hard plane
+  frontDepth: number
+  // The radii of the two shadows on the screen in 3D, CSS pixels round holeX, holeY and companionX,
+  // companionY (0 for a hole not there): what lies behind the holes and is seen within one is the lens's
+  holeSeen: number
+  companionSeen: number
   // Particles on Sheet (RIDE_GLSL in webgl_shaders.ts): the share of the way a particle in the slab round
   // the main hole's equator is laid on the sheet, 0 leaving it alone and the rest unread; the slab's half
   // thickness, CSS pixels at the hole's distance; the sheet as it is laid out this frame (space_grid.ts)
@@ -381,6 +388,9 @@ export function createStepSettings (ringEnergy: RingEnergy | null = null): StepS
     cameraMoveInFrom: 0,
     endFade: 0.12,
     frontAway: 0,
+    frontDepth: 0,
+    holeSeen: 0,
+    companionSeen: 0,
     ride: 0,
     rideDepth: 1,
     sheet: createGridSettings()
