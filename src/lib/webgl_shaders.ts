@@ -1102,6 +1102,7 @@ export const gridVertexShaderSource = `
   uniform vec2 u_jolt;        // the scene camera's shake
   uniform vec4 u_spin;        // 3D: cosine and sine of the turn that spins the lines in the sheet's plane, 1 while it is on
   uniform vec3 u_roll;        // 3D: cosine and sine of the camera's roll, which turns the drawn sheet about u_view, 1 while it is on
+  uniform vec2 u_rings;       // rings drawn around the black hole in place of the square cells (0 = the cells), lines through the hole drawn across them
 
   varying vec2 v_ends;        // distance along the piece from its start and from its end
   varying float v_across;     // signed distance from its axis
@@ -1176,7 +1177,31 @@ ${DENT_GLSL}
     float across;
     vec4 first;
     vec4 last;
-    if (u_spin.z > 0.0) {
+    if (u_rings.x > 0.0 && u_well.z > 0.0) {
+      // Rings and spokes around the black hole in place of the square cells. A line the count leaves out
+      // is put past the sheet's reach, where it is dropped below
+      if (crosswise) {
+        // A ring lies at one depth: ring k of n is k / (n + 1) of the way down the well, so the rings are
+        // its contour lines. dent() turned inside out gives the radius: a share of the depth is a slowing of
+        // time, 1 - sqrt(1 - rs / nearest), and light that comes that near is seen at
+        // b = nearest / sqrt(1 - rs / nearest), with the shadow's edge at sqrt(27) / 2 rs
+        across = a_gridLine.x < 1.0 || a_gridLine.x > u_rings.x ? 2.0 * u_lines.y : 0.0;
+        float kept = 1.0 - clamp(a_gridLine.x, 1.0, u_rings.x) / (u_rings.x + 1.0) / 2.3660254;
+        float sunk = 1.0 - kept * kept;
+        float radius = u_well.z * 0.3849002 / (sunk * kept);
+        vec2 turn = 3.14159265 * a_gridLine.yz;
+        first = onScreen(radius * vec2(cos(turn.x), sin(turn.x)));
+        last = onScreen(radius * vec2(cos(turn.y), sin(turn.y)));
+      } else {
+        // A line through the hole is two spokes; in 3D they turn with the camera, as the cells do
+        across = a_gridLine.x < 0.0 || a_gridLine.x >= u_rings.y ? 2.0 * u_lines.y : 0.0;
+        float angle = 3.14159265 * a_gridLine.x / max(u_rings.y, 1.0);
+        vec2 spoke = vec2(cos(angle), sin(angle));
+        if (u_spin.z > 0.0) spoke = vec2(u_spin.x * spoke.x - u_spin.y * spoke.y, u_spin.y * spoke.x + u_spin.x * spoke.y);
+        first = onScreen(spoke * along.x);
+        last = onScreen(spoke * along.y);
+      }
+    } else if (u_spin.z > 0.0) {
       // In 3D the lines are laid on the sheet turned by the camera's turn, around the point the camera
       // looks at, and seen from where the camera stands; the wells are where the black holes are seen
       vec2 wellOnSheet = vec2(u_spin.x * u_well.x + u_spin.y * u_well.y, u_spin.x * u_well.y - u_spin.y * u_well.x);

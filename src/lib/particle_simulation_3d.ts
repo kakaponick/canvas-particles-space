@@ -11,6 +11,7 @@
 // is still a stroke on the screen, so the renderer draws both the same way.
 import { depositRingEnergy } from './ring_energy'
 import { nextRandom } from './random'
+import { readRide, rideStroke, ridden } from './sheet_ride'
 import {
   DRAG_SHARE, INSTANCE_FLOATS, SPEED_FLOOR_SQ, fillInertiaStep, spawnParticle,
   type InstanceData, type ParticleField, type SpawnSettings, type StepLater, type StepSettings
@@ -292,12 +293,16 @@ export function stepRange3d (
   const minY = -clipMargin
   const maxX = width + clipMargin
   const maxY = height + clipMargin
+  const riding = readRide(settings)
+  const pixelsPerWorld = 1 / worldPerPixel
 
   let written = from
 
   for (let i = from; i < to; i++) {
     let px = x[i]
     let py = y[i]
+    const wasX = px
+    const wasY = py
     const startZ = z[i]
     // Where the particle stood, through the camera of the frame before
     const rz = startZ - pivot
@@ -491,6 +496,18 @@ export function stepRange3d (
     let y0 = startY
     let x1 = endX
     let y1 = endY
+    // On the sheet the stroke lies where the sheet does under the particle, which stands around the hole
+    // where it is across the line of flight, in pixels at the hole's distance
+    if (riding) {
+      if (!rideStroke(
+        (wasX - holeX) * pixelsPerWorld, (wasY - holeY) * pixelsPerWorld, (px - holeX) * pixelsPerWorld, (py - holeY) * pixelsPerWorld,
+        x0, y0, x1, y1
+      )) continue
+      x0 = ridden[0]
+      y0 = ridden[1]
+      x1 = ridden[2]
+      y1 = ridden[3]
+    }
 
     const startInside = x0 >= minX && x0 <= maxX && y0 >= minY && y0 <= maxY
     const endInside = x1 >= minX && x1 <= maxX && y1 >= minY && y1 <= maxY

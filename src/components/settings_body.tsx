@@ -183,6 +183,7 @@ function SettingsBody () {
           <SettingSlider field="trailIntensity" />
         </div>
         <SettingsFine id="particles">
+          <SettingSlider field="fieldAtHole" />
           <SettingSlider field="particleSizeMin" />
         </SettingsFine>
       </SettingsSection>
@@ -364,6 +365,8 @@ function SettingsBody () {
         <SettingSlider field="gridSheet" />
         <SettingSlider field="gridTilt" />
         <SettingSlider field="gridDepth" />
+        <SettingSlider field="gridRings" />
+        <SettingSlider field="gridRide" />
         <div className="mt-3 flex flex-col gap-1">
           <SettingSlider field="gridLattice" />
           <SettingSlider field="gridLatticeCell" />
@@ -380,6 +383,7 @@ function SettingsBody () {
         <SettingsFine id="space-grid">
           {/* The sheet (its lines, its camera, its edges, the wave, 3D), the lattice and the grid behind the lens */}
           <div className="flex flex-col gap-1">
+            <SettingSlider field="gridSpokes" />
             <SettingSlider field="gridLine" />
             <SettingSlider field="gridLineNear" />
             <SettingSlider field="gridDistance" />

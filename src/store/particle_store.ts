@@ -155,6 +155,7 @@ export interface ParticleState {
   particleSizeMin: number
   // Radius of the disc particles spawn in, world units
   spawnRadius: number
+  fieldAtHole: number
   // Depth of the black hole's plane and the scale of the depth band its gravity acts in, % of the render depth
   blackHoleDepth: number
   gravityDepth: number
@@ -182,6 +183,12 @@ export interface ParticleState {
   gridSheet: number
   gridTilt: number
   gridDepth: number
+  // Rings the sheet is drawn with in place of its square cells, at equal steps of the well's depth (0 keeps
+  // the cells), and the spokes drawn across them
+  gridRings: number
+  gridSpokes: number
+  // The share of the way the particles are moved from where they fly onto the sheet's surface
+  gridRide: number
   gridSky: number
   // How far the Lensed Grid is drawn in towards the hole (0 leaves it flat), and the colour of every grid
   gridSkyPull: number
@@ -431,6 +438,7 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   particleSize: 3,
   particleSizeMin: 0.3,
   spawnRadius: 700,
+  fieldAtHole: 0,
   blackHoleDepth: 30,
   gravityDepth: 18,
   scrollSpeedStep: 0.5,
@@ -448,6 +456,9 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   gridSheet: 0,
   gridTilt: 65,
   gridDepth: 2.5,
+  gridRings: 0,
+  gridSpokes: 24,
+  gridRide: 0,
   gridSky: 0,
   gridSkyPull: 0,
   gridColor: '#80bdff',

@@ -37,6 +37,10 @@ export interface GridSettings {
   clearTo: number
   // How many times the stretch a gravitational wave gives the sky lifts the sheet
   waveLift: number
+  // Rings drawn around the black hole in place of the square cells, at equal steps of the well's depth
+  // (0 keeps the cells), and the spokes across them
+  rings: number
+  spokes: number
   // The point the camera looks at, and its distance from the camera
   viewX: number
   viewY: number
@@ -82,6 +86,8 @@ export function createGridSettings (): GridSettings {
     clearFrom: 1.04,
     clearTo: 1.2,
     waveLift: 4,
+    rings: 0,
+    spokes: 24,
     viewX: 0,
     viewY: 0,
     distance: 1,

@@ -5,7 +5,7 @@ import type { ParticleColor, ParticleState } from '../store/particle_store'
 
 export const SIMULATION_SETTING_KEYS = [
   'numParticles', 'baseSpeed', 'speedVariance', 'farZ', 'trailIntensity', 'speedGlow', 'speedGlowKnee',
-  'particleSize', 'particleSizeMin', 'spawnRadius', 'blackHoleDepth', 'gravityDepth', 'scrollSpeedStep',
+  'particleSize', 'particleSizeMin', 'spawnRadius', 'fieldAtHole', 'blackHoleDepth', 'gravityDepth', 'scrollSpeedStep',
   'baseBrightness', 'depthFade', 'minOpacity', 'maxOpacity', 'pulseIntensity', 'pulseSpeedMultiplier',
   'flightTintAhead', 'flightTintEdge', 'flightTintGradient', 'flightTintLimit', 'flightTintFrom', 'flightTintFull',
   'starsBrightness', 'starDensity', 'starCell', 'nebula', 'nebulaColor', 'nebulaColorDeep', 'nebulaColorCore',
@@ -20,7 +20,7 @@ export const SIMULATION_SETTING_KEYS = [
   'ringColor', 'ringColorApproaching', 'ringColorReceding', 'ringWidthMin', 'ringOffset', 'ringSoftness', 'ringGlowCore', 'ringGlowCoreShare', 'ringGlowSkirt', 'ringGlowSkirtShare',
   'ringFeedCapture', 'ringFeedSkim', 'ringFeedReach', 'ringStarFlare', 'ringStarSpread', 'ringStarSides',
   'lensingEnabled', 'lensingTraced', 'lensingRadius', 'lensingFromCamera', 'lensingRotation', 'lensingFalloff', 'lensingPivot', 'lensingCore', 'lensingMaxBend', 'lensingReach', 'lensingTwistLimit', 'lensingAbsorption',
-  'gridCell', 'gridSheet', 'gridTilt', 'gridDepth', 'gridSky', 'gridSkyPull', 'gridColor', 'gridLattice', 'gridLatticeCell', 'gridLatticeWarp',
+  'gridCell', 'gridSheet', 'gridTilt', 'gridDepth', 'gridRings', 'gridSpokes', 'gridRide', 'gridSky', 'gridSkyPull', 'gridColor', 'gridLattice', 'gridLatticeCell', 'gridLatticeWarp',
   'gridDistance', 'gridSpan', 'gridFade', 'gridWaveLift', 'gridLine', 'gridLineNear', 'gridNear', 'gridClearing', 'gridClearingEdge', 'gridTiltLimit', 'gridTiltFade', 'gridSkyLine', 'gridSkyHaze', 'gridSkyHazeSpan',
   'gridLatticeLine', 'gridLatticeGain', 'gridLatticeReach', 'gridLatticeFade', 'gridLatticeNear', 'gridLatticeFar', 'gridLatticeNearEdge', 'gridLatticeUnit',
   'orbitCount', 'orbitSize', 'orbitEccentricity', 'orbitSpeed', 'orbitTrail', 'orbitStarSize',

@@ -20,7 +20,7 @@ import { MAX_ORBITERS, STRETCH_SECONDS } from './orbiters'
 import type { TitleSprite } from './title_sprite'
 import { RING_BINS } from './ring_energy'
 import { SHADOW_SAMPLES, type ShadowShape } from './kerr_shadow'
-import { GRID_INSTANCE_COUNT, GRID_INSTANCE_FLOATS, createGridInstances, type GridSettings } from './space_grid'
+import { GRID_INSTANCE_COUNT, GRID_INSTANCE_FLOATS, GRID_LINES_PER_SIDE, createGridInstances, type GridSettings } from './space_grid'
 import { LATTICE_INSTANCE_COUNT, LATTICE_INSTANCE_FLOATS, createLatticeInstances, type LatticeSettings } from './space_lattice'
 
 const INSTANCE_STRIDE = INSTANCE_FLOATS * 4
@@ -568,7 +568,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     'cameraZoom', 'zoomCenter', 'layerZoom', 'shake', 'lensFringe', 'vignette', 'filmGrain', 'letterbox'
   ] as const)
   const gridUniforms = getUniforms(gl, gridProgram, [
-    'resolution', 'pixelRatio', 'view', 'camera', 'well', 'lines', 'wave', 'waveSpread', 'waveTurn', 'lens', 'jolt', 'color', 'shadow', 'frame', 'well2', 'pairWave', 'pairAt', 'pairFront', 'shadow2', 'spin', 'roll', 'sheet', 'clearing'
+    'resolution', 'pixelRatio', 'view', 'camera', 'well', 'lines', 'wave', 'waveSpread', 'waveTurn', 'lens', 'jolt', 'color', 'shadow', 'frame', 'well2', 'pairWave', 'pairAt', 'pairFront', 'shadow2', 'spin', 'roll', 'sheet', 'clearing', 'rings'
   ] as const)
 
   const latticeUniforms = getUniforms(gl, latticeProgram, [
@@ -1129,6 +1129,8 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     setUniform3f(gl, u.roll, grid.rollCos, grid.rollSin, grid.rolled)
     setUniform2f(gl, u.lines, Math.max(grid.cell, 1), Math.max(grid.span, 1))
     setUniform4f(gl, u.sheet, grid.near, grid.lineScale, grid.fadeFrom, 0)
+    // A spoke is half of a line through the hole
+    setUniform2f(gl, u.rings, Math.min(Math.floor(grid.rings), GRID_LINES_PER_SIDE), Math.min(Math.floor(grid.spokes / 2), GRID_LINES_PER_SIDE))
     // Whole no nearer than gone
     setUniform2f(gl, u.clearing, grid.clearFrom, Math.max(grid.clearTo, grid.clearFrom))
     if (settings.gravityWaveAmplitude > 0) {

@@ -873,9 +873,12 @@ export function createScene (
     settings.width = viewportWidth
     settings.height = viewportHeight
     settings.focal = Math.max(centerX, centerY)
-    // The newborn field flies out of the explosion, not out of the screen centre
-    settings.vanishX = centerX + (originX - centerX) * intro.vanishAtOrigin
-    settings.vanishY = centerY + (originY - centerY) * intro.vanishAtOrigin
+    // The newborn field flies out of the explosion, not out of the screen centre. Field at Hole then moves
+    // the point the field is born around toward the black hole (a pair's centre), wherever that stands
+    const fieldX = centerX + (originX - centerX) * intro.vanishAtOrigin
+    const fieldY = centerY + (originY - centerY) * intro.vanishAtOrigin
+    settings.vanishX = fieldX + (hole.x - fieldX) * state.fieldAtHole
+    settings.vanishY = fieldY + (hole.y - fieldY) * state.fieldAtHole
     frame.vanishX = settings.vanishX
     frame.vanishY = settings.vanishY
     settings.holeX = holeX
@@ -1036,6 +1039,71 @@ export function createScene (
       composite.nebulaWrap = 0
       composite.nebulaShiftX = 0
       composite.nebulaShiftY = 0
+    }
+
+    // The space sheet is laid over the frame with its well under the black hole. It is laid out here, before
+    // the particles are stepped, because Particles on Sheet draws them on it.
+    // In 3D the sheet is a plane in the scene: the camera's elevation tilts it towards the camera and
+    // the camera's turn spins its lines around the point the camera circles. It is seen at its own tilt
+    // less the camera's elevation, up to a limit (75 degrees, the top of the Sheet Tilt slider, keeps its
+    // horizon above the screen). Past that it fades, and at the default fade it is gone by the time the
+    // camera would see it edge-on, so it is never seen from below
+    const grid = frame.grid
+    const seenTilt = threeD ? state.gridTilt - viewPitch / DEGREE : state.gridTilt
+    const sheetTilt = threeD ? Math.min(Math.max(seenTilt, -state.gridTiltLimit), state.gridTiltLimit) : seenTilt
+    const sheetLit = threeD && seenTilt > state.gridTiltLimit ? Math.max(1 - (seenTilt - state.gridTiltLimit) / state.gridTiltFade, 0) : 1
+    const onSheet = state.gridRide > 0 && horizon * holeScale > 0
+    if (state.gridSheet > 0 || onSheet) {
+      // A camera that rolls turns the sheet about the middle of the screen: it is laid out for the holes as
+      // they stand before the roll, and the roll is turned in when it is drawn
+      let sheetHoleX = holeX
+      let sheetHoleY = holeY
+      let sheetCompanionX = settings.companionX
+      let sheetCompanionY = settings.companionY
+      if (roll !== 0) {
+        const c = Math.cos(roll)
+        const s = Math.sin(roll)
+        const hx = holeX - centerX
+        const hy = holeY - centerY
+        const kx = settings.companionX - centerX
+        const ky = settings.companionY - centerY
+        sheetHoleX = centerX + c * hx - s * hy
+        sheetHoleY = centerY + s * hx + c * hy
+        sheetCompanionX = centerX + c * kx - s * ky
+        sheetCompanionY = centerY + s * kx + c * ky
+      }
+      placeGrid(
+        grid, sheetTilt, state.gridDepth, state.gridCell / 100 * shortSide, viewportWidth, viewportHeight, sheetHoleX, sheetHoleY, horizon * holeScale,
+        sheetCompanionX, sheetCompanionY, companionRadius * companionScale, hole.x, hole.y, pair.mergedPhase,
+        state.gridDistance, state.gridSpan, state.gridFade
+      )
+      turnGrid(grid, viewYaw)
+      rollGrid(grid, roll)
+    }
+    // Particles on Sheet: the step is handed the sheet as its camera sees it. A stroke is laid on it at both
+    // of its ends as it lies now: seen through the sheet of the frame before, as a stroke of the 3D camera is,
+    // every slow particle would be drawn as a long line while the sheet tilts
+    settings.ride = onSheet && grid.throat > 0 ? state.gridRide : 0
+    if (settings.ride > 0) {
+      const sheetScale = grid.throat / (horizon * holeScale)
+      settings.rideCos = sheetScale * grid.spinCos
+      settings.rideSin = sheetScale * grid.spinSin
+      settings.sheetViewX = grid.viewX
+      settings.sheetViewY = grid.viewY
+      settings.sheetDistance = grid.distance
+      settings.sheetNear = state.gridNear * grid.distance
+      settings.sheetSin = grid.tiltSin
+      settings.sheetCos = grid.tiltCos
+      settings.sheetWellX = grid.wellX
+      settings.sheetWellZ = grid.wellZ
+      settings.sheetThroat = grid.throat
+      settings.sheetDepth = grid.depth
+      settings.sheetRollCos = grid.rollCos
+      settings.sheetRollSin = grid.rolled * grid.rollSin
+      settings.sheetWell2X = grid.well2X
+      settings.sheetWell2Z = grid.well2Z
+      settings.sheetThroat2 = grid.throat2
+      settings.sheetDepth2 = grid.depth2
     }
 
     // A frozen frame keeps the scene texture; only the composite (lens, flash, title) is redrawn
@@ -1428,51 +1496,17 @@ export function createScene (
     readSceneColor(composite.gridColor, state.gridColor, SIMULATION_COLOR_SPECS.gridColor.exact)
     composite.gridCell = gridCell
     composite.skyGridLine = state.gridSkyLine
-    const grid = frame.grid
-    grid.brightness = state.gridSheet
+    // The sheet was laid out before the particles were stepped (above); here is what only its drawing reads
+    grid.brightness = state.gridSheet * sheetLit
     if (state.gridSheet > 0) {
-      // In 3D the sheet is a plane in the scene: the camera's elevation tilts it towards the camera and
-      // the camera's turn spins its lines around the point the camera circles. It is seen at its own tilt
-      // less the camera's elevation, up to a limit (75 degrees, the top of the Sheet Tilt slider, keeps its
-      // horizon above the screen). Past that it fades, and at the default fade it is gone by the time the
-      // camera would see it edge-on, so it is never seen from below
-      const seenTilt = threeD ? state.gridTilt - viewPitch / DEGREE : state.gridTilt
-      const tiltLimit = state.gridTiltLimit
-      const sheetTilt = threeD ? Math.min(Math.max(seenTilt, -tiltLimit), tiltLimit) : seenTilt
-      if (threeD && seenTilt > tiltLimit) {
-        grid.brightness *= Math.max(1 - (seenTilt - tiltLimit) / state.gridTiltFade, 0)
-      }
       grid.lineWidth = state.gridLine
       grid.lineScale = state.gridLineNear
       grid.near = state.gridNear
       grid.clearFrom = state.gridClearing
       grid.clearTo = state.gridClearingEdge
       grid.waveLift = state.gridWaveLift
-      // A camera that rolls turns the sheet about the middle of the screen: it is laid out for the holes as
-      // they stand before the roll, and the roll is turned in when it is drawn
-      let sheetHoleX = holeX
-      let sheetHoleY = holeY
-      let sheetCompanionX = settings.companionX
-      let sheetCompanionY = settings.companionY
-      if (roll !== 0) {
-        const c = Math.cos(roll)
-        const s = Math.sin(roll)
-        const hx = holeX - centerX
-        const hy = holeY - centerY
-        const kx = settings.companionX - centerX
-        const ky = settings.companionY - centerY
-        sheetHoleX = centerX + c * hx - s * hy
-        sheetHoleY = centerY + s * hx + c * hy
-        sheetCompanionX = centerX + c * kx - s * ky
-        sheetCompanionY = centerY + s * kx + c * ky
-      }
-      placeGrid(
-        grid, sheetTilt, state.gridDepth, gridCell, viewportWidth, viewportHeight, sheetHoleX, sheetHoleY, horizon * holeScale,
-        sheetCompanionX, sheetCompanionY, companionRadius * companionScale, hole.x, hole.y, pair.mergedPhase,
-        state.gridDistance, state.gridSpan, state.gridFade
-      )
-      turnGrid(grid, viewYaw)
-      rollGrid(grid, roll)
+      grid.rings = state.gridRings
+      grid.spokes = state.gridSpokes
     }
 
     // The lattice stands in the scene around the black hole and is seen by the 3D camera, or straight on

@@ -43,6 +43,7 @@ The particles fly towards the camera through a field `farZ` deep, born in a disc
 | What | Keys |
 |---|---|
 | How many, how deep, how wide | `numParticles`, `farZ`, `spawnRadius` |
+| What point it is born around | `fieldAtHole` |
 | How fast | `baseSpeed`, `speedVariance` |
 | What a particle looks like | `particleSize`, `particleSizeMin`, `trailIntensity`, `speedGlow`, `speedGlowKnee`, `baseBrightness` |
 | How depth changes it | `depthFade`, `minOpacity`, `maxOpacity` |
@@ -62,6 +63,10 @@ What follows from how it is drawn:
 - The trail is the fade of the picture, not part of the particle. `trailIntensity` 0 means nothing ever
   fades: a long exposure. Together with `baseSpeed` 0 the black hole draws with its own pull.
 - Gravity is not scaled by the flight speed, so slowing the flight does not weaken the hole.
+- The field is born around the centre of the frame and flies out of it. A hole placed off the centre
+  (`blackHoleY` 0.7 over a tilted sheet) is then fed from the side with more field: what falls in gathers
+  on one side of it, and a swirl winds that side round. `fieldAtHole` 1 centres the field on the hole,
+  so matter comes in from every side alike and a hole moved along a track carries its field with it.
 - `colorPalette` is an array of colours with shares; a particle takes its colour when it is born, so a new
   palette arrives as particles are recycled. It is set, never keyframed. The background channels can be
   keyframed.
@@ -298,6 +303,14 @@ come, as around a real black hole.
 - Two horizons take more of the flight than one: over a long approach the field can thin out. Lower
   `gravityStrength`, or `horizonScale`, when the picture needs the particles.
 - The companion has its own shadow, lens, ring, gravity and well in the sheet.
+- A wave leaves only what moves. The opening's `ringdown` and `gravityWave` fired at a hole that has been
+  at rest show a hole that wobbles for no reason, and a viewer who knows the physics sees a mistake: a ripple in a film
+  comes from a pair closing in, and ends in the ringing of their merger.
+- For that ripple to read on the sheet, frame it wide and plain: `blackHoleSize` 3.5, square cells
+  (`gridCell` 3, `gridRings` 0), `gridTilt` 60, no particles. The wave is weak while the two are far
+  apart and steep at the merger, so move both strengths against the approach: `companionWaves` 3 and
+  `gridWaveLift` 30 as `companionDistance` leaves 6, down to 1.6 and 11 as it reaches 0. Held high to the
+  end, the sheet round the merger breaks into spikes (`films/fourth_dimension_ripple.js`).
 
 ## 9. Curved space made visible: the grids and the lattice
 
@@ -305,6 +318,8 @@ come, as around a real black hole.
 |---|---|
 | Cell size, shared by the sheet and the lensed grid | `gridCell` |
 | The sheet: brightness (0 is off), viewing angle, depth of the well in radii | `gridSheet`, `gridTilt`, `gridDepth` |
+| The sheet as rings and spokes: how many rings stand at equal steps of the well's depth (0 keeps the square cells), and the spokes across them | `gridRings`, `gridSpokes` |
+| The particles drawn on the sheet's surface: the share of the way they are moved onto it (0 leaves them where they fly) | `gridRide` |
 | The lattice in three dimensions: brightness (0 is off), its cell in radii, how hard it is drawn in | `gridLattice`, `gridLatticeCell`, `gridLatticeWarp` |
 | A flat grid on the sky read through the lens (0 is off), how far it is drawn in towards the hole (0 is flat), and the width of its lines | `gridSky`, `gridSkyPull`, `gridSkyLine` |
 | The colour of all three, and how many times brighter the lattice draws it | `gridColor`, `gridLatticeGain` |
@@ -321,6 +336,22 @@ come, as around a real black hole.
 - The dent is gravitational time dilation, and can be said so in a caption: a place is lowered by how much
   time is slowed where the light seen at that distance passed closest to the hole. Far away the sheet is
   flat; at the shadow's edge, where that light skims the photon sphere, it is `gridDepth` deep and ends.
+- `gridRings` above 0 draws the sheet as a textbook does, in rings and spokes around the main hole. The
+  rings are the well's contour lines, one at each of that many equal steps of its depth: from the side they
+  step down the well evenly, from above (`gridTilt` 0) they crowd toward the hole, where the well is
+  steepest, so the depth is read with no tilt at all. The outermost stands about half as many shadow radii
+  out as there are rings (40 fills a 1080p frame at `blackHoleSize` 8), and half of them stand within a
+  third of a radius of the shadow, where `gridClearing` thins them. Waves read better on the square cells.
+- `gridRide` lays the particles on the sheet: each is drawn where the sheet lies under its place around the
+  hole, so the ring of matter wraps the mouth of the well, what falls goes down its wall, and from above
+  the same matter is the disc round the shadow. Without it the particles stay in the plane of the screen
+  and float in front of a tilted sheet. It moves only where they are drawn: give them a look as ever (films
+  guide, section 16), with `baseSpeed` 0, since the flat flight would run outward along the sheet, and
+  `lensingEnabled` false, since the lens bends them round the hole on the screen, and `fieldAtHole` 1,
+  since a tilted sheet is framed with the hole low and the field is else born round the frame's centre:
+  the well then fills on one side only (section 2). Film it in the flat mode, with `gridTilt` as the
+  camera: tilting it streaks the trails as a camera move does. In 3D the sheet's lines turn with
+  `cameraYaw` and the particles on it with them.
 - The lensed grid is a measuring tool: it shows the Einstein ring, the mirrored image, the twist and the
   waves. Lower `baseBrightness` when it should be read clearly.
 - `gridSkyPull` draws the lensed grid in towards the hole: the classic picture of space pulled in by a
@@ -727,6 +758,8 @@ The cost of a knob, in the last column:
 |---|---|---|
 | How deep the sheet lies at a distance: the slowing of time where light passing there comes nearest | webgl_shaders.ts | has one: `gridDepth` |
 | The sheet's 225 lines each way, in 192 pieces each, where `gridSpan` ends at a small `gridCell` | space_grid.ts | machine |
+| Where the sheet's rings stand: at equal steps of the well's depth, so their radii follow from `gridRings` alone | webgl_shaders.ts | frame: a shape, not a number |
+| The sheet's waves do not carry the particles `gridRide` lays on it | sheet_ride.ts | particle: the wave's height at each particle |
 | The lattice's 13 lines each way along each of the three axes, in 48 pieces each: the top of `gridLatticeReach` | space_lattice.ts | machine |
 | A star's own twinkle, 2 to 5 radians a second, the brighter the faster, and its brightness, the square of an even draw | webgl_shaders.ts | has one: `starsTwinkleSpeed`, `starsFaintest` |
 | One star at most in a cell, placed in its middle 0.6 and drawn inside that cell alone, which cuts a large `starsSize` off at its edge | webgl_shaders.ts | pixel |

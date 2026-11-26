@@ -23,7 +23,10 @@ const STEP_NUMBERS = everyNumber([
   'opacityScale', 'threeD', 'holeWorldX', 'holeWorldY', 'holeWorldZ', 'companionWorldX', 'companionWorldY',
   'companionWorldZ', 'cameraYaw', 'cameraPitch', 'cameraYawFrom', 'cameraPitchFrom', 'cameraRoll', 'cameraLookYaw',
   'cameraLookPitch', 'cameraMoveRight', 'cameraMoveUp', 'cameraMoveIn', 'cameraRollFrom', 'cameraLookYawFrom',
-  'cameraLookPitchFrom', 'cameraMoveRightFrom', 'cameraMoveUpFrom', 'cameraMoveInFrom', 'endFade'
+  'cameraLookPitchFrom', 'cameraMoveRightFrom', 'cameraMoveUpFrom', 'cameraMoveInFrom', 'endFade',
+  'ride', 'rideCos', 'rideSin', 'sheetViewX', 'sheetViewY', 'sheetDistance', 'sheetNear',
+  'sheetSin', 'sheetCos', 'sheetWellX', 'sheetWellZ', 'sheetThroat', 'sheetDepth',
+  'sheetRollCos', 'sheetRollSin', 'sheetWell2X', 'sheetWell2Z', 'sheetThroat2', 'sheetDepth2'
 ] as const)
 // The spawn depth follows the step's numbers
 const SPAWN_FAR_Z = STEP_NUMBERS.length

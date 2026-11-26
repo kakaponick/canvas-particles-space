@@ -3,7 +3,7 @@
 // API (scene_api.ts) describes and validates settings with it, so a setting is described in exactly one place.
 import { BASE_SPEED_MAX, BASE_SPEED_MIN, BASE_SPEED_STEP } from './base_speed'
 import { HORIZON_SCALE_MAX } from './simulation_presets'
-import { GRID_COLOR } from './space_grid'
+import { GRID_COLOR, GRID_LINES_PER_SIDE } from './space_grid'
 import { LATTICE_LINES_PER_SIDE } from './space_lattice'
 
 export interface SimulationSettingSpec {
@@ -52,6 +52,8 @@ export const SIMULATION_SETTING_SPECS = {
     'Stroke width of the particles at the far end of the field: Size thins with distance and stops here. Raised to Size and above, every particle is drawn this wide whatever its distance; 0 lets the far ones thin away to nothing.'), 'Particle Min Size'),
   spawnRadius: spec('Spawn Radius', 50, 5000, 50, count, 'Birth disc radius, in scene units',
     'Radius of the disc particles are born in, in scene units. Smaller keeps more particles on screen and close; larger spreads them past the edges.'),
+  fieldAtHole: spec('Field at Hole', 0, 1, 0.01, percentOfOne, 'Field centred on the hole; 0 = the frame',
+    'How far the point the particle field is born around, and flies out of, is moved from the centre of the frame to the black hole (to a pair\'s centre). At 0 the field is centred on the frame, so a hole placed off the centre is fed from one side and what falls into it gathers lopsided. At 100% the field is centred on the hole wherever it stands: the flight comes out of the hole, falling matter reaches it from every side alike, and a hole moved across the frame carries the field with it.'),
   baseBrightness: spec('Base Brightness', 0, 10, 0.1, fixed(1, '×'), 'Multiplies every particle\'s brightness',
     'Global brightness multiplier for all particles. Values above 1.0 increase luminosity, below 1.0 create dimmer effects.'),
   speedGlow: spec('Speed Glow', 0, 5, 0.05, fixed(2), 'Higher: only fast particles glow',
@@ -278,6 +280,12 @@ export const SIMULATION_SETTING_SPECS = {
     'Angle the sheet is seen at. 0° looks straight down the well, where the dent only pulls the lines slightly together; 60° and above look along the sheet and show the well\'s depth. In 3D the camera\'s Elevation is taken from it and its Orbit Angle spins the lines; past 3D Tilt Limit, 75°, the sheet fades and is gone once the camera is level with it.'),
   gridDepth: spec('Well Depth', 0, 12, 0.1, fixed(1, '×'), 'Depth of the dent, in hole radii; 0 = flat',
     'Depth of the sheet\'s well at the edge of the shadow, in black hole radii. 0 leaves the sheet flat.'),
+  gridRings: spoken(spec('Rings', 0, GRID_LINES_PER_SIDE, 1, count, 'Rings at equal steps of depth; 0 = squares',
+    'How many rings the sheet is drawn with in place of its square cells: circles around the black hole at equal steps of the well\'s depth, the contour lines of the well, with Sheet Spokes across them. Seen from the side they step down the well evenly, as a textbook draws it; seen from above they crowd toward the hole, where the well is steepest, and so show its depth with no tilt at all. The outermost lies about half as many shadow radii out as there are rings, and half of them stand within a third of a radius of the shadow\'s edge. The radii follow the main black hole alone; a second one only dents them. 0 draws the square cells, and so does a scene without a black hole.'), 'Sheet Rings'),
+  gridRide: spoken(spec('Particles on Sheet', 0, 1, 0.01, percentOfOne, 'Particles drawn on the sheet; 0 = free',
+    'The share of the way the particles are moved from where they fly onto the surface of the sheet. At 100% each particle is drawn where the sheet lies under it: its place around the black hole, seen straight on, becomes its place on the sheet, as deep in the well as the sheet is there, so matter circles on the surface and goes down the well with it at any Sheet Tilt, and a second black hole\'s well carries it too. Only where the particles are drawn changes: their motion is the same, so set that as without the sheet (at Base Speed 0 only what gravity moves is lit). The sheet\'s waves do not carry them, the lens still bends them around the hole on the screen, so turn Lensing off beside it, and it works with the Sheet at 0 too, on a sheet that is not drawn. 0 leaves the particles alone.'), 'Particles on Sheet'),
+  gridSpokes: spoken(spec('Spokes', 0, 64, 2, count, 'Lines out from the hole, drawn with Rings',
+    'How many straight lines run out from the black hole across the sheet\'s rings, evenly spaced; each runs down the well and out to the sheet\'s edge. They are drawn only while Sheet Rings is above 0, and in 3D they turn with the camera\'s Orbit Angle. 0 leaves the rings alone.'), 'Sheet Spokes'),
   gridLattice: spoken(spec('Lattice', 0, 1, 0.01, percentOfOne, 'Lattice of space around the hole; 0 = off',
     'Brightness of the space lattice: lines along all three axes of the scene around the black hole, drawn in towards it, the picture of curved space in three dimensions. Like the sheet it is a diagram: each node is pulled in by as much as time is slowed where it stands, so the lattice is straight far away and tightest at the shadow\'s edge. It stands still while the black hole moves through it, a second black hole pulls it too, and it is seen through the lens, which bends the lines behind the hole. It reaches 6 cells from the hole (Lattice Reach) and fades out over the outer half. Turn on 3D to see it from any side; in the flat mode it is seen straight on, down the line of flight. 0 turns it off.'), 'Lattice Brightness'),
   gridLatticeCell: spec('Lattice Spacing', 0.5, 5, 0.1, fixed(1, '×'), 'Lattice cell, in hole radii',
