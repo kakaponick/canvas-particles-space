@@ -103,6 +103,14 @@ export interface StepSettings {
   minLineWidth: number
   gravityStrength: number
   orbitalStrength: number
+  // The power of the distance the pull falls by (2 is Newton's inverse square), and the power of the bell
+  // of the flat step's depth band (3: (1 - u^2 / 4)^3; 0 a band with hard edges)
+  gravityFalloff: number
+  gravityBell: number
+  // How many powers of the distance faster than the pull the spin's drag falls, and, in the flat step, the share of the drag along the line of sight that spin
+  // lying in the screen gives (1 is the turn of space about the axis; 0 none)
+  dragFalloff: number
+  dragSight: number
   // The axis the orbital force turns a particle about in space, a unit vector in the scene's axes (x right,
   // y down, z away from the flat camera): (0, 0, -1) is the line of flight, toward the camera, and the
   // spin's axis takes over from it by Swirl Follows Spin. The flat step turns about the line of flight
@@ -352,6 +360,10 @@ export function createStepSettings (ringEnergy: RingEnergy | null = null): StepS
     minLineWidth: 0.3,
     gravityStrength: 0,
     orbitalStrength: 0,
+    gravityFalloff: 2,
+    gravityBell: 3,
+    dragFalloff: 1,
+    dragSight: 1,
     swirlX: 0,
     swirlY: 0,
     swirlZ: -1,

@@ -426,6 +426,8 @@ export interface FrameInput extends FieldInput {
   // how fast it turns from one to the other per half screen diagonal, and the most of a colour it replaces
   tintAhead: SceneColor
   tintEdge: SceneColor
+  // the colour it turns past a quarter turn off the line of flight, whole straight behind it
+  tintBehind: SceneColor
   tintGradient: number
   tintLimit: number
   // Vanishing point of the particle field in CSS pixels, then the line of flight the doppler tint is
@@ -597,7 +599,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   let ringLit = false
 
   const fadeUniforms = getUniforms(gl, fadeProgram, ['color'] as const)
-  const particleUniforms = getUniforms(gl, particleProgram, ['resolution', 'pixelRatio', 'center', 'flight', 'doppler', 'tintAhead', 'tintEdge', 'tint', 'zoom', 'zoomFrom'] as const)
+  const particleUniforms = getUniforms(gl, particleProgram, ['resolution', 'pixelRatio', 'center', 'flight', 'doppler', 'tintAhead', 'tintEdge', 'tintBehind', 'tint', 'zoom', 'zoomFrom'] as const)
   const orbitUniforms = getUniforms(gl, orbitProgram, ['resolution', 'zoom', 'orbit', 'dimmed', 'turnX', 'turnY', 'turnZ', 'side', 'sideMain', 'sideSecond'] as const)
   const compositeUniforms = getUniforms(gl, compositeProgram, [
     'resolution', 'pixelRatio', 'time', 'hole', 'horizon', 'einstein', 'falloff', 'falloffPivot', 'lensCore', 'maxBend', 'lensReach', 'twistLimit', 'swirl', 'absorption', 'trace', 'spin', 'horizonGrid', 'horizonAxis', 'horizonTurn', 'ring',
@@ -895,6 +897,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     setUniform1f(gl, particleUniforms.doppler, frame.doppler)
     setUniform3f(gl, particleUniforms.tintAhead, frame.tintAhead.r, frame.tintAhead.g, frame.tintAhead.b)
     setUniform3f(gl, particleUniforms.tintEdge, frame.tintEdge.r, frame.tintEdge.g, frame.tintEdge.b)
+    setUniform3f(gl, particleUniforms.tintBehind, frame.tintBehind.r, frame.tintBehind.g, frame.tintBehind.b)
     setUniform2f(gl, particleUniforms.tint, frame.tintGradient, frame.tintLimit)
     setUniform2f(gl, particleUniforms.center, frame.vanishX, frame.vanishY)
     setUniform4f(gl, particleUniforms.flight, frame.flightX, frame.flightY, frame.flightZ, frame.flightFocal)

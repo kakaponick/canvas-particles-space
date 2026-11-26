@@ -177,7 +177,8 @@ export const particleVertexShaderSource = MODERN_VERTEX + `
   uniform vec4 u_flight;      // where the field's far end lies for the camera (the scene's +z turned), its focal length in CSS pixels
   uniform float u_doppler;    // 0 at rest, 1 near the speed of light
   uniform vec3 u_tintAhead;   // the tint of a fast flight: its colour along the line of flight,
-  uniform vec3 u_tintEdge;    // its colour away from it,
+  uniform vec3 u_tintEdge;    // its colour away from it, up to a quarter turn,
+  uniform vec3 u_tintBehind;  // its colour straight behind, which the edge colour turns to past a quarter turn,
   uniform vec2 u_tint;        // how fast it turns from one to the other per half screen diagonal, the most of a colour it replaces
   uniform vec4 u_zoom;       // the camera: the point its zoom leaves in place (device pixels), the zoom
   uniform vec4 u_zoomFrom;    // the camera of the frame before, the same way
@@ -238,7 +239,10 @@ export const particleVertexShaderSource = MODERN_VERTEX + `
       float aside = sqrt(max(dot(toward, toward) - ahead * ahead, 0.0));
       float radial = (ahead > 0.0001 ? aside / ahead : 1000.0) * u_flight.w * 2.0 * u_pixelRatio / max(length(u_resolution), 1.0);
       float shift = u_doppler * (1.0 - u_tint.x * radial);
-      tinted = mix(tinted, shift > 0.0 ? u_tintAhead : u_tintEdge, min(abs(shift), u_tint.y));
+      // Past a quarter turn off the line of flight (3D, a camera that looks back) the edge colour turns to
+      // the colour behind, by the cosine of the angle beyond it
+      vec3 edge = ahead < 0.0 ? mix(u_tintEdge, u_tintBehind, min(-ahead * inversesqrt(dot(toward, toward)), 1.0)) : u_tintEdge;
+      tinted = mix(tinted, shift > 0.0 ? u_tintAhead : edge, min(abs(shift), u_tint.y));
     }
 
     v_ends = vec2(along, len - along);

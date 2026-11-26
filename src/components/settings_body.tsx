@@ -229,6 +229,7 @@ function SettingsBody () {
           {/* The tint of a fast flight: its two colors, then where and when it shows */}
           <SettingColor field="flightTintAhead" />
           <SettingColor field="flightTintEdge" />
+          <SettingColor field="flightTintBehind" />
           <SettingSlider field="flightTintGradient" />
           <SettingSlider field="flightTintLimit" />
           <SettingSlider field="flightTintFrom" />
@@ -263,9 +264,17 @@ function SettingsBody () {
         <SettingSlider field="cameraY" />
         <SettingSlider field="cameraPair" />
         <SettingsFine id="black-hole">
-          {/* The spin's sweep and the axis it gives the swirl, then what counts as a cut of the camera */}
-          <SettingSlider field="frameDragSweep" />
-          <SettingSlider field="orbitalSpinFollow" />
+          {/* How the pull falls, then the spin's drag: its sweep, its push along the sight, its fall, and the
+              axis it gives the swirl, then what counts as a cut of the camera */}
+          <SettingSlider field="gravityFalloff" />
+          <SettingSlider field="gravityDepthBell" />
+          <div className="mt-3 flex flex-col gap-1">
+            <SettingSlider field="frameDragSweep" />
+            <SettingSlider field="frameDragSight" />
+            <SettingSlider field="frameDragFalloff" />
+            <SettingSlider field="orbitalSpinFollow" />
+            <SettingSlider field="orbitalSpinFollowCurve" />
+          </div>
           <div className="mt-3 flex flex-col gap-1">
             <SettingSlider field="cameraCutZoom" />
             <SettingSlider field="cameraCutShift" />

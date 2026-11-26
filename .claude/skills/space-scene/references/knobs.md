@@ -48,7 +48,7 @@ The particles fly towards the camera through a field `farZ` deep, born in a disc
 | How depth changes it | `depthFade`, `minOpacity`, `maxOpacity` |
 | Twinkle | `pulseIntensity`, `pulseSpeedMultiplier` |
 | Colours | `colorPalette`, `backgroundR`, `backgroundG`, `backgroundB` |
-| The tint of a fast flight: its two colours, where one gives way to the other, how much, from what speed | `flightTintAhead`, `flightTintEdge`, `flightTintGradient`, `flightTintLimit`, `flightTintFrom`, `flightTintFull` |
+| The tint of a fast flight: its colours ahead, at the edges and behind, where one gives way to the other, how much, from what speed | `flightTintAhead`, `flightTintEdge`, `flightTintBehind`, `flightTintGradient`, `flightTintLimit`, `flightTintFrom`, `flightTintFull` |
 
 What follows from how it is drawn:
 
@@ -78,7 +78,11 @@ What follows from how it is drawn:
   `flightTintFrom` to 0 to tint a slow flight. `flightTintGradient` is how fast one colour gives way to
   the other outward (the turn lies 1 / it of the way to the corner; at 1 and below the frame is all
   `flightTintAhead`), and `flightTintLimit` the most of a particle's colour the tint replaces: at 1 a
-  fast flight is two flat colours. The two colours take a hex string and can be keyframed.
+  fast flight is two flat colours. Past a quarter turn off the line of flight (3D, a camera that looks to
+  the side or back) the edge colour turns toward `flightTintBehind`, whole straight behind; its default is
+  the edge colour, so set it apart to mark what the flight leaves behind, and set it again when
+  `flightTintEdge` changes. The flat mode always looks ahead and never shows it. The colours take a hex
+  string and can be keyframed.
 - `numParticles` is exact on the page and in a film, up to 200 000: the graphics card steps and draws
   them all.
 - `fieldEnabled` false takes the field away: none of its particles is stepped or drawn, and the flows below,
@@ -154,10 +158,10 @@ once, A, B and C, beside the field or without it.
 | What | Keys |
 |---|---|
 | Pull towards the hole (negative pushes away) | `gravityStrength` |
-| Sideways force that makes them swirl (the sign is the direction), and in 3D how far its axis follows the hole's spin | `orbitalStrength`, `orbitalSpinFollow` |
+| Sideways force that makes them swirl (the sign is the direction), and in 3D how far its axis follows the hole's spin and along what curve of the spin | `orbitalStrength`, `orbitalSpinFollow`, `orbitalSpinFollowCurve` |
 | How much of the speed gravity gives them they keep | `gravityInertia` |
-| How far it reaches across the screen, in radii | `gravityReach` |
-| Where the hole sits in depth, and how thick a layer it pulls | `blackHoleDepth`, `gravityDepth` |
+| How far it reaches across the screen, in radii, and the power of the distance it falls by | `gravityReach`, `gravityFalloff` |
+| Where the hole sits in depth, how thick a layer it pulls, and how softly that layer fades | `blackHoleDepth`, `gravityDepth`, `gravityDepthBell` |
 
 - At `gravityInertia` 0 (the default) gravity displaces the particles only while it acts, the scene's
   classic look. Raised, they keep the speed it gives them: about 0.9 gathers the particles that pass close
@@ -173,7 +177,19 @@ once, A, B and C, beside the field or without it.
 - `orbitalSpinFollow` (3D only, default 1) turns the axis `orbitalStrength` swirls about from the line of
   flight to the spin's axis as it stands in the scene (`spinTilt`, `spinAxis`, a merger's spin), the more
   the faster the hole spins (`blackHoleSpin`): a tilted, fast-spinning hole winds a tilted disc. 0, or a
-  hole that does not spin, keeps the line of flight; the flat mode always does.
+  hole that does not spin, keeps the line of flight; the flat mode always does. `orbitalSpinFollowCurve`
+  is the power of the spin that share grows by: 1 a straight line, below 1 a slow spin already tips the
+  disc most of the way (0 at any spin), above 1 only a fast spin does. The flows and Particles on Sheet
+  lie in the plane facing that axis, so they tip with it.
+- `gravityFalloff` is the power of the distance the pull falls by, at the same strength at one radius:
+  2 is Newton. Lower (about 1) bends the whole field within `gravityReach` toward the hole, so the reach
+  shows as an edge and a long exposure draws wide, open knots; 0 pulls as hard at the reach as at the
+  shadow. Higher (3 to 4) leaves the field straight and digs a tight funnel at the shadow, which feeds
+  the ring hard. The second hole falls by the same power, and the spin's drag `frameDragFalloff` powers
+  faster.
+- `gravityDepthBell` (flat mode only) is the bell the pulled layer fades by, (1 - u² / 4) to this power,
+  ending two `gravityDepth` away: 3 soft, 0 a slab with hard faces whose particles bend at once where they
+  enter it, high values a thin sheet at `blackHoleDepth`, so less of a moving field is caught.
 
 ## 4. Capture: the event horizon
 
@@ -194,6 +210,8 @@ it is recycled, and what it carried lights the photon ring (section 6).
 | Which way the axis points on screen, from up toward the left | `spinAxis` |
 | How hard the spin carries the particles round, × what the spin itself gives | `frameDrag` |
 | How hard spin lying in the screen sweeps near and far particles apart, × the swirl | `frameDragSweep` |
+| How hard it carries the two sides of its axis toward and away from the camera (flat mode) | `frameDragSight` |
+| How many powers of the distance faster than the pull the drag fades | `frameDragFalloff` |
 
 - Spin reshapes the shadow in either lens: the side turning toward the camera flattens and the shadow moves
   the other way, and the photon ring follows the outline. Particles are captured on the circle that fits it.
@@ -217,6 +235,16 @@ it is recycled, and what it carried lights the photon ring (section 6).
   trails of a side-on hole show, 0 leaves a side-on hole dragging nothing. It is the flat mode's: under
   `threeD` the axis stands in space and the drag is the real turn round it. The stars have their own
   multiple, `orbitDrag` (section 7).
+- `frameDragSight` (flat mode only, default 1) is the rest of that turn: space turning about an axis in
+  the screen carries what lies on one side of the axis toward the camera and the other side away, so the
+  particles on one side of a tilted hole speed up and streak brighter and those on the other slow and
+  dim. 0 lets both sides fall alike; higher, with `frameDrag` 4 or more, splits the field round the shadow
+  into a bright and a dark half. It rides on `frameDrag` × `frameDragSweep`, and under `gravityInertia`
+  the push is kept as speed in depth.
+- `frameDragFalloff` (default 1) is how many powers of the distance faster than the pull the drag fades,
+  at the same strength at one radius: at 1 `frameDrag` makes the vortex stronger and never wider; 0 lets
+  it reach as far as the pull (`gravityFalloff`), so the same `frameDrag` winds a spiral several radii
+  wide; 2 and above hold it to a skin round the shadow. Both modes.
 - `blackHoleSize` stays the mass: a spinning hole's shadow is a little smaller than a still one's.
 - The look needs `spinTilt` well away from 0°; at 0° the shadow stays round and only the sky winds.
 - Two holes that merge leave a spinning one about the axis of their orbit, which faces the camera, whatever

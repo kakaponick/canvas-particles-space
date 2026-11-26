@@ -255,6 +255,7 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     doppler: 0,
     tintAhead: createSceneColor(),
     tintEdge: createSceneColor(),
+    tintBehind: createSceneColor(),
     tintGradient: 1.7,
     tintLimit: 0.8,
     vanishX: 0,
@@ -1031,10 +1032,15 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     settings.endFade = state.threeDEndFade
     settings.gravityStrength = hidden.gravity ? 0 : state.gravityStrength
     settings.orbitalStrength = hidden.gravity ? 0 : state.orbitalStrength
+    settings.gravityFalloff = state.gravityFalloff
+    settings.gravityBell = state.gravityDepthBell
+    settings.dragFalloff = state.frameDragFalloff
+    settings.dragSight = state.frameDragSight
     // In space the orbital force turns about the line of flight, toward the camera, and the more the hole
-    // spins the more about the spin's axis as it stands in the scene, by Swirl Follows Spin
+    // spins the more about the spin's axis as it stands in the scene, by Swirl Follows Spin, along the
+    // spin raised to Follow Curve
     const spinLength = Math.hypot(sceneRight, sceneUp, sceneToward)
-    const swirlShare = spinLength > 0 ? state.orbitalSpinFollow * Math.min(spinLength, 1) : 0
+    const swirlShare = spinLength > 0 ? state.orbitalSpinFollow * Math.pow(Math.min(spinLength, 1), state.orbitalSpinFollowCurve) : 0
     const toSpin = spinLength > 0 ? swirlShare / spinLength : 0
     const swirlX = sceneRight * toSpin
     const swirlY = -sceneUp * toSpin
@@ -1421,6 +1427,7 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     frame.doppler = hidden.doppler ? 0 : Math.min(Math.max((speed - state.flightTintFrom) / tintSpan, 0), 1) * (reducedMotion ? 0.5 : 1)
     readSceneColor(frame.tintAhead, state.flightTintAhead)
     readSceneColor(frame.tintEdge, state.flightTintEdge)
+    readSceneColor(frame.tintBehind, state.flightTintBehind)
     frame.tintGradient = state.flightTintGradient
     frame.tintLimit = state.flightTintLimit
     readBackground(state)

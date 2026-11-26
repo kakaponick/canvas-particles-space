@@ -39,7 +39,7 @@ const STEP_KEYS = [
   'frameScale', 'time', 'speed', 'width', 'height', 'focal', 'vanishX', 'vanishY', 'holeX', 'holeY', 'holeRadius', 'captureRadius',
   'captureX', 'captureY', 'spinRight', 'spinUp', 'spinToward', 'companionX', 'companionY', 'companionRadius',
   'companionCapture', 'ringCaptureEnergy', 'ringSkimReach', 'ringSkimEnergy', 'gravityReach', 'holeDepth',
-  'gravityDepth', 'lineWidth', 'minLineWidth', 'gravityStrength', 'orbitalStrength', 'swirlX', 'swirlY', 'swirlZ', 'farZ', 'depthFade',
+  'gravityDepth', 'lineWidth', 'minLineWidth', 'gravityStrength', 'orbitalStrength', 'gravityFalloff', 'gravityBell', 'dragFalloff', 'dragSight', 'swirlX', 'swirlY', 'swirlZ', 'farZ', 'depthFade',
   'pulseSpeedMultiplier', 'pulseIntensity', 'baseBrightness', 'minOpacity', 'maxOpacity', 'speedGlow', 'speedKnee', 'revealRadius', 'revealX',
   'revealY', 'revealFeather', 'opacityScale', 'threeD', 'holeWorldX', 'holeWorldY', 'holeWorldZ', 'companionWorldX',
   'companionWorldY', 'companionWorldZ', 'endFade', 'frontAway', 'frontDepth', 'frontReach', 'holeSeen', 'companionSeen', 'holeFront', 'companionFront'
@@ -165,6 +165,18 @@ ${STEP_DEFINES}
   vec3 rideTo;
   vec2 strokeLook;
   vec2 strokeMeasure;
+
+  // How the pull falls with distance, from the square of radius / distance: that square itself at Pull
+  // Falloff 2, Newton's law, and the power the knob names otherwise
+  float pullFall (float ratioSq) {
+    return s_gravityFalloff == 2.0 ? ratioSq : pow(ratioSq, 0.5 * s_gravityFalloff);
+  }
+
+  // The spin's drag as a share of the pull, from radius / distance: DRAG_SHARE at one radius, falling Drag
+  // Falloff powers of the distance faster than the pull
+  float dragFall (float ratio) {
+    return DRAG_SHARE * (s_dragFalloff == 1.0 ? ratio : pow(ratio, s_dragFalloff));
+  }
 
   // A number in [0, 1) drawn from a word
   float drawn (uint word) {
@@ -324,32 +336,39 @@ ${STEP_DEFINES}
     vec2 start = at * (s_focal / startZ) + vanish;
 
     float pz = startZ - s_speed * s_frameScale * place.w;
-    if (pz <= 0.0) {
-      reborn = 1;
-      return;
-    }
-
-    // A particle the holes set moving drifts on with what it kept of that speed
+    // A particle the holes set moving drifts on with what it kept of that speed; along the line of sight
+    // only while spin lying in the screen pushes it there (Drag Along Sight)
     bool inertial = s_inertial > 0.5;
+    bool sight = s_dragSight > 0.0;
     vec2 kept = vec2(0.0);
+    float keptZ = 0.0;
     if (inertial) {
       kept = drift.xy * s_keep;
       at += kept * s_frameScale;
+      if (sight) {
+        keptZ = drift.z * s_keep;
+        pz += keptZ * s_frameScale;
+      }
+    }
+    if (pz <= 0.0) {
+      reborn = 1;
+      return;
     }
 
     float endScale = s_focal / pz;
     vec2 end = at * endScale + vanish;
     bool hasHole = s_hasHole > 0.5;
     vec2 hole = vec2(s_holeX, s_holeY);
-    // Gravity acts within a depth band round the hole's plane, a compact bell, (1 - u^2 / 4)^3, that is
-    // zero beyond two scales; the horizon takes a particle at any depth
+    // Gravity acts within a depth band round the hole's plane, a compact bell, (1 - u^2 / 4)^p with p Layer
+    // Softness (3), that is zero beyond two scales; the horizon takes a particle at any depth
     float depthBand = max(s_gravityDepth, 0.000001);
     bool banded = pz > s_holeDepth - depthBand * 2.0 && pz < s_holeDepth + depthBand * 2.0;
     float depthOffset = (pz - s_holeDepth) / depthBand;
-    float bell = 1.0 - depthOffset * depthOffset * 0.25;
-    float depthWeight = bell * bell * bell;
+    float bell = max(1.0 - depthOffset * depthOffset * 0.25, 0.000001);
+    float depthWeight = s_gravityBell == 3.0 ? bell * bell * bell : pow(bell, s_gravityBell);
     // Gravity does not depend on the flight speed
-    float pullScale = s_gravityStrength * 0.6 * s_frameScale * s_holeRadius * s_holeRadius;
+    float pullScale = s_gravityStrength * 0.6 * s_frameScale;
+    float radiusSq = s_holeRadius * s_holeRadius;
     float orbitScale = s_orbitalStrength * 0.02;
     float reachSq = s_gravityReach * s_gravityReach;
 
@@ -371,22 +390,37 @@ ${STEP_DEFINES}
           if (s_ringFed > 0.5 && distSq < skim * skim) deposit = vec3(-toHole, s_ringSkimEnergy * s_frameScale * depthWeight);
 
           // Pull and orbit are screen pixels a frame, turned back into scene units at this depth. Frame
-          // dragging turns space about the spin's axis one power of the distance more steeply than the pull
-          // falls: the share toward the camera turns the particles in the screen, the share that lies in
-          // the screen sweeps those nearer than the hole's plane one way and those beyond it the other
+          // dragging turns space about the spin's axis Drag Falloff powers of the distance more steeply
+          // than the pull falls: the share toward the camera turns the particles in the screen, the share
+          // that lies in the screen sweeps those nearer than the hole's plane one way and those beyond it
+          // the other, and carries those on one side of its axis toward the camera and those on the other
+          // away, as far as Drag Along Sight lets it
           float clampedSq = max(distSq, 1.0);
           float invDistance = inversesqrt(clampedSq);
-          float pull = pullScale / clampedSq * depthWeight;
-          float dragScale = DRAG_SHARE * s_holeRadius;
-          float orbit = pull * (orbitScale + s_spinToward * dragScale * invDistance);
-          float across = pull * depthOffset * dragScale;
-          vec2 push = vec2(toHole.x * pull - toHole.y * orbit - across * s_spinUp, toHole.y * pull + toHole.x * orbit - across * s_spinRight) *
-            (pz / s_focal * invDistance);
+          float pull = pullScale * pullFall(radiusSq / clampedSq) * depthWeight;
+          float drag = dragFall(s_holeRadius * invDistance);
+          float orbit = pull * (orbitScale + s_spinToward * drag);
+          float across = pull * depthOffset * drag * clampedSq * invDistance;
+          float toScene = pz / s_focal * invDistance;
+          vec2 push = vec2(toHole.x * pull - toHole.y * orbit - across * s_spinUp, toHole.y * pull + toHole.x * orbit - across * s_spinRight) * toScene;
           if (inertial) {
             kept += push * s_velocityGain;
             push *= s_gain;
           }
           at += push;
+          if (sight && (s_spinRight != 0.0 || s_spinUp != 0.0)) {
+            float pushZ = -(s_spinRight * toHole.y + s_spinUp * toHole.x) * pull * drag * s_dragSight * toScene;
+            if (inertial) {
+              keptZ += pushZ * s_velocityGain;
+              pushZ *= s_gain;
+            }
+            pz += pushZ;
+            if (pz <= 0.0) {
+              reborn = 1;
+              return;
+            }
+            endScale = s_focal / pz;
+          }
           end = at * endScale + vanish;
         }
       }
@@ -407,7 +441,7 @@ ${STEP_DEFINES}
         }
         if (banded) {
           float clampedSq = max(distSq, 1.0);
-          float pull = pullScale * share * share / clampedSq * depthWeight;
+          float pull = pullScale * pullFall(s_companionRadius * s_companionRadius / clampedSq) * depthWeight;
           float orbit = pull * orbitScale;
           vec2 push = vec2(toHole.x * pull - toHole.y * orbit, toHole.y * pull + toHole.x * orbit) * (pz / s_focal * inversesqrt(clampedSq));
           if (inertial) {
@@ -421,7 +455,11 @@ ${STEP_DEFINES}
     }
 
     place.xyz = vec3(at, pz);
-    if (inertial) drift.xy = dot(kept, kept) > SPEED_FLOOR_SQ ? kept : vec2(0.0);
+    if (inertial) {
+      bool keeps = dot(kept, kept) + keptZ * keptZ > SPEED_FLOOR_SQ;
+      drift.xy = keeps ? kept : vec2(0.0);
+      if (sight) drift.z = keeps ? keptZ : 0.0;
+    }
 
     // A particle that did not move draws nothing
     moved = end != start;
@@ -471,7 +509,7 @@ ${STEP_DEFINES}
     // Lengths round the black hole arrive in CSS pixels at its depth; there they are this many scene units
     float radius = s_holeRadius * worldPerPixel;
     float reach = s_gravityReach * worldPerPixel;
-    float pullScale = s_gravityStrength * 0.6 * s_frameScale * radius * radius * worldPerPixel;
+    float pullScale = s_gravityStrength * 0.6 * s_frameScale * worldPerPixel;
     float orbitScale = s_orbitalStrength * 0.02;
     vec3 swirl = vec3(s_swirlX, s_swirlY, s_swirlZ);
 
@@ -496,11 +534,10 @@ ${STEP_DEFINES}
         // the spin's axis, which stands in the scene (its y runs down and its z away from the camera)
         float clampedSq = max(distSq, 1.0);
         float away = sqrt(clampedSq);
-        float pull = pullScale / (clampedSq * away);
+        float pull = pullScale * pullFall(radius * radius / clampedSq) / away;
         float orbit = pull * orbitScale;
         vec3 push = toHole * pull + cross(toHole, swirl) * orbit;
-        vec3 drag = vec3(s_spinRight, -s_spinUp, -s_spinToward) * (DRAG_SHARE * radius);
-        push -= cross(drag, toHole) * (pull / away);
+        push -= cross(vec3(s_spinRight, -s_spinUp, -s_spinToward), toHole) * (pull * dragFall(radius / away));
         if (inertial) {
           kept += push * s_velocityGain;
           push *= s_gain;
@@ -523,7 +560,8 @@ ${STEP_DEFINES}
           return;
         }
         float clampedSq = max(distSq, 1.0);
-        float pull = pullScale * share * share / (clampedSq * sqrt(clampedSq));
+        float companionRadius = radius * share;
+        float pull = pullScale * pullFall(companionRadius * companionRadius / clampedSq) * inversesqrt(clampedSq);
         float orbit = pull * orbitScale;
         vec3 push = toHole * pull + cross(toHole, swirl) * orbit;
         if (inertial) {

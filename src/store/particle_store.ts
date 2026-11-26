@@ -21,6 +21,12 @@ export interface ParticleState extends FlowState {
   // 3D: how far the orbital force's axis turns from the line of flight to the spin's axis as it stands in
   // the scene, the more the faster the hole spins; 0 keeps the line of flight
   orbitalSpinFollow: number
+  // The power of the spin that share grows by: 1 a straight line, higher values only fast spins
+  orbitalSpinFollowCurve: number
+  // The power of the distance the pull falls by, 2 Newton's inverse square, and the power of the bell of
+  // the flat mode's pulled layer, 3 a soft bell and 0 a slab with hard edges
+  gravityFalloff: number
+  gravityDepthBell: number
   gravityInertia: number
   // Visible black hole: radius of its shadow, % of the viewport's short side. The photon ring,
   // the lens and the strength and reach of gravity scale with it
@@ -37,6 +43,10 @@ export interface ParticleState extends FlowState {
   // How hard spin that lies in the screen sweeps the particles nearer than the hole and those beyond it
   // apart, as a multiple of how hard spin toward the camera swirls them; the flat mode only
   frameDragSweep: number
+  // How many powers of the distance faster than the pull the drag falls, and, in the flat mode, how hard
+  // spin lying in the screen carries the particles along the line of sight, 1 the turn of space about it
+  frameDragFalloff: number
+  frameDragSight: number
   // Reach of the black hole's gravity, in multiples of its size
   gravityReach: number
   ringEnabled: boolean
@@ -154,6 +164,8 @@ export interface ParticleState extends FlowState {
   // particle's colour it replaces, and the flight speeds at which it begins and is whole
   flightTintAhead: string
   flightTintEdge: string
+  // In 3D, the colour the edge colour turns to past a quarter turn off the line of flight, whole behind it
+  flightTintBehind: string
   flightTintGradient: number
   flightTintLimit: number
   flightTintFrom: number
@@ -366,6 +378,9 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   gravityStrength: 2.5,
   orbitalStrength: 40,
   orbitalSpinFollow: 1,
+  orbitalSpinFollowCurve: 1,
+  gravityFalloff: 2,
+  gravityDepthBell: 3,
   gravityInertia: 0,
   blackHoleSize: 8,
   horizonScale: 1,
@@ -374,6 +389,8 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   spinAxis: 0,
   frameDrag: 1,
   frameDragSweep: 1,
+  frameDragFalloff: 1,
+  frameDragSight: 1,
   gravityReach: 5,
   ringEnabled: true,
   ringFeedEnabled: true,
@@ -452,6 +469,7 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   speedGlowKnee: 0.15,
   flightTintAhead: '#99c2ff',
   flightTintEdge: '#ff946b',
+  flightTintBehind: '#ff946b',
   flightTintGradient: 1.7,
   flightTintLimit: 0.8,
   flightTintFrom: 2,
