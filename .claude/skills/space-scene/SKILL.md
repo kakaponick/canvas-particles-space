@@ -21,6 +21,7 @@ is always current.
 | The film format, the script language and ready recipes | `space_guide`, or `window.space.film.guide()` |
 | Which keys belong to one physical effect, how they act on each other, the traps | [references/knobs.md](references/knobs.md) |
 | How to make a film that reads well, and what went wrong before | [references/films.md](references/films.md) |
+| What the particles do in a shot: a look for each, and how they lie on the sheet as the vectors of space | [references/films.md](references/films.md), section 16 |
 | A zoom into the Mandelbrot set: its format and targets | `space_fractal_guide`, or `window.space.fractal.guide()` |
 | The rules for changing the code (frame time, invariants, measuring) | `CLAUDE.md` at the repository root |
 | The rules for changing the code of films, reels, captions or the Mandelbrot zoom | `docs/films.md`, `docs/fractal_films.md` |
@@ -97,7 +98,9 @@ about the scene is said differently in it.
 
 1. Read both once: `space_guide`.
 2. Write the film as a `.js` script or a `.json` file. Films of this project live in `films/`; a throwaway
-   goes to a temp folder. Cut a script into shots: a shot is what a viewer would call one picture.
+   goes to a temp folder. Cut a script into shots: a shot is what a viewer would call one picture. Direct
+   the particles in every shot: they are the picture's vectors, the one thing in it that shows what moves
+   and which way, and over a sheet they lie on its surface (`gridRide`).
 3. `space_check` reads it back in a moment as a timeline, with every mistake at once and the line of each.
 4. `space_preview` draws its frames side by side: a frame of each shot when the film has shots (its
    storyboard), or the seconds you ask for. Ask for the seconds where something changes, and look at the

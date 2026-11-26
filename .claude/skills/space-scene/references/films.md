@@ -29,7 +29,9 @@ Write down, second by second, what the viewer should see. Then give each moment 
 make it, from knobs.md. A film that moves ten things at once shows none of them; one built on a single
 ability of the scene, taken to its end, is the one people watch twice.
 
-The particles are in every one of those pictures, so each shot says what they do: section 16.
+The particles are in every one of those pictures, and they are its vectors: what moves in a shot, and
+which way, is what the particles do there. So each shot says what they do, and a shot with a sheet lays
+them on it: section 16.
 
 A film made for YouTube starts one step earlier: with its thumbnail. Before the first second is written,
 say in a sentence what the poster shows and which moment of the film keeps its promise: section 17.
@@ -226,8 +228,10 @@ counters read from the film, a list that builds, and the scene's time slowed by 
 films show the Ray Traced lens and spin: `ray_closer.js` flies the camera from 190 to 2 Schwarzschild radii
 by `lensingRadius` alone, a dolly zoom with its distances read from the same function; `ray_deeper.js` dives
 to the photon rings at the shadow's edge in a tall frame; `kerr_around.js` flies over a spinning hole from
-pole to pole with `ringSide` and `ringDoppler` following the spin. Copy the nearest one and change it; they
-all pass the check.
+pole to pole with `ringSide` and `ringDoppler` following the spin. `fourth_dimension.json` is a reel of six
+clips paced by a narration; its `fourth_dimension_well.js` is the film to copy for particles on the sheet:
+the textbook's well with matter lying on it, a camera that rises above it, and axes and lines that stay on
+the surface while it moves. Copy the nearest one and change it; they all pass the check.
 
 What lights the photon rings under Ray Traced is whatever lies right round the hole in the picture behind
 it: each ring is the whole sky squeezed, and only a bright thing near the hole survives the squeeze. The
@@ -414,14 +418,16 @@ A JSON object with `clips`; the same tools take it wherever they take a film, an
 
 ## 16. The particle field: a look for every shot
 
-The particles are the scene; grids, shapes and captions explain what they do. A film that leaves the field
-at its defaults shows one flight in every shot, and whoever knows the scene sees it at once. So every shot
+The particles are the scene's vector field: every stroke is an arrow that points where its particle goes
+and is as bright as it is fast. So whatever a shot says is moving (matter, light, space itself) is shown by
+the particles moving that way; grids, shapes and captions only name it. A film that leaves the field at
+its defaults shows one flight in every shot, and whoever knows the scene sees it at once. So every shot
 gets a **look**: a handful of particle settings chosen for what the shot says. The keys and their laws are
 sections 2 to 4 of knobs.md; this is how to use them in a film.
 
-1. Say in one sentence what the particles do in the shot: "matter circles the hole", "nothing moves",
-   "everything runs sideways". A shot whose sentence is "they fly past as usual" has no look yet.
-2. Take the look from the table below, or build one from knobs.md.
+1. Say in one sentence what the particles do in the shot: "matter circles the hole", "space falls inward
+   along every spoke", "nothing moves". A shot whose sentence is "they fly past as usual" has no look yet.
+2. Take the look from the tables below, or build one from knobs.md.
 3. See it before writing the film: a reel of 7 s clips, one look each, with `"intro": false` and
    `"warmup": 8`, previewed with no seconds asked for, is one picture of every look under its name, in
    about ten seconds. The warm-up matters: a ring takes seconds to gather.
@@ -439,7 +445,7 @@ Looks that have been seen on a contact sheet, most of them filmed in `films/four
 | Bent paths | `gravityInertia` 1, `baseSpeed` 2.5, `gravityStrength` 6, `gravityReach` 9 | Streaks swing round the hole and fly on. `gravityStrength` moved from 0.3 to 7 along a track is the pull arriving |
 | A disc in space | `threeD`, `gravityInertia` 0.95, `baseSpeed` 0.4, `gravityStrength` 6, `gravityReach` 12, `orbitalStrength` 80, `baseBrightness` 2, `speedGlow` 0.3 | A tilted disc circling the hole, its far side bent over the shadow by the traced lens. With `blackHoleSpin` and `frameDrag` 5 it winds |
 | Infall | `baseSpeed` 0, `orbitalStrength` 0, `trailIntensity` 0.03, `gravityStrength` 6, `gravityReach` 12, `gravityDepth` 60 | Hair-thin rays that brighten toward the hole and are faint beyond three radii: a second voice under a grid on a dark sky, not a picture alone. `orbitalStrength` 70 leans them into a spiral; `particleSizeMin` raised to `particleSize` heaps a bright band on the horizon |
-| Matter on the sheet | `gridRide` 1 on a tilted sheet (`gridRings` 40 draws it as a textbook does), `fieldAtHole` 1, `lensingEnabled` false, `baseSpeed` 0, `gravityDepth` 100, `gravityInertia` 0.75, `orbitalStrength` 80, `gravityStrength` 4, `gravityReach` 16, `speedGlowKnee` 0.03, `trailIntensity` 0.5, and every particle alike: `depthFade` 0, `minOpacity` 0.1, `particleSize` and `particleSizeMin` 2, `baseBrightness` 0.6 | The well lined with matter that drains down it, from its mouth to the hole and all the way round; from above (`gridTilt` 0) the same matter is the disc round the shadow. A `warmup` of 10, the most there is, fills it. `orbitalStrength` 0 with `gravityInertia` 0.3 sends it straight in along the spokes; `gravityInertia` from 0.82 gathers it into one band circling the wall |
+| On the sheet | the setup and the motions of the part below | The particles lying on the surface of the well and moving on it |
 | Falling in space | `threeD`, `orbitalStrength` 0, `gravityInertia` 0.5, `gravityStrength` 7, `gravityReach` 18, `baseSpeed` 0.25, `baseBrightness` 1.3, `speedGlow` 0.3, `trailIntensity` 0.06 | Streaks toward the hole from every side, among the lattice's lines; `gravityStrength` 11 is a harder fall |
 | A push | the infall with `gravityStrength` -12 and `horizonScale` 0 | The field emptied round the hole and heaped into a ring beyond it. With a flight (`baseSpeed` 3) and the ring's glow filling the shadow (`ringGlow` 3, `ringGlowSkirt` 1, `ringGlowSkirtShare` 3, `ringBase` 3) it is a white hole |
 | Stillness | `baseSpeed` 0 and no pull | A dark field: the stars and the nebula alone |
@@ -455,16 +461,12 @@ What decides whether a look shows:
   a dim one: give it a dark sky, `speedGlow` toward 0, and judge it at full size.
 - A look forms and leaves over seconds. Start its `to()` under the line before the one it belongs to.
 - A hole given more mass along the film (`blackHoleSize` on a track) carries its ring with it.
-- The particles live in the plane of the screen. Over a tilted sheet they float in front of it, a ring
-  seen face on above a well seen from the side, and no look mends that: `gridRide` 1 lays them on the
-  sheet (knobs.md, section 9). A drawing is laid on the sheet by the sheet's own sums, in the script:
-  `laySheet` in `films/fourth_dimension_well.js` gives an axis, a line down the well's wall or a dot its
-  place at every tilt, so the camera can move while they stay on the surface.
 - With `baseSpeed` 0 the hole uses the field up: what it takes comes back at the far end of the field,
-  where the default `gravityDepth` no longer reaches and the far particles are dim hairlines. A look that
-  must last a minute takes `gravityDepth` 100 and every particle alike (the row above). Before a 3D shot
-  that follows, the field is one cloud at that far end: set `numParticles` to 500, its least, and back in
-  two `set()`s a frame apart, while the picture is dark or empty, and it is made anew at every depth.
+  where the default `gravityDepth` no longer reaches and a particle is a dim hairline. A look that must
+  last takes `gravityDepth` 100 and every particle alike (`depthFade` 0, `particleSizeMin` raised to
+  `particleSize`). Before a 3D shot that follows, the field is one cloud at that far end: set
+  `numParticles` to 500, its least, and back in two `set()`s a frame apart, while the picture is dark or
+  empty, and it is made anew at every depth.
 - What falls into a hole comes from where the field is. The field is born round the centre of the frame,
   so a hole placed low or to one side gathers matter on the side with more frame, and a swirl carries
   that side round: a veil on one wall of the well, a disc with a gap. `fieldAtHole` 1 feeds the hole from
@@ -474,6 +476,47 @@ What decides whether a look shows:
   swing into 3D a cut for them (`cameraCutTurn` 0 for the seconds of `threeDEase`).
 - A shape is laid where the particles already go: an arrow over a stream is a label, an arrow in place of
   one is a diagram of something the scene could have shown.
+
+### On the sheet: the particles as the vectors of space
+
+A sheet shows how space lies. The particles laid on it show where it goes: each stroke is an arrow on the
+surface, down the well along a spoke, round its wall, or held in a band. It is how the scene draws space
+itself in motion, so a shot with a tilted sheet has its particles on the sheet, and its sentence says
+which way they go.
+
+One setup carries every such shot. It was seen at `gridTilt` 66 with `gridDepth` 5 to 10 and the hole at
+`blackHoleY` 0.6 to 0.78, and from above at `gridTilt` 0 with the hole at 0.5:
+
+- The surface: `gridSheet` 0.85, `gridRings` 40 with `gridSpokes` 24, the textbook's drawing, whose spokes
+  are the lines a straight fall follows; `gridSpan` 0.6 with `gridFade` 0.3 ends the sheet before its near
+  side runs under the hole.
+- The particles on it: `gridRide` 1, `fieldAtHole` 1, `lensingEnabled` false, `baseSpeed` 0.
+- Every particle alike, so the well fills and stays full: `gravityDepth` 100, `depthFade` 0, `minOpacity`
+  0.1, `particleSize` and `particleSizeMin` 2, `speedGlowKnee` 0.03, `trailIntensity` 0.5, `baseBrightness`
+  0.6. A `warmup` of 10, the most there is, fills the well before the first frame.
+
+The motion is the sentence of the shot:
+
+| The shot says | Settings | From the side | From above |
+|---|---|---|---|
+| Space falls inward, points inward, stretches | `orbitalStrength` 0, `gravityInertia` 0.3, `gravityStrength` 6, `gravityReach` 14, `trailIntensity` 0.05, `speedGlowKnee` 0.02, `minOpacity` 0.2 | Rays over the whole sheet, each down its spoke and into the well | A star of rays closing on the hole from every side |
+| Matter drains down the well | `gravityInertia` 0.75, `orbitalStrength` 80, `gravityStrength` 4, `gravityReach` 16 | The well lined from its mouth to the hole, all the way round, turning as it goes; `orbitalStrength` -80 turns it the other way | A whole disc round the shadow |
+| Matter circles and stays | `gravityInertia` 0.82, `orbitalStrength` 100 | One band circling the wall part of the way down | A thin ring close round the shadow |
+| Matter orbits the well | `gravityInertia` 0.9, `orbitalStrength` 90 | A ring lying on the sheet round the mouth of the well | A ring two radii out |
+| More mass, a deeper well | `gridDepth` up along a track, with `gravityStrength` 6 and `baseBrightness` 0.8 | The wall grows longer and the matter runs faster down it | |
+
+What goes wrong on the sheet:
+
+- With `gridRide` 0 the particles stay in the plane of the screen: a ring seen face on, floating in front
+  of a well seen from the side. No look mends that.
+- With `particleSizeMin` at its default the well looks empty: what the hole took is a hairline now.
+- With `fieldAtHole` 0 the well fills on one wall, since over a tilted sheet the hole stands low.
+- The lens bends the particles round the hole on the screen, off the surface: `lensingEnabled` false.
+- The sheet's waves do not lift the particles on it. A ripple is filmed on a sheet without them
+  (knobs.md, section 8).
+- A drawing does not ride the sheet by itself. The script lays it there by the sheet's own sums:
+  `laySheet` in `films/fourth_dimension_well.js` gives an axis, a line down the well's wall or a dot its
+  place at every tilt, depth and place of the hole, so the camera can move while they stay on the surface.
 
 ## 17. The poster: a YouTube thumbnail planned with the film
 

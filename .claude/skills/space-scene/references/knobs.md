@@ -342,15 +342,18 @@ come, as around a real black hole.
   steepest, so the depth is read with no tilt at all. The outermost stands about half as many shadow radii
   out as there are rings (40 fills a 1080p frame at `blackHoleSize` 8), and half of them stand within a
   third of a radius of the shadow, where `gridClearing` thins them. Waves read better on the square cells.
-- `gridRide` lays the particles on the sheet: each is drawn where the sheet lies under its place around the
-  hole, so the ring of matter wraps the mouth of the well, what falls goes down its wall, and from above
-  the same matter is the disc round the shadow. Without it the particles stay in the plane of the screen
-  and float in front of a tilted sheet. It moves only where they are drawn: give them a look as ever (films
-  guide, section 16), with `baseSpeed` 0, since the flat flight would run outward along the sheet, and
-  `lensingEnabled` false, since the lens bends them round the hole on the screen, and `fieldAtHole` 1,
-  since a tilted sheet is framed with the hole low and the field is else born round the frame's centre:
-  the well then fills on one side only (section 2). Film it in the flat mode, with `gridTilt` as the
-  camera: tilting it streaks the trails as a camera move does. In 3D the sheet's lines turn with
+- `gridRide` lays the particles on the sheet, and with that the sheet shows not only how space lies but
+  where it goes: each stroke is an arrow on the surface. A particle is drawn where the sheet lies under
+  its place around the hole, so what falls goes down the well's wall, what circles wraps its mouth, and
+  from above the same matter is the disc round the shadow. Without it the particles stay in the plane of
+  the screen and float in front of a tilted sheet. It moves only where they are drawn, so their motion is
+  set as ever, and four neighbours decide whether it shows: `baseSpeed` 0, since the flat flight would run
+  outward along the sheet; `lensingEnabled` false, since the lens bends them round the hole on the screen;
+  `fieldAtHole` 1, since a tilted sheet is framed with the hole low and the well then fills on one side
+  only (section 2); and `particleSizeMin` raised to `particleSize`, since what the hole took comes back at
+  the far end of the field as a hairline and the well looks empty. The whole setup, and the motion for
+  each thing a shot may say, are in the film guide, section 16. Film it in the flat mode, with `gridTilt`
+  as the camera: tilting it streaks the trails as a camera move does. In 3D the sheet's lines turn with
   `cameraYaw` and the particles on it with them.
 - The lensed grid is a measuring tool: it shows the Einstein ring, the mirrored image, the twist and the
   waves. Lower `baseBrightness` when it should be read clearly.

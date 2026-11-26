@@ -1230,6 +1230,10 @@ Recipes
   Move the hole:           "tracks": { "blackHoleX": [[0, 0.3], [10, 0.7]], "blackHoleY": [[0, 0.5]] }
   Real black hole:         "preset": "Schwarzschild", "intro": false
   Curved space sheet:      "settings": { "gridSheet": 0.6, "gridTilt": 65, "gridDepth": 3 }
+  Matter on the sheet:     "settings": { "gridSheet": 0.8, "gridRings": 40, "gridDepth": 5, "blackHoleY": 0.7, "gridRide": 1,
+                             "fieldAtHole": 1, "lensingEnabled": false, "baseSpeed": 0, "gravityReach": 16, "gravityDepth": 100,
+                             "depthFade": 0, "particleSizeMin": 3 }
+                           (the particles lie on the well and drain down it: on a sheet they show what moves, and where)
   Lens made visible:       "settings": { "gridSky": 0.5 }
   Orbiting stars (S2):     "settings": { "orbitCount": 12, "orbitEccentricity": 0.7, "orbitTrail": 10 }
   Two black holes merging: "settings": { "companionSize": 0.7, "gridSheet": 0.5 },
