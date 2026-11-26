@@ -15,7 +15,8 @@ import { fillInertiaStep, type PaletteSampler, type StepSettings } from './parti
 
 // A particle's record in the buffer, in floats: its state (place and speed multiplier; kept speed and
 // alpha; pulse phase, pulse speed and colour), then what it draws this frame (the stroke's ends, its width
-// and opacity) and the light it leaves in the ring (where round the hole, how much)
+// and opacity, whose sign is the side of the black holes it is on: below 0 in front of them) and the light
+// it leaves in the ring (where round the hole, how much)
 export const FIELD_FLOATS = 20
 export const FIELD_STRIDE = FIELD_FLOATS * 4
 
@@ -41,7 +42,7 @@ const STEP_KEYS = [
   'gravityDepth', 'lineWidth', 'minLineWidth', 'gravityStrength', 'orbitalStrength', 'swirlX', 'swirlY', 'swirlZ', 'farZ', 'depthFade',
   'pulseSpeedMultiplier', 'pulseIntensity', 'baseBrightness', 'minOpacity', 'maxOpacity', 'speedGlow', 'speedKnee', 'revealRadius', 'revealX',
   'revealY', 'revealFeather', 'opacityScale', 'threeD', 'holeWorldX', 'holeWorldY', 'holeWorldZ', 'companionWorldX',
-  'companionWorldY', 'companionWorldZ', 'endFade'
+  'companionWorldY', 'companionWorldZ', 'endFade', 'frontAway'
 ] as const satisfies readonly (keyof StepSettings)[]
 const DERIVED_KEYS = ['hasHole', 'ringFed', 'revealing', 'inertial', 'keep', 'gain', 'velocityGain', 'spawnRadius', 'speedVariance'] as const
 const STEP_NAMES: readonly string[] = [...STEP_KEYS, ...DERIVED_KEYS]
@@ -118,7 +119,7 @@ ${ride}
   out vec4 v_drift;
   out vec3 v_look;
   out vec4 v_segment;   // the stroke: where it starts and ends, CSS pixels
-  out vec2 v_style;     // its width in CSS pixels, its opacity; 0 draws nothing
+  out vec2 v_style;     // its width in CSS pixels, its opacity; 0 draws nothing, below 0 it is in front of the holes
   out vec3 v_deposit;   // light for the photon ring: where round the hole it lands, how much
 
 ${STEP_DEFINES}
@@ -236,8 +237,11 @@ ${STEP_DEFINES}
   // two ends (CSS pixels seen straight on), "distanceFactor" of the way to the far end of the field. On the
   // sheet it lies where the surface does over its two places in the main hole's equator ("inFrom", "inTo"),
   // as far as it rides there. "own" is how far the particle itself moved on the screen, whatever the camera
-  // did, and "fromBlast" its distance from the opening's blast, both in CSS pixels
+  // did, and "fromBlast" its distance from the opening's blast, both in CSS pixels. A stroke whose middle is
+  // nearer the camera than the nearer black hole (s_frontAway, 0 in the flat mode) is in front of the holes:
+  // its opacity is written below 0, and the renderer draws it into the layer the lens does not bend
   void stroke (vec2 start, vec2 end, vec2 away, float distanceFactor, vec3 inFrom, vec3 inTo, float shown, float own, float fromBlast) {
+    float middleAway = 0.5 * (away.x + away.y);
     float depthFactor = 1.0 - distanceFactor * s_depthFade;
     float lineWidth = max((1.0 - distanceFactor) * s_lineWidth, s_minLineWidth);
     float pulse = s_pulseIntensity != 0.0
@@ -262,6 +266,8 @@ ${STEP_DEFINES}
         if (min(laidFrom.z, laidTo.z) < u_sheetV.w) return;
         start = laidOn(start, away.x, laidFrom, shareFrom);
         end = laidOn(end, away.y, laidTo, shareTo);
+        // A ridden stroke stands as far away as laidOn sets it
+        middleAway = 0.5 * (mix(away.x, mix(away.x, laidFrom.z, u_ride.w), shareFrom) + mix(away.y, mix(away.y, laidTo.z, u_ride.w), shareTo));
         // Both ends of a ridden stroke are seen through the sheet as it lies now, so its length is the move
         own = mix(own, length(sheetScreen(laidTo) - sheetScreen(laidFrom)), 0.5 * (shareFrom + shareTo));
       }
@@ -285,7 +291,7 @@ ${STEP_DEFINES}
       start += delta * span.x;
     }
     segment = vec4(start, end);
-    style = vec2(lineWidth, opacity);
+    style = vec2(lineWidth, s_frontAway > 0.0 && middleAway < s_frontAway ? -opacity : opacity);
   }
 
   // The flat loop: the holes pull a particle where it lands on the screen, inside a layer of depth round

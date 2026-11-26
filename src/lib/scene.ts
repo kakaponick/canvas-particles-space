@@ -1159,6 +1159,16 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       const apart = (horizon + companionRadius) * pivot / settings.focal
       composite.pairNearer = apart > 0 ? Math.min(Math.max(-behind / apart, -1), 1) : 0
     }
+    // In 3D what stands nearer the camera than the nearer black hole is in front of the holes: its light
+    // comes straight to the camera, neither bent by the lens nor covered by a shadow, and the renderer draws
+    // it into layers of its own. Something between two holes is taken as behind both. The flat law takes
+    // whatever covers the hole at any depth, so it has no front, nor has a hole not there or behind the camera
+    let frontAway = 0
+    if (threeD && horizon > 0 && holeAway > NEAR_DEPTH) {
+      const nearest = companionRadius > 0 && companionAway > NEAR_DEPTH ? Math.min(holeAway, companionAway) : holeAway
+      frontAway = nearest * settings.focal / pivot
+    }
+    settings.frontAway = frontAway
     // The plane the waves and the ringing oval lie in, as the camera sees its two directions (right and
     // down on the picture): the pair's while there is one. A hole alone has no orbit, and its ringing and
     // a wave fired at it keep the plane across the line of flight, the one the opening is seen in

@@ -161,6 +161,11 @@ export interface StepSettings {
   // Seen from the side, the 3D column fades over this share of Field Depth at both of its ends, so the
   // place particles are born and the place they leave are not hard edges
   endFade: number
+  // In 3D, how far in front of the camera the nearer black hole stands, in CSS pixels seen straight on (scene
+  // units over the scene units in a CSS pixel at the pivot's distance): a stroke nearer than that is in
+  // front of the holes and is drawn into the layer the lens does not bend. 0 while nothing can be in front
+  // (the flat mode, no hole, a hole behind the camera)
+  frontAway: number
   // Particles on Sheet (RIDE_GLSL in webgl_shaders.ts): the share of the way a particle in the slab round
   // the main hole's equator is laid on the sheet, 0 leaving it alone and the rest unread; the slab's half
   // thickness, CSS pixels at the hole's distance; the sheet as it is laid out this frame (space_grid.ts)
@@ -375,6 +380,7 @@ export function createStepSettings (ringEnergy: RingEnergy | null = null): StepS
     cameraMoveUpFrom: 0,
     cameraMoveInFrom: 0,
     endFade: 0.12,
+    frontAway: 0,
     ride: 0,
     rideDepth: 1,
     sheet: createGridSettings()

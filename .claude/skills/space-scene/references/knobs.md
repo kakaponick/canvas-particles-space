@@ -517,7 +517,8 @@ that precess, faster the closer they come, as around a real black hole.
   a short fade is a disc of sheet around the hole.
 - `gridLine` is the width as far from the camera as the point it looks at; nearer lines widen with the
   perspective up to `gridLineNear` times. The lines stop at each hole: gone inside `gridClearing` shadow radii, whole beyond
-  `gridClearingEdge`, which is taken no smaller. Both at 0 let the sheet cross the shadow.
+  `gridClearingEdge`, which is taken no smaller. Both at 0 let the sheet cross the shadow. In 3D a piece
+  of line nearer the camera than the holes passes in front of them and is not cleared.
 - `gridWaveLift` is the height a wave gives the sheet for each pixel it stretches the sky, so it scales
   every wave on the sheet at once (`companionWaves`, `gravityWaveGain`, a fired `gravityWave`) and leaves
   the sky alone. 0 keeps the sheet still under a rippling sky; 20 makes steep hills of a merger.
@@ -638,6 +639,14 @@ that precess, faster the closer they come, as around a real black hole.
   switching `threeD` on turns the sheet over `threeDEase` from the flat mode's tilted view to where it
   lies. The second hole's well stands where that hole's place falls on the plane, so a pair tilted out of
   the equator (`companionTilt`) dents it under where each hole is, not where it is seen.
+- In 3D what lies between the camera and the hole is in front of it: a particle, a star's trace, a flow, a
+  line of the lattice or of the sheet nearer the camera than the hole is drawn over the shadow, the lens
+  and the ring, where it is, neither bent nor hidden; what lies beyond it is seen through the lens as
+  before. So a camera circled to the side sees the column pass in front of the hole on its near side and
+  behind it on its far side, and a fly-by (`cameraMoveIn`) sees the particles it passes cross the shadow.
+  The camera's zoom, jolt, lens fringe, exposure and the film act on what is in front; the waves and the
+  opening's matter front do not. With two holes the nearer one decides: what lies between them counts as
+  behind both. The flat mode has none of this, since its horizon takes whatever covers the hole.
 - The circle is where the camera starts; six keys take it anywhere from there, all in 3D only and all at
   0 the circle alone, number for number. `cameraRoll` turns the whole picture about the middle of the
   screen (positive anticlockwise), the sky, the sheet and the ring's bright side (`ringSide`) with it;
@@ -919,7 +928,7 @@ The cost of a knob, in the last column:
 | The sheet's 225 lines each way, in 192 pieces each, where `gridSpan` ends at a small `gridCell` | space_grid.ts | machine |
 | Where the sheet's rings stand: at equal steps of the well's depth, so their radii follow from `gridRings` alone | webgl_shaders.ts | frame: a shape, not a number |
 | The sheet's waves do not carry the particles `gridRide` lays on it | webgl_shaders.ts | particle: the wave's height at each particle |
-| Which side of a hole a line of the sheet passes: the sheet is drawn over the finished frame, and every line is cleared round each shadow as the screen shows it (`gridClearing`), whether it passes behind the hole or before it | particle_renderer.ts, webgl_shaders.ts | pixel: the sheet drawn into the layer the lens reads, or its depth weighed against the hole's, a later stage |
+| A line of the sheet behind the holes is not bent by the lens: the sheet is drawn over the finished frame and only cleared round each shadow (`gridClearing`); a piece nearer the camera than the holes is left whole | particle_renderer.ts, webgl_shaders.ts | pixel: the sheet behind the holes drawn into the layer the lens reads |
 | How a particle's ride falls across the slab: a smooth step from the plane to `gridRideDepth`, alike on both sides | webgl_shaders.ts | frame: a curve, not a number |
 | A ridden stroke with an end whose point of the surface lies nearer than the sheet camera's nearest is dropped whole, not cut there | field_step.ts, webgl_shaders.ts | particle |
 | The second hole's well dents the sheet at its full depth however far that hole stands off the plane | space_grid.ts | frame |
@@ -961,3 +970,8 @@ The cost of a knob, in the last column:
 | The picture is drawn into 4.5 million device pixels at most, 2 to a CSS pixel | particle_canvas.tsx | machine |
 | The 3D camera's nearest, 1 scene unit: a hole nearer than that, or behind the camera, is not drawn, and a stroke and a line of the sheet are cut there | scene.ts, field_step.ts, space_grid.ts | machine |
 | The orbits' traces are set in perspective around the hole's own place on the screen, not each point on its own, which a camera that looks far aside or comes very near shows as a slight misfit | webgl_shaders.ts | pixel: each point projected alone |
+| In 3D, which side of the holes a thing is on: the middle of its stroke or piece, by its depth along the camera's line of sight against the hole's, a hard edge; a stroke that crosses that depth is wholly on one side, and a particle that changes side leaves its old trail fading where it was drawn | field_step.ts, webgl_shaders.ts | particle: a stroke cut at the boundary and drawn into both layers |
+| With two holes the boundary is the nearer one: what lies between them is behind both, so the nearer hole's shadow covers it and the farther one's lens does not see it in front of itself | scene.ts | pixel: a third layer between the two, read through the farther hole's lens alone |
+| Light in front of the holes is laid over them as the brighter of it and what is there, as the layers keep theirs, not added to the ring's | webgl_shaders.ts | frame: a law, not a number |
+| The gravitational waves and the opening's matter front move what lies behind the holes and leave what is in front alone, though both pass between them and the camera | webgl_shaders.ts | pixel: the front layers read through the waves too |
+| The trails in front of the holes go at once when the front ends (3D eased out, the hole gone or behind the camera) and start black when it begins | particle_renderer.ts | frame: their layer kept and faded until it is dark |
