@@ -198,8 +198,9 @@ it is recycled, and what it carried lights the photon ring (section 6).
   the other way, and the photon ring follows the outline. Particles are captured on the circle that fits it.
 - Under `lensingTraced` the light itself is followed round a Kerr hole: the sky is dragged round and the
   rings inside the Einstein ring lean to one side. The stylized lens stays round.
-- The orbiting stars feel the pull round (Lense-Thirring) from the share of spin along the line to the
-  camera, so `spinTilt` near 0° or 180° swings them most and 90° not at all.
+- The orbiting stars feel the spin (Lense-Thirring) about its axis as it stands in the scene, at any
+  `spinTilt`: the plane of a tipped orbit turns about that axis, the way the particles are carried round
+  (section 7).
 - The particles are carried round with the space near the hole (frame dragging), as a share of the pull:
   spin / 2 at one hole radius, fading one power of the distance faster than the pull, so it shows within
   two or three radii and needs `gravityStrength` above 0. Toward the camera (`spinTilt` near 0°) the spin
@@ -607,9 +608,10 @@ that precess, faster the closer they come, as around a real black hole.
 - From the side the field is a column with two ends, where particles are born and where they leave.
   `threeDEndFade` fades both over that share of `farZ`: 0 cuts them hard, 0.5 fades the whole column
   toward its middle. Straight on it does nothing.
-- What turns with the camera is the field, the orbits (they lie across the line of flight, so they are
-  seen as ellipses from above), the second black hole (it circles in that plane too), its waves, and
-  the sky. The sky is a box round the camera that stands still in the scene: the stars, the nebula and
+- What turns with the camera is the field, the orbits (each on a plane of its own near the hole's
+  equator, which lies across the line of flight while the hole does not spin), the flows (in that
+  equator, each with its own tilt), the second black hole (it circles in a plane of its own,
+  `companionTilt`), its waves, and the sky. The sky is a box round the camera that stands still in the scene: the stars, the nebula and
   the Lensed Grid cross the frame as a real sky does when a camera turns, faster at the frame's edges
   than in its middle, and behind the camera is another sky than ahead. A hole without spin looks the same from every side. A spinning hole's
   axis stands in the scene (`spinTilt` and `spinAxis` are as seen straight on), so as the camera circles

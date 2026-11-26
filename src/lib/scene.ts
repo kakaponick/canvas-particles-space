@@ -1128,9 +1128,9 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       settings.cameraMoveRightFrom = cut ? moveRight : view.moveRight
       settings.cameraMoveUpFrom = cut ? moveUp : view.moveUp
       settings.cameraMoveInFrom = cut ? moveIn : view.moveIn
-      // The orbiting stars and the flows circle the main hole: the renderer turns what they draw with the
-      // camera's columns (where it sends the scene's x, then y, then z) and sets it at the hole's distance
-      // (below 0: the hole is behind the camera and they are not drawn)
+      // The orbiting stars circle the main hole: the renderer turns what they draw with the camera's
+      // columns (where it sends the scene's x, then y, then z) and sets them and the flows at the hole's
+      // distance (below 0: the hole is behind the camera and they are not drawn)
       const orbitTurn = frame.orbitTurn
       orbitTurn[0] = pose[0]
       orbitTurn[1] = pose[3]
