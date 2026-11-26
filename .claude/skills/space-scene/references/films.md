@@ -153,6 +153,10 @@ takes an audio file and lays it under the picture from the first second.
   b.js b.mp4 high`. After a fix, preview again only the films that changed, at the seconds that changed.
 - A render needs nothing after it but the mp4. Once the previews are right, start it in the background and
   commit the films and finish the rest while it runs.
+- A film is rendered once: one mp4 at the default quality. A second quality, a lighter copy or another
+  version waits for the user to ask: each doubles the render, so a file that came out large is reported
+  with its size, not rendered again smaller unasked. A render made stale by a new request is stopped at
+  once, before the new work is thought through.
 - Rendered mp4 and audio files in `films/` are kept out of git; the json is the film. On Windows a render
   fails to replace an mp4 that a player still has open.
 
