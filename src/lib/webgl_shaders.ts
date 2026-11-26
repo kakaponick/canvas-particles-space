@@ -663,6 +663,16 @@ ${DENT_GLSL}
     return share < 1.0 ? share * share : 1.0 / share;
   }
 
+  // A quadrupole in the plane the pairs circle in (the scene's x-y plane) read along a direction of the
+  // picture: c.x times (x*x - y*y) plus c.y times 2*x*y, for x and y the parts of v along the scene's x and y
+  // axes as the camera sees them. Straight on they are v itself; as the plane turns edge-on one of them
+  // shrinks to nothing, so the pattern flattens with it
+  float planeQuad (vec2 v, vec2 c) {
+    float x = dot(v, vec2(u_turnRight.x, u_turnDown.x));
+    float y = dot(v, vec2(u_turnRight.y, u_turnDown.y));
+    return c.x * (x * x - y * y) + c.y * 2.0 * x * y;
+  }
+
   void main () {
     // Where this pixel is on the screen, and where the zoomed and jolted camera looks through it
     vec2 screen = vec2(gl_FragCoord.x, u_resolution.y - gl_FragCoord.y);
@@ -674,10 +684,12 @@ ${DENT_GLSL}
     float dist = length(offset);
     // A ringing horizon is an oval: longer along one axis by the share it is shorter along the other, so
     // it keeps its area, as a quadrupole does. The shadow, the lens and the photon ring all measure their
-    // distance in that oval, so they wobble together. (x*x - y*y) / (r*r) and 2*x*y / (r*r) are the cosine
-    // and the sine of twice the angle, which u_holeOval turns to the oval's long axis
+    // distance in that oval, so they wobble together. The oval lies in the plane the pair circled in, and
+    // its outline seen from any side is, to first order, 1 + e ((n.a)^2 - (n.a')^2) for n the direction on
+    // the picture, a its long axis and a' the one across it: planeQuad, which flattens as the plane turns
+    // edge-on
     if (u_holeOval != vec2(0.0)) {
-      dist /= 1.0 + (u_holeOval.x * (offset.x * offset.x - offset.y * offset.y) + u_holeOval.y * 2.0 * offset.x * offset.y) / max(dist * dist, 0.0001);
+      dist /= 1.0 + planeQuad(offset / max(dist, 0.0001), u_holeOval);
     }
     // A spinning hole's shadow is not round: its edge in this direction, from the outline the main thread
     // worked out (kerr_shadow.ts), turned with the axis. The shadow, the photon ring and the traced lens's
@@ -695,7 +707,13 @@ ${DENT_GLSL}
     // wobble the horizon had when the wave left it, u_gravityWaveTime - r / c ago. A gravitational wave
     // moves nothing along its way: what it stretches and squeezes lies across it. So the sky is not pushed
     // out and in, as sound would push it, but slid sideways, most where the oval's long axis stood at 45
-    // degrees to the direction, and it weakens as 1 / r
+    // degrees to the direction, and it weakens as 1 / r.
+    // The picture shows the slice of the wave through its source that faces the camera. The oval is a
+    // quadrupole c in the plane the pair circled in; at a point in the direction n from the source, with t
+    // across it on the picture, what the wave stretches along t is t.M.t + n.M.n / 2, so the slide is
+    // -(2 planeQuad(t, c) + planeQuad(n, c)). Straight on that is planeQuad(n, c), the sine of twice the
+    // angle between n and the oval's long axis; seen along the plane the wave is twice as strong along the
+    // pair's axis as in its plane, as a binary's is
     vec2 fromCenter = frag - u_center;
     float centerDist = length(fromCenter);
     if (u_gravityWaveAmplitude > 0.0) {
@@ -706,39 +724,43 @@ ${DENT_GLSL}
       float quarter = 1.5707963 / u_gravityWaveOmega;
       if (emitted > (u_gravityWaveTurn.z == 0.0 ? 0.0 : -quarter)) {
         float invDist = 1.0 / max(waveDist, 0.0001);
-        float cos2 = (fromWave.x * fromWave.x - fromWave.y * fromWave.y) * invDist * invDist;
-        float sin2 = 2.0 * fromWave.x * fromWave.y * invDist * invDist;
+        vec2 n = fromWave * invDist;
+        vec2 t = vec2(-n.y, n.x);
         float phase = u_gravityWaveOmega * emitted;
-        // The sine of twice the angle between this direction and the oval's long axis as the wave left
-        float across;
+        // The oval as the wave left
+        vec2 c;
         if (u_gravityWaveTurn.z == 0.0) {
           // A hole that formed alone wobbles in place: long sideways, then long upright
-          across = sin(phase) * sin2;
+          c = vec2(0.0, sin(phase));
         } else {
           // Two that became one leave an oval that turns the way they circled, half a turn a wobble
-          across = (sin2 * u_gravityWaveTurn.x - cos2 * u_gravityWaveTurn.y) * cos(phase)
-            - u_gravityWaveTurn.z * (cos2 * u_gravityWaveTurn.x + sin2 * u_gravityWaveTurn.y) * sin(phase);
-          across *= smoothstep(-quarter, quarter, emitted);
+          c = vec2(-u_gravityWaveTurn.y * cos(phase) - u_gravityWaveTurn.z * u_gravityWaveTurn.x * sin(phase),
+            u_gravityWaveTurn.x * cos(phase) - u_gravityWaveTurn.z * u_gravityWaveTurn.y * sin(phase));
+          c *= smoothstep(-quarter, quarter, emitted);
         }
+        float across = -(2.0 * planeQuad(t, c) + planeQuad(n, c));
         float strength = u_gravityWaveAmplitude * exp(-max(emitted, 0.0) * u_gravityWaveInvDecay) * waveReach(waveDist, u_gravityWaveRadius);
         // Reading the scene from further round shows it slid back along the circle
-        samplePx += vec2(-fromWave.y, fromWave.x) * invDist * strength * across;
+        samplePx += t * strength * across;
       }
     }
 
     // Two black holes circling each other send out a wave of the same kind without end. Each point shows
     // the line between them as it stood when the wave left, so the pattern winds into a two-armed spiral
     // that turns with the pair. Once they are one, the last of it keeps flying off ahead of the new hole's
-    // own ringing, which follows it out from the middle
+    // own ringing, which follows it out from the middle. Seen from any side it is the slice through the
+    // pair that faces the camera, as above
     if (u_pairWave.x > 0.0) {
       vec2 fromPair = frag - u_pair;
       float pairDist = length(fromPair);
-      float invDist = 1.0 / max(pairDist, 0.0001);
+      vec2 n = fromPair / max(pairDist, 0.0001);
+      vec2 t = vec2(-n.y, n.x);
       float turn = 2.0 * (u_pairWave.z * pairDist - u_pairWave.y);
-      float across = (2.0 * fromPair.x * fromPair.y * cos(turn) + (fromPair.x * fromPair.x - fromPair.y * fromPair.y) * sin(turn)) * invDist * invDist;
+      vec2 c = vec2(sin(turn), cos(turn));
+      float across = -(2.0 * planeQuad(t, c) + planeQuad(n, c));
       float strength = u_pairWave.x * waveReach(pairDist, u_pairWave.w);
       if (u_pairFront.x >= 0.0) strength *= smoothstep(-u_pairFront.z, u_pairFront.z, pairDist / u_pairFront.y - u_pairFront.x);
-      samplePx += vec2(-fromPair.y, fromPair.x) * invDist * strength * across;
+      samplePx += t * strength * across;
     }
 
     // The lens maps the background behind the hole into a ring of radius E, where the pull (E / r)^2
