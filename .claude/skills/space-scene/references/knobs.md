@@ -136,7 +136,7 @@ once, A, B and C, beside the field or without it.
 | What | Keys |
 |---|---|
 | Pull towards the hole (negative pushes away) | `gravityStrength` |
-| Sideways force that makes them swirl (the sign is the direction) | `orbitalStrength` |
+| Sideways force that makes them swirl (the sign is the direction), and in 3D how far its axis follows the hole's spin | `orbitalStrength`, `orbitalSpinFollow` |
 | How much of the speed gravity gives them they keep | `gravityInertia` |
 | How far it reaches across the screen, in radii | `gravityReach` |
 | Where the hole sits in depth, and how thick a layer it pulls | `blackHoleDepth`, `gravityDepth` |
@@ -152,6 +152,10 @@ once, A, B and C, beside the field or without it.
   `gravityStrength` over the whole depth pulls everything into the horizon and the frame goes nearly empty.
 - Strong `orbitalStrength` with weak `gravityStrength` gives a whirlpool; the reverse gives a straight
   infall that feeds the ring.
+- `orbitalSpinFollow` (3D only, default 1) turns the axis `orbitalStrength` swirls about from the line of
+  flight to the spin's axis as it stands in the scene (`spinTilt`, `spinAxis`, a merger's spin), the more
+  the faster the hole spins (`blackHoleSpin`): a tilted, fast-spinning hole winds a tilted disc. 0, or a
+  hole that does not spin, keeps the line of flight; the flat mode always does.
 
 ## 4. Capture: the event horizon
 

@@ -102,6 +102,12 @@ export interface StepSettings {
   minLineWidth: number
   gravityStrength: number
   orbitalStrength: number
+  // The axis the orbital force turns a particle about in space, a unit vector in the scene's axes (x right,
+  // y down, z away from the flat camera): (0, 0, -1) is the line of flight, toward the camera, and the
+  // spin's axis takes over from it by Swirl Follows Spin. The flat step turns about the line of flight
+  swirlX: number
+  swirlY: number
+  swirlZ: number
   // Share of the sideways speed the black holes give a particle that it keeps from one 60 Hz frame to the
   // next: 0 moves it only while it is pulled, 1 keeps it all, as a body in free fall does
   inertia: number
@@ -112,7 +118,12 @@ export interface StepSettings {
   baseBrightness: number
   minOpacity: number
   maxOpacity: number
-  // Only particles within this distance of the explosion are drawn (the intro shockwave)
+  // Brightness follows the particle's own speed on the screen, per 60 Hz frame: how strongly (0 lights
+  // every moving particle in full), and the speed in CSS pixels that lights it half way
+  speedGlow: number
+  speedKnee: number
+  // Only particles within this distance of the explosion are drawn (the intro shockwave): on the screen in
+  // the flat step, in space from the blast's place at the hole's depth in the 3D one, in CSS pixels there
   revealRadius: number
   revealX: number
   revealY: number
@@ -340,6 +351,9 @@ export function createStepSettings (ringEnergy: RingEnergy | null = null): StepS
     minLineWidth: 0.3,
     gravityStrength: 0,
     orbitalStrength: 0,
+    swirlX: 0,
+    swirlY: 0,
+    swirlZ: -1,
     inertia: 0,
     farZ: 1,
     depthFade: 0,
@@ -348,6 +362,8 @@ export function createStepSettings (ringEnergy: RingEnergy | null = null): StepS
     baseBrightness: 0,
     minOpacity: 0,
     maxOpacity: 0,
+    speedGlow: 1,
+    speedKnee: 0.15,
     revealRadius: 0,
     revealX: 0,
     revealY: 0,

@@ -18,6 +18,9 @@ export interface ParticleState extends FlowState {
   baseSpeed: number
   gravityStrength: number
   orbitalStrength: number
+  // 3D: how far the orbital force's axis turns from the line of flight to the spin's axis as it stands in
+  // the scene, the more the faster the hole spins; 0 keeps the line of flight
+  orbitalSpinFollow: number
   gravityInertia: number
   // Visible black hole: radius of its shadow, % of the viewport's short side. The photon ring,
   // the lens and the strength and reach of gravity scale with it
@@ -346,6 +349,7 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   baseSpeed: 1.5,
   gravityStrength: 2.5,
   orbitalStrength: 40,
+  orbitalSpinFollow: 1,
   gravityInertia: 0,
   blackHoleSize: 8,
   horizonScale: 1,

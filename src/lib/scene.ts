@@ -250,11 +250,12 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     tintEdge: createSceneColor(),
     tintGradient: 1.7,
     tintLimit: 0.8,
-    speedGlow: 1,
-    speedKnee: 0.15,
-    frameScale: 1,
     vanishX: 0,
     vanishY: 0,
+    flightX: 0,
+    flightY: 0,
+    flightZ: 1,
+    flightFocal: 1,
     cutZoom: 1.08,
     cutShift: 80,
     ringTexels: ringEnergy.texels,
@@ -633,6 +634,9 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     getRingdownTiming(params, shadowRadius, lightSpeed, ringTiming)
 
     sampleIntro(scene.introTime, reducedMotion, params, ringTiming, intro)
+    // The opening's own matter front, before a fired blast takes its place: in 3D the field is revealed by
+    // a sphere that goes on growing after the front has left the screen
+    const openingFront = intro.matterFront
     if (hidden.star) intro.starGlow = 0
     if (hidden.glare) {
       intro.sourcePower = 0
@@ -921,6 +925,19 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     settings.endFade = state.threeDEndFade
     settings.gravityStrength = hidden.gravity ? 0 : state.gravityStrength
     settings.orbitalStrength = hidden.gravity ? 0 : state.orbitalStrength
+    // In space the orbital force turns about the line of flight, toward the camera, and the more the hole
+    // spins the more about the spin's axis as it stands in the scene, by Swirl Follows Spin
+    const spinLength = Math.hypot(sceneRight, sceneUp, sceneToward)
+    const swirlShare = spinLength > 0 ? state.orbitalSpinFollow * Math.min(spinLength, 1) : 0
+    const toSpin = spinLength > 0 ? swirlShare / spinLength : 0
+    const swirlX = sceneRight * toSpin
+    const swirlY = -sceneUp * toSpin
+    const swirlZ = -(1 - swirlShare) - sceneToward * toSpin
+    const swirlLength = Math.hypot(swirlX, swirlY, swirlZ)
+    const swirlHeld = swirlLength > 1e-6
+    settings.swirlX = swirlHeld ? swirlX / swirlLength : 0
+    settings.swirlY = swirlHeld ? swirlY / swirlLength : 0
+    settings.swirlZ = swirlHeld ? swirlZ / swirlLength : -1
     settings.inertia = state.gravityInertia
     settings.farZ = state.farZ
     settings.depthFade = state.depthFade
@@ -929,7 +946,21 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     settings.baseBrightness = state.baseBrightness
     settings.minOpacity = state.minOpacity
     settings.maxOpacity = state.maxOpacity
-    settings.revealRadius = intro.reveal >= 1 ? Infinity : explosionReach * intro.reveal
+    settings.speedGlow = state.speedGlow
+    settings.speedKnee = state.speedGlowKnee
+    // Flat, the opening reveals what lies within the front on the screen. In 3D it reveals a sphere round
+    // the blast's place, which goes on growing after the front has left the screen, until it holds the
+    // whole field
+    if (threeD) {
+      const front = hidden.reveal ? Infinity : intro.reveal < 1 ? intro.reveal : openingFront > 1 ? openingFront : Infinity
+      const revealRadius = explosionReach * front
+      const worldPerPixel = pivot / settings.focal
+      const blastAside = Math.hypot(originX - settings.vanishX, originY - settings.vanishY) * worldPerPixel
+      const farthest = Math.hypot(blastAside + spawn.radius, Math.max(pivot, state.farZ - pivot))
+      settings.revealRadius = revealRadius * worldPerPixel >= farthest ? Infinity : revealRadius
+    } else {
+      settings.revealRadius = intro.reveal >= 1 ? Infinity : explosionReach * intro.reveal
+    }
     settings.revealX = originX
     settings.revealY = originY
     settings.revealFeather = params.revealFeather
@@ -954,6 +985,11 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     // where a swallowed star's light lands: the pose's own turn in 3D, none straight on
     const seenTurn = composite.turn
     for (let slot = 0; slot < 9; slot++) seenTurn[slot] = threeD ? pose[slot] : slot % 4 === 0 ? 1 : 0
+    // The particles' tint is measured from the line of flight: the scene's depth seen through that turn
+    frame.flightX = seenTurn[2]
+    frame.flightY = seenTurn[5]
+    frame.flightZ = seenTurn[8]
+    frame.flightFocal = settings.focal
     composite.pairLensMain = 0
     composite.pairLensCompanion = 0
     composite.pairNearer = 0
@@ -1205,9 +1241,6 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
         feedRing(ringEnergy, flow.count / Math.max(life, 0.01) * dt * state.ringFeedCapture * Math.min(flow.brightness, 1))
       }
     }
-    frame.speedGlow = state.speedGlow
-    frame.speedKnee = state.speedGlowKnee
-    if (frameScale > 0) frame.frameScale = frameScale
     // A fast flight tints the particles: from Flight Tint From, growing evenly to its fullest at Flight Tint Full
     const tintSpan = Math.max(state.flightTintFull - state.flightTintFrom, MIN_TINT_SPAN)
     frame.doppler = hidden.doppler ? 0 : Math.min(Math.max((speed - state.flightTintFrom) / tintSpan, 0), 1) * (reducedMotion ? 0.5 : 1)

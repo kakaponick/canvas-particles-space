@@ -12,7 +12,7 @@ export const SIMULATION_SETTING_KEYS = [
   'starsBrightness', 'starDensity', 'starCell', 'nebula', 'nebulaColor', 'nebulaColorDeep', 'nebulaColorCore',
   'nebulaScale', 'nebulaSparseness', 'nebulaEdge', 'nebulaWarp', 'nebulaContrast', 'nebulaGrain', 'nebulaDrift', 'nebulaDriftAngle', 'nebulaPatch', 'nebulaPatchShare', 'nebulaPatchSoftness', 'nebulaCore', 'nebulaCoreFrom',
   'starsSize', 'starsColorWarm', 'starsColorCool', 'starsTwinkle', 'starsTwinkleSpeed', 'starsFaintest',
-  'blackHoleSize', 'horizonScale', 'blackHoleSpin', 'spinTilt', 'spinAxis', 'frameDrag', 'frameDragSweep', 'gravityReach', 'gravityStrength', 'orbitalStrength', 'gravityInertia', 'followFrequency',
+  'blackHoleSize', 'horizonScale', 'blackHoleSpin', 'spinTilt', 'spinAxis', 'frameDrag', 'frameDragSweep', 'gravityReach', 'gravityStrength', 'orbitalStrength', 'orbitalSpinFollow', 'gravityInertia', 'followFrequency',
   'blackHoleFollowing', 'blackHoleX', 'blackHoleY', 'cameraZoom', 'cameraX', 'cameraY', 'cameraPair', 'cameraCutZoom', 'cameraCutShift',
   'threeD', 'cameraYaw', 'cameraPitch', 'cameraSpin', 'cameraRoll', 'cameraLookYaw', 'cameraLookPitch',
   'cameraMoveRight', 'cameraMoveUp', 'cameraMoveIn', 'threeDEndFade', 'threeDEase', 'threeDNearest', 'cameraCutTurn',

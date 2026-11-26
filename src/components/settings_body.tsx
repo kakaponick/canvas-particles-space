@@ -262,8 +262,9 @@ function SettingsBody () {
         <SettingSlider field="cameraY" />
         <SettingSlider field="cameraPair" />
         <SettingsFine id="black-hole">
-          {/* The spin's sweep, then what counts as a cut of the camera */}
+          {/* The spin's sweep and the axis it gives the swirl, then what counts as a cut of the camera */}
           <SettingSlider field="frameDragSweep" />
+          <SettingSlider field="orbitalSpinFollow" />
           <div className="mt-3 flex flex-col gap-1">
             <SettingSlider field="cameraCutZoom" />
             <SettingSlider field="cameraCutShift" />

@@ -400,14 +400,15 @@ export interface FrameInput extends FieldInput {
   tintEdge: SceneColor
   tintGradient: number
   tintLimit: number
-  // How strongly brightness follows speed, the speed (CSS pixels per 60 Hz frame) that lights a particle
-  // half way, and the frame length in 60 Hz reference frames it is judged by
-  speedGlow: number
-  speedKnee: number
-  frameScale: number
-  // Vanishing point of the particle field in CSS pixels, the centre of its doppler tint
+  // Vanishing point of the particle field in CSS pixels, then the line of flight the doppler tint is
+  // measured from: where the field's far end lies for the camera (the scene's +z through the camera's
+  // turn, 0, 0, 1 straight on) and the focal length in CSS pixels
   vanishX: number
   vanishY: number
+  flightX: number
+  flightY: number
+  flightZ: number
+  flightFocal: number
   // A camera that zooms by more than this ratio in one frame, or moves the picture by more than this many
   // CSS pixels, has cut: the particles' strokes then start afresh instead of crossing the screen
   cutZoom: number
@@ -563,7 +564,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   let ringLit = false
 
   const fadeUniforms = getUniforms(gl, fadeProgram, ['color'] as const)
-  const particleUniforms = getUniforms(gl, particleProgram, ['resolution', 'pixelRatio', 'center', 'doppler', 'speedGlow', 'speedKnee', 'tintAhead', 'tintEdge', 'tint', 'frameScale', 'zoom', 'zoomFrom'] as const)
+  const particleUniforms = getUniforms(gl, particleProgram, ['resolution', 'pixelRatio', 'center', 'flight', 'doppler', 'tintAhead', 'tintEdge', 'tint', 'zoom', 'zoomFrom'] as const)
   const orbitUniforms = getUniforms(gl, orbitProgram, ['resolution', 'zoom', 'orbit', 'dimmed', 'turnX', 'turnY'] as const)
   const compositeUniforms = getUniforms(gl, compositeProgram, [
     'resolution', 'pixelRatio', 'time', 'hole', 'horizon', 'einstein', 'falloff', 'falloffPivot', 'lensCore', 'maxBend', 'lensReach', 'twistLimit', 'swirl', 'absorption', 'trace', 'spin', 'ring',
@@ -793,13 +794,11 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     if (field.count() === 0) return
     gl.useProgram(particleProgram)
     setUniform1f(gl, particleUniforms.doppler, frame.doppler)
-    setUniform1f(gl, particleUniforms.speedGlow, frame.speedGlow)
-    setUniform1f(gl, particleUniforms.speedKnee, frame.speedKnee)
     setUniform3f(gl, particleUniforms.tintAhead, frame.tintAhead.r, frame.tintAhead.g, frame.tintAhead.b)
     setUniform3f(gl, particleUniforms.tintEdge, frame.tintEdge.r, frame.tintEdge.g, frame.tintEdge.b)
     setUniform2f(gl, particleUniforms.tint, frame.tintGradient, frame.tintLimit)
-    setUniform1f(gl, particleUniforms.frameScale, frame.frameScale)
     setUniform2f(gl, particleUniforms.center, frame.vanishX, frame.vanishY)
+    setUniform4f(gl, particleUniforms.flight, frame.flightX, frame.flightY, frame.flightZ, frame.flightFocal)
     setUniform4f(gl, particleUniforms.zoom, layerZoomX * ratio, layerZoomY * ratio, layerZoom, 0)
     setUniform4f(gl, particleUniforms.zoomFrom, fromZoomX * ratio, fromZoomY * ratio, fromZoom, 0)
     field.bindStrokes()

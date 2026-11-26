@@ -38,8 +38,8 @@ const STEP_KEYS = [
   'frameScale', 'time', 'speed', 'width', 'height', 'focal', 'vanishX', 'vanishY', 'holeX', 'holeY', 'holeRadius', 'captureRadius',
   'captureX', 'captureY', 'spinRight', 'spinUp', 'spinToward', 'companionX', 'companionY', 'companionRadius',
   'companionCapture', 'ringCaptureEnergy', 'ringSkimReach', 'ringSkimEnergy', 'gravityReach', 'holeDepth',
-  'gravityDepth', 'lineWidth', 'minLineWidth', 'gravityStrength', 'orbitalStrength', 'farZ', 'depthFade',
-  'pulseSpeedMultiplier', 'pulseIntensity', 'baseBrightness', 'minOpacity', 'maxOpacity', 'revealRadius', 'revealX',
+  'gravityDepth', 'lineWidth', 'minLineWidth', 'gravityStrength', 'orbitalStrength', 'swirlX', 'swirlY', 'swirlZ', 'farZ', 'depthFade',
+  'pulseSpeedMultiplier', 'pulseIntensity', 'baseBrightness', 'minOpacity', 'maxOpacity', 'speedGlow', 'speedKnee', 'revealRadius', 'revealX',
   'revealY', 'revealFeather', 'opacityScale', 'threeD', 'holeWorldX', 'holeWorldY', 'holeWorldZ', 'companionWorldX',
   'companionWorldY', 'companionWorldZ', 'endFade'
 ] as const satisfies readonly (keyof StepSettings)[]
@@ -124,7 +124,7 @@ ${STEP_DEFINES}
 
   const float TWO_PI = 6.2831853;
   // A stroke is cut to the picture and at least this margin round it, in CSS pixels, wide enough to hide
-  // its ends. How bright it is follows the length that is left
+  // its ends
   const float MIN_CLIP_MARGIN = 4.0;
   // Strokes are cut where they pass this close in front of the 3D camera, in scene units
   const float NEAR = 1.0;
@@ -152,11 +152,13 @@ ${STEP_DEFINES}
   float horizonRadius;
   // The stroke a particle that moved is to draw, which the step leaves for stroke(): its ends on the screen,
   // its two places round the hole seen straight on (CSS pixels from the hole, for the sheet), how far to the
-  // far end of the field it is and the share of its opacity it is shown at
+  // far end of the field it is and the share of its opacity it is shown at, then its own move on the screen
+  // and its distance from the opening's blast, both in CSS pixels
   bool moved;
   vec4 strokeEnds;
   vec4 rideEnds;
   vec2 strokeLook;
+  vec2 strokeMeasure;
 
   // The next number in [0, 1) of this particle in this step
   float chance () {
@@ -228,8 +230,10 @@ ${STEP_DEFINES}
 
   // The stroke of a particle that moved from "start" to "end" on the screen, "distanceFactor" of the way
   // to the far end of the field. On the sheet it lies where the sheet does under the two places it has
-  // round the hole, seen straight on ("rideFrom", "rideTo", CSS pixels from the hole)
-  void stroke (vec2 start, vec2 end, float distanceFactor, vec2 rideFrom, vec2 rideTo, float shown) {
+  // round the hole, seen straight on ("rideFrom", "rideTo", CSS pixels from the hole). "own" is how far the
+  // particle itself moved on the screen, whatever the camera did, and "fromBlast" its distance from the
+  // opening's blast, both in CSS pixels
+  void stroke (vec2 start, vec2 end, float distanceFactor, vec2 rideFrom, vec2 rideTo, float shown, float own, float fromBlast) {
     float depthFactor = 1.0 - distanceFactor * s_depthFade;
     float lineWidth = max((1.0 - distanceFactor) * s_lineWidth, s_minLineWidth);
     float pulse = s_pulseIntensity != 0.0
@@ -239,9 +243,8 @@ ${STEP_DEFINES}
 
     // Only particles within reach of the explosion are drawn (the opening's shockwave)
     if (s_revealing > 0.5) {
-      float radial = length(end - vec2(s_revealX, s_revealY));
-      if (radial > s_revealRadius) return;
-      opacity *= min((s_revealRadius - radial) / max(s_revealFeather, 1.0), 1.0);
+      if (fromBlast > s_revealRadius) return;
+      opacity *= min((s_revealRadius - fromBlast) / max(s_revealFeather, 1.0), 1.0);
     }
     if (opacity <= 0.0) return;
 
@@ -251,7 +254,15 @@ ${STEP_DEFINES}
       if (min(laidFrom.z, laidTo.z) < 0.0) return;
       start += (laidFrom.xy - start) * u_ride.x;
       end += (laidTo.xy - end) * u_ride.x;
+      // Both ends of a ridden stroke are seen through the sheet as it lies now, so its length is the move
+      own = mix(own, length(laidTo.xy - laidFrom.xy), u_ride.x);
     }
+
+    // Brightness is set by the particle's own speed: the strokes are stamped with the brighter-of-two
+    // blend, so overlapping stamps of a slow particle do not add up and its edge stays sharp. The speed is
+    // taken per 60 Hz frame, so the result is the same at any refresh rate, and Speed Glow bends the link
+    float reference = own / max(s_frameScale, 0.0001);
+    opacity *= pow(max(reference / (reference + s_speedKnee), 0.000001), s_speedGlow);
 
     float margin = max(MIN_CLIP_MARGIN, s_lineWidth * 0.5 + 2.0);
     vec2 low = vec2(-margin);
@@ -381,11 +392,13 @@ ${STEP_DEFINES}
     strokeEnds = vec4(start, end);
     rideEnds = vec4(start - hole, end - hole);
     strokeLook = vec2(pz / s_farZ, 1.0);
+    strokeMeasure = vec2(length(end - start), length(end - vec2(s_revealX, s_revealY)));
   }
 
   // The loop in space: the black holes are points, gravity pulls along the true distance and ends at the
-  // sphere of Gravity Reach, the orbital force turns particles round the line of flight, the horizon is a
-  // sphere, and the camera sees each particle through its pose now and its pose in the frame before
+  // sphere of Gravity Reach, the orbital force turns particles round the swirl's axis (the line of flight,
+  // turned toward the spin's axis by Swirl Follows Spin), the horizon is a sphere, and the camera sees each
+  // particle through its pose now and its pose in the frame before
   void stepSpace () {
     float pivot = s_holeDepth;
     float worldPerPixel = pivot / s_focal;
@@ -417,6 +430,7 @@ ${STEP_DEFINES}
     float reach = s_gravityReach * worldPerPixel;
     float pullScale = s_gravityStrength * 0.6 * s_frameScale * radius * radius * worldPerPixel;
     float orbitScale = s_orbitalStrength * 0.02;
+    vec3 swirl = vec3(s_swirlX, s_swirlY, s_swirlZ);
 
     if (hasHole) {
       vec3 toHole = hole - at;
@@ -435,13 +449,13 @@ ${STEP_DEFINES}
         float skim = radius * s_ringSkimReach;
         if (s_ringFed > 0.5 && distSq < skim * skim) deposit = vec3(ringAt.xy, s_ringSkimEnergy * s_frameScale);
 
-        // Pull along the distance, orbit round the line of flight through the hole, and space carried
-        // round the spin's axis, which stands in the scene (its y runs down and its z away from the camera)
+        // Pull along the distance, orbit round the swirl's axis through the hole, and space carried round
+        // the spin's axis, which stands in the scene (its y runs down and its z away from the camera)
         float clampedSq = max(distSq, 1.0);
         float away = sqrt(clampedSq);
         float pull = pullScale / (clampedSq * away);
         float orbit = pull * orbitScale;
-        vec3 push = vec3(toHole.x * pull - toHole.y * orbit, toHole.y * pull + toHole.x * orbit, toHole.z * pull);
+        vec3 push = toHole * pull + cross(toHole, swirl) * orbit;
         vec3 drag = vec3(s_spinRight, -s_spinUp, -s_spinToward) * (DRAG_SHARE * radius);
         push -= cross(drag, toHole) * (pull / away);
         if (inertial) {
@@ -468,7 +482,7 @@ ${STEP_DEFINES}
         float clampedSq = max(distSq, 1.0);
         float pull = pullScale * share * share / (clampedSq * sqrt(clampedSq));
         float orbit = pull * orbitScale;
-        vec3 push = vec3(toHole.x * pull - toHole.y * orbit, toHole.y * pull + toHole.x * orbit, toHole.z * pull);
+        vec3 push = toHole * pull + cross(toHole, swirl) * orbit;
         if (inertial) {
           kept += push * s_velocityGain;
           push *= s_gain;
@@ -484,6 +498,13 @@ ${STEP_DEFINES}
     fromPivot = vec3(at.xy, at.z - pivot);
     vec3 seenTo = vec3(dot(u_pose[0].xyz, fromPivot), dot(u_pose[1].xyz, fromPivot), dot(u_pose[2].xyz, fromPivot)) +
       vec3(u_pose[0].w, u_pose[1].w, u_pose[2].w);
+    // Its own move on the screen: where it stood before this step and where it stands now, both through the
+    // camera of this frame, so a camera that turns or moves lights nothing that stands still. Where either
+    // is nearer than the near plane the stroke's own length stands in for it (below 0 until then)
+    vec3 wasFromPivot = vec3(was.xy, was.z - pivot);
+    vec3 seenWas = vec3(dot(u_pose[0].xyz, wasFromPivot), dot(u_pose[1].xyz, wasFromPivot), dot(u_pose[2].xyz, wasFromPivot)) +
+      vec3(u_pose[0].w, u_pose[1].w, u_pose[2].w);
+    float own = seenWas.z >= NEAR && seenTo.z >= NEAR ? length(seenTo.xy / seenTo.z - seenWas.xy / seenWas.z) * s_focal : -1.0;
 
     // A stroke that passes behind the camera is cut where it crosses the near plane
     if (seenFrom.z < NEAR || seenTo.z < NEAR) {
@@ -510,6 +531,10 @@ ${STEP_DEFINES}
     strokeEnds = vec4(start, end);
     rideEnds = vec4(was.xy - hole.xy, at.xy - hole.xy) / worldPerPixel;
     strokeLook = vec2(min(seenTo.z / s_farZ, 1.0), shown);
+    // The opening reveals the field by the true distance from the blast, which happened at the hole's depth
+    // where the flat view shows it, in CSS pixels at that depth
+    vec3 blast = vec3((vec2(s_revealX, s_revealY) - vanish) * worldPerPixel, pivot);
+    strokeMeasure = vec2(own < 0.0 ? length(end - start) : own, length(at - blast) / worldPerPixel);
   }
 
   void main () {
@@ -531,7 +556,7 @@ ${STEP_DEFINES}
     // Each of the two is called in this one place: a card's compiler writes a function out again wherever
     // it is called, and the page waits for it
     if (reborn > 0) rebirth();
-    else if (moved) stroke(strokeEnds.xy, strokeEnds.zw, strokeLook.x, rideEnds.xy, rideEnds.zw, strokeLook.y);
+    else if (moved) stroke(strokeEnds.xy, strokeEnds.zw, strokeLook.x, rideEnds.xy, rideEnds.zw, strokeLook.y, strokeMeasure.x, strokeMeasure.y);
 
     v_place = place;
     v_drift = drift;

@@ -77,20 +77,18 @@ export const fadeFragmentShaderSource = `
 export const particleVertexShaderSource = `
   attribute vec2 a_position;  // quad corner: x picks the segment end, y the side
   attribute vec4 a_segment;   // x0, y0, x1, y1 in CSS pixels, top-left origin
-  attribute vec2 a_style;     // line width in CSS pixels, opacity
+  attribute vec2 a_style;     // line width in CSS pixels, opacity, its speed's glow already in it (field_step.ts)
   attribute vec4 a_color;     // rgb as normalized bytes
 
   uniform vec2 u_resolution;  // drawing buffer size in device pixels
   uniform float u_pixelRatio;
   uniform vec2 u_center;      // vanishing point in CSS pixels
+  uniform vec4 u_flight;      // where the field's far end lies for the camera (the scene's +z turned), its focal length in CSS pixels
   uniform float u_doppler;    // 0 at rest, 1 near the speed of light
-  uniform float u_speedGlow;  // how strongly brightness follows speed; 0 lights every moving particle in full
-  uniform float u_speedKnee;  // speed, in CSS pixels per 60 Hz frame, at which a particle reaches half its brightness
-  uniform vec3 u_tintAhead;   // the tint of a fast flight: its colour round the vanishing point,
-  uniform vec3 u_tintEdge;    // its colour toward the edges,
+  uniform vec3 u_tintAhead;   // the tint of a fast flight: its colour along the line of flight,
+  uniform vec3 u_tintEdge;    // its colour away from it,
   uniform vec2 u_tint;        // how fast it turns from one to the other per half screen diagonal, the most of a colour it replaces
-  uniform float u_frameScale; // length of this frame in 60 Hz reference frames
-  uniform vec4 u_zoom;        // the camera: the point its zoom leaves in place (device pixels), the zoom
+  uniform vec4 u_zoom;       // the camera: the point its zoom leaves in place (device pixels), the zoom
   uniform vec4 u_zoomFrom;    // the camera of the frame before, the same way
 
   varying vec2 v_ends;        // distance along the segment from its start and from its end
@@ -136,23 +134,20 @@ export const particleVertexShaderSource = `
     float targetArea = len * width + PI * width * width * 0.25;
     float drawnArea = len * drawWidth + PI * (halfWidth * halfWidth + 1.0 / 12.0);
 
-    // Brightness is set by speed directly: the capsule is stamped with the brighter-of-two blend, so
-    // overlapping stamps of a slow particle do not add up and its edge stays sharp. The speed is taken
-    // per 60 Hz frame, so the result is the same at any refresh rate, and u_speedGlow bends the link
-    // The speed is the particle's own, whatever the camera does
-    float referenceSpeed = length(a_segment.zw - a_segment.xy) / max(u_frameScale, 0.0001);
-    float glow = pow(max(referenceSpeed / (referenceSpeed + u_speedKnee), 0.000001), u_speedGlow);
-
-    // Relativistic aberration, stylised: light ahead shifts blue, light at the edges shifts red
-    // Measured from the vanishing point, in half screen diagonals
-    float radial = length(a_segment.zw - u_center) * 2.0 * u_pixelRatio / max(length(u_resolution), 1.0);
+    // Relativistic aberration, stylised: light ahead shifts blue, light off the line of flight shifts red.
+    // Measured by the angle from the line of flight, as the tangent of it in half screen diagonals at the
+    // focal length; straight on that is the distance from the vanishing point
+    vec3 toward = vec3((a_segment.zw - u_center) / u_flight.w, 1.0);
+    float ahead = dot(toward, u_flight.xyz);
+    float aside = sqrt(max(dot(toward, toward) - ahead * ahead, 0.0));
+    float radial = (ahead > 0.0001 ? aside / ahead : 1000.0) * u_flight.w * 2.0 * u_pixelRatio / max(length(u_resolution), 1.0);
     float shift = u_doppler * (1.0 - u_tint.x * radial);
     vec3 tint = shift > 0.0 ? u_tintAhead : u_tintEdge;
 
     v_ends = vec2(along, len - along);
     v_across = across;
     v_halfWidth = halfWidth;
-    v_color = vec4(mix(a_color.rgb, tint, min(abs(shift), u_tint.y)), min(a_style.y * glow * targetArea / drawnArea, 1.0));
+    v_color = vec4(mix(a_color.rgb, tint, min(abs(shift), u_tint.y)), min(a_style.y * targetArea / drawnArea, 1.0));
 
     // Rows stay top-down in the scene texture, which is the layout the composite pass samples
     gl_Position = vec4(pixel / u_resolution * 2.0 - 1.0, 0.0, 1.0);
