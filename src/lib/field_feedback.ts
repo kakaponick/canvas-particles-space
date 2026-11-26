@@ -95,7 +95,14 @@ export function createFieldFeedback (gl: WebGL2RenderingContext): FieldFeedback 
     sheetN: uniform('u_sheetN'),
     sheetO: uniform('u_sheetO'),
     sheetWell: uniform('u_sheetWell'),
-    sheetWell2: uniform('u_sheetWell2')
+    sheetWell2: uniform('u_sheetWell2'),
+    sheetWave: uniform('u_sheetWave'),
+    sheetWaveSpread: uniform('u_sheetWaveSpread'),
+    sheetWaveTurn: uniform('u_sheetWaveTurn'),
+    sheetPairWave: uniform('u_sheetPairWave'),
+    sheetPairAt: uniform('u_sheetPairAt'),
+    sheetPairFront: uniform('u_sheetPairFront'),
+    rideShape: uniform('u_rideShape')
   }
   gl.useProgram(stepProgram)
   gl.uniform1i(uniform('u_behindShape'), SHADOW_TEXTURE_UNIT)
@@ -255,6 +262,7 @@ export function createFieldFeedback (gl: WebGL2RenderingContext): FieldFeedback 
     const sheet = settings.sheet
     if (settings.ride > 0) {
       gl.uniform4f(stepUniforms.ride, settings.ride, Math.max(settings.rideDepth, 0.001), sheet.unit, sheet.shared)
+      gl.uniform4f(stepUniforms.rideShape, sheet.rideSoft, sheet.rideFar, sheet.rideWave, sheet.rideCut)
       gl.uniform3fv(stepUniforms.equator, sheet.equator)
       sendSheet(setUniform4, stepUniforms, sheet)
     } else {

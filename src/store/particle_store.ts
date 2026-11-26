@@ -233,6 +233,21 @@ export interface ParticleState extends FlowState {
   gridNear: number
   gridClearing: number
   gridClearingEdge: number
+  // The sheet's laws: the rings' spacing from equal steps of depth (0) to equal radii (1); the share of the
+  // sheet's waves its riding particles go with; the share of the sheet behind the holes drawn through the
+  // lens; the share of the slab over which the ride fades out, and its half thickness on the side the well
+  // goes down as a multiple of Ride Depth; the most of a ridden stroke nearer than the near plane that is
+  // cut there rather than dropped; the share of the way a second well reaches its own hole; the share of
+  // the main well's depth the sheet is lifted by; and the share of the way 3D's ease turns the sheet's pose
+  gridRingSpacing: number
+  gridRideWave: number
+  gridLensed: number
+  gridRideSoft: number
+  gridRideFar: number
+  gridRideCut: number
+  gridWell2Bottom: number
+  gridLift: number
+  gridEaseTurn: number
   // Width of the lensed grid's lines, CSS pixels; the CSS pixels a cell of it pulled in shrinks to before its
   // lines start to merge into a haze, and the share of that by which the haze is whole
   gridSkyLine: number
@@ -562,6 +577,15 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   gridNear: 0.2,
   gridClearing: 1.04,
   gridClearingEdge: 1.2,
+  gridRingSpacing: 0,
+  gridRideWave: 1,
+  gridLensed: 0,
+  gridRideSoft: 1,
+  gridRideFar: 1,
+  gridRideCut: 1,
+  gridWell2Bottom: 1,
+  gridLift: 1,
+  gridEaseTurn: 1,
   gridSkyLine: 1.5,
   gridSkyHaze: 6,
   gridSkyHazeSpan: 0.5,

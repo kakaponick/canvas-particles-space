@@ -26,6 +26,7 @@ export const SIMULATION_SETTING_KEYS = [
   'lensingEnabled', 'lensingTraced', 'lensingRadius', 'lensingFromCamera', 'lensingRotation', 'lensingFalloff', 'lensingPivot', 'lensingCore', 'lensingMaxBend', 'lensingReach', 'lensingBubble', 'lensingTwistLimit', 'lensingAbsorption',
   'gridCell', 'gridSheet', 'gridTilt', 'gridDepth', 'gridRings', 'gridSpokes', 'gridRide', 'gridRideDepth', 'gridSky', 'gridSkyPull', 'gridColor', 'gridLattice', 'gridLatticeCell', 'gridLatticeWarp',
   'gridDistance', 'gridSpan', 'gridFade', 'gridWaveLift', 'gridWaveOrbit', 'gridLine', 'gridLineNear', 'gridNear', 'gridClearing', 'gridClearingEdge', 'gridSkyLine', 'gridSkyHaze', 'gridSkyHazeSpan',
+  'gridRingSpacing', 'gridRideWave', 'gridLensed', 'gridRideSoft', 'gridRideFar', 'gridRideCut', 'gridWell2Bottom', 'gridLift', 'gridEaseTurn',
   'gridHorizon', 'gridHorizonCells', 'gridHorizonPace', 'gridHorizonLine', 'gridHorizonHaze',
   'gridLatticeLine', 'gridLatticeGain', 'gridLatticeReach', 'gridLatticeFade', 'gridLatticeNear', 'gridLatticeFar', 'gridLatticeNearEdge', 'gridLatticeUnit',
   'orbitCount', 'orbitSize', 'orbitEccentricity', 'orbitSpeed', 'orbitTrail', 'orbitStarSize',

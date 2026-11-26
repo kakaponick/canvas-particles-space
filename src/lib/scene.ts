@@ -14,7 +14,7 @@ import { stepSpring, type Spring2D } from './black_hole_motion'
 import { renderTitleSprite, waitForTitleFont, type TitleSprite, type TitleStyle } from './title_sprite'
 export type { TitleSprite } from './title_sprite'
 import { clearRingEnergy, createRingEnergy, feedRing, stepRingEnergy } from './ring_energy'
-import { layFlatSheet, laySpaceSheet, orbitOnSheet, placeSheet } from './space_grid'
+import { layFlatSheet, laySpaceSheet, orbitOnSheet, placeSheet, waveSheet } from './space_grid'
 import { LATTICE_LINES_PER_SIDE, createLatticeSettings, latticeAnchor } from './space_lattice'
 import { FLOW_KEYS, createFlowSettings, leanPlane, resetFlow, shareFlow, stepFlow, turnFlow } from './flows'
 import { LIGHT_SPEED, SHADOW_RADII, clearOrbiters, createOrbitTuning, createOrbiters, stepOrbiters } from './orbiters'
@@ -1435,7 +1435,7 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
         layFlatSheet(
           state.gridTilt, state.gridDepth, viewportWidth, viewportHeight, holeX, holeY, horizon * holeScale,
           settings.companionX, settings.companionY, companionRadius * companionScale, centreX, centreY, pair.mergedPhase,
-          state.gridDistance, state.gridNear, orbitX, orbitY
+          state.gridDistance, state.gridNear, orbitX, orbitY, state.gridLift, state.gridWell2Bottom
         )
       }
       if (shared > 0) {
@@ -1456,19 +1456,24 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
           settings.companionWorldX, settings.companionWorldY, settings.companionWorldZ, companionRadius,
           (hole.x - settings.vanishX) * worldPerPixel, (hole.y - settings.vanishY) * worldPerPixel, pivot,
           pairPlane[0] * ringCos + pairPlane[3] * ringSin, pairPlane[1] * ringCos + pairPlane[4] * ringSin,
-          pairPlane[2] * ringCos + pairPlane[5] * ringSin, orbitX, orbitY
+          pairPlane[2] * ringCos + pairPlane[5] * ringSin, orbitX, orbitY, state.gridLift, state.gridWell2Bottom
         )
       }
       placeSheet(
         grid, shared, equator, state.gridCell / 100 * shortSide, viewportWidth, viewportHeight, state.gridSpan, state.gridFade,
-        holeX, holeY, orbitShare
+        holeX, holeY, orbitShare, state.gridEaseTurn
       )
+      grid.waveLift = state.gridWaveLift
     }
     // Particles on Sheet: what flies within Ride Depth of the equator is laid on the sheet as it lies now.
     // Seen through the sheet of the frame before, as a stroke of the 3D camera is, every slow particle would
     // be drawn as a long line while the camera moves
     settings.ride = onSheet ? state.gridRide : 0
     settings.rideDepth = state.gridRideDepth * horizon
+    grid.rideSoft = state.gridRideSoft
+    grid.rideFar = state.gridRideFar
+    grid.rideWave = state.gridRideWave
+    grid.rideCut = state.gridRideCut
 
     // A frozen frame keeps the scene texture; only the composite (lens, flash, title) is redrawn
     frame.updateScene = frameScale > 0
@@ -2009,10 +2014,13 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       grid.lineScale = state.gridLineNear
       grid.clearFrom = state.gridClearing
       grid.clearTo = state.gridClearingEdge
-      grid.waveLift = state.gridWaveLift
       grid.rings = state.gridRings
       grid.spokes = state.gridSpokes
+      grid.ringSpacing = state.gridRingSpacing
+      grid.lensed = state.gridLensed
     }
+    // The sheet's waves, which the grid program draws and the particles on the sheet ride, from the sky's
+    if (state.gridSheet > 0 || (settings.ride > 0 && state.gridRideWave > 0)) waveSheet(grid, composite)
 
     // The lattice stands in the scene around the black hole and is seen by the 3D camera, or straight on
     // in the flat mode. Its cells are counted in the hole's full radius, so it is there before the hole

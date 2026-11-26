@@ -22,7 +22,7 @@ import { MAX_ORBITERS, STRETCH_FLOATS, STRETCH_SECONDS } from './orbiters'
 import type { TitleSprite } from './title_sprite'
 import { RING_BINS } from './ring_energy'
 import { SHADOW_SAMPLES, type ShadowShape } from './kerr_shadow'
-import { GRID_INSTANCE_COUNT, GRID_INSTANCE_FLOATS, GRID_LINES_PER_SIDE, createGridInstances, sendSheet, type GridSettings } from './space_grid'
+import { GRID_INSTANCE_COUNT, GRID_INSTANCE_FLOATS, GRID_LINES_PER_SIDE, createGridInstances, sendSheet, SHEET_UNIFORMS, type GridSettings } from './space_grid'
 import { LATTICE_INSTANCE_COUNT, LATTICE_INSTANCE_FLOATS, createLatticeInstances, type LatticeSettings } from './space_lattice'
 import { FLOW_CAPACITY, FLOW_CORNER_FLOATS, FLOW_SEED_FLOATS, FLOW_VERTEX_COUNT, createFlowCorners, createFlowSeeds, type FlowSettings } from './flows'
 
@@ -661,8 +661,8 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     'cameraZoom', 'zoomCenter', 'layerZoom', 'shake', 'lensFringe', 'lensFringeEase', 'vignette', 'filmGrain', 'letterbox'
   ] as const)
   const gridUniforms = getUniforms(gl, gridProgram, [
-    'resolution', 'pixelRatio', 'sheetU', 'sheetV', 'sheetN', 'sheetO', 'sheetWell', 'sheetWell2', 'lines', 'wave', 'waveSpread', 'waveTurn', 'lens', 'jolt', 'color',
-    'shadow', 'frame', 'pairWave', 'pairAt', 'pairFront', 'shadow2', 'sheet', 'clearing', 'rings', 'front'
+    'resolution', 'pixelRatio', ...SHEET_UNIFORMS, 'lines', 'lens', 'jolt', 'color',
+    'shadow', 'frame', 'shadow2', 'sheet', 'clearing', 'rings', 'front', 'kept'
   ] as const)
 
   const latticeUniforms = getUniforms(gl, latticeProgram, [
@@ -670,7 +670,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   ] as const)
 
   const flowUniforms = getUniforms(gl, flowProgram, [
-    'resolution', 'zoom', 'place', 'turnX', 'turnY', 'turnZ', 'law', 'shape', 'draw', 'style', 'path', 'age', 'light', 'ride', 'sheetU', 'sheetV', 'sheetN', 'sheetO', 'sheetWell', 'sheetWell2', 'inPlaneU', 'inPlaneV', 'inPlaneH', 'flowFrom', 'side', 'sideMain', 'sideSecond', 'sideBend', 'sideShape'
+    'resolution', 'zoom', 'place', 'turnX', 'turnY', 'turnZ', 'law', 'shape', 'draw', 'style', 'path', 'age', 'light', 'ride', 'rideShape', ...SHEET_UNIFORMS, 'inPlaneU', 'inPlaneV', 'inPlaneH', 'flowFrom', 'side', 'sideMain', 'sideSecond', 'sideBend', 'sideShape'
   ] as const)
   // The sheet's surface and pose go to the grid and flow programs through the same setter
   const setSheetUniform = (uniform: CachedUniform, x: number, y: number, z: number, w: number) => setUniform4f(gl, uniform, x, y, z, w)
@@ -806,6 +806,8 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   // read by the composite pass through the lens; whether it reads it this frame
   const lines = createLayer(ORBIT_TEXTURE_UNIT)
   let orbitsShown = false
+  // Whether that layer holds the sheet Sheet Through Lens draws into it
+  let sheetLaid = false
   // 3D, while something can stand in front of the black holes (frontAway in the step's numbers): the
   // particles nearer the camera than the holes keep their trails in a scene texture of their own, which
   // fades as the scene texture does and is lit while the composite pass reads it; the lines nearer than the
@@ -915,6 +917,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     gl.clear(gl.COLOR_BUFFER_BIT)
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
     clearLayer(lines)
+    sheetLaid = false
     // The trails in front of the holes go too: unread until the next stepped frame opens their layer black
     frontScene.lit = false
   }
@@ -1131,6 +1134,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     const riding = step.ride > 0
     if (riding) {
       setUniform4f(gl, u.ride, step.ride, Math.max(step.rideDepth, 0.001), step.sheet.unit, step.sheet.shared)
+      setUniform4f(gl, u.rideShape, step.sheet.rideSoft, step.sheet.rideFar, step.sheet.rideWave, step.sheet.rideCut)
       sendSheet(setSheetUniform, u, step.sheet)
     } else {
       setUniform4f(gl, u.ride, 0, 1, 1, 0)
@@ -1155,11 +1159,13 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
       sendSides(u, front, step, share)
       setUniform2f(gl, u.flowFrom, (flow.x - frame.vanishX) * ratio, (flow.y - frame.vanishY) * ratio)
       if (riding) {
-        // Where its own places fall in the equator: a device pixel of the flow is a CSS pixel over the ratio
+        // Where its own places fall in the equator: a device pixel of the flow is a CSS pixel over the ratio;
+        // its height is measured the way the well goes down
         const plane = flow.plane
+        const down = step.sheet.down
         setUniform4f(gl, u.inPlaneU, plane[0] / ratio, plane[1] / ratio, plane[2] / ratio, plane[3])
         setUniform4f(gl, u.inPlaneV, plane[4] / ratio, plane[5] / ratio, plane[6] / ratio, plane[7])
-        setUniform4f(gl, u.inPlaneH, plane[8] / ratio, plane[9] / ratio, plane[10] / ratio, plane[11])
+        setUniform4f(gl, u.inPlaneH, plane[8] * down / ratio, plane[9] * down / ratio, plane[10] * down / ratio, plane[11] * down)
       }
       const law = flow.law
       setUniform4f(gl, u.law, law[0], law[1], law[2], law[3])
@@ -1407,49 +1413,46 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   // The sheet is drawn over the frame, seen through its pose: it follows the scene camera's zoom and shake
   // and the letterbox, ripples with the gravitational wave and stops at the black hole's shadow, unless it
   // passes in front of the holes: nearer the camera than the nearer hole, `front` as a share of the main
-  // hole's distance (0 = nothing is in front)
-  function drawGrid (grid: GridSettings, settings: CompositeSettings, front: number) {
+  // hole's distance (0 = nothing is in front). The share of it behind the holes that Sheet Through Lens
+  // takes is drawn instead into the layer of lines (`intoLayer`), at the layer's zoom and with no shake,
+  // which the composite pass reads through the lens and lays the shadow over
+  function drawGrid (grid: GridSettings, settings: CompositeSettings, front: number, intoLayer: boolean) {
     const u = gridUniforms
     const zoom = Math.max(settings.cameraZoom, 0.05)
+    const lensed = Math.min(Math.max(grid.lensed, 0), 1)
     gl.useProgram(gridProgram)
     sendSheet(setSheetUniform, u, grid)
     setUniform1f(gl, u.front, front)
     setUniform4f(gl, u.lines, Math.max(grid.cell, 1), Math.max(grid.span, 1), grid.anchorX, grid.anchorY)
     setUniform4f(gl, u.sheet, grid.lineWidth, grid.lineScale, grid.fadeFrom, grid.shared)
     // A spoke is half of a line through the hole
-    setUniform2f(gl, u.rings, Math.min(Math.floor(grid.rings), GRID_LINES_PER_SIDE), Math.min(Math.floor(grid.spokes / 2), GRID_LINES_PER_SIDE))
+    setUniform4f(gl, u.rings, Math.min(Math.floor(grid.rings), GRID_LINES_PER_SIDE), Math.min(Math.floor(grid.spokes / 2), GRID_LINES_PER_SIDE),
+      Math.min(Math.max(grid.ringSpacing, 0), 1), 0)
     // Whole no nearer than gone
     setUniform2f(gl, u.clearing, grid.clearFrom, Math.max(grid.clearTo, grid.clearFrom))
-    if (settings.gravityWaveAmplitude > 0) {
-      setUniform4f(gl, u.wave, settings.gravityWaveAmplitude * grid.waveLift, settings.gravityWaveTime,
-        2 * Math.PI * settings.gravityWaveFrequency, 1 / Math.max(settings.gravityWaveDecay, 0.001))
-      setUniform2f(gl, u.waveSpread, Math.max(settings.gravityWaveRadius, 1), Math.max(settings.gravityWaveSpeed, 1))
-      // The sheet's waves count their angles the other way round, so the oval turns the other way
-      setUniform4f(gl, u.waveTurn, Math.cos(2 * grid.ringPhase), Math.sin(2 * grid.ringPhase), -settings.gravityWaveSpin, 0)
-    } else {
-      setUniform4f(gl, u.wave, 0, 0, 0, 0)
-    }
-    // The sheet's waves count their angles the other way round, so the pair's turns the other way
-    if (settings.pairWave > 0 && grid.throat2 > 0) {
-      setUniform4f(gl, u.pairWave, settings.pairWave * grid.waveLift, grid.pairPhase, -settings.pairPitch, Math.max(settings.gravityWaveRadius, 1))
-      setUniform2f(gl, u.pairAt, grid.pairX, grid.pairY)
-      setUniform4f(gl, u.pairFront, settings.pairFront, Math.max(settings.gravityWaveSpeed, 1), Math.max(settings.pairFrontSoft, 0.001), 0)
-    } else {
-      setUniform4f(gl, u.pairWave, 0, 0, 0, 1)
-    }
-    setUniform4f(gl, u.lens, settings.zoomX, settings.zoomY, zoom, 0)
-    setUniform2f(gl, u.jolt, settings.shakeX, settings.shakeY)
     setUniform4f(gl, u.color, settings.gridColor.r * grid.brightness, settings.gridColor.g * grid.brightness, settings.gridColor.b * grid.brightness, 1)
-    // Where the composite pass put the black hole on the frame
-    setUniform4f(gl, u.shadow,
-      (settings.zoomX + (settings.holeX - settings.shakeX - settings.zoomX) * zoom) * ratio,
-      (settings.zoomY + (settings.holeY - settings.shakeY - settings.zoomY) * zoom) * ratio,
-      settings.horizon * zoom * ratio, 0)
-    setUniform4f(gl, u.shadow2,
-      (settings.zoomX + (settings.companionX - settings.shakeX - settings.zoomX) * zoom) * ratio,
-      (settings.zoomY + (settings.companionY - settings.shakeY - settings.zoomY) * zoom) * ratio,
-      settings.companionRadius * zoom * ratio, 0)
-    setUniform2f(gl, u.frame, height, settings.letterbox * ratio)
+    if (intoLayer) {
+      setUniform2f(gl, u.kept, lensed, 0)
+      setUniform4f(gl, u.lens, layerZoomX, layerZoomY, layerZoom, 0)
+      setUniform2f(gl, u.jolt, 0, 0)
+      setUniform4f(gl, u.shadow, 0, 0, 0, 0)
+      setUniform4f(gl, u.shadow2, 0, 0, 0, 0)
+      setUniform2f(gl, u.frame, height, 0)
+    } else {
+      setUniform2f(gl, u.kept, 1 - lensed, 1)
+      setUniform4f(gl, u.lens, settings.zoomX, settings.zoomY, zoom, 0)
+      setUniform2f(gl, u.jolt, settings.shakeX, settings.shakeY)
+      // Where the composite pass put the black hole on the frame
+      setUniform4f(gl, u.shadow,
+        (settings.zoomX + (settings.holeX - settings.shakeX - settings.zoomX) * zoom) * ratio,
+        (settings.zoomY + (settings.holeY - settings.shakeY - settings.zoomY) * zoom) * ratio,
+        settings.horizon * zoom * ratio, 0)
+      setUniform4f(gl, u.shadow2,
+        (settings.zoomX + (settings.companionX - settings.shakeX - settings.zoomX) * zoom) * ratio,
+        (settings.zoomY + (settings.companionY - settings.shakeY - settings.zoomY) * zoom) * ratio,
+        settings.companionRadius * zoom * ratio, 0)
+      setUniform2f(gl, u.frame, height, settings.letterbox * ratio)
+    }
 
     gl.enableVertexAttribArray(ATTRIBUTE_LOCATIONS.gridLine)
     // Brighter of the line and the frame, so crossings and the joints of a line do not add up
@@ -1513,7 +1516,9 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
         if (frame.flows[slot].brightness > 0 && frame.flows[slot].count > 0) flowsShown = true
       }
       flowsLaid = flowsShown && frame.present
-      const linesShown = latticeShown || flowsLaid
+      // Sheet Through Lens draws the sheet behind the holes into the same layer
+      const sheetLensed = frame.grid.brightness > 0 && frame.grid.lensed > 0
+      const linesShown = latticeShown || flowsLaid || sheetLensed
       const anyLines = frame.orbitCount > 0 || linesShown
       if (frame.orbitCount > 0) keepRow(frame)
       if (anyLines) {
@@ -1527,7 +1532,13 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
         if (frame.orbitCount > 0) drawOrbits(frame, front)
         if (latticeShown) drawLattice(frame.lattice, frame.composite.gridColor, front, frame.step)
         if (flowsLaid) drawFlows(frame, front)
+        if (sheetLensed) {
+          // The sheet's program writes one target: the layer behind the holes alone
+          if (inFront) gl.bindFramebuffer(gl.FRAMEBUFFER, lines.framebuffer)
+          drawGrid(frame.grid, frame.composite, sheetFront(frame), true)
+        }
       }
+      sheetLaid = sheetLensed
       gl.bindFramebuffer(gl.FRAMEBUFFER, null)
       // The last star gone, its traces go with it
       if (frame.orbitCount === 0) {
@@ -1566,15 +1577,28 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
         flowsLaid = true
         orbitsShown = true
         frontLinesShown = inFront
+        if (fresh) sheetLaid = false
       }
+    }
+    // The sheet through the lens the same way, into the layer behind the holes
+    if (!frame.updateScene && frame.present && !sheetLaid && frame.grid.brightness > 0 && frame.grid.lensed > 0) {
+      if (!lines.lit) openLayer(lines)
+      gl.bindFramebuffer(gl.FRAMEBUFFER, lines.framebuffer)
+      drawGrid(frame.grid, frame.composite, sheetFront(frame), true)
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+      sheetLaid = true
+      orbitsShown = true
     }
     if (!frame.present) return
     composite(frame.composite, frame.title)
-    if (frame.grid.brightness > 0) {
-      // The share of the main hole's distance the nearer hole stands at; the orbits are set at the former
-      const frontAway = frame.step.frontAway
-      drawGrid(frame.grid, frame.composite, frontAway > 0 && frame.orbitDepth > 0 ? frontAway / frame.orbitDepth : 0)
-    }
+    if (frame.grid.brightness > 0) drawGrid(frame.grid, frame.composite, sheetFront(frame), false)
+  }
+
+  // The share of the main hole's distance the nearer hole stands at, which the sheet's pieces in front of
+  // the holes are told by; the orbits are set at the former (0 = nothing is in front)
+  function sheetFront (frame: FrameInput) {
+    const frontAway = frame.step.frontAway
+    return frontAway > 0 && frame.orbitDepth > 0 ? frontAway / frame.orbitDepth : 0
   }
 
   function dispose () {

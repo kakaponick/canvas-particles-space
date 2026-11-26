@@ -568,6 +568,9 @@ that precess, faster the closer they come, as around a real black hole.
 | The flat mode's sheet camera: its distance, and how near it the sheet is cut off; how far the sheet reaches and the share of that it fades over | `gridDistance`, `gridNear`, `gridSpan`, `gridFade` |
 | How high a gravitational wave lifts the sheet | `gridWaveLift` |
 | What a pair's spiral wave turns with: 0 the line between the wells, 1 the orbit laid flat | `gridWaveOrbit` |
+| The sheet's shape: where its rings stand (equal steps of depth to equal radii), the share of the well's depth it is lifted by, how far a second well reaches toward its own hole | `gridRingSpacing`, `gridLift`, `gridWell2Bottom` |
+| The sheet in the picture: the share of it behind the holes drawn through the lens, and how its pose turns while 3D eases in | `gridLensed`, `gridEaseTurn` |
+| The particles on the sheet: the share of the slab their ride fades over, the slab's depth on the far side, the share of the sheet's waves they go with, the most of a stroke cut at the near plane rather than dropped | `gridRideSoft`, `gridRideFar`, `gridRideWave`, `gridRideCut` |
 | The lattice's lines and extent: their width, its reach in cells and the share of that it fades over | `gridLatticeLine`, `gridLatticeReach`, `gridLatticeFade` |
 | The lattice in depth: where it fades near the camera, the share of that where a line is gone, and what it keeps far behind the hole | `gridLatticeNear`, `gridLatticeNearEdge`, `gridLatticeFar` |
 | The shadow the lattice's cells are measured from while there is no black hole, as a share of the short side | `gridLatticeUnit` |
@@ -576,7 +579,7 @@ that precess, faster the closer they come, as around a real black hole.
   the orbiting stars follow; across the line of flight while the hole does not spin), dented where the hole
   sits, the well going down along the way the plane faces, away from a camera that looks down the flight,
   and rippled by gravitational waves. The well's bottom is the hole, as a textbook draws it: the plane is
-  lifted toward that camera by the well's depth, `gridDepth` radii, and the funnel runs down to the
+  lifted toward that camera by the well's depth, `gridDepth` radii (`gridLift` of it), and the funnel runs down to the
   shadow, its throat the shadow's edge. Nothing of the sheet is drawn inside a throat, from any side. Its
   lines stay put while the hole moves across it. In the flat mode a camera of its own sees it, tipped by
   `gridTilt`: at 60 and above the well's depth shows. In 3D the scene's camera sees it (section 11).
@@ -616,6 +619,44 @@ that precess, faster the closer they come, as around a real black hole.
   surface. At 2 the flight streams across the sheet and hides it, and the tenth that rides cannot be told
   from the rest; lower it only for a shot about a thin disc. A flat field (`threeD` off) is measured the
   same way, by its depth.
+- `gridRingSpacing` moves the rings from the well's contour lines (0) toward equal steps of radius (1)
+  between the shadow's edge and the outermost contour, which stays: from above at 1 they read as a target
+  with no sense of depth, from the side they bunch at the bottom of the well. `gridRings` still sets how
+  many, and the outermost ring's radius.
+- `gridLift` is the share of the main well's depth the sheet is lifted by: at 1 the well's bottom is the
+  hole, so a 3D camera nearer the hole than `gridDepth` radii along the flight stands on the hole's side of
+  the sheet; at 0 the sheet runs through the hole and the funnel hangs below it, the textbook picture of a
+  ball resting on a sheet seen from the side. Particles on the sheet go with it, since they ride the
+  surface. In the flat mode the point that share down the well is put on the hole.
+- `gridWell2Bottom` at 1 makes a second hole's well exactly as deep as it takes for its bottom to reach that
+  hole where it stands: from the lifted sheet, less what the main well has already dented there, down to
+  the hole's height off the equator. A hole on the sheet's far side digs a deep well, one on the near side
+  none. At 0 the well is `gridDepth` of its own radii deep from the dented sheet wherever the hole is, so
+  the two wells add up and its bottom misses the hole even in the plane. In the flat mode 1 drops the
+  second well `gridDepth` of its radii from the flat sheet in all, the main dent included.
+- `gridLensed` draws the share of the sheet behind the holes into the layer the lens reads, with the
+  lattice and the orbits: its lines bend round the shadow into an Einstein ring and the shadow covers
+  them; the rest stays over the frame, cleared round each shadow by `gridClearing`. A piece nearer the
+  camera than the holes stays over the frame at any value. The sheet's dent already places each point
+  where light passing the hole at that distance is seen, so at 1 the lens bends the lines a second time:
+  use it for a sheet that is matter in the scene rather than a diagram over it, and lower `gridDepth`.
+- `gridEaseTurn` decides the path the sheet takes while 3D eases in (`threeDEase`): at 1 its pose turns as
+  a camera does, the plane staying flat and square, and its lines slide by less than half a cell to where
+  the 3D camera counts them from; at 0 each number of the pose goes straight to the other's, which
+  squeezes the sheet midway and slides the lines the whole way from the middle of the screen to the point
+  the camera circles. The hole's point of the well stays on the hole either way.
+- The slab whose particles ride has two shapes besides its depth. `gridRideSoft` is the share of
+  `gridRideDepth` the ride fades over: 1 fades it from the plane, so only the plane rides wholly; low lays
+  the whole slab on the sheet and cuts it off at its edge. `gridRideFar` is the slab's depth on the side
+  the well goes down, away from a camera looking down the flight, as a multiple of the near side's: 0
+  takes only what flies in front of the plane, 2 reaches twice as deep behind it.
+- `gridRideWave` is the share of the sheet's waves the particles and flows on it go with: at 1 they rise
+  and sink with the surface as a wave passes, by the height `gridWaveLift` gives the sheet, and their
+  motion on the moving surface lights them, so a ringdown sweeps a bright ring across the matter; at 0
+  they stay on a still sheet while it ripples beneath them.
+- `gridRideCut` is the most of a ridden stroke that may lie nearer than the sheet camera's near plane and
+  still be cut there; a stroke with more of it nearer is dropped. 1 cuts each one, so the matter on the
+  sheet runs right up to the camera; 0 drops every stroke that crosses the plane, a ragged edge.
 - The lensed grid is a measuring tool: it shows the Einstein ring, the mirrored image, the twist and the
   waves. Lower `baseBrightness` when it should be read clearly.
 - `gridSkyPull` draws the lensed grid in towards the hole: the classic picture of space pulled in by a

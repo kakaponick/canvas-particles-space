@@ -293,7 +293,22 @@ ${STEP_DEFINES}
       if (shareFrom + shareTo > 0.0) {
         vec3 laidFrom = underneath(inFrom.xy);
         vec3 laidTo = underneath(inTo.xy);
-        if (min(laidFrom.z, laidTo.z) < u_sheetV.w) return;
+        // An end nearer than the sheet camera's near plane is cut back to it, the stroke with it
+        float cut = rideCut(laidFrom, laidTo);
+        if (cut < 0.0) return;
+        if (cut > 0.0) {
+          if (laidFrom.z < laidTo.z) {
+            laidFrom = mix(laidFrom, laidTo, cut);
+            start = mix(start, end, cut);
+            away.x = mix(away.x, away.y, cut);
+            shareFrom = mix(shareFrom, shareTo, cut);
+          } else {
+            laidTo = mix(laidFrom, laidTo, cut);
+            end = mix(start, end, cut);
+            away.y = mix(away.x, away.y, cut);
+            shareTo = mix(shareFrom, shareTo, cut);
+          }
+        }
         start = laidOn(start, away.x, laidFrom, shareFrom);
         end = laidOn(end, away.y, laidTo, shareTo);
         // A ridden stroke stands as far away as laidOn sets it

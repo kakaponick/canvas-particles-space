@@ -54,8 +54,14 @@ const SHEET_GLSL = `  uniform vec4 u_sheetU;      // the sheet's pose: where its
   uniform vec4 u_sheetV;      // where it sends the second, the nearest it draws
   uniform vec4 u_sheetN;      // where it sends the way the wells go down, the x of its picture's centre
   uniform vec4 u_sheetO;      // where the plane's place over the main hole stands, the y of its picture's centre; the hole is at its well's bottom
-  uniform vec4 u_sheetWell;   // the main hole's well: the radius it ends at, its depth there; unused
+  uniform vec4 u_sheetWell;   // the main hole's well: the radius it ends at, its depth there, the depth the hole stands at; unused
   uniform vec4 u_sheetWell2;  // a second hole's well: where it falls on the plane from the main hole, its radius and depth (0 = none)
+  uniform vec4 u_sheetWave;   // a ringing hole's wave on the sheet: height (0 = none), seconds since it left the hole, angular frequency, 1 / decay time
+  uniform vec4 u_sheetWaveSpread; // radius beyond which it weakens, how far it travels a second; unused
+  uniform vec4 u_sheetWaveTurn;   // cosine and sine of twice the angle on the sheet the oval's long axis had as the ringing began, the way it turns there (1, -1; 0 = it wobbles in place), unused
+  uniform vec4 u_sheetPairWave;   // the pair's spiral wave: height (0 = none), the pair's angle on the sheet, turn of its arms per unit of distance, radius beyond which it weakens
+  uniform vec4 u_sheetPairAt;     // the centre the two turn around, from the main hole; unused
+  uniform vec4 u_sheetPairFront;  // once the two are one: seconds since then (negative = not yet), how far the wave travels a second, seconds the old wave takes to give way to the new; unused
 
 ${DENT_GLSL}
   // How deep the wells lie at a place of the plane
@@ -64,6 +70,50 @@ ${DENT_GLSL}
     if (u_sheetWell.y > 0.0) depth = u_sheetWell.y * dent(length(at), u_sheetWell.x);
     // A second black hole dents the sheet the same way, and the dents add up
     if (u_sheetWell2.w > 0.0) depth += u_sheetWell2.w * dent(length(at - u_sheetWell2.xy), u_sheetWell2.z);
+    return depth;
+  }
+
+  // How strong a gravitational wave is at a distance from where it left: it falls as 1 / r. Closer than
+  // the edge there is no wave yet, only the field of the source itself, which fades to nothing at the centre
+  float sheetReach (float dist, float edge) {
+    float share = dist / edge;
+    return share < 1.0 ? share * share : 1.0 / share;
+  }
+
+  // How far the sheet's waves lift it at a place of the plane, given from the main hole, along the way
+  // the wells go down. The pair's spiral wave is drawn as height: the sheet rises where the wave stretches
+  // space along the line the two stood on as it left, and sinks where it squeezes; the wave of a ringing
+  // hole the same way, a hole that formed alone wobbling in place, two that became one leaving an oval that
+  // turns. The composite pass slides the sky by the same waves
+  float sheetWave (vec2 fromHole) {
+    float depth = 0.0;
+    if (u_sheetPairWave.x > 0.0) {
+      vec2 fromPair = fromHole - u_sheetPairAt.xy;
+      float pairDist = length(fromPair);
+      float turn = 2.0 * (u_sheetPairWave.z * pairDist - u_sheetPairWave.y);
+      float height = u_sheetPairWave.x * sheetReach(pairDist, u_sheetPairWave.w);
+      if (u_sheetPairFront.x >= 0.0) height *= smoothstep(-u_sheetPairFront.z, u_sheetPairFront.z, pairDist / u_sheetPairFront.y - u_sheetPairFront.x);
+      depth += height *
+        ((fromPair.x * fromPair.x - fromPair.y * fromPair.y) * cos(turn) - 2.0 * fromPair.x * fromPair.y * sin(turn)) / max(pairDist * pairDist, 0.0001);
+    }
+    if (u_sheetWave.x > 0.0) {
+      float r = length(fromHole);
+      float emitted = u_sheetWave.y - r / u_sheetWaveSpread.y;
+      float quarter = 1.5707963 / u_sheetWave.z;
+      if (emitted > (u_sheetWaveTurn.z == 0.0 ? 0.0 : -quarter)) {
+        float cos2 = (fromHole.x * fromHole.x - fromHole.y * fromHole.y) / max(r * r, 0.0001);
+        float sin2 = 2.0 * fromHole.x * fromHole.y / max(r * r, 0.0001);
+        float phase = u_sheetWave.z * emitted;
+        float along;
+        if (u_sheetWaveTurn.z == 0.0) {
+          along = sin(phase) * cos2;
+        } else {
+          along = (cos2 * u_sheetWaveTurn.x + sin2 * u_sheetWaveTurn.y) * cos(phase) + u_sheetWaveTurn.z * (sin2 * u_sheetWaveTurn.x - cos2 * u_sheetWaveTurn.y) * sin(phase);
+          along *= smoothstep(-quarter, quarter, emitted);
+        }
+        depth += u_sheetWave.x * exp(-max(emitted, 0.0) * u_sheetWave.w) * sheetReach(r, u_sheetWaveSpread.x) * along;
+      }
+    }
     return depth;
   }
 
@@ -1649,15 +1699,9 @@ export const gridVertexShaderSource = `
   uniform float u_pixelRatio;
   uniform vec4 u_lines;       // cell size, how far from the black hole the lines reach, the place the lines are counted from
   uniform vec4 u_sheet;       // line width where the focal length is the distance, the most a line widens near the camera, the distance from the black hole the lines begin to fade out at, how far the scene's own camera sees the sheet (0 = the flat camera alone)
-  uniform vec4 u_pairWave;    // the pair's spiral wave: height (0 = off), the pair's angle on the sheet, turn of its arms per unit of distance, radius beyond which it weakens
-  uniform vec2 u_pairAt;      // the centre the two turn around, from the main hole
-  uniform vec4 u_wave;        // gravitational wave: height, seconds since it left the hole, angular frequency, 1 / decay time
-  uniform vec2 u_waveSpread;  // radius beyond which the wave weakens, how far it travels a second
-  uniform vec4 u_waveTurn;    // cosine and sine of twice the angle on the sheet the oval's long axis had as the ringing began, the way it turns there (1, -1; 0 = it wobbles in place), unused
-  uniform vec4 u_pairFront;   // once the two are one: seconds since then (negative = not yet), how far the wave travels a second, seconds the old wave takes to give way to the new
-  uniform vec4 u_lens;        // the scene camera: centre of its zoom, the zoom, unused
-  uniform vec2 u_jolt;        // the scene camera's shake
-  uniform vec2 u_rings;       // rings drawn around the black hole in place of the square cells (0 = the cells), lines through the hole drawn across them
+  uniform vec4 u_lens;        // the camera the sheet is drawn for: centre of its zoom, the zoom, unused (the scene camera's over the frame, the layer's into the layer the lens reads)
+  uniform vec2 u_jolt;        // the scene camera's shake (0 into the layer the lens reads, which the composite pass shakes)
+  uniform vec4 u_rings;       // rings drawn around the black hole in place of the square cells (0 = the cells), lines through the hole drawn across them, the share of the way the rings are moved from equal steps of depth to equal radii; unused
   uniform float u_front;      // 3D: the nearer black hole's distance from the camera as a share of the main one's (0 = nothing is in front)
 ${SHEET_GLSL}
   varying vec2 v_ends;        // distance along the piece from its start and from its end
@@ -1666,49 +1710,21 @@ ${SHEET_GLSL}
   varying float v_alpha;
   varying float v_front;      // 1 for a piece nearer the camera than the holes, which passes in front of them
 
-  // How strong a gravitational wave is at a distance from where it left: it falls as 1 / r. Closer than
-  // the edge there is no wave yet, only the field of the source itself, which fades to nothing at the centre
-  float waveReach (float dist, float edge) {
-    float share = dist / edge;
-    return share < 1.0 ? share * share : 1.0 / share;
+  // The radius of ring k of the n the sheet is drawn with, at k / (n + 1) of the way down the well, so the
+  // rings are its contour lines. dent() turned inside out gives it: a share of the depth is a slowing of
+  // time, 1 - sqrt(1 - rs / nearest), and light that comes that near is seen at
+  // b = nearest / sqrt(1 - rs / nearest), with the shadow's edge at sqrt(27) / 2 rs
+  float contour (float k) {
+    float kept = 1.0 - k / (u_rings.x + 1.0) / 2.3660254;
+    float sunk = 1.0 - kept * kept;
+    return u_sheetWell.x * 0.3849002 / (sunk * kept);
   }
 
   // A point of the sheet, given from the black hole on the plane: where it lies in the space of the
   // sheet's camera, and how lit it is
   vec4 onSurface (vec2 fromHole) {
     float r = length(fromHole);
-    float depth = sheetDepth(fromHole);
-    // The pair's spiral wave is drawn as height: the sheet rises where the wave stretches space along the
-    // line the two stood on as it left, and sinks where it squeezes. The composite pass slides the sky by
-    // the same wave
-    if (u_pairWave.x > 0.0) {
-      vec2 fromPair = fromHole - u_pairAt;
-      float pairDist = length(fromPair);
-      float turn = 2.0 * (u_pairWave.z * pairDist - u_pairWave.y);
-      float height = u_pairWave.x * waveReach(pairDist, u_pairWave.w);
-      if (u_pairFront.x >= 0.0) height *= smoothstep(-u_pairFront.z, u_pairFront.z, pairDist / u_pairFront.y - u_pairFront.x);
-      depth += height *
-        ((fromPair.x * fromPair.x - fromPair.y * fromPair.y) * cos(turn) - 2.0 * fromPair.x * fromPair.y * sin(turn)) / max(pairDist * pairDist, 0.0001);
-    }
-    // The wave of a ringing hole, the same way: a hole that formed alone wobbles in place, two that
-    // became one leave an oval that turns
-    if (u_wave.x > 0.0) {
-      float emitted = u_wave.y - r / u_waveSpread.y;
-      float quarter = 1.5707963 / u_wave.z;
-      if (emitted > (u_waveTurn.z == 0.0 ? 0.0 : -quarter)) {
-        float cos2 = (fromHole.x * fromHole.x - fromHole.y * fromHole.y) / max(r * r, 0.0001);
-        float sin2 = 2.0 * fromHole.x * fromHole.y / max(r * r, 0.0001);
-        float phase = u_wave.z * emitted;
-        float along;
-        if (u_waveTurn.z == 0.0) {
-          along = sin(phase) * cos2;
-        } else {
-          along = (cos2 * u_waveTurn.x + sin2 * u_waveTurn.y) * cos(phase) + u_waveTurn.z * (sin2 * u_waveTurn.x - cos2 * u_waveTurn.y) * sin(phase);
-          along *= smoothstep(-quarter, quarter, emitted);
-        }
-        depth += u_wave.x * exp(-max(emitted, 0.0) * u_wave.w) * waveReach(r, u_waveSpread.x) * along;
-      }
-    }
+    float depth = sheetDepth(fromHole) + sheetWave(fromHole);
     // Inside a throat the sheet lies below the horizon. The flat mode's shadow covers it; seen by the scene's
     // own camera, from any side, it is not drawn
     float shown = u_sheet.w > 0.0 && (r < u_sheetWell.x || length(fromHole - u_sheetWell2.xy) < u_sheetWell2.z) ? 0.0 : 1.0;
@@ -1733,14 +1749,12 @@ ${SHEET_GLSL}
       // Rings and spokes around the black hole in place of the square cells. A line the count leaves out
       // is put past the sheet's reach, where it is dropped below
       if (crosswise) {
-        // A ring lies at one depth: ring k of n is k / (n + 1) of the way down the well, so the rings are
-        // its contour lines. dent() turned inside out gives the radius: a share of the depth is a slowing of
-        // time, 1 - sqrt(1 - rs / nearest), and light that comes that near is seen at
-        // b = nearest / sqrt(1 - rs / nearest), with the shadow's edge at sqrt(27) / 2 rs
+        // A ring lies at one depth, its contour; moved toward equal steps of radius it lies that share of
+        // the way to its even place between the shadow's edge and the outermost contour, which stays
         across = a_gridLine.x < 1.0 || a_gridLine.x > u_rings.x ? 2.0 * u_lines.y : 0.0;
-        float kept = 1.0 - clamp(a_gridLine.x, 1.0, u_rings.x) / (u_rings.x + 1.0) / 2.3660254;
-        float sunk = 1.0 - kept * kept;
-        float radius = u_sheetWell.x * 0.3849002 / (sunk * kept);
+        float k = clamp(a_gridLine.x, 1.0, u_rings.x);
+        float radius = contour(k);
+        if (u_rings.z > 0.0) radius = mix(radius, u_sheetWell.x + (contour(1.0) - u_sheetWell.x) * (u_rings.x + 1.0 - k) / u_rings.x, u_rings.z);
         vec2 turn = 3.14159265 * a_gridLine.yz;
         first = onSurface(radius * vec2(cos(turn.x), sin(turn.x)));
         last = onSurface(radius * vec2(cos(turn.y), sin(turn.y)));
@@ -1777,8 +1791,8 @@ ${SHEET_GLSL}
       else last = cut;
     }
     // A piece whose middle is nearer the camera than the nearer hole passes in front of the holes, and no
-    // shadow clears it. The main hole stands at the bottom of its well in the sheet camera's space
-    if (u_front > 0.0 && first.z + last.z < 2.0 * u_front * (u_sheetO.z + u_sheetN.z * u_sheetWell.y)) v_front = 1.0;
+    // shadow clears it. The main hole stands in its well, at its depth there, in the sheet camera's space
+    if (u_front > 0.0 && first.z + last.z < 2.0 * u_front * (u_sheetO.z + u_sheetN.z * u_sheetWell.z)) v_front = 1.0;
     vec3 from = onFrame(first.xyz);
     vec3 to = onFrame(last.xyz);
 
@@ -1816,6 +1830,7 @@ export const gridFragmentShaderSource = `
   uniform vec4 u_shadow2; // a second black hole, the same way
   uniform vec2 u_frame;   // height of the drawing buffer, height of each letterbox bar
   uniform vec2 u_clearing; // the shadow radii inside which a line is gone and beyond which it is whole
+  uniform vec2 u_kept;     // the share drawn of a piece behind the holes, and of one in front of them
 
   varying vec2 v_ends;
   varying float v_across;
@@ -1828,6 +1843,9 @@ export const gridFragmentShaderSource = `
     float beyondEnds = max(0.0, -min(v_ends.x, v_ends.y));
     float alpha = v_alpha * clamp(v_halfWidth + 0.5 - length(vec2(beyondEnds, v_across)), 0.0, 1.0);
     vec2 screen = vec2(gl_FragCoord.x, u_frame.x - gl_FragCoord.y);
+    // Over the frame the sheet behind the holes is drawn less what is drawn through the lens, and into the
+    // layer the lens reads, where the shadow covers it, nothing in front of them
+    alpha *= v_front < 0.5 ? u_kept.x : u_kept.y;
     // A line behind the black hole does not cross its shadow or its ring; one in front of the holes does
     if (v_front < 0.5) {
       if (u_shadow.z > 0.0) alpha *= smoothstep(u_shadow.z * u_clearing.x + 1.0, u_shadow.z * u_clearing.y + 2.0, length(screen - u_shadow.xy));
@@ -2031,18 +2049,34 @@ ${DENT_GLSL}
 // drawn at, seen through the sheet's pose. Only matter within a slab round the plane rides, the more the
 // nearer the plane. Places are in CSS pixels seen straight on at the black hole's distance
 export const RIDE_GLSL = `  uniform vec4 u_ride;        // the share of the way a particle is laid on the sheet (0 = none), the half thickness of the slab whose particles ride, the plane's units in a CSS pixel, how far the sheet is seen by the scene's own camera (0-1)
+  uniform vec4 u_rideShape;   // the share of the slab the ride fades over, the slab's half thickness on the side the well goes down as a multiple of the other's, the share of the sheet's waves the riders go with, the most of a stroke nearer than the near plane that is cut there rather than dropped
 ${SHEET_GLSL}
-  // The share of the way a particle this high off the equator is laid on the sheet: all of it in the plane,
-  // none at the slab's edge
+  // The share of the way a particle this high off the equator, along the way the well goes down, is laid
+  // on the sheet: all of it in the plane and within the share of the slab that does not fade, none at the
+  // slab's edge
   float rideShare (float height) {
-    return u_ride.x * (1.0 - smoothstep(0.0, u_ride.y, abs(height)));
+    float depth = max(height > 0.0 ? u_ride.y * u_rideShape.y : u_ride.y, 0.001);
+    return u_ride.x * (1.0 - smoothstep(depth * (1.0 - u_rideShape.x), depth, abs(height)));
   }
 
   // The point of the surface over a place of the equator, given from the main hole, in the space of the
-  // sheet's camera
+  // sheet's camera, risen and sunk with the sheet's waves as far as the riders go with them
   vec3 underneath (vec2 inPlane) {
     vec2 at = inPlane * u_ride.z;
-    return sheetSeen(at, sheetDepth(at));
+    float depth = sheetDepth(at);
+    if (u_rideShape.z > 0.0) depth += u_rideShape.z * sheetWave(at);
+    return sheetSeen(at, depth);
+  }
+
+  // Where a ridden stroke from "a" to "b" (the sheet camera's space) crosses the near plane: 0 while both
+  // ends lie beyond it, the share of the way from "a" otherwise, or -1 when the stroke is dropped, wholly
+  // nearer or with more of it nearer than may be cut
+  float rideCut (vec3 a, vec3 b) {
+    float near = u_sheetV.w;
+    if (min(a.z, b.z) >= near) return 0.0;
+    if (max(a.z, b.z) < near) return -1.0;
+    float t = (near - a.z) / (b.z - a.z);
+    return (a.z < near ? t : 1.0 - t) > u_rideShape.w ? -1.0 : t;
   }
 
   // A particle drawn "share" of the way from where it is seen (on the screen, and "away" from the camera,
@@ -2194,9 +2228,22 @@ ${RIDE_GLSL}${SIDE_GLSL}
       if (shareOlder + shareNewer > 0.0) {
         vec3 laidFrom = underneath(olderIn.xy);
         vec3 laidTo = underneath(newerIn.xy);
-        if (min(laidFrom.z, laidTo.z) < u_sheetV.w) {
+        // An end nearer than the sheet camera's near plane is cut back to it, the stroke with it
+        float cut = rideCut(laidFrom, laidTo);
+        if (cut < 0.0) {
           gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
           return;
+        }
+        if (cut > 0.0) {
+          if (laidFrom.z < laidTo.z) {
+            laidFrom = mix(laidFrom, laidTo, cut);
+            from = mix(from, to, cut);
+            shareOlder = mix(shareOlder, shareNewer, cut);
+          } else {
+            laidTo = mix(laidFrom, laidTo, cut);
+            to = mix(from, to, cut);
+            shareNewer = mix(shareOlder, shareNewer, cut);
+          }
         }
         // Distances from the camera in CSS pixels; the flat mode sees the flow straight on, at no depth
         float holeAway = u_turnX.w > 0.0 ? u_turnY.w / u_turnZ.w : 1.0;
