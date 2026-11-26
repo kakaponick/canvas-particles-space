@@ -385,17 +385,20 @@ function SettingsBody () {
             <SettingSlider field={keys.to} />
             <SettingSlider field={keys.swirl} />
             <SettingSlider field={keys.life} />
+            <SettingSlider field={keys.tilt} />
             <SettingColor field={keys.color} />
           </div>
         ))}
         <SettingsFine id="flows">
-          {/* The band's width, the trail and the stroke of each flow, and which hole it turns round */}
+          {/* The band's width, the trail and the stroke of each flow, which hole it turns round, the side its tilt brings up and its thickness */}
           {FLOW_KEYS.map((keys, index) => (
             <div key={keys.slot} className={index > 0 ? 'mt-3 flex flex-col gap-1' : 'flex flex-col gap-1'}>
               <SettingSlider field={keys.spread} />
               <SettingSlider field={keys.trail} />
               <SettingSlider field={keys.size} />
               <SettingSlider field={keys.pair} />
+              <SettingSlider field={keys.node} />
+              <SettingSlider field={keys.thick} />
             </div>
           ))}
         </SettingsFine>

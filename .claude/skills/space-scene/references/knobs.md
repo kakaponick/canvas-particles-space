@@ -98,8 +98,10 @@ once, A, B and C, beside the field or without it.
 | How fast it turns (the sign is the direction), and the seconds a particle takes | `flowASwirl`, `flowALife` |
 | Its look: seconds of trail, stroke width, colour | `flowATrail`, `flowASize`, `flowAColor` |
 | Which hole of a pair it turns round | `flowAPair` |
-| The second flow, the same | `flowB`, `flowBCount`, `flowBFrom`, `flowBTo`, `flowBSpread`, `flowBSwirl`, `flowBLife`, `flowBTrail`, `flowBSize`, `flowBPair`, `flowBColor` |
-| The third | `flowC`, `flowCCount`, `flowCFrom`, `flowCTo`, `flowCSpread`, `flowCSwirl`, `flowCLife`, `flowCTrail`, `flowCSize`, `flowCPair`, `flowCColor` |
+| How far it tips out of the hole's equator, in degrees, and which side comes up | `flowATilt`, `flowANode` |
+| How thick the disc is: half its height as a share of the radius | `flowAThick` |
+| The second flow, the same | `flowB`, `flowBCount`, `flowBFrom`, `flowBTo`, `flowBSpread`, `flowBSwirl`, `flowBLife`, `flowBTrail`, `flowBSize`, `flowBPair`, `flowBTilt`, `flowBNode`, `flowBThick`, `flowBColor` |
+| The third | `flowC`, `flowCCount`, `flowCFrom`, `flowCTo`, `flowCSpread`, `flowCSwirl`, `flowCLife`, `flowCTrail`, `flowCSize`, `flowCPair`, `flowCTilt`, `flowCNode`, `flowCThick`, `flowCColor` |
 
 - The two radii are the shape. `flowATo` the same as `flowAFrom` keeps every particle on its circle: a ring,
   a disc with a wide `flowASpread`. Below it the matter closes in, as in a fall from rest, and below 1 it
@@ -112,17 +114,28 @@ once, A, B and C, beside the field or without it.
   ends. A long life on a ring is a steady ring; a short one twinkles.
 - Every number of a flow moves along a track. `flowALife` changes how fast the particles go and never
   where they are. `flowACount` adds and takes particles at once, wherever they are in their lives.
-- The flows lie in the plane the orbiting stars circle in: face on in the flat mode, turned by the 3D
-  camera (`threeD` with `cameraPitch` 60 is a disc seen from above its rim). That camera stands about
-  twelve radii from the hole at the default `blackHoleSize`, so a flow wider than that passes it: strokes
-  that come near fade out.
+- The flows lie in the main hole's equator, the plane a real disc settles into: face on in the flat mode,
+  and in 3D facing the spin's axis as far as `orbitalSpinFollow` turns the swirl there (along the flight
+  while the hole does not spin), turned by the camera (`threeD` with `cameraPitch` 60 is a disc seen from
+  above its rim). That camera stands about twelve radii from the hole at the default `blackHoleSize`, so a
+  flow wider than that passes it: strokes that come near fade out.
+- `flowATilt` tips a flow out of the equator about a line through the hole, keeping its radii: 90 stands
+  it across the equator, a stream over the poles, 180 lays it back turning the other way. `flowANode` says
+  which side comes up, in degrees round the hole the way a positive `flowASwirl` turns (0 the right, 90
+  the top), rising against the way the equator faces: toward the camera of the flat mode, where a tilted
+  ring is an ellipse and a polar one a line. Two flows at different tilts are two discs crossing at the hole.
+- `flowAThick` is the disc's half height as a share of the radius, its H/r: 0.06 by default, a thin disc;
+  0 lays every particle in one plane, 0.3 and above is a thick torus. Each particle's orbit is tipped a
+  little, so it rises and sinks once a turn, by its own share of that height, and a thick disc seen edge-on
+  is a band as many radii high farther out as near. Face on it changes nothing.
 - The lens bends a flow as it bends everything behind the hole: a ring shows farther out than its radius
   says and again, mirrored, inside the Einstein ring. `lensingEnabled` false draws it where it was set.
 - A flow's light is said, not earned by speed: `speedGlow`, `baseBrightness` and `trailIntensity` do
   nothing to it. Strokes keep the brighter of two, so many particles in a narrow band are one flat band:
   for streaks, fewer and thinner.
 - Its trail is a line in the scene, not a fade of the picture, so a camera that moves does not smear it.
-- `gridRide` lays the flows on the sheet as it lays the field: the flow's plane is the sheet, so a ring
+- `gridRide` lays the flows on the sheet as it lays the field, from the places in the flow's own plane, its
+  tilt and thickness aside: the flow's plane is the sheet, so a ring
   lies round the mouth of the well and a fall runs down its wall, all the way round and from the first
   frame. The sheet's setup is the field's (films.md, section 16), `lensingEnabled` false with it.
 - A flow round the main hole whose `flowATo` is below `horizonScale` lights the photon ring while
@@ -130,8 +143,9 @@ once, A, B and C, beside the field or without it.
   round. A dense fast flow fills the ring; `ringFeed` and `ringFeedCapture` say how far.
 - With a second black hole `flowAPair` says what the flow turns round: -1 the main hole, 0 the centre
   the two turn about (a ring wider than `companionDistance` there is a disc round both), 1 the second
-  hole, in whose radii the flow is then measured. The second hole does not pull a flow off its path:
-  matter torn from one hole to the other is two flows, or the field.
+  hole, in whose radii the flow is then measured, lying in the main hole's equator still. The second
+  hole does not pull a flow off its path: matter torn from one hole to the other is two flows, or the
+  field.
 - Without a black hole (`blackHoleSize` 0) a flow keeps `gridLatticeUnit` for its radius.
 
 ## 3. Gravity on the particles
@@ -820,7 +834,11 @@ The cost of a knob, in the last column:
 | Fixed | File in src/lib | Cost |
 |---|---|---|
 | The path: the radius to the power 1.5 runs evenly from the first radius to the last, and the turn rate falls as the radius to the power -1.5 | flows.ts, webgl_shaders.ts | frame |
-| The plane the flows lie in: the orbiting stars', with no tilt of its own and no thickness | scene.ts, webgl_shaders.ts | frame |
+| The plane the flows lie in: the main hole's equator, which faces the swirl's axis, before each flow's own tilt | scene.ts, flows.ts | frame |
+| A flow round the second hole, or the centre of a pair, lies in the main hole's equator too, not the second hole's | scene.ts | frame |
+| A thick disc's shape: each orbit tipped a little, the height swinging once a turn as the sine of the angle round the hole; not a bell, not flaring with the radius | webgl_shaders.ts | frame |
+| A particle's share of the height and its orbit's phase: drawn evenly from 0 to the whole and all the way round, anew each life | webgl_shaders.ts | frame |
+| With Particles on Sheet a flow is laid from its place in its own plane: its tilt and its thickness do not reach the sheet | webgl_shaders.ts | frame |
 | A particle appears over the first 6% of its life and leaves over the last | flows.ts | frame |
 | Each particle is drawn at 40% to 100% of its flow's brightness | webgl_shaders.ts | frame |
 | A trail dims toward its tail as the square of what is left of it | webgl_shaders.ts | frame |

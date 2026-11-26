@@ -9,7 +9,7 @@ export interface ParticleColor {
   percent: number
 }
 
-// The flows' settings (flows.ts) are the same nine numbers and a colour for each of its slots
+// The flows' settings (flows.ts) are the same numbers and a colour for each of its slots
 export interface ParticleState extends FlowState {
   numParticles: number
   // The particle field itself: off, no particle of it is stepped or drawn, and the flows, the grids and

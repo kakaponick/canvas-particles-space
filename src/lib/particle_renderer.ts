@@ -427,8 +427,8 @@ export interface FrameInput extends FieldInput {
   grid: GridSettings
   // The space lattice, drawn into the orbits' layer and read through the lens
   lattice: LatticeSettings
-  // The flows (flows.ts), drawn into that layer too: one record for each slot. In 3D they lie where the
-  // orbits do (orbitTurn)
+  // The flows (flows.ts), drawn into that layer too: one record for each slot, each with its own plane as
+  // the camera sees it, set at the black hole's distance with orbitFocal
   flows: FlowSettings[]
 }
 
@@ -597,7 +597,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   ] as const)
 
   const flowUniforms = getUniforms(gl, flowProgram, [
-    'resolution', 'zoom', 'place', 'turnX', 'turnY', 'path', 'age', 'light', 'ride', 'sheetView', 'sheetTilt', 'sheetWell', 'sheetWell2', 'rideHole'
+    'resolution', 'zoom', 'place', 'turnX', 'turnY', 'turnZ', 'thick', 'path', 'age', 'light', 'ride', 'sheetView', 'sheetTilt', 'sheetWell', 'sheetWell2', 'rideHole'
   ] as const)
 
   gl.useProgram(compositeProgram)
@@ -948,10 +948,8 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
       gl.vertexAttribDivisor(ATTRIBUTE_LOCATIONS.flowSeed, 1)
     }
     const u = flowUniforms
-    const turn = frame.orbitTurn
     gl.useProgram(flowProgram)
     setUniform4f(gl, u.zoom, layerZoomX * ratio, layerZoomY * ratio, layerZoom, 0)
-    setUniform4f(gl, u.turnX, turn[0], turn[1], turn[2], frame.orbitFocal * ratio)
     // Particles on Sheet lays the flows on the sheet the particles were stepped with
     const step = frame.step
     if (step.ride > 0) {
@@ -974,7 +972,12 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
       // Each flow reads its own stretch of the particles' numbers
       gl.vertexAttribPointer(ATTRIBUTE_LOCATIONS.flowSeed, FLOW_SEED_FLOATS, gl.FLOAT, false, 0, slot * FLOW_CAPACITY * FLOW_SEED_FLOATS * 4)
       setUniform4f(gl, u.place, flow.x * ratio, flow.y * ratio, flow.unit * ratio, flow.size * ratio)
+      // Its own plane as the camera sees it, and the disc's thickness
+      const turn = flow.turn
+      setUniform4f(gl, u.turnX, turn[0], turn[1], turn[2], frame.orbitFocal * ratio)
       setUniform4f(gl, u.turnY, turn[3], turn[4], turn[5], frame.orbitFocal > 0 ? flow.depth * ratio : 1)
+      setUniform3f(gl, u.turnZ, turn[6], turn[7], turn[8])
+      setUniform1f(gl, u.thick, flow.thick)
       setUniform4f(gl, u.path, flow.from, flow.to, flow.spread, flow.wound)
       setUniform3f(gl, u.age, flow.phase, flow.lives, flow.piece)
       setUniform4f(gl, u.light, flow.color.r, flow.color.g, flow.color.b, flow.brightness)

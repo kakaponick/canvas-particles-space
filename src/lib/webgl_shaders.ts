@@ -1631,8 +1631,10 @@ export const flowVertexShaderSource = `
   uniform vec2 u_resolution;    // drawing buffer size in device pixels
   uniform vec4 u_zoom;          // the camera: the point its zoom leaves in place (device pixels), the zoom
   uniform vec4 u_place;         // the black hole (device pixels), device pixels in a black hole radius, stroke width in device pixels
-  uniform vec4 u_turnX;         // 3D: where the camera turns the flows' x axis, and its focal length in device pixels (0 = flat)
-  uniform vec4 u_turnY;         // where it turns their y axis, and the black hole's distance in device pixels
+  uniform vec4 u_turnX;         // where the camera turns the flow's own x axis, and in 3D its focal length in device pixels (0 = flat, straight on)
+  uniform vec4 u_turnY;         // where it turns the flow's y axis, and the black hole's distance in device pixels
+  uniform vec3 u_turnZ;         // where it turns the way the flow's plane faces
+  uniform float u_thick;        // the disc's half height as a share of the radius
   uniform vec4 u_path;          // the radii matter appears and leaves at, each to the power 1.5; the band's width as a share of the first; radians turned at one radius in a life
   uniform vec3 u_age;           // the flow's clock in lives: the share of the life now running, the whole lives before; the share of a life one piece of trail spans
   uniform vec4 u_light;         // colour, brightness
@@ -1650,30 +1652,36 @@ ${RIDE_GLSL}
   const float NEAR_FADE = ${FLOW_NEAR_FADE};
   const float NEAR_GONE = ${FLOW_NEAR_GONE};
 
-  // A point of the flows' plane, in device pixels from the black hole, where the camera draws it, and how
-  // far from the camera it lies as a share of the black hole's distance (1 in the flat mode)
-  vec3 seen (vec2 point) {
+  // A point of the flow, in device pixels from the black hole along its own three directions, where the
+  // camera draws it, and how far from the camera it lies as a share of the black hole's distance (1 in the
+  // flat mode, which sees it straight on)
+  vec3 seen (vec3 point) {
+    vec3 turned = u_turnX.xyz * point.x + u_turnY.xyz * point.y + u_turnZ * point.z;
     float away = 1.0;
+    vec2 at = turned.xy;
     if (u_turnX.w > 0.0) {
-      vec3 turned = u_turnX.xyz * point.x + u_turnY.xyz * point.y;
       float depth = u_turnY.w + turned.z;
       away = depth / u_turnY.w;
-      point = turned.xy * u_turnX.w / max(depth, 1.0);
+      at = turned.xy * u_turnX.w / max(depth, 1.0);
     }
-    return vec3(u_place.xy + point, away);
+    return vec3(u_place.xy + at, away);
   }
 
-  // Where a particle stands at an age of 0 to 1 of its life, in device pixels from the black hole. "band" is
-  // its place across the band, as a multiple of the band's middle, and "turn" the angle it appeared at.
+  // Where a particle stands at an age of 0 to 1 of its life, in device pixels from the black hole: in its
+  // flow's plane, then above it. "band" is its place across the band, as a multiple of the band's middle,
+  // "turn" the angle it appeared at, "lift" its own share of the disc's height and the phase of its orbit's tip.
   // Its radius to the power 1.5 runs evenly from the first radius to the last, as in a fall from rest, and
-  // it turns at Kepler's rate, radius^-1.5, whose sum along that fall is a logarithm
-  vec2 placeAt (float age, float band, float turn) {
+  // it turns at Kepler's rate, radius^-1.5, whose sum along that fall is a logarithm. A thick disc is made of
+  // orbits each tipped a little, so the height swings with the turn and never passes the thickness's share
+  // of the radius
+  vec3 placeAt (float age, float band, float turn, vec2 lift) {
     float fallen = mix(u_path.x, u_path.y, age);
     float x = (u_path.y - u_path.x) * age / u_path.x;
     float mean = abs(x) < 0.001 ? 1.0 - 0.5 * x : log(1.0 + x) / x;
     float angle = turn + u_path.w * age / u_path.x * mean * pow(band, -1.5);
+    float radius = band * pow(fallen, 2.0 / 3.0) * u_place.z;
     // The screen's y runs down, so a positive swirl turns anticlockwise to the eye
-    return band * pow(fallen, 2.0 / 3.0) * u_place.z * vec2(cos(angle), -sin(angle));
+    return vec3(radius * cos(angle), -radius * sin(angle), u_thick * lift.x * radius * sin(angle + lift.y));
   }
 
   // A particle appears over the first share of its life and leaves over the last
@@ -1694,6 +1702,10 @@ ${RIDE_GLSL}
     float lives = u_age.y + life;
     float turn = 2.0 * PI * fract(a_flowSeed.y + lives * 0.6180340);
     float band = max(1.0 + (fract(a_flowSeed.z + lives * 0.7548777) - 0.5) * u_path.z, 0.05);
+    // Its share of the disc's height and its orbit's phase, drawn anew every life from its own numbers
+    vec2 lift = vec2(
+      fract(a_flowSeed.w * 13.0 + a_flowSeed.z * 7.0 + lives * 0.4142136),
+      2.0 * PI * fract(a_flowSeed.y * 11.0 + a_flowSeed.w * 5.0 + lives * 0.2360680));
 
     // The piece runs from where the particle was to where it was a little later; before its birth it was nowhere
     float newer = max(age - a_flowCorner.z * u_age.z, 0.0);
@@ -1709,10 +1721,12 @@ ${RIDE_GLSL}
     }
 
     // A stroke that comes near the camera fades out and is gone before it would cross the whole frame
-    vec2 planeOlder = placeAt(older, band, turn);
-    vec2 planeNewer = placeAt(newer, band, turn);
-    vec3 from = seen(planeOlder);
-    vec3 to = seen(planeNewer);
+    vec3 placeOlder = placeAt(older, band, turn, lift);
+    vec3 placeNewer = placeAt(newer, band, turn, lift);
+    vec2 planeOlder = placeOlder.xy;
+    vec2 planeNewer = placeNewer.xy;
+    vec3 from = seen(placeOlder);
+    vec3 to = seen(placeNewer);
     float nearest = min(from.z, to.z);
     if (u_ride.x > 0.0) {
       // Particles on Sheet: the flow's plane is the sheet. A place of it is given from the main hole as the

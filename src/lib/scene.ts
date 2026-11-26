@@ -16,7 +16,7 @@ export type { TitleSprite } from './title_sprite'
 import { clearRingEnergy, createRingEnergy, feedRing, stepRingEnergy } from './ring_energy'
 import { createGridSettings, placeGrid, rollGrid, turnGrid } from './space_grid'
 import { LATTICE_LINES_PER_SIDE, createLatticeSettings, latticeAnchor } from './space_lattice'
-import { FLOW_KEYS, createFlowSettings, resetFlow, stepFlow } from './flows'
+import { FLOW_KEYS, createFlowSettings, resetFlow, stepFlow, turnFlow } from './flows'
 import { LIGHT_SPEED, SHADOW_RADII, clearOrbiters, createOrbitTuning, createOrbiters, stepOrbiters } from './orbiters'
 import { createPair, stepPair } from './companion'
 import { CLOSEST_CAMERA, CRITICAL_IMPACT, cameraFor, einsteinRatioAt, shadowAngle } from './lens_trace'
@@ -1291,9 +1291,10 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       frame.orbitWidth = state.orbitStarSize
       if (ringFed) stepRingEnergy(ringEnergy, dt, state.ringAfterglow, reducedMotion ? 0 : state.ringFlowSpeed)
     }
-    // The flows turn round the main hole in the plane the orbiting stars circle in, at the size the hole has
-    // now; without a hole they keep the lattice's stand-in for its radius. Around moves a flow to the centre
-    // a pair turns about and on to the second hole, whose radii it then takes. Their clocks run with the scene
+    // The flows turn round the main hole in its equator, each tipped out of it by its own Tilt and seen
+    // through the camera's turn (none straight on), at the size the hole has now; without a hole they keep
+    // the lattice's stand-in for its radius. Around moves a flow to the centre a pair turns about and on to
+    // the second hole, whose radii it then takes, in the same plane. Their clocks run with the scene
     const flowUnit = shadowRadius > 0 ? horizon : state.gridLatticeUnit * shortSide
     for (let slot = 0; slot < FLOW_KEYS.length; slot++) {
       const keys = FLOW_KEYS[slot]
@@ -1301,8 +1302,9 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       const life = state[keys.life]
       stepFlow(
         flow, frame.updateScene ? dt : 0, flowUnit > 0 ? state[keys.brightness] : 0, state[keys.count], state[keys.from], state[keys.to],
-        state[keys.spread], state[keys.swirl], life, state[keys.trail], state[keys.size]
+        state[keys.spread], state[keys.swirl], life, state[keys.trail], state[keys.size], state[keys.thick]
       )
+      turnFlow(flow, equator, seenTurn, state[keys.tilt] * DEGREE, state[keys.node] * DEGREE)
       readSceneColor(flow.color, state[keys.color])
       const around = companionRadius > 0 ? state[keys.pair] : -1
       let seenScale = holeScale

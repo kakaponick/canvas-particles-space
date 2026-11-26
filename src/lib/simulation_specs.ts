@@ -34,13 +34,13 @@ const percentOfOne = (value: number) => `${Math.round(value * 100)}%`
 const percentOfOneFine = (value: number) => `${(value * 100).toFixed(1)}%`
 const degrees = (value: number) => `${Math.round(value * 180 / Math.PI)}°`
 
-// The settings of the flows (flows.ts): the same nine for each slot, told once
+// The settings of the flows (flows.ts): the same ones for each slot, told once
 const FLOW_SPECS = Object.fromEntries(FLOW_KEYS.flatMap(keys => {
   const name = `Flow ${keys.slot}`
   const flow = `flow ${keys.slot}`
   return [
     [keys.brightness, spec(name, 0, 3, 0.01, fixed(2, '×'), 'Matter sent round the hole; 0 = off',
-      `Brightness of ${flow}, a band of particles that is told where to go round the black hole instead of being left to the particle field: its matter appears at From, leaves at To after Life seconds and turns by Swirl. From and To alike make a ring, To below From a fall into the hole, To above From an outflow. A flow needs no warm-up: it is whole in the first frame it is asked for, at any second of a film. It lies in the plane the orbiting stars circle in, face on in the flat mode and turned by the 3D camera, is bent by the lens and covered by the shadow; with Particles on Sheet above 0 it lies on the sheet as the field does, and a flow round the main hole whose To is inside the Event Horizon lights the photon ring while Infall Light is on. Three flows, A, B and C, stand in a scene at once. 0 turns this one off.`)],
+      `Brightness of ${flow}, a band of particles that is told where to go round the black hole instead of being left to the particle field: its matter appears at From, leaves at To after Life seconds and turns by Swirl. From and To alike make a ring, To below From a fall into the hole, To above From an outflow. A flow needs no warm-up: it is whole in the first frame it is asked for, at any second of a film. It lies in the main hole's equator, tipped out of it by Tilt and as thick as Thickness: the flat mode sees the equator face on, and in 3D it faces the spin's axis as far as Swirl Follows Spin turns the swirl there (along the flight while the hole does not spin), seen turned by the camera. It is bent by the lens and covered by the shadow; with Particles on Sheet above 0 it lies on the sheet as the field does, and a flow round the main hole whose To is inside the Event Horizon lights the photon ring while Infall Light is on. Three flows, A, B and C, stand in a scene at once. 0 turns this one off.`)],
     [keys.count, spoken(spec('Count', 0, FLOW_CAPACITY, 100, count, 'How many particles the flow holds',
       `How many particles ${flow} holds. They are placed and drawn by the graphics card alone, so they cost the processor nothing.`), `${name} Count`)],
     [keys.from, spoken(spec('From', 0.2, 60, 0.1, fixed(1, '×'), 'Radius matter appears at, in hole radii',
@@ -58,7 +58,13 @@ const FLOW_SPECS = Object.fromEntries(FLOW_KEYS.flatMap(keys => {
     [keys.size, spoken(spec('Size', 0.3, 20, 0.1, fixed(1, ' px'), 'Width of a stroke of the flow',
       `Stroke width of the particles of ${flow}, in CSS pixels, the same at any distance.`), `${name} Size`)],
     [keys.pair, spoken(spec('Around', -1, 1, 0.01, fixed(2), 'It circles: -1 main, 0 centre, 1 second',
-      `What ${flow} turns round while there is a second black hole: -1 the main hole, 0 the centre the two turn about, 1 the second hole, and the points between lie on the lines between them. Toward the second hole the flow's radii turn into that hole's radii. Without a second hole it circles the main one whatever this says.`), `${name} Around`)]
+      `What ${flow} turns round while there is a second black hole: -1 the main hole, 0 the centre the two turn about, 1 the second hole, and the points between lie on the lines between them. Toward the second hole the flow's radii turn into that hole's radii, in the main hole's equator still. Without a second hole it circles the main one whatever this says.`), `${name} Around`)],
+    [keys.tilt, spoken(spec('Tilt', 0, 180, 1, fixed(0, '°'), 'Tips it out of the equator; 90° = polar',
+      `Degrees ${flow} is tipped out of the main hole's equator, the plane a real disc settles into, about a line through the hole: 0 lies in the equator, 90 stands across it, a stream over the poles, and 180 lies in it again turning the other way. Node says which side comes up. The radii stay as they are; only the plane turns.`), `${name} Tilt`)],
+    [keys.node, spoken(spec('Node', -180, 180, 1, fixed(0, '°'), 'Side that tips up; 0° = right',
+      `Which side of ${flow} Tilt brings up out of the equator, in degrees round the hole the way a positive Swirl turns: 0 the side to the right when the equator is seen straight on, 90 the side above. It rises against the way the equator faces, toward the camera of the flat mode. Does nothing at Tilt 0.`), `${name} Node`)],
+    [keys.thick, spoken(spec('Thickness', 0, 0.5, 0.01, percentOfOne, 'Disc\'s half height, share of radius',
+      `Half the height of ${flow} as a share of its radius, the H/r of an accretion disc: a thin disc is a few percent. The disc is made of orbits each tipped a little, so a particle rises and sinks once a turn by its own share of this times its radius, and the disc is as many radii thick farther out as it is near. 0 lays every particle in one plane.`), `${name} Thickness`)]
   ]
 })) as Record<FlowSliderKey, SimulationSettingSpec>
 

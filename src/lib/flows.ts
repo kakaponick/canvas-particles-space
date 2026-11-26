@@ -13,6 +13,9 @@
 // trail are a second one, shared by every particle. They are drawn into the layer the orbits' traces live
 // in, which the composite pass reads through the lens, so a flow behind the hole is bent by it and the
 // shadow covers it.
+// A flow lies in the main hole's equator, the plane a real disc settles into, tipped out of it by its Tilt
+// toward its Node, and is a disc of its Thickness: orbits each tipped a little, a particle's height its own
+// share of that thickness times its radius times the sine of its turn round the hole plus a phase of its own.
 // With Particles on Sheet a flow lies on the sheet as the field does (RIDE_GLSL in webgl_shaders.ts), a flow
 // that ends inside the horizon lights the photon ring, and Around sets a flow round the second black hole
 // or the centre the two turn about.
@@ -40,14 +43,17 @@ const FLOW_SEED = 0x5f10e5
 
 // The numeric settings of one flow, by the end of their keys: `flowA` is its brightness, `flowACount` how
 // many particles it holds, and so on
-const FLOW_PARTS = ['', 'Count', 'From', 'To', 'Spread', 'Swirl', 'Life', 'Trail', 'Size', 'Pair'] as const
+const FLOW_PARTS = ['', 'Count', 'From', 'To', 'Spread', 'Swirl', 'Life', 'Trail', 'Size', 'Pair', 'Tilt', 'Node', 'Thick'] as const
 type FlowPart = typeof FLOW_PARTS[number]
 export type FlowSliderKey = `flow${FlowSlot}${FlowPart}`
 export type FlowColorKey = `flow${FlowSlot}Color`
 export type FlowState = Record<FlowSliderKey, number> & Record<FlowColorKey, string>
 
-// A new flow, until it is told otherwise, is off, and once lit a fall into the hole from twelve radii
-const FLOW_DEFAULTS: Record<FlowPart, number> = { '': 0, Count: 6000, From: 12, To: 1, Spread: 4, Swirl: 0.3, Life: 6, Trail: 0.4, Size: 1.5, Pair: -1 }
+// A new flow, until it is told otherwise, is off, and once lit a fall into the hole from twelve radii in
+// the hole's equator, a disc whose half height is 6% of its radius, as a thin disc's is
+const FLOW_DEFAULTS: Record<FlowPart, number> = {
+  '': 0, Count: 6000, From: 12, To: 1, Spread: 4, Swirl: 0.3, Life: 6, Trail: 0.4, Size: 1.5, Pair: -1, Tilt: 0, Node: 0, Thick: 0.06
+}
 export const FLOW_DEFAULT_COLORS: Record<FlowSlot, string> = { A: '#ffd9a8', B: '#a8d4ff', C: '#ff8fb8' }
 
 // The keys of one flow's settings
@@ -63,6 +69,9 @@ export interface FlowKeys {
   trail: FlowSliderKey
   size: FlowSliderKey
   pair: FlowSliderKey
+  tilt: FlowSliderKey
+  node: FlowSliderKey
+  thick: FlowSliderKey
   color: FlowColorKey
 }
 
@@ -78,6 +87,9 @@ export const FLOW_KEYS: readonly FlowKeys[] = FLOW_SLOTS.map(slot => ({
   trail: `flow${slot}Trail`,
   size: `flow${slot}Size`,
   pair: `flow${slot}Pair`,
+  tilt: `flow${slot}Tilt`,
+  node: `flow${slot}Node`,
+  thick: `flow${slot}Thick`,
   color: `flow${slot}Color`
 }))
 
@@ -115,6 +127,12 @@ export interface FlowSettings {
   piece: number
   // Width of a stroke, in CSS pixels
   size: number
+  // The disc's half height as a share of the radius
+  thick: number
+  // Where the camera sends the flow's own three directions, three numbers each: the two that span its
+  // plane (its x and y, y down the screen as the scene's is) and the one the plane faces. Straight on, in
+  // the flat mode, they are the directions themselves
+  turn: Float32Array
   color: SceneColor
   // What it turns round, on the screen in CSS pixels, CSS pixels in one of its radii, and in 3D that
   // point's distance from the camera in CSS pixels (below 0: behind the camera, the flow is not drawn)
@@ -125,7 +143,10 @@ export interface FlowSettings {
 }
 
 export function createFlowSettings (): FlowSettings {
-  return { brightness: 0, count: 0, from: 1, to: 1, spread: 0, wound: 0, phase: 0, lives: 0, piece: 0, size: 1, color: createSceneColor(), x: 0, y: 0, unit: 1, depth: 1 }
+  return {
+    brightness: 0, count: 0, from: 1, to: 1, spread: 0, wound: 0, phase: 0, lives: 0, piece: 0, size: 1, thick: 0,
+    turn: new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]), color: createSceneColor(), x: 0, y: 0, unit: 1, depth: 1
+  }
 }
 
 /**
@@ -135,9 +156,10 @@ export function createFlowSettings (): FlowSettings {
  */
 export function stepFlow (
   flow: FlowSettings, dt: number, brightness: number, count: number, from: number, to: number, spread: number,
-  swirl: number, life: number, trail: number, size: number
+  swirl: number, life: number, trail: number, size: number, thick: number
 ) {
   flow.brightness = brightness
+  flow.thick = Math.max(thick, 0)
   flow.count = Math.min(Math.max(Math.floor(count), 0), FLOW_CAPACITY)
   const first = Math.max(from, FLOW_NEAREST)
   flow.from = first * Math.sqrt(first)
@@ -152,6 +174,50 @@ export function stepFlow (
   const whole = Math.floor(turn)
   flow.phase = turn - whole
   flow.lives += whole
+}
+
+/**
+ * Lays a flow's plane for this frame: the equator (nine numbers, row by row: two directions of the scene
+ * that span it, then the one it faces) tipped by `tilt` radians, the side at `node` radians round it (from
+ * its x the way a positive Swirl turns) rising against the way it faces, which is toward the camera seen
+ * straight on; then seen through `camera` (nine numbers,
+ * row by row: the scene's direction j lands on the camera's axis i at [3i + j]).
+ */
+export function turnFlow (flow: FlowSettings, equator: ArrayLike<number>, camera: ArrayLike<number>, tilt: number, node: number) {
+  // The axis it tips about lies in the equator, a quarter turn behind the side that rises: that side,
+  // (cos, -sin) in the equator's own x and y, goes to cos(tilt) of itself less sin(tilt) of the face
+  const ax = Math.sin(node)
+  const ay = Math.cos(node)
+  const c = Math.cos(tilt)
+  const s = Math.sin(tilt)
+  const k = 1 - c
+  const turn = flow.turn
+  // The flow's three directions in the equator's own, column by column of the turn about that axis
+  for (let column = 0; column < 3; column++) {
+    let p: number
+    let q: number
+    let r: number
+    if (column === 0) {
+      p = c + k * ax * ax
+      q = k * ax * ay
+      r = -s * ay
+    } else if (column === 1) {
+      p = k * ax * ay
+      q = c + k * ay * ay
+      r = s * ax
+    } else {
+      p = s * ay
+      q = -s * ax
+      r = c
+    }
+    // That direction in the scene, then where the camera sends it
+    const x = p * equator[0] + q * equator[3] + r * equator[6]
+    const y = p * equator[1] + q * equator[4] + r * equator[7]
+    const z = p * equator[2] + q * equator[5] + r * equator[8]
+    turn[column * 3] = camera[0] * x + camera[1] * y + camera[2] * z
+    turn[column * 3 + 1] = camera[3] * x + camera[4] * y + camera[5] * z
+    turn[column * 3 + 2] = camera[6] * x + camera[7] * y + camera[8] * z
+  }
 }
 
 // Starts a flow's clock again
