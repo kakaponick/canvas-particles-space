@@ -375,27 +375,31 @@ export function placeSheet (
   const from = shared >= 1 ? space : flat
   const to = shared <= 0 ? flat : space
   const share = shared <= 0 ? 0 : Math.min(shared, 1)
-  const mix = (a: number, b: number) => a + (b - a) * share
-  for (let slot = 0; slot < SHEET_POSE_SLOTS; slot++) grid.pose[slot] = mix(from.pose[slot], to.pose[slot])
-  grid.throat = mix(from.throat, to.throat)
-  grid.depth = mix(from.depth, to.depth)
-  grid.well2X = mix(from.well2X, to.well2X)
-  grid.well2Y = mix(from.well2Y, to.well2Y)
+  for (let slot = 0; slot < SHEET_POSE_SLOTS; slot++) grid.pose[slot] = mix(from.pose[slot], to.pose[slot], share)
+  grid.throat = mix(from.throat, to.throat, share)
+  grid.depth = mix(from.depth, to.depth, share)
+  grid.well2X = mix(from.well2X, to.well2X, share)
+  grid.well2Y = mix(from.well2Y, to.well2Y, share)
   // A well that is there in only one of the two grows in place
-  grid.throat2 = mix(from.throat2, to.throat2)
-  grid.depth2 = mix(from.depth2, to.depth2)
-  grid.pairX = mix(from.pairX, to.pairX)
-  grid.pairY = mix(from.pairY, to.pairY)
+  grid.throat2 = mix(from.throat2, to.throat2, share)
+  grid.depth2 = mix(from.depth2, to.depth2, share)
+  grid.pairX = mix(from.pairX, to.pairX, share)
+  grid.pairY = mix(from.pairY, to.pairY, share)
   grid.pairPhase = Math.atan2(grid.well2Y, grid.well2X)
-  grid.ringPhase = Math.atan2(mix(from.ringY, to.ringY), mix(from.ringX, to.ringX))
-  grid.anchorX = mix(from.anchorX, to.anchorX)
-  grid.anchorY = mix(from.anchorY, to.anchorY)
-  grid.unit = mix(from.unit, to.unit)
+  grid.ringPhase = Math.atan2(mix(from.ringY, to.ringY, share), mix(from.ringX, to.ringX, share))
+  grid.anchorX = mix(from.anchorX, to.anchorX, share)
+  grid.anchorY = mix(from.anchorY, to.anchorY, share)
+  grid.unit = mix(from.unit, to.unit, share)
   grid.shared = share
   for (let slot = 0; slot < 9; slot++) grid.equator[slot] = equator[slot]
   grid.cell = cell
   grid.span = Math.min(spanSides * Math.max(width, height), GRID_LINES_PER_SIDE * cell)
   grid.fadeFrom = (1 - fade) * grid.span
+}
+
+// Between two numbers, by a share
+function mix (a: number, b: number, share: number) {
+  return a + (b - a) * share
 }
 
 // The uniforms SHEET_GLSL reads, by their names without u_, as a program holds them

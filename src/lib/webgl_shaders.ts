@@ -1,6 +1,7 @@
 // WebGL shaders for the particle renderer: trail fade, particle segments and the composite pass,
-// which draws the black hole, the explosion's light and the intro title over the scene. They run on WebGL2
-// and are still written in GLSL ES 1.00, which WebGL2 compiles as it is.
+// which draws the black hole, the explosion's light and the intro title over the scene. They run on WebGL2:
+// the composite pass and the sheet are still written in GLSL ES 1.00, which WebGL2 compiles as it is, and
+// the programs that fade and stamp strokes are GLSL ES 3.00, which lets one draw write two targets.
 
 import { SHADOW_SAMPLES } from './kerr_shadow'
 import { RING_BINS } from './ring_energy'
@@ -77,16 +78,19 @@ ${DENT_GLSL}
   }
 `
 
-// In 3D the lines drawn into the layer the lens reads (the orbits' traces, the lattice, the flows) are drawn
-// twice while something can stand in front of the black holes: once into that layer with what lies beyond
-// the nearer hole, once into the front layer, which the composite pass lays over the holes unbent, with what
-// lies nearer. A piece takes the side of its middle
-const SIDE_GLSL = `  uniform vec2 u_side;        // the side of the black holes this draw keeps: 0 all, 1 what lies at least y from the camera, -1 what lies nearer; y the nearer hole's distance, in the shader's own measure
-  bool onThisSide (float away) {
-    if (u_side.x == 0.0) return true;
-    return u_side.x > 0.0 ? away >= u_side.y : away < u_side.y;
+// In 3D what lies nearer the camera than the nearer black hole goes into the front layer, which the
+// composite pass lays over the holes unbent, and the rest into the layer the lens reads. One draw writes
+// both (the stroke fragment shader); a piece takes the side of its middle
+const SIDE_GLSL = `  uniform vec2 u_side;        // x: 1 while something can stand in front of the black holes (0: all of it is behind them); y: the nearer hole's distance from the camera, in the shader's own measure
+  varying float v_front;      // 1 for a piece nearer the camera than the holes
+  float inFront (float away) {
+    return u_side.x > 0.0 && away < u_side.y ? 1.0 : 0.0;
   }
 `
+
+// The programs that fade and stamp strokes are GLSL ES 3.00, where a fragment can write two targets at
+// once. Their vertex shaders are written as the others are and read as 3.00 through these two words
+const MODERN_VERTEX = '#version 300 es\n#define attribute in\n#define varying out\n'
 
 // Two triangles covering clip space; the particle program reuses them as segment corners
 export const QUAD_VERTICES = new Float32Array([
@@ -100,7 +104,7 @@ export const QUAD_VERTICES = new Float32Array([
 
 export const QUAD_VERTEX_COUNT = 6
 
-export const fadeVertexShaderSource = `
+export const fadeVertexShaderSource = MODERN_VERTEX + `
   attribute vec2 a_position;
 
   void main () {
@@ -108,17 +112,22 @@ export const fadeVertexShaderSource = `
   }
 `
 
-export const fadeFragmentShaderSource = `
+export const fadeFragmentShaderSource = `#version 300 es
   precision mediump float;
 
   uniform vec4 u_color;
+  // The scene texture fades toward the background; the layer in front of the black holes, where it is
+  // bound beside it, toward black
+  layout(location = 0) out vec4 behind;
+  layout(location = 1) out vec4 before;
 
   void main () {
-    gl_FragColor = u_color;
+    behind = u_color;
+    before = vec4(0.0, 0.0, 0.0, u_color.a);
   }
 `
 
-export const particleVertexShaderSource = `
+export const particleVertexShaderSource = MODERN_VERTEX + `
   attribute vec2 a_position;  // quad corner: x picks the segment end, y the side
   attribute vec4 a_segment;   // x0, y0, x1, y1 in CSS pixels, top-left origin
   attribute vec2 a_style;     // line width in CSS pixels, opacity, its speed's glow already in it (field_step.ts); below 0 in front of the holes
@@ -134,19 +143,19 @@ export const particleVertexShaderSource = `
   uniform vec2 u_tint;        // how fast it turns from one to the other per half screen diagonal, the most of a colour it replaces
   uniform vec4 u_zoom;       // the camera: the point its zoom leaves in place (device pixels), the zoom
   uniform vec4 u_zoomFrom;    // the camera of the frame before, the same way
-  uniform float u_side;       // 1 draws the strokes behind the black holes, -1 those in front of them (field_step.ts)
 
   varying vec2 v_ends;        // distance along the segment from its start and from its end
   varying float v_across;     // signed distance from the segment axis
   varying float v_halfWidth;
   varying vec4 v_color;
+  varying float v_front;      // 1 for a stroke in front of the black holes
 
   const float PI = 3.14159265359;
 
   void main () {
-    // A particle that draws nothing this frame has no opacity; one in front of the holes has it below 0,
-    // and each of the two draws takes its own side
-    float opacity = a_style.y * u_side;
+    // A particle that draws nothing this frame has no opacity; one in front of the holes has it below 0
+    float opacity = abs(a_style.y);
+    v_front = a_style.y < 0.0 ? 1.0 : 0.0;
     if (opacity <= 0.0) {
       v_ends = vec2(0.0);
       v_across = 0.0;
@@ -184,17 +193,20 @@ export const particleVertexShaderSource = `
     // Relativistic aberration, stylised: light ahead shifts blue, light off the line of flight shifts red.
     // Measured by the angle from the line of flight, as the tangent of it in half screen diagonals at the
     // focal length; straight on that is the distance from the vanishing point
-    vec3 toward = vec3((a_segment.zw - u_center) / u_flight.w, 1.0);
-    float ahead = dot(toward, u_flight.xyz);
-    float aside = sqrt(max(dot(toward, toward) - ahead * ahead, 0.0));
-    float radial = (ahead > 0.0001 ? aside / ahead : 1000.0) * u_flight.w * 2.0 * u_pixelRatio / max(length(u_resolution), 1.0);
-    float shift = u_doppler * (1.0 - u_tint.x * radial);
-    vec3 tint = shift > 0.0 ? u_tintAhead : u_tintEdge;
+    vec3 tinted = a_color.rgb;
+    if (u_doppler > 0.0) {
+      vec3 toward = vec3((a_segment.zw - u_center) / u_flight.w, 1.0);
+      float ahead = dot(toward, u_flight.xyz);
+      float aside = sqrt(max(dot(toward, toward) - ahead * ahead, 0.0));
+      float radial = (ahead > 0.0001 ? aside / ahead : 1000.0) * u_flight.w * 2.0 * u_pixelRatio / max(length(u_resolution), 1.0);
+      float shift = u_doppler * (1.0 - u_tint.x * radial);
+      tinted = mix(tinted, shift > 0.0 ? u_tintAhead : u_tintEdge, min(abs(shift), u_tint.y));
+    }
 
     v_ends = vec2(along, len - along);
     v_across = across;
     v_halfWidth = halfWidth;
-    v_color = vec4(mix(a_color.rgb, tint, min(abs(shift), u_tint.y)), min(opacity * targetArea / drawnArea, 1.0));
+    v_color = vec4(tinted, min(opacity * targetArea / drawnArea, 1.0));
 
     // Rows stay top-down in the scene texture, which is the layout the composite pass samples
     gl_Position = vec4(pixel / u_resolution * 2.0 - 1.0, 0.0, 1.0);
@@ -203,7 +215,7 @@ export const particleVertexShaderSource = `
 
 // The traces of the orbiting stars (orbiters.ts): every stretch a star has flown is kept as a line and
 // all of them are drawn anew each frame, at the camera's zoom and around the black hole as it is now
-export const orbitVertexShaderSource = `
+export const orbitVertexShaderSource = MODERN_VERTEX + `
   attribute vec2 a_position;  // quad corner: x picks the end of the stretch, y the side
   attribute vec4 a_from;      // its start in the scene, in Schwarzschild radii from the black hole, and how far the traces had dimmed when it was last flown
   attribute vec4 a_to;        // its end, and its brightness then
@@ -248,13 +260,11 @@ ${SIDE_GLSL}
       gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
       return;
     }
+    v_front = 0.0;
     if (u_turnX.w > 0.0) {
       // The stretch's middle, device pixels from the camera along its line of sight
       vec3 middle = (a_from.xyz + a_to.xyz) * (0.5 * u_orbit.z);
-      if (!onThisSide(u_turnY.w + u_turnX.z * middle.x + u_turnY.z * middle.y + u_turnZ.z * middle.z)) {
-        gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
-        return;
-      }
+      v_front = inFront(u_turnY.w + u_turnX.z * middle.x + u_turnY.z * middle.y + u_turnZ.z * middle.z);
       vec2 first = seenOrbit(a_from.xyz * u_orbit.z);
       start = u_zoom.xy + (u_orbit.xy + first - u_zoom.xy) * u_zoom.z;
       delta = (seenOrbit(a_to.xyz * u_orbit.z) - first) * u_zoom.z;
@@ -286,13 +296,18 @@ ${SIDE_GLSL}
   }
 `
 
-export const particleFragmentShaderSource = `
+export const particleFragmentShaderSource = `#version 300 es
   precision highp float;
 
-  varying vec2 v_ends;
-  varying float v_across;
-  varying float v_halfWidth;
-  varying vec4 v_color;
+  in vec2 v_ends;
+  in float v_across;
+  in float v_halfWidth;
+  in vec4 v_color;
+  in float v_front;
+  // What lies behind the black holes, which the lens reads, and what stands in front of them (3D): one
+  // draw writes each stroke into its own target. The brighter-of-two blend leaves the other as it was
+  layout(location = 0) out vec4 behind;
+  layout(location = 1) out vec4 before;
 
   void main () {
     // Distance to the segment: past either end it is measured from the end point, which rounds the cap
@@ -300,7 +315,10 @@ export const particleFragmentShaderSource = `
     float coverage = clamp(v_halfWidth + 0.5 - length(vec2(beyondEnds, v_across)), 0.0, 1.0);
     // Premultiplied, the form the brighter-of-two blend compares
     float alpha = v_color.a * coverage;
-    gl_FragColor = vec4(v_color.rgb * alpha, alpha);
+    vec4 light = vec4(v_color.rgb * alpha, alpha);
+    bool front = v_front > 0.5;
+    behind = front ? vec4(0.0) : light;
+    before = front ? light : vec4(0.0);
   }
 `
 
@@ -1550,7 +1568,7 @@ export function createProgram (
 
 // The lines of the space lattice (space_lattice.ts): each piece is bent towards the black holes and set in
 // front of the camera, at the camera's zoom, into the layer the orbits' traces are drawn in
-export const latticeVertexShaderSource = `
+export const latticeVertexShaderSource = MODERN_VERTEX + `
   attribute vec2 a_position;     // quad corner: x picks the end of the piece, y the side
   attribute vec4 a_latticeLine;  // two line numbers across the line, counted from the black hole, the piece's number along it, the axis it runs along (0 x, 1 y, 2 z)
 
@@ -1638,7 +1656,8 @@ ${DENT_GLSL}
     vec3 first = seen(bent(firstNode));
     vec3 last = seen(bent(lastNode));
     float nearest = min(first.z, last.z);
-    if (lit <= 0.0 || nearest < u_fade.z || !onThisSide(0.5 * (first.z + last.z))) {
+    v_front = inFront(0.5 * (first.z + last.z));
+    if (lit <= 0.0 || nearest < u_fade.z) {
       gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
       return;
     }
@@ -1705,7 +1724,7 @@ ${SHEET_GLSL}
 // A flow (flows.ts): every particle is placed from its own four numbers and the flow's clock, and its trail
 // is the stretch of the same path it has just come along, in pieces. Nothing about a particle is kept from
 // one frame to the next
-export const flowVertexShaderSource = `
+export const flowVertexShaderSource = MODERN_VERTEX + `
   attribute vec3 a_flowCorner;  // x: 0 at the piece's newer end, 1 at its older; y: the side; z: the piece, from the particle back
   attribute vec4 a_flowSeed;    // the particle's own numbers, 0 to 1: when in a life, where round the hole, where across the band, how bright
 
@@ -1840,7 +1859,8 @@ ${RIDE_GLSL}${SIDE_GLSL}
         middle = 0.5 * (laidOlder + laidNewer);
       }
     }
-    if (nearest <= NEAR_GONE || !onThisSide(middle)) {
+    v_front = inFront(middle);
+    if (nearest <= NEAR_GONE) {
       gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
       return;
     }

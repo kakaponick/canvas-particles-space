@@ -2,7 +2,7 @@
 // Frame time, measured the way CLAUDE.md's Measuring asks, and the bytes of the films for a change that wants
 // them compared. Needs Node 22+ and Chrome, Chromium or Edge.
 //
-//   node scripts/bench.mjs page [<dist> ...] [--against <commit>] [--runs 2] [--debug]
+//   node scripts/bench.mjs page [<dist> ...] [--against <commit>] [--runs 2] [--debug] [--set '<json>']
 //   node scripts/bench.mjs films [<film> ...] [--against <commit>] [--at 1.5,4,8,12]
 //
 // --against <commit> measures that commit beside this checkout: it is checked out into a temporary
@@ -28,7 +28,9 @@
 // page serves each build in headless Chrome at 1920x1080, clicks CLICK TO START, waits 7 s for the opening
 // to end and counts rAF ticks over 4 s; main thread a frame is CDP's TaskDuration over that time divided by
 // the ticks. The builds take turns run by run, so a busy machine weighs on both alike. --debug loads the
-// page with ?debug, which opens the intro debugger.
+// page with ?debug, which opens the intro debugger. --set '{"threeD":true,"cameraYaw":40}' measures another
+// scene than the default: the page is loaded with ?agent and the settings go through window.space.set once
+// the opening has ended, a second before the count; against a commit, name only settings both builds have.
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -53,9 +55,12 @@ const against = flag('--against')
 const at = (flag('--at') ?? '1.5,4,8,12').split(',').map(Number)
 const taken = name => args.includes(name) ? (args.splice(args.indexOf(name), 1), true) : false
 const debug = taken('--debug')
+// Settings of the scene to measure, as window.space.set takes them
+const scene = flag('--set')
+if (scene !== undefined) JSON.parse(scene)
 const [command, ...rest] = args
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
-const USAGE = 'node scripts/bench.mjs page [<dist> ...] [--against <commit>] [--runs 2] [--debug]\n' +
+const USAGE = 'node scripts/bench.mjs page [<dist> ...] [--against <commit>] [--runs 2] [--debug] [--set \'<json>\']\n' +
   'node scripts/bench.mjs films [<film> ...] [--against <commit>] [--at 1.5,4,8,12]'
 
 // The temporary folder by its long name: git records a worktree's path as given, and Windows hands out
@@ -222,12 +227,18 @@ async function page (builds) {
   const evaluate = async expression => (await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true })).result.result.value
   try {
     await compare(builds.map(({ label }) => label), 'ms/frame main thread', 2, async (index, run) => {
-      await send('Page.navigate', { url: `http://127.0.0.1:${servers[index].address().port}/${debug ? '?debug' : ''}` })
+      const query = [debug && 'debug', scene !== undefined && 'agent'].filter(Boolean).join('&')
+      await send('Page.navigate', { url: `http://127.0.0.1:${servers[index].address().port}/${query && `?${query}`}` })
       await sleep(2500)
       for (const type of ['mousePressed', 'mouseReleased']) {
         await send('Input.dispatchMouseEvent', { type, x: 960, y: 540, button: 'left', clickCount: 1 })
       }
       await sleep(7000)
+      if (scene !== undefined) {
+        const told = await evaluate(`(() => { try { return JSON.stringify(window.space.set(${scene}).clamped) } catch (error) { return 'refused: ' + error.message } })()`)
+        if (told !== '[]' && told !== '{}') console.log(`${builds[index].label}  set: ${told}`)
+        await sleep(1000)
+      }
       const before = await taskDuration()
       const frames = await evaluate('new Promise(resolve => { let n = 0; const start = performance.now(); const tick = () => { n++; if (performance.now() - start < 4000) requestAnimationFrame(tick); else resolve(n) }; requestAnimationFrame(tick) })')
       const after = await taskDuration()
