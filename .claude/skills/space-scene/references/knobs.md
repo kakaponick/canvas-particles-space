@@ -298,6 +298,19 @@ becomes speed, and the particle falls, swings and flies on as a body does.
   the second black hole add to that speed too. In the flat mode the kept speed lies in the screen (and in
   depth only through `frameDragSight`); in 3D along all three axes. Orbits that last are the orbiting
   stars (section 7).
+- Where that ring stands follows from the step itself. A particle circles where the swirl's push, kept
+  frame after frame, makes a speed whose turn the pull can hold: with the pull g = 0.6 `gravityStrength`
+  (R / r)^n CSS pixels a frame at r (R the shadow's radius in CSS pixels, n `gravityFalloff`), the swirl
+  k = `orbitalStrength` / 50 times it and i the inertia, its speed is g k / (1 - i) and it turns by
+  (1 - i) / k a frame, so r / R = (0.6 `gravityStrength` k^2 / ((1 - i)^2 R))^(1 / (1 + n)). That is the
+  ring's outer edge, the particles at the hole's own depth; those off it feel the layer's weaker pull and
+  circle a little closer in, so the ring is a band inside that edge. At `gravityStrength` 5,
+  `orbitalStrength` 90 and the default size in a 720p frame (R 58 px) it gives 1.96, 2.98 and 4.07 radii
+  at inertia 0.85, 0.92 and 0.95, and the tracers' outer edges stood at 1.7, 2.75 and 3.85. The ring
+  widens as the cube root of the pull and as (1 / (1 - i))^(2/3), and it tightens as the cube root of the
+  shadow's size in pixels: the same settings close a 1080p film's ring about 13% nearer the shadow, in
+  radii, than a 720p tracer's. A ring inside `horizonScale` is taken, and one beyond `gravityReach` never
+  forms.
 - In the flat mode a layer of half the field or more pulls everything, which makes long-exposure knots
   dense; with a moving field and a strong pull the same layer drains the field and the frame goes nearly
   empty.
@@ -383,7 +396,8 @@ and `frameDrag` above 0 and particles within a few radii; the sky's lean needs `
   (`frameDragSight`, which at 1 is exactly that turn's depth part), so on one side the particles fly
   faster and streak brighter and on the other they slow and dim; with `frameDrag` raised the field splits
   round the shadow into a bright and a dark half. The sight push rides on `frameDrag` × `frameDragSweep`,
-  and under `gravityInertia` it is kept as speed in depth. Under `threeD` the axis stands in space and the
+  and under `gravityInertia` it is kept as speed in depth; a spinning second hole (`companionOwnSpin`)
+  carries its own two sides the same way. Under `threeD` the axis stands in space and the
   drag is the real turn round it, so the sweep and the sight are the turn itself and their two knobs give
   way.
 - `frameDragFalloff` sets the vortex's width: at 1 `frameDrag` makes it stronger, never wider; 0 lets it

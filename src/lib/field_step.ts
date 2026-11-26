@@ -488,13 +488,27 @@ ${STEP_DEFINES}
           float drag = dragFall(s_companionRadius * invDistance);
           float orbit = pull * (orbitScale + s_companionSpinToward * drag);
           float across = pull * depthOffset * drag * clampedSq * invDistance;
-          vec2 push = vec2(toHole.x * pull - toHole.y * orbit - across * s_companionSpinUp, toHole.y * pull + toHole.x * orbit - across * s_companionSpinRight) *
-            (pz / s_focal * invDistance);
+          float toScene = pz / s_focal * invDistance;
+          vec2 push = vec2(toHole.x * pull - toHole.y * orbit - across * s_companionSpinUp, toHole.y * pull + toHole.x * orbit - across * s_companionSpinRight) * toScene;
           if (inertial) {
             kept += push * s_velocityGain;
             push *= s_gain;
           }
           at += push;
+          // and carries the two sides of its axis toward and away from the camera, as the main hole's does
+          if (sight && (s_companionSpinRight != 0.0 || s_companionSpinUp != 0.0)) {
+            float pushZ = -(s_companionSpinRight * toHole.y + s_companionSpinUp * toHole.x) * pull * drag * s_dragSight * toScene;
+            if (inertial) {
+              keptZ += pushZ * s_velocityGain;
+              pushZ *= s_gain;
+            }
+            pz += pushZ;
+            if (pz <= 0.0) {
+              reborn = 1;
+              return;
+            }
+            endScale = s_focal / pz;
+          }
           end = at * endScale + vanish;
         }
       }
