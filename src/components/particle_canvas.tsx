@@ -167,7 +167,7 @@ function ParticleCanvas () {
       resizeFrameId = 0
       const width = window.innerWidth
       const height = window.innerHeight
-      if (!scene.resize(width, height, getRenderScale(width, height), readInput(), force)) return
+      if (!scene.resize(width, height, getRenderScale(width, height), force)) return
       // Resizing clears the canvas; while the loop is idle, show the background right away
       if (!frameId) scene.drawIdle()
     }

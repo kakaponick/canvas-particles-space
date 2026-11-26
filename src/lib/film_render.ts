@@ -97,7 +97,7 @@ export async function createFilmPlayer (plan: FilmPlan, pixel: number, imageUrls
     scene.dispose()
     gl.getExtension('WEBGL_lose_context')?.loseContext()
   }
-  scene.resize(plan.width, plan.height, pixel, input, true)
+  scene.resize(plan.width, plan.height, pixel, true)
 
   const canvas = document.createElement('canvas')
   canvas.width = glCanvas.width

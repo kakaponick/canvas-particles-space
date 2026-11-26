@@ -188,7 +188,7 @@ export interface Scene {
   // False while the WebGL context is lost
   ready: () => boolean
   // Returns whether the size changed
-  resize: (width: number, height: number, pixelRatio: number, input: SceneInput, force?: boolean) => boolean
+  resize: (width: number, height: number, pixelRatio: number, force?: boolean) => boolean
   // Draws the title's words for the lens; resolves once they are in place or the wait for the face is over
   setTitle: (style: TitleStyle, fontTimeoutMs: number, force?: boolean) => Promise<void>
   // Draws a title's words ahead of time, and puts words drawn so in place of the current ones at once: a
@@ -687,7 +687,8 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     syncSpawn(from.settings)
     setParticleCount(field, from.settings.fieldEnabled ? from.settings.numParticles : 0, spawn)
     placeHole(from)
-    renderer?.clearScene(readBackground(from.settings))
+    readBackground(from.settings)
+    renderer?.clearScene()
   }
 
   // Rebuilds the title mask when its text, face, layout or the view changes, once the face has the
@@ -714,7 +715,7 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
   }
 
   // World coordinates do not depend on the view, so a resize only reallocates GPU buffers
-  function resize (width: number, height: number, pixelRatio: number, from: SceneInput, force = false) {
+  function resize (width: number, height: number, pixelRatio: number, force = false) {
     if (!renderer || (!force && width === scene.width && height === scene.height && pixelRatio === scene.pixelRatio)) return false
 
     // Keep the anchored black hole at the same relative spot
@@ -730,7 +731,7 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     scene.width = width
     scene.height = height
     scene.pixelRatio = pixelRatio
-    renderer.resize(width, height, pixelRatio, readBackground(from.settings))
+    renderer.resize(width, height, pixelRatio)
     void rebuildTitle()
     return true
   }
@@ -1656,9 +1657,9 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     frame.tintGradient = state.flightTintGradient
     frame.tintLimit = state.flightTintLimit
     readBackground(state)
-    // The 8-bit scene texture rounds away fades smaller than half a step, so on fast displays
-    // a per-frame fade would leave a grey haze. Fading in whole 60 Hz steps keeps the trail
-    // identical at any frame rate.
+    // Each fade takes its share and one 8-bit step besides (FADE_STEP in particle_renderer.ts), so a
+    // fade every frame would shorten the trails on fast displays. Fading in whole 60 Hz steps keeps the
+    // trail identical at any frame rate.
     fadeBacklog += frameScale
     const fadeSteps = Math.floor(fadeBacklog)
     fadeBacklog -= fadeSteps
@@ -2216,7 +2217,8 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       if (renderer && titleSprite) renderer.setTitle(titleSprite)
       // The field's particles were on the card that was lost: they go up again as they were born
       frame.fieldBorn = 0
-      resize(scene.width, scene.height, scene.pixelRatio, from, true)
+      readBackground(from.settings)
+      resize(scene.width, scene.height, scene.pixelRatio, true)
     },
     dispose: () => {
       disposed = true

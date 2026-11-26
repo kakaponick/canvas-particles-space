@@ -44,6 +44,9 @@ const FRONT_LINES_TEXTURE_UNIT = 7
 // What is left of the brightest trail in front of the holes, a share of full, once the front has ended,
 // when that layer is let go: below half a step of its 8 bits
 const FRONT_DARK = 0.5 / 255
+// What a fade step takes from every lit pixel of the trails besides its share: one step of their 8 bits,
+// the least that cannot round back to where it was, so a trail fades all the way to the background
+const FADE_STEP = 1 / 255
 
 // The longest trace a star may leave, seconds (the top of the Orbit Trail setting)
 const LONGEST_TRACE = 60
@@ -551,9 +554,9 @@ export interface FrameInput extends FieldInput {
 }
 
 export interface ParticleRenderer {
-  resize: (width: number, height: number, pixelRatio: number, background: readonly [number, number, number]) => void
+  resize: (width: number, height: number, pixelRatio: number) => void
   setTitle: (sprite: TitleSprite) => void
-  clearScene: (background: readonly [number, number, number]) => void
+  clearScene: () => void
   render: (frame: FrameInput) => void
   dispose: () => void
 }
@@ -632,7 +635,8 @@ function getUniforms<T extends string> (gl: WebGL2RenderingContext, program: Web
 
 /**
  * Draws the particle field with WebGL:
- * 1. fades the persistent scene texture toward the background (the motion trail),
+ * 1. fades the persistent scene texture, which holds the light above the background, toward it (the
+ *    motion trail), by a share and at least one 8-bit step, so every trail fades all the way,
  * 2. stamps every particle segment as one instanced, anti-aliased round-capped quad, keeping the
  *    brighter of the particle and the scene, and draws the traces of the orbiting stars into their layer,
  *    both already at the camera's zoom,
@@ -693,11 +697,11 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   // Whether the composite pass reads the ring's light from the field this frame
   let ringLit = false
 
-  const fadeUniforms = getUniforms(gl, fadeProgram, ['color'] as const)
-  const particleUniforms = getUniforms(gl, particleProgram, ['resolution', 'pixelRatio', 'center', 'flight', 'doppler', 'tintAhead', 'tintEdge', 'tintBehind', 'tint', 'zoom', 'zoomFrom'] as const)
+  const fadeUniforms = getUniforms(gl, fadeProgram, ['fade'] as const)
+  const particleUniforms = getUniforms(gl, particleProgram, ['floor', 'resolution', 'pixelRatio', 'center', 'flight', 'doppler', 'tintAhead', 'tintEdge', 'tintBehind', 'tint', 'zoom', 'zoomFrom'] as const)
   const orbitUniforms = getUniforms(gl, orbitProgram, ['resolution', 'zoom', 'orbit', 'dimmed', 'turnX', 'turnY', 'turnZ', 'orbitFrom', 'side', 'sideMain', 'sideSecond', 'sideBend', 'sideShape'] as const)
   const compositeUniforms = getUniforms(gl, compositeProgram, [
-    'resolution', 'pixelRatio', 'time', 'hole', 'horizon', 'einstein', 'falloff', 'falloffPivot', 'lensCore', 'maxBend', 'lensReach', 'lensBubble', 'twistLimit', 'swirl', 'absorption', 'trace', 'spin', 'horizonGrid', 'horizonAxis', 'horizonTurn', 'horizonLook', 'companionGrid', 'companionHole', 'ring',
+    'background', 'resolution', 'pixelRatio', 'time', 'hole', 'horizon', 'einstein', 'falloff', 'falloffPivot', 'lensCore', 'maxBend', 'lensReach', 'lensBubble', 'twistLimit', 'swirl', 'absorption', 'trace', 'spin', 'horizonGrid', 'horizonAxis', 'horizonTurn', 'horizonLook', 'companionGrid', 'companionHole', 'ring',
     'ringWidth', 'ringGlow', 'ringDoppler', 'ringSide', 'ringPhase', 'ringField', 'ringBase', 'ringFeed', 'ringLine', 'ringGlowShape', 'ringColor', 'ringApproaching', 'ringReceding',
     'center', 'starGlow', 'starRadius', 'sourcePower', 'glareRadius', 'exposure',
     'lightRadius', 'lightWidth', 'lightPower', 'lightSpeed', 'echoPower', 'echoDecay',
@@ -926,7 +930,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   let height = 1
   let ratio = 1
 
-  function resize (cssWidth: number, cssHeight: number, pixelRatio: number, background: readonly [number, number, number]) {
+  function resize (cssWidth: number, cssHeight: number, pixelRatio: number) {
     ratio = pixelRatio
     width = Math.max(1, Math.round(cssWidth * pixelRatio))
     height = Math.max(1, Math.round(cssHeight * pixelRatio))
@@ -945,7 +949,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     flowsLaid = false
     frontLinesShown = false
     // The picture is drawn again at the new size; the orbits' traces are lines and outlast it
-    wipeScene(background)
+    wipeScene()
 
     gl.useProgram(particleProgram)
     setUniform2f(gl, particleUniforms.resolution, width, height)
@@ -964,9 +968,10 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     setUniform2f(gl, flowUniforms.resolution, width, height)
   }
 
-  function wipeScene (background: readonly [number, number, number]) {
+  // The scene texture holds the light above the background, so it starts black
+  function wipeScene () {
     gl.bindFramebuffer(gl.FRAMEBUFFER, sceneFramebuffer)
-    gl.clearColor(background[0] / 255, background[1] / 255, background[2] / 255, 1)
+    gl.clearColor(0, 0, 0, 1)
     gl.clear(gl.COLOR_BUFFER_BIT)
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
     clearLayer(lines)
@@ -976,8 +981,8 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   }
 
   // A scene that starts over: the trails and the orbits' traces both go
-  function clearScene (background: readonly [number, number, number]) {
-    wipeScene(background)
+  function clearScene () {
+    wipeScene()
     dropTraces()
   }
 
@@ -1004,6 +1009,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   function drawParticles (frame: FrameInput) {
     if (field.count() === 0) return
     gl.useProgram(particleProgram)
+    setUniform3f(gl, particleUniforms.floor, frame.background[0] / 255, frame.background[1] / 255, frame.background[2] / 255)
     setUniform1f(gl, particleUniforms.doppler, frame.doppler)
     setUniform3f(gl, particleUniforms.tintAhead, frame.tintAhead.r, frame.tintAhead.g, frame.tintAhead.b)
     setUniform3f(gl, particleUniforms.tintEdge, frame.tintEdge.r, frame.tintEdge.g, frame.tintEdge.b)
@@ -1239,9 +1245,10 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     gl.bindBuffer(gl.ARRAY_BUFFER, null)
   }
 
-  function composite (settings: CompositeSettings, title: TitleSettings) {
+  function composite (settings: CompositeSettings, title: TitleSettings, background: readonly [number, number, number]) {
     const u = compositeUniforms
     gl.useProgram(compositeProgram)
+    setUniform3f(gl, u.background, background[0] / 255, background[1] / 255, background[2] / 255)
     const titleVisible = title.alpha > 0 && titleWidth > 0
     setUniform1f(gl, u.titleAlpha, titleVisible ? title.alpha : 0)
     if (titleVisible) {
@@ -1555,8 +1562,6 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   }
 
   function render (frame: FrameInput) {
-    const [r, g, b] = frame.background
-
     if (frame.updateScene) {
       // The particles and the orbits are drawn magnified, so a zoom shows them sharp. A camera that
       // pulls back (a zoom below 1) is left to the composite pass, which then reads a wider view
@@ -1595,9 +1600,14 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
       }
       gl.bindFramebuffer(gl.FRAMEBUFFER, frontScene.lit ? sceneBoth : sceneFramebuffer)
       if (frame.fadeAlpha > 0) {
+        // dst * (1 - share) - step, the step clamped at the background (fadeFragmentShaderSource)
         gl.useProgram(fadeProgram)
-        setUniform4f(gl, fadeUniforms.color, r / 255, g / 255, b / 255, frame.fadeAlpha)
+        setUniform2f(gl, fadeUniforms.fade, frame.fadeAlpha, FADE_STEP)
+        gl.blendEquationSeparate(gl.FUNC_REVERSE_SUBTRACT, gl.FUNC_ADD)
+        gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
         gl.drawArrays(gl.TRIANGLES, 0, QUAD_VERTEX_COUNT)
+        gl.blendEquation(gl.FUNC_ADD)
+        gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
       }
       drawParticles(frame)
       // The orbits' traces, the lattice and the flows share one layer of lines, and those in front of the
@@ -1682,7 +1692,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
       orbitsShown = true
     }
     if (!frame.present) return
-    composite(frame.composite, frame.title)
+    composite(frame.composite, frame.title, frame.background)
     if (frame.grid.brightness > 0) drawGrid(frame.grid, frame.composite, sheetFront(frame), false)
   }
 

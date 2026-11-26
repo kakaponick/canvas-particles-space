@@ -276,15 +276,18 @@ export const fadeVertexShaderSource = MODERN_VERTEX + `
 export const fadeFragmentShaderSource = `#version 300 es
   precision mediump float;
 
-  uniform vec4 u_color;
-  // The scene texture fades toward the background; the layer in front of the black holes, where it is
-  // bound beside it, toward black
+  // The share of the light a fade step takes, and the 8-bit step it takes besides: the layers hold light
+  // above the background (the scene texture) or above black (the layer in front of the black holes, bound
+  // beside it), and the renderer blends this as dst * (1 - share) - step, clamped at 0. Without the step,
+  // light under half a step divided by the share (16 levels at a Trail Fade of 0.03) rounds back to itself
+  // and stays for ever; with it every trail fades all the way
+  uniform vec2 u_fade;
   layout(location = 0) out vec4 behind;
   layout(location = 1) out vec4 before;
 
   void main () {
-    behind = u_color;
-    before = vec4(0.0, 0.0, 0.0, u_color.a);
+    behind = vec4(vec3(u_fade.y), u_fade.x);
+    before = behind;
   }
 `
 
@@ -486,6 +489,10 @@ export const particleFragmentShaderSource = `#version 300 es
   in vec4 v_color;
   in float v_front;
   in vec2 v_cut;
+  // The background, which the scene texture holds its light above: the field's strokes into it are the
+  // light over it (max(stroke, background + held) is background + max(stroke - background, held)); 0 for
+  // the layers of lines, which hold light above black
+  uniform vec3 u_floor;
   // What lies behind the black holes, which the lens reads, and what stands in front of them (3D): one
   // draw writes each stroke into the two targets at its shares, a whole stroke into one and nothing into
   // the other, which the brighter-of-two blend leaves as it was
@@ -502,6 +509,7 @@ export const particleFragmentShaderSource = `#version 300 es
     // A particle's stroke that crosses the boundary turns to the other side a pixel past the crossing
     float front = v_cut.y > 0.5 ? abs(v_front - clamp(v_cut.x + 0.5, 0.0, 1.0)) : v_front;
     behind = light * (1.0 - front);
+    behind.rgb = max(behind.rgb - u_floor, 0.0);
     before = light * front;
   }
 `
@@ -518,7 +526,8 @@ export const compositeVertexShaderSource = `
 export const compositeFragmentShaderSource = `
   precision highp float;
 
-  uniform sampler2D u_image;
+  uniform sampler2D u_image;     // the particle scene: its light above the background
+  uniform vec3 u_background;     // the background colour, which the scene's light lies on
   uniform sampler2D u_title;     // white alpha mask of the intro title
   uniform vec2 u_resolution;
   uniform float u_pixelRatio;
@@ -1127,7 +1136,7 @@ ${DENT_GLSL}
   // The particle scene at a point of its layer; rays that leave the screen reflect off its edge instead
   // of smearing the edge pixels
   vec3 scene (vec2 layerPx) {
-    return texture2D(u_image, 1.0 - abs(1.0 - mod(layerPx / u_resolution, 2.0))).rgb;
+    return u_background + texture2D(u_image, 1.0 - abs(1.0 - mod(layerPx / u_resolution, 2.0))).rgb;
   }
 
   // What is drawn at a point of the layers: the particles and, while there are any, the orbiting stars
