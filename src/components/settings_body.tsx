@@ -297,13 +297,36 @@ function SettingsBody () {
         <SettingSlider field="companionSpeed" />
         <SettingSlider field="companionWaves" />
         <SettingsFine id="companion">
-          {/* The plane of the orbit, the last turns, then what the merger leaves */}
+          {/* The plane of the orbit, the last turns, what the merger leaves, the second hole's own spin, its ring and
+              lens, how two at different depths see each other, then the plane a hole alone rings in */}
           <SettingSlider field="companionTilt" />
           <SettingSlider field="companionNode" />
           <SettingSlider field="companionClosest" />
           <SettingSlider field="companionSpin" />
           <SettingSlider field="companionOval" />
           <SettingSlider field="companionHandover" />
+          <div className="mt-3 flex flex-col gap-1">
+            <SettingSlider field="companionOwnSpin" />
+            <SettingSlider field="companionSpinTilt" />
+            <SettingSlider field="companionSpinAxis" />
+            <SettingSlider field="companionPrecession" />
+          </div>
+          <div className="mt-3 flex flex-col gap-1">
+            <SettingSlider field="companionRingFeed" />
+            <SettingSlider field="companionRingSides" />
+            <SettingSlider field="companionLensCore" />
+            <SettingSlider field="companionLensStyle" />
+          </div>
+          <div className="mt-3 flex flex-col gap-1">
+            <SettingSlider field="companionLensDepth" />
+            <SettingSlider field="companionHideDepth" />
+            <SettingSlider field="companionWaveLens" />
+            <SettingSlider field="companionFlatDepth" />
+          </div>
+          <div className="mt-3 flex flex-col gap-1">
+            <SettingSlider field="loneTilt" />
+            <SettingSlider field="loneNode" />
+          </div>
         </SettingsFine>
       </SettingsSection>
 
@@ -368,6 +391,11 @@ function SettingsBody () {
             <SettingSlider field="lensingCore" />
           </div>
         </StylizedLens>
+        <SettingsFine id="lensing">
+          <StylizedLens>
+            <SettingSlider field="lensingBubble" />
+          </StylizedLens>
+        </SettingsFine>
       </LensingSection>
 
       <SettingsSection id="orbiting-stars" title="Orbiting Stars">
@@ -488,6 +516,7 @@ function SettingsBody () {
             <SettingSlider field="gridClearing" />
             <SettingSlider field="gridClearingEdge" />
             <SettingSlider field="gridWaveLift" />
+            <SettingSlider field="gridWaveOrbit" />
             <SettingSlider field="gridRideDepth" />
           </div>
           <div className="mt-3 flex flex-col gap-1">

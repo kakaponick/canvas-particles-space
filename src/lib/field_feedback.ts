@@ -120,7 +120,7 @@ export function createFieldFeedback (gl: WebGL2RenderingContext): FieldFeedback 
   let staging = new Float32Array(0)
   let stagingBits = new Uint32Array(0)
 
-  // The ring's light from the field: one row of half floats, which a card may blend into
+  // The rings' light from the field: a row of half floats for each hole, which a card may blend into
   const ringTexture = gl.createTexture()
   gl.activeTexture(gl.TEXTURE0 + RING_LIGHT_TEXTURE_UNIT)
   gl.bindTexture(gl.TEXTURE_2D, ringTexture)
@@ -128,7 +128,7 @@ export function createFieldFeedback (gl: WebGL2RenderingContext): FieldFeedback 
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.R16F, RING_BINS, 1, 0, gl.RED, gl.HALF_FLOAT, null)
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.R16F, RING_BINS, 2, 0, gl.RED, gl.HALF_FLOAT, null)
   gl.activeTexture(gl.TEXTURE0)
   const ringFramebuffer = gl.createFramebuffer()
   gl.bindFramebuffer(gl.FRAMEBUFFER, ringFramebuffer)
@@ -280,7 +280,7 @@ export function createFieldFeedback (gl: WebGL2RenderingContext): FieldFeedback 
     const fed = input.step.ringEnergy !== null
     if (!fed && !input.ringClear) return
     gl.bindFramebuffer(gl.FRAMEBUFFER, ringFramebuffer)
-    gl.viewport(0, 0, RING_BINS, 1)
+    gl.viewport(0, 0, RING_BINS, 2)
     if (input.ringClear) {
       gl.clearColor(0, 0, 0, 0)
       gl.clear(gl.COLOR_BUFFER_BIT)

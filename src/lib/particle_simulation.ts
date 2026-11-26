@@ -85,6 +85,12 @@ export interface StepSettings {
   companionY: number
   companionRadius: number
   companionCapture: number
+  // Its own spin as the main hole's is, the same way: to the right, up and toward the camera, times Frame Drag
+  companionSpinRight: number
+  companionSpinUp: number
+  companionSpinToward: number
+  // 1 while what falls into it lights its own ring, which needs the ring fed (`ringEnergy`) too
+  companionFed: number
   // Collects the light of matter falling in or skimming past; null leaves the photon ring unfed
   ringEnergy: RingEnergy | null
   // The light a captured particle leaves in the ring, and the light one closer than `ringSkimReach` black
@@ -363,6 +369,10 @@ export function createStepSettings (ringEnergy: RingEnergy | null = null): StepS
     companionY: 0,
     companionRadius: 0,
     companionCapture: 0,
+    companionSpinRight: 0,
+    companionSpinUp: 0,
+    companionSpinToward: 0,
+    companionFed: 0,
     ringEnergy,
     ringCaptureEnergy: 0.9,
     ringSkimReach: 1.5,

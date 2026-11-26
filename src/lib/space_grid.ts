@@ -15,6 +15,7 @@
 // field's step and the flows all read it from the numbers laid out here.
 // The lines are a static buffer of segments the grid vertex shader places, so the sheet costs the main
 // thread a few numbers per frame and nothing while it is off.
+import { turnOnto } from './camera_pose'
 
 // Lines on each side of the black hole, in both directions, and the pieces each line is drawn in
 export const GRID_LINES_PER_SIDE = 112
@@ -144,6 +145,9 @@ interface SheetLayout {
   // The direction of the line the pair stood on as it became one, on the plane
   ringX: number
   ringY: number
+  // The direction the second hole stands in along its orbit laid flat onto the plane (orbitOnSheet)
+  orbitX: number
+  orbitY: number
   anchorX: number
   anchorY: number
   unit: number
@@ -152,7 +156,7 @@ interface SheetLayout {
 function createLayout (): SheetLayout {
   return {
     pose: new Float64Array(SHEET_POSE_SLOTS), throat: 0, depth: 0, well2X: 0, well2Y: 0, throat2: 0, depth2: 0,
-    pairX: 0, pairY: 0, ringX: 1, ringY: 0, anchorX: 0, anchorY: 0, unit: 1
+    pairX: 0, pairY: 0, ringX: 1, ringY: 0, orbitX: 1, orbitY: 0, anchorX: 0, anchorY: 0, unit: 1
   }
 }
 
@@ -199,7 +203,8 @@ function settleWell (screenX: number, screenY: number, horizon: number, depthInR
  * `holeY` on the screen, its shadow `horizon` pixels), so the sheet's lines stay put on the screen while the
  * hole moves across them. A second black hole (radius above 0) gets a well of its own; `pairX`, `pairY` is
  * the place on screen the two turn around, and `ringAngle` the angle on screen of the line they stood on as
- * they became one.
+ * they became one; `orbitX`, `orbitY` is where the second hole stands along its orbit laid flat onto the
+ * plane (orbitOnSheet).
  */
 export function layFlatSheet (
   tiltDegrees: number,
@@ -216,7 +221,9 @@ export function layFlatSheet (
   pairY: number,
   ringAngle: number,
   cameraSides: number,
-  nearShare: number
+  nearShare: number,
+  orbitX: number,
+  orbitY: number
 ) {
   const distance = cameraSides * Math.max(width, height)
   const tilt = tiltDegrees * Math.PI / 180
@@ -257,6 +264,8 @@ export function layFlatSheet (
   // A direction on screen lies further round on the tilted sheet, which is seen from the other side
   flat.ringX = Math.cos(ringAngle)
   flat.ringY = -Math.sin(ringAngle) / cos
+  flat.orbitX = orbitX
+  flat.orbitY = orbitY
   flat.throat2 = 0
   flat.depth2 = 0
   flat.well2X = 0
@@ -282,7 +291,8 @@ export function layFlatSheet (
  * are in scene units, `worldPerPixel` of them in a CSS pixel at the pivot's distance; `equator` is the
  * plane's two directions and the way it faces, row by row. The main hole stands at `holeX`..`holeZ` with
  * its shadow `horizon` pixels at the pivot; a second one (radius above 0) at `companionX`..`companionZ`,
- * the two turning round `pairX`..`pairZ`, and `ringX`..`ringZ` the direction they stood in as they became one.
+ * the two turning round `pairX`..`pairZ`, and `ringX`..`ringZ` the direction they stood in as they became one;
+ * `orbitX`, `orbitY` is where the second hole stands along its orbit laid flat onto the plane (orbitOnSheet).
  */
 export function laySpaceSheet (
   pose: ArrayLike<number>,
@@ -307,7 +317,9 @@ export function laySpaceSheet (
   pairZ: number,
   ringX: number,
   ringY: number,
-  ringZ: number
+  ringZ: number,
+  orbitX: number,
+  orbitY: number
 ) {
   // The well goes down along the way the plane faces, on the side away from a camera that looks down the flight
   const down = equator[8] < 0 ? -1 : 1
@@ -354,6 +366,25 @@ export function laySpaceSheet (
   // way round, as the flat camera sees them
   space.ringX = onPlane(equator, 0, ringX, ringY, ringZ)
   space.ringY = -onPlane(equator, 3, ringX, ringY, ringZ)
+  space.orbitX = orbitX
+  space.orbitY = orbitY
+}
+
+/**
+ * The direction the second hole stands in along its orbit, laid flat onto a plane facing `normalX`..
+ * `normalZ`: the orbit's plane turned onto it by the shortest turn, so that it turns there at the pair's own
+ * even pace, where its shadow on the plane sweeps round unevenly. `plane` is the pair's plane (two
+ * directions, then the way it faces), `phase` the pair's angle; `out` takes the direction in the scene.
+ */
+export function orbitOnSheet (plane: ArrayLike<number>, phase: number, normalX: number, normalY: number, normalZ: number, out: Float64Array) {
+  const cos = Math.cos(phase)
+  const sin = Math.sin(phase)
+  const x = plane[0] * cos + plane[3] * sin
+  const y = plane[1] * cos + plane[4] * sin
+  const z = plane[2] * cos + plane[5] * sin
+  // Onto the side of the plane the orbit faces, so the two turn the same way round
+  const side = plane[6] * normalX + plane[7] * normalY + plane[8] * normalZ < 0 ? -1 : 1
+  turnOnto(plane[6], plane[7], plane[8], normalX * side, normalY * side, normalZ * side, x, y, z, out, 0)
 }
 
 // A direction of the scene along one of the equator's rows (0: its first direction, 3: its second)
@@ -364,6 +395,8 @@ function onPlane (equator: ArrayLike<number>, row: number, x: number, y: number,
 /**
  * Sets the sheet for this frame from the two layouts: `shared` of the way from the flat camera's (0) to the
  * 3D camera's (1), so switching 3D on turns the sheet from its diagram view to where it lies in the scene.
+ * The pair's spiral wave turns with the line between the two wells, or `orbitShare` of the way toward the
+ * orbit itself laid flat onto the sheet.
  * A layout not taken part in is not read. The lines are `cell` apart and reach `spanSides` long screen sides
  * from the hole, fading out over the share `fade` of that. `holeX`, `holeY` is where the main hole is drawn
  * (CSS pixels), which the well's bottom stays on as the one pose turns into the other.
@@ -378,7 +411,8 @@ export function placeSheet (
   spanSides: number,
   fade: number,
   holeX: number,
-  holeY: number
+  holeY: number,
+  orbitShare: number
 ) {
   const from = shared >= 1 ? space : flat
   const to = shared <= 0 ? flat : space
@@ -408,6 +442,15 @@ export function placeSheet (
   grid.pairX = mix(from.pairX, to.pairX, share)
   grid.pairY = mix(from.pairY, to.pairY, share)
   grid.pairPhase = Math.atan2(grid.well2Y, grid.well2X)
+  if (orbitShare > 0) {
+    const wells = Math.hypot(grid.well2X, grid.well2Y)
+    const orbitX = mix(from.orbitX, to.orbitX, share)
+    const orbitY = mix(from.orbitY, to.orbitY, share)
+    const orbit = Math.hypot(orbitX, orbitY)
+    if (wells > 0 && orbit > 0) {
+      grid.pairPhase = Math.atan2(mix(grid.well2Y / wells, orbitY / orbit, orbitShare), mix(grid.well2X / wells, orbitX / orbit, orbitShare))
+    }
+  }
   grid.ringPhase = Math.atan2(mix(from.ringY, to.ringY, share), mix(from.ringX, to.ringX, share))
   grid.anchorX = mix(from.anchorX, to.anchorX, share)
   grid.anchorY = mix(from.anchorY, to.anchorY, share)

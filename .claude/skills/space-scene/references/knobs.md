@@ -292,8 +292,9 @@ it is recycled, and what it carried lights the photon ring (section 6).
   wide; 2 and above hold it to a skin round the shadow. Both modes.
 - `blackHoleSize` stays the mass: a spinning hole's shadow is a little smaller than a still one's.
 - The look needs `spinTilt` well away from 0°; at 0° the shadow stays round and only the sky winds.
-- Two holes that merge leave a spinning one about the axis of their orbit, which faces the camera, whatever
-  `blackHoleSpin` says: the remnant's spin (0.69 for two equal holes) takes over as the shadows join.
+- Two holes that merge leave a spinning one about the axis of their orbit (0.69 for two equal holes,
+  facing the camera at no tilt), which takes over as the shadows join; it keeps each hole's own spin
+  (`blackHoleSpin`, `companionOwnSpin`) by the square of its share of the mass, a quarter each for equal holes.
 - The `Kerr` preset is Schwarzschild's setup spinning at 0.99, seen at 80°, with the ring's bright side
   (`ringSide`) on the flat side, which turns toward the camera. The approaching side is at 180° plus
   `spinAxis` at every tilt (past 90° the hole is seen turning the other way about the line of sight, but the
@@ -314,6 +315,7 @@ The lens bends the finished picture (particles, stars, grids), not the particles
 | Exact light paths (ray traced) or the stylized lens | `lensingTraced` |
 | Size of the Einstein ring, in radii, or how much of it the scene's own camera sets | `lensingRadius`, `lensingFromCamera` |
 | Shape outside the ring: 0 a compact bubble, 1 a point mass | `lensingReach` |
+| The bubble's shape: the power of the pull whose cosine scales the picture | `lensingBubble` |
 | How the pull changes with distance, and where that changes nothing | `lensingFalloff`, `lensingPivot` |
 | What shows inside the ring | `lensingMaxBend`, `lensingCore` |
 | Swirl of the sky | `lensingRotation`, `lensingTwistLimit` |
@@ -341,6 +343,11 @@ The lens bends the finished picture (particles, stars, grids), not the particles
   seen from nearer, with a smaller ring and a wider warp of the sky; `cameraZoom` is a longer lens and
   changes nothing. Between 0 and 1 the two distances blend; `lensingRadius` stays the switch.
 - The lens is hard to see on a dark sky. `gridSky` above 0 (section 9) shows exactly what it does.
+- `lensingBubble` shapes the bubble `lensingReach` 0 shows, and nothing of the point mass at 1: the
+  picture is scaled by the cosine of the pull raised to it. 1 is the original bubble; 2 to 3 keeps the
+  warp close round the ring and folds more rings inside it, which `lensingMaxBend` still caps; 0.5 spreads
+  it farther over the sky with fewer rings. The ring stays where it is. The second hole's lens takes it
+  too at `companionLensStyle` above 0 (section 8).
 - `lensingAbsorption` takes light away around the shadow. When the particles next to the hole look dim,
   this is the first key to lower, before any brightness of the particles themselves.
 
@@ -376,7 +383,11 @@ The lens bends the finished picture (particles, stars, grids), not the particles
   points of light that the ring's flow then carries round.
 - The ring is `ringColor`, and `ringDoppler` turns its bright side toward `ringColorApproaching` and its
   dim side toward `ringColorReceding` by the square of the contrast, so the tints show from about 0.5 up.
-  The second black hole's ring takes `ringColor`, the line and the glow, and neither the feed nor the sides.
+  The second black hole's ring takes `ringColor`, the line and the glow, and draws them along its own
+  outline when it spins (`companionOwnSpin`). What falls into it lights it as the main ring is lit,
+  `companionRingFeed` times the main ring's `ringFeed` (the same capture and skim light, flow and
+  afterglow); `companionRingSides` gives it the main ring's `ringDoppler` on `ringSide` at that multiple,
+  and with `ringSpinFollow` the side and contrast its own spin turns toward the camera (section 8).
   The three colours take a hex string and can be keyframed.
 
 ## 7. Orbiting stars
@@ -449,6 +460,13 @@ that precess, faster the closer they come, as around a real black hole.
 | The plane the two circle in: its tilt from the plane across the line of flight, and the side of the screen it tips away from the camera | `companionTilt`, `companionNode` |
 | Where the closing pair stops speeding up, as a share of touching | `companionClosest` |
 | What a merger leaves: its spin × the real one, its oval × the opening's, the wobbles its ringing takes to take over the wave | `companionSpin`, `companionOval`, `companionHandover` |
+| The second hole's own spin (a/M) and its axis, as the main hole's | `companionOwnSpin`, `companionSpinTilt`, `companionSpinAxis` |
+| How fast the spins and the orbit turn each other, × the real precession | `companionPrecession` |
+| Its ring: lit by what falls in, × the main ring's feed; its Doppler sides, × the main ring's | `companionRingFeed`, `companionRingSides` |
+| Its lens: the core it softens inside, in its shadow's radii; 0 a point mass .. 1 the stylized lens | `companionLensCore`, `companionLensStyle` |
+| Two at different depths: the farther seen through the nearer's lens, and the waves, × a thin lens's share; the depth gap at which a shadow hides the other's ring, × their radii | `companionLensDepth`, `companionWaveLens`, `companionHideDepth` |
+| How much of a tilted orbit's depth the flat mode draws | `companionFlatDepth` |
+| The plane a hole alone rings in: its tilt, and the side it tips away | `loneTilt`, `loneNode` |
 
 - The two turn around their common centre by Kepler's law, so closing `companionDistance` speeds them up
   by itself. Moving it from far to 0 over a film is a merger. Inside `companionClosest` of the distance at
@@ -476,19 +494,50 @@ that precess, faster the closer they come, as around a real black hole.
   one the flat view looks straight at; 90 stands it edge-on to a camera looking along the flight, so the
   two pass in front of each other at every half turn; 180 is the same plane circled the other way.
   `companionNode` is the side of the screen that tilts away from the camera: 0 the top (at 90 the orbit
-  is a horizontal line), 90 the left (a vertical line). The plane stays where it is set: the holes' spins
+  is a horizontal line), 90 the left (a vertical line). With a spin on either hole the plane precesses
+  (`companionPrecession`, below); without one it stays where it is set: the holes' spins
   do not turn it.
 - The waves and the merged hole's oval lie in the pair's plane, and the camera sees the slice through
   the pair that faces it: from above the orbit a two-armed spiral, from its side rings, twice as strong
   along the orbit's axis as in its plane, round a shadow that swells and shrinks along that plane. The
   hole a merger leaves spins about the orbit's axis, the way the pair turned. A hole alone (the
   opening's ringing, a fired `ringdown` or `gravityWave` with `companionSize` 0) rings in the plane
-  across the line of flight whatever the tilt.
+  `loneTilt` and `loneNode` set as `companionTilt` and `companionNode` set a pair's, by default the plane
+  across the line of flight. A film that removes the second hole after a merger and wants the ringing kept
+  in the orbit's plane sets the two to the pair's.
 - The two holes stand at their own depths, so seen along the orbit's plane one passes in front of the
   other: the nearer one's lens bends the light of the farther, which is seen pushed out round it, and
   its shadow hides what of the farther ring lies behind it. The flat mode keeps that order but draws
-  the orbit as it lies across the screen, both holes at their own size; 3D straight on draws the same
-  with perspective, the nearer hole larger and farther from their centre.
+  the orbit as it lies across the screen, both holes at their own size, while `companionFlatDepth` is 0;
+  3D straight on draws the same with perspective, the nearer hole larger and farther from their centre.
+- `companionOwnSpin` spins the second hole about the axis `companionSpinTilt` and `companionSpinAxis` set,
+  as `spinTilt` and `spinAxis` set the main one's (section 4): its shadow flattens on the side turning
+  toward the camera, its ring follows the outline, and the particles near it are carried round by the same
+  `frameDrag` and `frameDragSweep`. It fades as the two merge, and the hole they leave keeps each hole's own
+  spin by the square of its share of the mass beside the spin of the orbit (`companionSpin`): two equal
+  holes pass a quarter of each.
+- `companionPrecession` turns the orbit's plane and both spins about their total angular momentum at the
+  rate relativity gives at its lowest order, (2 + 1.5 m2/m1) J / r^3, so it needs a spin on either hole.
+  The cone is as wide as the spins are against the orbit's momentum, widest at close range: at 1 two equal
+  holes 8 radii apart go round it once in about 25 orbits, 3 radii apart in about 9; 20 or more shows it in a
+  short film. The plane carries the pair's waves, its oval and the merged hole's spin with it, and the main
+  hole's turned spin turns its equator, so the sheet and the flows that follow the spin turn too. 0 stops
+  the turn where it stands; `companionTilt` and `companionNode` set where it starts.
+- `companionLensCore` is where the second hole's point-mass lens stops pulling harder, in its shadow's
+  radii: lower folds the sky tighter round its shadow. `companionLensStyle` blends its lens toward the main
+  lens's stylized shape (`lensingReach`, `lensingBubble`, `lensingFalloff`, `lensingRotation`,
+  `lensingMaxBend`, `lensingCore`) at its own Einstein ring, whether or not the main lens is traced; at 1
+  with `lensingReach` 0 both holes are compact bubbles and the sky between them stays put.
+- `companionLensDepth` multiplies the thin lens's share (the farther hole's depth behind the nearer over
+  its distance from the camera) by which the farther hole is seen through the nearer one's bend; the share
+  is small unless the orbit stands deep, so 5 to 20 pushes the farther hole and its ring out round the
+  nearer, up to the whole bend. `companionWaveLens` does the same for the waves, by the share the pair's
+  centre lies behind the nearer hole: the spiral and the merger's ringing are then seen bent round it as the
+  farther hole is. `companionHideDepth` is the depth gap, in the two radii summed, at which the nearer
+  shadow hides the farther ring in full: low covers it as soon as one is ahead, high lets both rings show.
+- `companionFlatDepth` at 1 draws a tilted orbit in the flat mode in perspective round the pair's centre,
+  as 3D straight on does: the nearer hole larger and farther out, the farther smaller and nearer in, each
+  capturing at the size drawn. 0 draws the orbit as it lies across the screen.
 - At `companionSpeed` 1 a turn at 8 radii takes about 15 s. A short film wants 2 to show the pair circling.
 - Two horizons take more of the flight than one: over a long approach the field can thin out. Lower
   `gravityStrength`, or `horizonScale`, when the picture needs the particles.
@@ -518,6 +567,7 @@ that precess, faster the closer they come, as around a real black hole.
 | The sheet's lines: their width, the most they widen near its camera, and where they stop round a hole | `gridLine`, `gridLineNear`, `gridClearing`, `gridClearingEdge` |
 | The flat mode's sheet camera: its distance, and how near it the sheet is cut off; how far the sheet reaches and the share of that it fades over | `gridDistance`, `gridNear`, `gridSpan`, `gridFade` |
 | How high a gravitational wave lifts the sheet | `gridWaveLift` |
+| What a pair's spiral wave turns with: 0 the line between the wells, 1 the orbit laid flat | `gridWaveOrbit` |
 | The lattice's lines and extent: their width, its reach in cells and the share of that it fades over | `gridLatticeLine`, `gridLatticeReach`, `gridLatticeFade` |
 | The lattice in depth: where it fades near the camera, the share of that where a line is gone, and what it keeps far behind the hole | `gridLatticeNear`, `gridLatticeNearEdge`, `gridLatticeFar` |
 | The shadow the lattice's cells are measured from while there is no black hole, as a share of the short side | `gridLatticeUnit` |
@@ -635,6 +685,10 @@ that precess, faster the closer they come, as around a real black hole.
 - `gridWaveLift` is the height a wave gives the sheet for each pixel it stretches the sky, so it scales
   every wave on the sheet at once (`companionWaves`, `gravityWaveGain`, a fired `gravityWave`) and leaves
   the sky alone. 0 keeps the sheet still under a rippling sky; 20 makes steep hills of a merger.
+- `gridWaveOrbit` matters while a pair's orbit is tilted to the sheet (`companionTilt`, or 3D's equator).
+  At 0 the spiral turns with the line between the two wells as they land on the sheet, which sweeps round
+  unevenly and stalls where the orbit is seen edge-on; at 1 with the orbit itself laid flat onto the sheet
+  by the shortest turn, at the pair's own even pace. The two agree while the orbit lies in the sheet.
 
 ## 10. Background stars and the sky
 

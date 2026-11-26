@@ -478,11 +478,12 @@ export const compositeFragmentShaderSource = `
   uniform float u_lensCore;      // closest a bent ray gets to the point behind the hole, in Einstein radii
   uniform float u_maxBend;       // cap on the pull; 1 leaves no nested rings inside the Einstein ring
   uniform float u_lensReach;     // 0: the compact bubble of the original canvas; 1: a point mass, felt across the screen
+  uniform float u_lensBubble;    // the power of the pull whose cosine shapes the bubble; 1 the original canvas's
   uniform float u_twistLimit;    // cap on the pull the twist follows, so a wide lens does not wind up the scene
   uniform float u_absorption;    // light the lens's pull removes around the shadow
   uniform vec4 u_trace;          // Ray Traced lens: 1 / the camera's distance in Schwarzschild radii (0 = the stylized lens), pixels of 2 tan(angle / 2) from the hole, share of the bend shown, unused
   uniform vec4 u_spin;           // the hole's spin a/M (0 = none), cosine and sine of its axis's angle to the line to the camera, turn of the axis on screen from up toward the left
-  uniform sampler2D u_shadowShape; // a spinning hole's shadow: its radius all the way round, in round-shadow radii, from the axis's right toward its up
+  uniform sampler2D u_shadowShape; // a spinning hole's shadow: its radius all the way round, in round-shadow radii, from the axis's right toward its up; the main hole's in the first row, the second hole's in the second
   uniform vec4 u_horizonGrid;    // the grid on the horizon: its brightness (0 turns it off), 1 / the camera's distance in Schwarzschild radii, pixels of tan(angle / 2) from the hole, half the width of a line in pixels of the screen
   uniform vec4 u_horizonAxis;    // the axis it is drawn about: cosine and sine of its angle to the line to the camera, its turn on screen from up toward the left; and the most light lines too dense to draw give
   uniform vec4 u_horizonTurn;    // the longitude of the camera's meridian less the turn the horizon has made, the horizon's rate of turn per M, cells per radian, cells round the equator
@@ -497,7 +498,7 @@ export const compositeFragmentShaderSource = `
   uniform float u_ringDoppler;   // contrast between the approaching and the receding side
   uniform float u_ringSide;      // direction of the approaching side, radians
   uniform sampler2D u_ringEnergy; // light left around the ring by the orbiting stars and the flows
-  uniform sampler2D u_ringLight;  // light the particle field left there, a bin a direction, neither spread nor saturated
+  uniform sampler2D u_ringLight;  // light the particle field left there, a bin a direction, neither spread nor saturated; round the main hole in the first row, round the second in the second
   uniform float u_ringField;      // 1 while the field's light is kept
   uniform float u_ringPhase;     // radians the energy pattern has turned
   uniform float u_ringBase;      // share of the ring's light that shines with nothing falling in
@@ -533,6 +534,10 @@ export const compositeFragmentShaderSource = `
   uniform vec2 u_gravityWaveCenter;     // where the wave left from
   uniform vec4 u_gravityWaveTurn;       // cosine and sine of twice the angle the oval's long axis had as the ringing began, the way it turns (1, -1; 0 = it wobbles in place), pixels the wave travels a second
   uniform vec4 u_companion;      // a second black hole: centre, shadow radius (0 = none), Einstein radius
+  uniform vec2 u_companionLens;  // its lens: the radius it pulls no harder inside, in its shadow's radii; 0 a point mass .. 1 the stylized lens
+  uniform vec2 u_companionSpin;  // its own spin a/M (0 = none) and the turn of its axis on screen from up toward the left
+  uniform vec3 u_companionRing;  // its ring: Doppler contrast (0 = none), the angle of the bright side, the light of what falls in (0 = none)
+  uniform vec2 u_waveLens;       // the share of the nearer hole's bend the waves are read through: the second hole's, then the main one's
   uniform vec2 u_pair;           // the centre the two black holes turn around
   uniform vec4 u_pairWave;       // their spiral gravitational wave: pixels of stretch (0 = off), the pair's angle, turn of its arms per pixel, radius beyond which it weakens
   uniform vec4 u_pairFront;      // once the two are one: seconds since then (negative = not yet), pixels the wave travels a second, seconds the old wave takes to give way to the new
@@ -959,11 +964,47 @@ ${DENT_GLSL}
     return color;
   }
 
+  // The stylized lens round a hole whose Einstein ring is einstein pixels: where it takes the ray seen at
+  // rel from the hole, dist away as the lens measures it, and its pull there (bend)
+  vec2 stylizedLens (vec2 rel, float dist, float einstein, out float bend) {
+    float ratio = einstein / max(dist, 0.0001);
+    bend = ratio * ratio;
+    if (u_falloff != 2.0) bend *= pow(u_falloffPivot / max(dist, 0.0001), u_falloff - 2.0);
+    bend = min(bend, u_maxBend);
+    if (bend * dist * (1.0 + abs(u_swirl)) <= 0.01) return rel;
+    // The original canvas scaled the picture around the hole by the cosine of the pull: a bubble whose
+    // distortion dies off with the cube of the distance, rippling into nested rings inside the ring; a
+    // power of the pull there (Bubble) keeps it nearer the ring and folds more rings, or spreads it.
+    // A point mass, r * (1 - pull), bends rays far across the screen instead, and inside the ring it
+    // turns negative: the ray comes from the other side of the hole, which is the mirrored second
+    // image a real lens shows there. u_lensReach blends the two; both are zero at the ring, so the
+    // ring stays where it is
+    float wave = cos(0.5 * PI * (u_lensBubble == 1.0 ? bend : pow(bend, u_lensBubble)));
+    vec2 lensed = rel * mix(wave, 1.0 - bend, u_lensReach);
+    // Every ray at the ring comes from the single point right behind the hole, which would smear a
+    // few pixels into a flat milky band. Rays stop short of that point, so the ring shows real detail
+    float sourceRadius = length(lensed);
+    float lensCore = u_lensCore * einstein;
+    lensed *= sqrt(sourceRadius * sourceRadius + lensCore * lensCore) / max(sourceRadius, 0.0001);
+    // The pull at the shadow's edge grows with the square of the lens radius. The twist follows it
+    // only up to a limit, so a wider lens is a bigger bubble, not a tighter spiral
+    float twist = u_swirl * min(bend, u_twistLimit);
+    float c = cos(twist);
+    float s = sin(twist);
+    return vec2(c * lensed.x - s * lensed.y, s * lensed.x + c * lensed.y);
+  }
+
   // Where the second black hole moves the ray seen at a point this far from it: in towards it by E^2 / r,
-  // as a point mass does, held in at half its shadow's radius
+  // as a point mass does, held in at Lens Core of its shadow's radius; Lens Style blends in the stylized
+  // lens's shape at its own Einstein ring
   vec2 companionBend (vec2 fromCompanion) {
-    float closest = 0.5 * u_companion.z;
-    return -fromCompanion * (u_companion.w * u_companion.w / max(dot(fromCompanion, fromCompanion), closest * closest));
+    float closest = u_companionLens.x * u_companion.z;
+    vec2 shift = -fromCompanion * (u_companion.w * u_companion.w / max(dot(fromCompanion, fromCompanion), closest * closest));
+    if (u_companionLens.y > 0.0) {
+      float pull;
+      shift = mix(shift, stylizedLens(fromCompanion, length(fromCompanion), u_companion.w, pull) - fromCompanion, u_companionLens.y);
+    }
+    return shift;
   }
 
   // Carlson's symmetric elliptic integral R_F(x, y, z), by duplication: seven steps hold to float precision
@@ -1082,7 +1123,7 @@ ${DENT_GLSL}
     float shadowEdge = u_horizon;
     if (u_spin.x > 0.0) {
       float around = (atan(-offset.y, offset.x) - u_spin.w) / (2.0 * PI);
-      shadowEdge *= texture2D(u_shadowShape, vec2(around + 0.5 / SHADOW_SAMPLES, 0.5)).r;
+      shadowEdge *= texture2D(u_shadowShape, vec2(around + 0.5 / SHADOW_SAMPLES, 0.25)).r;
     }
     // 1 where a traced ray fell into a spinning hole outside the outline drawn, which is only ever a hair
     float fallen = 0.0;
@@ -1103,8 +1144,17 @@ ${DENT_GLSL}
     // pair's axis as in its plane, as a binary's is
     vec2 fromCenter = frag - u_center;
     float centerDist = length(fromCenter);
+    // A wave of a pair at depth is read where the nearer hole's lens takes the ray, by the share of its bend
+    // the pair's centre lies behind it, so it is seen round the nearer hole as the farther hole is
+    vec2 wavePx = frag;
+    if (u_waveLens.x > 0.0) wavePx += companionBend(frag - u_companion.xy) * u_waveLens.x;
+    if (u_waveLens.y > 0.0) {
+      vec2 fromHole = frag - u_hole;
+      float closest = 0.5 * u_horizon;
+      wavePx -= fromHole * (u_einstein * u_einstein / max(dot(fromHole, fromHole), closest * closest)) * u_waveLens.y;
+    }
     if (u_gravityWaveAmplitude > 0.0) {
-      vec2 fromWave = frag - u_gravityWaveCenter;
+      vec2 fromWave = wavePx - u_gravityWaveCenter;
       float waveDist = length(fromWave);
       float emitted = u_gravityWaveTime - waveDist / u_gravityWaveTurn.w;
       // A quarter of a wobble, over which the wave of a merger takes over from the pair's
@@ -1139,7 +1189,7 @@ ${DENT_GLSL}
     // own ringing, which follows it out from the middle. Seen from any side it is the slice through the
     // pair that faces the camera, as above
     if (u_pairWave.x > 0.0) {
-      vec2 fromPair = frag - u_pair;
+      vec2 fromPair = wavePx - u_pair;
       float pairDist = length(fromPair);
       vec2 n = fromPair / max(pairDist, 0.0001);
       vec2 t = vec2(-n.y, n.x);
@@ -1199,41 +1249,23 @@ ${DENT_GLSL}
         }
       }
     } else if (u_einstein > 0.0) {
-      float ratio = u_einstein / max(dist, 0.0001);
-      bend = ratio * ratio;
-      if (u_falloff != 2.0) bend *= pow(u_falloffPivot / max(dist, 0.0001), u_falloff - 2.0);
-      bend = min(bend, u_maxBend);
-      if (bend * dist * (1.0 + abs(u_swirl)) > 0.01) {
-        // The original canvas scaled the picture around the hole by the cosine of the pull: a bubble whose
-        // distortion dies off with the cube of the distance, rippling into nested rings inside the ring.
-        // A point mass, r * (1 - pull), bends rays far across the screen instead, and inside the ring it
-        // turns negative: the ray comes from the other side of the hole, which is the mirrored second
-        // image a real lens shows there. u_lensReach blends the two; both are zero at the ring, so the
-        // ring stays where it is
-        float wave = cos(0.5 * PI * bend);
-        float radial = mix(wave, 1.0 - bend, u_lensReach);
-        vec2 lensed = (samplePx - u_hole) * radial;
-        // Every ray at the ring comes from the single point right behind the hole, which would smear a
-        // few pixels into a flat milky band. Rays stop short of that point, so the ring shows real detail
-        float sourceRadius = length(lensed);
-        float lensCore = u_lensCore * u_einstein;
-        lensed *= sqrt(sourceRadius * sourceRadius + lensCore * lensCore) / max(sourceRadius, 0.0001);
-        // The pull at the shadow's edge grows with the square of the lens radius. The twist follows it
-        // only up to a limit, so a wider lens is a bigger bubble, not a tighter spiral
-        float twist = u_swirl * min(bend, u_twistLimit);
-        float c = cos(twist);
-        float s = sin(twist);
-        samplePx = u_hole + vec2(c * lensed.x - s * lensed.y, s * lensed.x + c * lensed.y);
-      }
+      samplePx = u_hole + stylizedLens(samplePx - u_hole, dist, u_einstein, bend);
     }
 
     // The second black hole bends the ray as a point mass does, on top of the first. Farther than the first,
     // it is seen where the first one's lens shows it, moved by the share of that lens's bend it lies behind;
     // nearer, its bend was worked out first and what the first was not seen through is added here
     float companionDist = 0.0;
+    // Its shadow's edge in this direction: round, or the outline of its own spin, as the main hole's
+    float companionEdge = u_companion.z;
+    vec2 fromCompanion = vec2(0.0);
     if (u_companion.z > 0.0) {
-      vec2 fromCompanion = frag + (samplePx - beforeLens) * u_pairDepth.y - u_companion.xy;
+      fromCompanion = frag + (samplePx - beforeLens) * u_pairDepth.y - u_companion.xy;
       companionDist = length(fromCompanion);
+      if (u_companionSpin.x > 0.0) {
+        float around = (atan(-fromCompanion.y, fromCompanion.x) - u_companionSpin.y) / (2.0 * PI);
+        companionEdge *= texture2D(u_shadowShape, vec2(around + 0.5 / SHADOW_SAMPLES, 0.75)).r;
+      }
       if (u_companion.w > 0.0) {
         if (u_pairDepth.x <= 0.0) companionShift = companionBend(fromCompanion);
         samplePx += companionShift * (1.0 - u_pairDepth.x);
@@ -1459,7 +1491,7 @@ ${DENT_GLSL}
     // hides the farther one's ring, and side by side each hides the other's
     float besideCompanion = 1.0;
     if (u_companion.z > 0.0) {
-      besideCompanion = smoothstep(u_companion.z - px, u_companion.z + px, companionDist);
+      besideCompanion = smoothstep(companionEdge - px, companionEdge + px, companionDist);
       color *= besideCompanion;
     }
 
@@ -1489,17 +1521,35 @@ ${DENT_GLSL}
         color += u_gridColor * u_horizonGrid.x * max(line.x, line.y) * (1.0 - besideHole) * besideCompanion;
       }
 
-      // The second black hole's ring is a plain line: no matter is tracked falling into it
-      if (u_companion.z > 0.0 && u_ring > 0.0 && companionDist < u_companion.z * u_ringLine.z) {
+      // The second black hole's ring: the main ring's line along its own outline, lit by what falls into it
+      // (the second row of the field's light) and brighter on its Doppler side
+      if (u_companion.z > 0.0 && u_ring > 0.0 && companionDist < companionEdge * u_ringLine.z) {
         float ringLine = u_ringLine.x * px + u_ringWidth * u_companion.z;
-        float fromLine = companionDist - u_companion.z - u_ringLine.y * ringLine;
+        float fromLine = companionDist - companionEdge - u_ringLine.y * ringLine;
         float inner = fromLine / (u_ringLine.w * ringLine);
         float line = exp(-inner * inner);
         if (u_ringGlow > 0.0) {
           vec2 spread = fromLine / (u_companion.z * u_ringGlowShape.xy);
           line += u_ringGlow * dot(u_ringGlowShape.zw, exp(-spread * spread));
         }
-        color += u_ringColor * u_ring * u_ringBase * line * mix(besideHole, 1.0, clamp(u_pairDepth.z, 0.0, 1.0));
+        float companionAngle = atan(fromCompanion.y, fromCompanion.x);
+        float lit = u_ringBase;
+        if (u_companionRing.z > 0.0) {
+          float turn = (companionAngle - u_ringPhase) / (2.0 * PI);
+          float bin = 1.0 / ${RING_BINS}.0;
+          float left = 0.5 * texture2D(u_ringLight, vec2(turn, 0.75)).r +
+            0.25 * (texture2D(u_ringLight, vec2(turn - bin, 0.75)).r + texture2D(u_ringLight, vec2(turn + bin, 0.75)).r);
+          lit += u_companionRing.z * left / (1.0 + left);
+        }
+        vec3 tint = u_ringColor;
+        float boost = 1.0;
+        if (u_companionRing.x > 0.0) {
+          float side = cos(companionAngle - u_companionRing.y);
+          boost = (1.0 + 0.5 * u_companionRing.x * side) / (1.0 + 0.5 * u_companionRing.x);
+          boost *= boost * boost;
+          tint = mix(u_ringColor, side > 0.0 ? u_ringApproaching : u_ringReceding, abs(side) * u_companionRing.x * u_companionRing.x);
+        }
+        color += tint * u_ring * boost * lit * line * mix(besideHole, 1.0, clamp(u_pairDepth.z, 0.0, 1.0));
       }
 
       // Photon ring: light that circled the hole before escaping, a hair-thin line hugging the shadow, along
@@ -1526,8 +1576,8 @@ ${DENT_GLSL}
           // The field's light is spread over a bin's neighbours here and joins what the stars and the flows
           // left, before the whole saturates softly
           float bin = 1.0 / ${RING_BINS}.0;
-          float left = infall / max(1.0 - infall, 0.004) + 0.5 * texture2D(u_ringLight, vec2(ringTurn, 0.5)).r +
-            0.25 * (texture2D(u_ringLight, vec2(ringTurn - bin, 0.5)).r + texture2D(u_ringLight, vec2(ringTurn + bin, 0.5)).r);
+          float left = infall / max(1.0 - infall, 0.004) + 0.5 * texture2D(u_ringLight, vec2(ringTurn, 0.25)).r +
+            0.25 * (texture2D(u_ringLight, vec2(ringTurn - bin, 0.25)).r + texture2D(u_ringLight, vec2(ringTurn + bin, 0.25)).r);
           infall = left / (1.0 + left);
         }
         line *= u_ringBase + u_ringFeed * infall;

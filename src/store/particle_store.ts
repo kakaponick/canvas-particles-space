@@ -193,6 +193,8 @@ export interface ParticleState extends FlowState {
   lensingMaxBend: number
   // Shape of the lens outside its ring: 0 is the compact bubble of the original canvas, 1 a point mass
   lensingReach: number
+  // The power of the pull whose cosine shapes the stylized lens's bubble
+  lensingBubble: number
   // Cap on the pull that Twist follows; the pull is 1 at the Einstein ring and grows inward
   lensingTwistLimit: number
   lensingAbsorption: number
@@ -224,6 +226,8 @@ export interface ParticleState extends FlowState {
   gridSpan: number
   gridFade: number
   gridWaveLift: number
+  // What the sheet's spiral wave turns with: 0 the line between the wells on the sheet, 1 the orbit laid flat
+  gridWaveOrbit: number
   gridLine: number
   gridLineNear: number
   gridNear: number
@@ -303,6 +307,28 @@ export interface ParticleState extends FlowState {
   companionSpin: number
   companionOval: number
   companionHandover: number
+  // The second hole's own spin (a/M) and its axis, as Spin, Spin Tilt and Spin Axis set the main one's, and
+  // how fast the spins and the orbit turn each other, a multiple of the lowest order of relativity
+  companionOwnSpin: number
+  companionSpinTilt: number
+  companionSpinAxis: number
+  companionPrecession: number
+  // Its ring: the light of what falls in, and the Doppler sides, each a multiple of the main ring's
+  companionRingFeed: number
+  companionRingSides: number
+  // Its lens: the core it softens inside, in its shadow's radii, and 0 a point mass .. 1 the stylized lens
+  companionLensCore: number
+  companionLensStyle: number
+  // Two holes at different depths: the share of the nearer one's bend the farther, and the waves, are seen
+  // through, each a multiple of a thin lens's; the depth at which a shadow hides the other's ring, a
+  // multiple of the sum of their radii; and the share of the depth the flat mode draws
+  companionLensDepth: number
+  companionHideDepth: number
+  companionWaveLens: number
+  companionFlatDepth: number
+  // The plane a hole alone rings in, as the pair's tilt and the side it tips away
+  loneTilt: number
+  loneNode: number
   // How much the camera magnifies the scene around the black hole; 1 is no zoom
   cameraZoom: number
   // Where the camera looks while it is zoomed in: black hole radii to the right of the black hole and
@@ -509,6 +535,7 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   lensingCore: 0.3,
   lensingMaxBend: 64,
   lensingReach: 0,
+  lensingBubble: 1,
   lensingTwistLimit: 3,
   lensingAbsorption: 0.25,
   gridCell: 4,
@@ -529,6 +556,7 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   gridSpan: 2.2,
   gridFade: 0.5,
   gridWaveLift: 4,
+  gridWaveOrbit: 0,
   gridLine: 1.25,
   gridLineNear: 3,
   gridNear: 0.2,
@@ -589,6 +617,20 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   companionSpin: 1,
   companionOval: 3,
   companionHandover: 0.25,
+  companionOwnSpin: 0,
+  companionSpinTilt: 80,
+  companionSpinAxis: 0,
+  companionPrecession: 1,
+  companionRingFeed: 1,
+  companionRingSides: 1,
+  companionLensCore: 0.5,
+  companionLensStyle: 0,
+  companionLensDepth: 1,
+  companionHideDepth: 1,
+  companionWaveLens: 1,
+  companionFlatDepth: 0,
+  loneTilt: 0,
+  loneNode: 0,
   orbitCount: 0,
   orbitSize: 4,
   orbitEccentricity: 0.5,

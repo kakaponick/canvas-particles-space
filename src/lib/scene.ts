@@ -4,7 +4,7 @@
 // in SceneInput, so the scene reads no store and no window, and with the same seed and the same inputs it
 // draws the same frames.
 import { createParticleField, createPaletteSampler, createStepSettings, setParticleCount, type SpawnSettings } from './particle_simulation'
-import { POSE_SLOTS, cameraPose } from './camera_pose'
+import { POSE_SLOTS, cameraPose, turnOnto } from './camera_pose'
 import { createParticleRenderer, type FrameInput, type ParticleRenderer } from './particle_renderer'
 import { createIntroFrame, getRingdownTiming, ringdownWobble, sampleIntro, type IntroFrame, type RingdownTiming } from './intro_timeline'
 import { INTRO_LAYERS, type IntroLayer } from './intro_tracks'
@@ -14,11 +14,11 @@ import { stepSpring, type Spring2D } from './black_hole_motion'
 import { renderTitleSprite, waitForTitleFont, type TitleSprite, type TitleStyle } from './title_sprite'
 export type { TitleSprite } from './title_sprite'
 import { clearRingEnergy, createRingEnergy, feedRing, stepRingEnergy } from './ring_energy'
-import { layFlatSheet, laySpaceSheet, placeSheet } from './space_grid'
+import { layFlatSheet, laySpaceSheet, orbitOnSheet, placeSheet } from './space_grid'
 import { LATTICE_LINES_PER_SIDE, createLatticeSettings, latticeAnchor } from './space_lattice'
 import { FLOW_KEYS, createFlowSettings, leanPlane, resetFlow, shareFlow, stepFlow, turnFlow } from './flows'
 import { LIGHT_SPEED, SHADOW_RADII, clearOrbiters, createOrbitTuning, createOrbiters, stepOrbiters } from './orbiters'
-import { createPair, stepPair } from './companion'
+import { createPair, precessPair, precessed, stepPair } from './companion'
 import { CLOSEST_CAMERA, CRITICAL_IMPACT, cameraFor, einsteinRatioAt, shadowAngle } from './lens_trace'
 import { createShadowShape, updateShadowShape } from './kerr_shadow'
 import { createRandom, seedRandom } from './random'
@@ -81,6 +81,29 @@ const RING_LAYERS = RINGDOWN | GRAVITY_WAVE
 
 // The centre of something `half` wide, moved as little as needed for it to lie between `inset` and
 // `size - inset`; centred when there is not enough room
+/**
+ * The plane `tiltDegrees` from the plane across the line of flight, its side `nodeDegrees` round the screen
+ * (0 the top, 90 the left) tipped away from the camera: its two directions are the scene's x and y carried
+ * there by the shortest turn, then the way it faces, row by row into `out`. At no tilt it is the scene's
+ * own axes, and at 180 the same plane faced the other way.
+ */
+function tiltPlane (tiltDegrees: number, nodeDegrees: number, out: Float64Array) {
+  const tilt = tiltDegrees * DEGREE
+  const tiltSin = Math.sin(tilt)
+  const tiltFold = 1 - Math.cos(tilt)
+  const leanX = Math.sin(nodeDegrees * DEGREE)
+  const leanY = Math.cos(nodeDegrees * DEGREE)
+  out[0] = 1 - tiltFold * leanX * leanX
+  out[1] = -tiltFold * leanX * leanY
+  out[2] = -tiltSin * leanX
+  out[3] = -tiltFold * leanX * leanY
+  out[4] = 1 - tiltFold * leanY * leanY
+  out[5] = -tiltSin * leanY
+  out[6] = tiltSin * leanX
+  out[7] = tiltSin * leanY
+  out[8] = 1 - tiltFold
+}
+
 function keepInside (center: number, half: number, inset: number, size: number) {
   const low = inset + half
   const high = size - inset - half
@@ -199,6 +222,8 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
   const orbitTuning = createOrbitTuning()
   const pair = createPair()
   const shadowShape = createShadowShape()
+  // The outline of the second hole's shadow, for its own spin
+  const companionShape = createShadowShape()
   const spawn: SpawnSettings = {
     random,
     palette: createPaletteSampler(input.settings.colorPalette),
@@ -225,6 +250,12 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
   // A flow's own plane before its tilt: the equator leaned toward the pair's orbit, then toward the camera
   const flowLeaned = new Float64Array(9)
   const flowBase = new Float64Array(9)
+  // The plane a hole alone rings in, the same way (Lone Ring Tilt and Lone Ring Toward)
+  const lonePlane = new Float64Array([1, 0, 0, 0, 1, 0, 0, 0, 1])
+  // The holes' own spins, a/M along the scene's x, y and z: the main one's, then the second one's
+  const spins = new Float64Array(6)
+  // A direction worked out on the way: the pair's plane's after precession, the orbit laid on the sheet
+  const turned = new Float64Array(3)
   // A point of the scene as the camera sees it: CSS pixels and its distance in front of the camera
   const seen = { x: 0, y: 0, depth: 1 }
 
@@ -376,6 +407,17 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       pairLensMain: 0,
       pairLensCompanion: 0,
       pairNearer: 0,
+      lensBubble: 1,
+      companionLensCore: 0.5,
+      companionLensStyle: 0,
+      companionSpin: 0,
+      companionSpinAxis: 0,
+      companionShape,
+      companionRingDoppler: 0,
+      companionRingSide: 0,
+      companionRingFeed: 0,
+      waveLensCompanion: 0,
+      waveLensMain: 0,
       pairPlane: new Float32Array([1, 0, 0, 1]),
       turn: new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]),
       skySphere: 0,
@@ -667,23 +709,42 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     )
     // The pair circles in a plane of its own, the same in both modes: Orbit Tilt turns it from the plane
     // across the line of flight about a line of the screen, so that the side Tilt Toward points to (0 up,
-    // 90 left) goes away from the camera. Its two directions are the scene's x and y carried there by the
-    // shortest turn, so at no tilt the pair keeps its places, and at 180 it circles the same plane the
-    // other way. Nothing turns the plane on its own: the holes' spins do not precess it
-    const orbitTilt = state.companionTilt * DEGREE
-    const tiltSin = Math.sin(orbitTilt)
-    const tiltFold = 1 - Math.cos(orbitTilt)
-    const leanX = Math.sin(state.companionNode * DEGREE)
-    const leanY = Math.cos(state.companionNode * DEGREE)
-    pairPlane[0] = 1 - tiltFold * leanX * leanX
-    pairPlane[1] = -tiltFold * leanX * leanY
-    pairPlane[2] = -tiltSin * leanX
-    pairPlane[3] = -tiltFold * leanX * leanY
-    pairPlane[4] = 1 - tiltFold * leanY * leanY
-    pairPlane[5] = -tiltSin * leanY
-    pairPlane[6] = tiltSin * leanX
-    pairPlane[7] = tiltSin * leanY
-    pairPlane[8] = 1 - tiltFold
+    // 90 left) goes away from the camera. At no tilt the pair keeps its places, and at 180 it circles the
+    // same plane the other way
+    tiltPlane(state.companionTilt, state.companionNode, pairPlane)
+    // The holes' own spins along the scene's x, y and z (its y runs down, its z away from the camera), as
+    // Spin Tilt and Spin Axis, and the second hole's own, set them straight on
+    const ownTilt = state.spinTilt * DEGREE
+    const ownAxis = state.spinAxis * DEGREE
+    const secondTilt = state.companionSpinTilt * DEGREE
+    const secondAxis = state.companionSpinAxis * DEGREE
+    const secondSpin = pair.companion > 0 ? state.companionOwnSpin : 0
+    spins[0] = -state.blackHoleSpin * Math.sin(ownTilt) * Math.sin(ownAxis)
+    spins[1] = -state.blackHoleSpin * Math.sin(ownTilt) * Math.cos(ownAxis)
+    spins[2] = -state.blackHoleSpin * Math.cos(ownTilt)
+    spins[3] = -secondSpin * Math.sin(secondTilt) * Math.sin(secondAxis)
+    spins[4] = -secondSpin * Math.sin(secondTilt) * Math.cos(secondAxis)
+    spins[5] = -secondSpin * Math.cos(secondTilt)
+    // Precession: the spins and the orbit turn each other about their total angular momentum. The plane is
+    // carried by the shortest turn from where its tilt sets it to where it now faces, so its own directions,
+    // which the pair's angle is counted along, keep their places in it; the spins are turned as they are
+    if (pair.companion > 0 && state.companionPrecession > 0 && (state.blackHoleSpin > 0 || secondSpin > 0)) {
+      precessPair(
+        pair, state.companionSize, state.companionDistance, state.companionSpeed, shadowShare, dt, state.companionClosest,
+        state.companionPrecession, pairPlane[6], pairPlane[7], pairPlane[8], spins[0], spins[1], spins[2], spins[3], spins[4], spins[5]
+      )
+    }
+    if (pair.precessed !== 0) {
+      const faceX = pairPlane[6]
+      const faceY = pairPlane[7]
+      const faceZ = pairPlane[8]
+      precessed(pair, faceX, faceY, faceZ, turned, 0)
+      for (let column = 0; column < 9; column += 3) {
+        turnOnto(faceX, faceY, faceZ, turned[0], turned[1], turned[2], pairPlane[column], pairPlane[column + 1], pairPlane[column + 2], pairPlane, column)
+      }
+      precessed(pair, spins[0], spins[1], spins[2], spins, 0)
+      precessed(pair, spins[3], spins[4], spins[5], spins, 3)
+    }
     // Where the two stand from their centre, in the scene's x, y and z, in radii of the main hole before it grew
     const mainSceneX = pair.mainX * pairPlane[0] + pair.mainY * pairPlane[3]
     const mainSceneY = pair.mainX * pairPlane[1] + pair.mainY * pairPlane[4]
@@ -886,18 +947,33 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       view.spin = 0
     }
 
+    // Flat Depth: the flat mode draws that share of a tilted orbit's depth, in perspective round the pair's
+    // centre as 3D straight on does, the nearer hole larger and farther from the centre. Its distance is
+    // held to a tenth of the pivot's, where 3D would have flown past it
+    let flatHoleScale = 1
+    let flatCompanionScale = 1
+    if (!threeD && companionRadius > 0 && state.companionFlatDepth > 0) {
+      const unit = pairUnit * pivot / Math.max(centerX, centerY)
+      const nearest = 0.1 * pivot
+      flatHoleScale = 1 + state.companionFlatDepth * (pivot / Math.max(pivot + mainSceneZ * unit, nearest) - 1)
+      flatCompanionScale = 1 + state.companionFlatDepth * (pivot / Math.max(pivot + companionSceneZ * unit, nearest) - 1)
+      holeX = hole.x + mainSceneX * pairUnit * flatHoleScale
+      holeY = hole.y + mainSceneY * pairUnit * flatHoleScale
+    }
+
     // Spin: the hole's own and, as two black holes merge, that of the hole they leave, about the axis of
-    // their orbit, the way their plane faces. The two add as vectors (right, up, toward the camera) in the
-    // share the merger has come
-    const ownTilt = state.spinTilt * DEGREE
-    const ownAxis = state.spinAxis * DEGREE
+    // their orbit, the way their plane faces, which keeps the two holes' own spins by the squares of their
+    // shares of the mass. They add as vectors in the share the merger has come
     const keep = 1 - pair.merged
     // A pair turning the way its plane's angles run (clockwise to the eye at no tilt) spins the way the
     // plane faces, its third direction; the scene's y runs down and its z away from the camera
     const mergedSpin = pair.spin * pair.merged * (pair.omega > 0 ? 1 : -1)
-    const sceneRight = -state.blackHoleSpin * Math.sin(ownTilt) * Math.sin(ownAxis) * keep + mergedSpin * pairPlane[6]
-    const sceneUp = state.blackHoleSpin * Math.sin(ownTilt) * Math.cos(ownAxis) * keep - mergedSpin * pairPlane[7]
-    const sceneToward = state.blackHoleSpin * Math.cos(ownTilt) * keep - mergedSpin * pairPlane[8]
+    const pairMass = 1 + pair.companion
+    const mainKept = keep + pair.merged / (pairMass * pairMass)
+    const secondKept = pair.merged * pair.companion * pair.companion / (pairMass * pairMass)
+    const sceneRight = spins[0] * mainKept + spins[3] * secondKept + mergedSpin * pairPlane[6]
+    const sceneUp = -(spins[1] * mainKept + spins[4] * secondKept + mergedSpin * pairPlane[7])
+    const sceneToward = -(spins[2] * mainKept + spins[5] * secondKept + mergedSpin * pairPlane[8])
     // Spin Tilt and Spin Axis are seen straight on. In 3D the axis stands in the scene and the camera
     // circles it, so the shadow, the lens and the ring see it turned by the camera (the scene's y runs down
     // and its z away from the camera); the particles and the orbiting stars feel it as it stands
@@ -913,6 +989,22 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     const spin = horizon > 0 ? Math.min(Math.sqrt(across * across + spinToward * spinToward), SPIN_MAX) : 0
     const spinTilt = Math.atan2(across, spinToward)
     const spinAxis = across > 0 ? Math.atan2(-spinRight, spinUp) : ownAxis
+    // The second hole's own spin, fading as it merges, seen the same way
+    const secondRight = spins[3] * keep
+    const secondUp = -spins[4] * keep
+    const secondToward = -spins[5] * keep
+    let seenRight = secondRight
+    let seenUp = secondUp
+    let seenToward = secondToward
+    if (threeD) {
+      seenRight = pose[0] * secondRight - pose[1] * secondUp - pose[2] * secondToward
+      seenUp = -(pose[3] * secondRight - pose[4] * secondUp - pose[5] * secondToward)
+      seenToward = -(pose[6] * secondRight - pose[7] * secondUp - pose[8] * secondToward)
+    }
+    const secondAcross = Math.sqrt(seenRight * seenRight + seenUp * seenUp)
+    const companionSpin = companionRadius > 0 ? Math.min(Math.sqrt(secondAcross * secondAcross + seenToward * seenToward), SPIN_MAX) : 0
+    const companionSpinTilt = Math.atan2(secondAcross, seenToward)
+    const companionSpinAxis = secondAcross > 0 ? Math.atan2(-seenRight, seenUp) : secondAxis
     // The grid on the horizon is drawn about the spin's axis, and about Spin Tilt and Spin Axis while the hole
     // does not spin, seen as the spin is. Its longitudes are counted from a meridian that stands in the
     // scene (the one toward the scene's right, or its up while the axis lies along the right), so the
@@ -985,11 +1077,13 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       einsteinRatio = einsteinRatioAt(cameraU)
     }
     updateShadowShape(shadowShape, spin, spinTilt, cameraU)
+    // The second hole is seen from the same place, a lighter hole by its share of the mass
+    updateShadowShape(companionShape, companionSpin, companionSpinTilt, Math.min(cameraU * pair.companion / pair.growth, 1 / CLOSEST_CAMERA))
     // Particles are captured on the circle that fits the outline, which spin shifts off the hole's centre
     const shapeCos = Math.cos(spinAxis)
     const shapeSin = Math.sin(spinAxis)
-    const captureX = holeX + horizon * (shadowShape.centerRight * shapeCos - shadowShape.centerUp * shapeSin)
-    const captureY = holeY - horizon * (shadowShape.centerRight * shapeSin + shadowShape.centerUp * shapeCos)
+    const captureX = holeX + horizon * flatHoleScale * (shadowShape.centerRight * shapeCos - shadowShape.centerUp * shapeSin)
+    const captureY = holeY - horizon * flatHoleScale * (shadowShape.centerRight * shapeSin + shadowShape.centerUp * shapeCos)
 
     const speed = state.baseSpeed * intro.speedBoost
     scene.speed = speed
@@ -1010,12 +1104,13 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     frame.vanishY = settings.vanishY
     settings.holeX = holeX
     settings.holeY = holeY
-    settings.companionX = hole.x + companionSceneX * pairUnit
-    settings.companionY = hole.y + companionSceneY * pairUnit
+    settings.companionX = hole.x + companionSceneX * pairUnit * flatCompanionScale
+    settings.companionY = hole.y + companionSceneY * pairUnit * flatCompanionScale
     settings.companionRadius = companionRadius
-    settings.companionCapture = companionRadius * state.horizonScale
+    // Each hole captures on the circle that fits its outline, as large as the flat mode draws it
+    settings.companionCapture = companionRadius * state.horizonScale * companionShape.radius * flatCompanionScale
     settings.holeRadius = horizon
-    settings.captureRadius = captureRadius * shadowShape.radius
+    settings.captureRadius = captureRadius * shadowShape.radius * flatHoleScale
     settings.captureX = captureX
     settings.captureY = captureY
     // The particles are dragged round by the spin the shadow is drawn for: the same vector, held to the
@@ -1027,6 +1122,11 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     settings.spinRight = sceneRight * dragShare * sweep
     settings.spinUp = sceneUp * dragShare * sweep
     settings.spinToward = sceneToward * dragShare
+    // The second hole drags the particles round its own spin by the same law
+    const secondDrag = companionRadius > 0 ? state.frameDrag : 0
+    settings.companionSpinRight = secondRight * secondDrag * sweep
+    settings.companionSpinUp = secondUp * secondDrag * sweep
+    settings.companionSpinToward = secondToward * secondDrag
     // With the feed off the simulation stops collecting light, and old light does not return later
     const ringFed = state.ringEnabled && state.ringFeedEnabled
     if (ringWasFed && !ringFed) {
@@ -1038,6 +1138,7 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     settings.ringCaptureEnergy = state.ringFeedCapture
     settings.ringSkimReach = state.ringFeedReach
     settings.ringSkimEnergy = state.ringFeedSkim
+    settings.companionFed = ringFed && state.companionRingFeed > 0 ? 1 : 0
     frame.ringFed = ringFed
     settings.gravityReach = horizon * state.gravityReach
     settings.holeDepth = state.farZ * state.blackHoleDepth / 100
@@ -1120,8 +1221,8 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     settings.opacityScale = intro.opacityScale
 
     // How much larger than at the pivot's distance each black hole looks; 0 hides one behind the camera
-    let holeScale = 1
-    let companionScale = 1
+    let holeScale = flatHoleScale
+    let companionScale = flatCompanionScale
     // The centre a pair turns about, on the screen, and how much larger than at the pivot it looks
     let centreX = hole.x
     let centreY = hole.y
@@ -1146,9 +1247,11 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     composite.pairLensMain = 0
     composite.pairLensCompanion = 0
     composite.pairNearer = 0
-    // How far each black hole stands in front of the camera, in units of the scene
+    // How far each black hole, and the centre they turn about, stand in front of the camera, in units of
+    // the scene
     let holeAway = pivot
     let companionAway = pivot
+    let centreAway = pivot
     if (threeD) {
       // The camera never circles a point nearer than a share of Field Depth (pivot, above), so a black hole
       // at depth 0 still has room around it
@@ -1182,6 +1285,7 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       look(pairX, pairY, pairZ, pivot, focal)
       centreX = seen.x
       centreY = seen.y
+      centreAway = seen.depth
       centreScale = seen.depth > NEAR_DEPTH ? pivot / seen.depth : 0
       // The explosion happened at a place of the scene too, at the pivot's depth
       look((originX - settings.vanishX) * worldPerPixel, (originY - settings.vanishY) * worldPerPixel, pivot, pivot, focal)
@@ -1242,14 +1346,23 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     }
     // Two holes at different depths: the nearer one's lens bends the light of the farther, by the share
     // of the way from the camera to the farther that lies behind the nearer (a thin lens's share of what
-    // it does to the sky), and the nearer one's shadow covers the farther one's ring, wholly once they
-    // are their two radii apart in depth
+    // it does to the sky) times Lens Through, and the nearer one's shadow covers the farther one's ring,
+    // wholly once they are Hide Depth times their two radii apart in depth. The waves leave the pair's
+    // centre, and are read through the nearer lens by the share that centre lies behind it, times Wave
+    // Through
+    let waveLensCompanion = 0
+    let waveLensMain = 0
     if (companionRadius > 0 && holeAway > NEAR_DEPTH && companionAway > NEAR_DEPTH) {
       const behind = companionAway - holeAway
-      composite.pairLensCompanion = behind > 0 ? behind / companionAway : 0
-      composite.pairLensMain = behind < 0 ? -behind / holeAway : 0
-      const apart = (horizon + companionRadius) * pivot / settings.focal
+      const through = state.companionLensDepth
+      composite.pairLensCompanion = behind > 0 ? Math.min(behind / companionAway * through, 1) : 0
+      composite.pairLensMain = behind < 0 ? Math.min(-behind / holeAway * through, 1) : 0
+      const apart = (horizon + companionRadius) * pivot / settings.focal * state.companionHideDepth
       composite.pairNearer = apart > 0 ? Math.min(Math.max(-behind / apart, -1), 1) : 0
+      const nearest = Math.min(holeAway, companionAway)
+      const waveShare = centreAway > nearest ? Math.min((centreAway - nearest) / centreAway * state.companionWaveLens, 1) : 0
+      waveLensCompanion = behind < 0 ? waveShare : 0
+      waveLensMain = behind > 0 ? waveShare : 0
     }
     // In 3D what stands nearer the camera than the nearer black hole is in front of the holes: its light
     // comes straight to the camera, neither bent by the lens nor covered by a shadow, and the renderer draws
@@ -1289,10 +1402,12 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     // a wave fired at it keep the plane across the line of flight, the one the opening is seen in
     const planeTurn = composite.pairPlane
     const inPlane = pair.companion > 0
+    if (!inPlane) tiltPlane(state.loneTilt, state.loneNode, lonePlane)
+    const ringPlane = inPlane ? pairPlane : lonePlane
     for (let side = 0; side < 2; side++) {
-      const x = inPlane ? pairPlane[3 * side] : 1 - side
-      const y = inPlane ? pairPlane[3 * side + 1] : side
-      const z = inPlane ? pairPlane[3 * side + 2] : 0
+      const x = ringPlane[3 * side]
+      const y = ringPlane[3 * side + 1]
+      const z = ringPlane[3 * side + 2]
       planeTurn[2 * side] = seenTurn[0] * x + seenTurn[1] * y + seenTurn[2] * z
       planeTurn[2 * side + 1] = seenTurn[3] * x + seenTurn[4] * y + seenTurn[5] * z
     }
@@ -1306,11 +1421,21 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     const onSheet = state.gridRide > 0 && horizon > 0
     if (state.gridSheet > 0 || onSheet) {
       const shared = threeD ? eased : 0
+      // Wave Turn: the second hole along its orbit laid flat onto each layout's plane, the flat one the
+      // scene's x and y, the 3D one the equator
+      const orbitShare = companionRadius > 0 ? state.gridWaveOrbit : 0
       if (shared < 1) {
+        let orbitX = 0
+        let orbitY = 0
+        if (orbitShare > 0) {
+          orbitOnSheet(pairPlane, pair.phase, 0, 0, 1, turned)
+          orbitX = turned[0]
+          orbitY = turned[1]
+        }
         layFlatSheet(
           state.gridTilt, state.gridDepth, viewportWidth, viewportHeight, holeX, holeY, horizon * holeScale,
           settings.companionX, settings.companionY, companionRadius * companionScale, centreX, centreY, pair.mergedPhase,
-          state.gridDistance, state.gridNear
+          state.gridDistance, state.gridNear, orbitX, orbitY
         )
       }
       if (shared > 0) {
@@ -1318,18 +1443,25 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
         // The line the two stood on as they became one, in the scene
         const ringCos = Math.cos(pair.mergedPhase)
         const ringSin = Math.sin(pair.mergedPhase)
+        let orbitX = 0
+        let orbitY = 0
+        if (orbitShare > 0) {
+          orbitOnSheet(pairPlane, pair.phase, equator[6], equator[7], equator[8], turned)
+          orbitX = turned[0] * equator[0] + turned[1] * equator[1] + turned[2] * equator[2]
+          orbitY = turned[0] * equator[3] + turned[1] * equator[4] + turned[2] * equator[5]
+        }
         laySpaceSheet(
           pose, pivot, settings.focal, settings.vanishX, settings.vanishY, worldPerPixel, NEAR_DEPTH, equator,
           settings.holeWorldX, settings.holeWorldY, settings.holeWorldZ, horizon, state.gridDepth,
           settings.companionWorldX, settings.companionWorldY, settings.companionWorldZ, companionRadius,
           (hole.x - settings.vanishX) * worldPerPixel, (hole.y - settings.vanishY) * worldPerPixel, pivot,
           pairPlane[0] * ringCos + pairPlane[3] * ringSin, pairPlane[1] * ringCos + pairPlane[4] * ringSin,
-          pairPlane[2] * ringCos + pairPlane[5] * ringSin
+          pairPlane[2] * ringCos + pairPlane[5] * ringSin, orbitX, orbitY
         )
       }
       placeSheet(
         grid, shared, equator, state.gridCell / 100 * shortSide, viewportWidth, viewportHeight, state.gridSpan, state.gridFade,
-        holeX, holeY
+        holeX, holeY, orbitShare
       )
     }
     // Particles on Sheet: what flies within Ride Depth of the equator is laid on the sheet as it lies now.
@@ -1629,6 +1761,7 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     composite.lensCore = state.lensingCore
     composite.maxBend = state.lensingMaxBend
     composite.lensReach = state.lensingReach
+    composite.lensBubble = state.lensingBubble
     composite.twistLimit = state.lensingTwistLimit
     composite.swirl = state.lensingRotation
     composite.absorption = state.lensingAbsorption
@@ -1643,6 +1776,10 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     // How the light in front of the holes is laid over the rest, and how far the waves slide it
     composite.frontAdd = state.threeDFrontAdd
     composite.frontWaves = state.threeDFrontWaves
+    composite.companionLensCore = state.companionLensCore
+    composite.companionLensStyle = state.companionLensStyle
+    composite.companionSpin = companionSpin
+    composite.companionSpinAxis = companionSpinAxis
     composite.pairX = centreX
     composite.pairY = centreY
     composite.pairScale = centreScale
@@ -1667,9 +1804,25 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       composite.ringDoppler = Math.hypot(x, y)
       if (composite.ringDoppler > 0) composite.ringSide = Math.atan2(y, x)
     }
+    // The second hole's ring takes the main ring's sides, Ring Sides times as strong, and with Follow Spin
+    // the side its own spin turns toward the camera, the same way
+    let secondDoppler = state.ringDoppler * state.companionRingSides
+    let secondSide = roll === 0 ? state.ringSide : state.ringSide + roll
+    const secondFollow = companionSpin > 0 && secondDoppler > 0 ? state.ringSpinFollow : 0
+    if (secondFollow > 0) {
+      const seenSide = Math.PI + companionSpinAxis
+      const seenDoppler = secondDoppler * Math.sin(companionSpinTilt)
+      const x = (1 - secondFollow) * secondDoppler * Math.cos(secondSide) + secondFollow * seenDoppler * Math.cos(seenSide)
+      const y = (1 - secondFollow) * secondDoppler * Math.sin(secondSide) + secondFollow * seenDoppler * Math.sin(seenSide)
+      secondDoppler = Math.hypot(x, y)
+      if (secondDoppler > 0) secondSide = Math.atan2(y, x)
+    }
+    composite.companionRingDoppler = secondDoppler
+    composite.companionRingSide = secondSide
     composite.ringPhase = ringEnergy.phase
     composite.ringBase = ringFed ? state.ringBase : 1
     composite.ringFeed = ringFed ? state.ringFeed : 0
+    composite.companionRingFeed = ringFed ? state.ringFeed * state.companionRingFeed : 0
     composite.ringLineMin = state.ringWidthMin
     composite.ringOffset = state.ringOffset
     composite.ringSoftness = state.ringSoftness
@@ -1770,6 +1923,10 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     composite.gravityWaveSpin = mergerWave ? pair.mergedTurn : 0
     composite.gravityWaveAngle = mergerWave ? pair.mergedPhase : 0
     composite.gravityWaveSpeed = mergerWave ? pairLight : lightSpeed
+    // The waves are read through the nearer hole's lens only while one is on
+    const waveOn = composite.pairWave > 0 || composite.gravityWaveAmplitude > 0
+    composite.waveLensCompanion = waveOn ? waveLensCompanion : 0
+    composite.waveLensMain = waveOn ? waveLensMain : 0
     composite.backgroundStars = intro.backgroundStars * state.starsBrightness
     composite.starCell = state.starCell
     composite.starDensity = state.starDensity

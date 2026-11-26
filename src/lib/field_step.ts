@@ -39,7 +39,7 @@ export const COLOR_KEPT = 0x40000000
 const STEP_KEYS = [
   'frameScale', 'time', 'speed', 'width', 'height', 'focal', 'vanishX', 'vanishY', 'holeX', 'holeY', 'holeRadius', 'captureRadius',
   'captureX', 'captureY', 'spinRight', 'spinUp', 'spinToward', 'companionX', 'companionY', 'companionRadius',
-  'companionCapture', 'ringCaptureEnergy', 'ringSkimReach', 'ringSkimEnergy', 'gravityReach', 'holeDepth',
+  'companionCapture', 'companionSpinRight', 'companionSpinUp', 'companionSpinToward', 'companionFed', 'ringCaptureEnergy', 'ringSkimReach', 'ringSkimEnergy', 'gravityReach', 'holeDepth',
   'gravityDepth', 'lineWidth', 'minLineWidth', 'gravityStrength', 'orbitalStrength', 'gravityFalloff', 'gravityBell', 'dragFalloff', 'dragSight', 'swirlX', 'swirlY', 'swirlZ', 'farZ', 'depthFade',
   'pulseSpeedMultiplier', 'pulseIntensity', 'baseBrightness', 'minOpacity', 'maxOpacity', 'speedGlow', 'speedKnee', 'revealRadius', 'revealX',
   'revealY', 'revealFeather', 'opacityScale', 'threeD', 'holeWorldX', 'holeWorldY', 'holeWorldZ', 'companionWorldX',
@@ -447,24 +447,34 @@ ${STEP_DEFINES}
       }
     }
 
-    // The second black hole takes and pulls particles the same way; the light they leave is not tracked
+    // The second black hole takes, pulls and drags particles the same way, and the light they leave lands in
+    // its own ring: a deposit below 0 is the second hole's
     if (hasHole && s_companionRadius > 0.0) {
       vec2 companion = vec2(s_companionX, s_companionY);
       vec2 toHole = companion - end;
       float distSq = dot(toHole, toHole);
       float share = s_companionRadius / s_holeRadius;
+      bool companionFed = s_ringFed > 0.5 && s_companionFed > 0.5;
       if (distSq < reachSq * share * share) {
         if (distSq < s_companionCapture * s_companionCapture) {
+          if (companionFed) deposit = vec3(-toHole, -s_ringCaptureEnergy);
           reborn = 2;
           horizonAt = vec3(companion - vanish, 0.0);
           horizonRadius = s_companionCapture;
           return;
         }
         if (banded) {
+          float skim = s_companionRadius * s_ringSkimReach;
+          if (companionFed && distSq < skim * skim) deposit = vec3(-toHole, -s_ringSkimEnergy * s_frameScale * depthWeight);
           float clampedSq = max(distSq, 1.0);
+          float invDistance = inversesqrt(clampedSq);
           float pull = pullScale * pullFall(s_companionRadius * s_companionRadius / clampedSq) * depthWeight;
-          float orbit = pull * orbitScale;
-          vec2 push = vec2(toHole.x * pull - toHole.y * orbit, toHole.y * pull + toHole.x * orbit) * (pz / s_focal * inversesqrt(clampedSq));
+          // Its spin drags them as the main hole's does, in the screen and across its plane
+          float drag = dragFall(s_companionRadius * invDistance);
+          float orbit = pull * (orbitScale + s_companionSpinToward * drag);
+          float across = pull * depthOffset * drag * clampedSq * invDistance;
+          vec2 push = vec2(toHole.x * pull - toHole.y * orbit - across * s_companionSpinUp, toHole.y * pull + toHole.x * orbit - across * s_companionSpinRight) *
+            (pz / s_focal * invDistance);
           if (inertial) {
             kept += push * s_velocityGain;
             push *= s_gain;
@@ -573,18 +583,25 @@ ${STEP_DEFINES}
       float distSq = dot(toHole, toHole);
       float share = s_companionRadius / s_holeRadius;
       if (distSq < reach * reach * share * share) {
+        bool companionFed = s_ringFed > 0.5 && s_companionFed > 0.5;
+        vec3 ringAt = vec3(-dot(u_pose[0].xyz, toHole), -dot(u_pose[1].xyz, toHole), 0.0);
         float capture = s_companionCapture * worldPerPixel;
         if (distSq < capture * capture) {
+          if (companionFed) deposit = vec3(ringAt.xy, -s_ringCaptureEnergy);
           reborn = 2;
           horizonAt = companion;
           horizonRadius = capture;
           return;
         }
+        float companionRadius = s_companionRadius * worldPerPixel;
+        float skim = companionRadius * s_ringSkimReach;
+        if (companionFed && distSq < skim * skim) deposit = vec3(ringAt.xy, -s_ringSkimEnergy * s_frameScale);
         float clampedSq = max(distSq, 1.0);
-        float companionRadius = radius * share;
-        float pull = pullScale * pullFall(companionRadius * companionRadius / clampedSq) * inversesqrt(clampedSq);
+        float away = sqrt(clampedSq);
+        float pull = pullScale * pullFall(companionRadius * companionRadius / clampedSq) / away;
         float orbit = pull * orbitScale;
         vec3 push = toHole * pull + cross(toHole, swirl) * orbit;
+        push -= cross(vec3(s_companionSpinRight, -s_companionSpinUp, -s_companionSpinToward), toHole) * (pull * dragFall(companionRadius / away));
         if (inertial) {
           kept += push * s_velocityGain;
           push *= s_gain;
@@ -679,25 +696,26 @@ ${STEP_DEFINES}
   }
 `
 
-// The light the step's captures leave in the photon ring: each lands in the bin of its direction round the
-// hole. The composite pass spreads a bin over its neighbours when it reads the ring
+// The light the step's captures leave in the photon rings: each lands in the bin of its direction round the
+// hole, the main hole's in the first row and the second hole's (a deposit below 0) in the second. The
+// composite pass spreads a bin over its neighbours when it reads a ring
 export const ringDepositVertexShaderSource = `#version 300 es
   precision highp float;
 
-  in vec3 a_deposit;      // where round the hole the light lands, how much (0 = none)
+  in vec3 a_deposit;      // where round the hole the light lands, how much (0 = none; below 0 round the second hole)
   uniform float u_phase;  // radians the ring's pattern has turned
   out float v_amount;
 
   void main () {
-    v_amount = a_deposit.z;
+    v_amount = abs(a_deposit.z);
     gl_PointSize = 1.0;
-    if (a_deposit.z <= 0.0) {
+    if (a_deposit.z == 0.0) {
       gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
       return;
     }
     float turns = (atan(a_deposit.y, a_deposit.x) - u_phase) / 6.2831853;
     float bin = min(floor(fract(turns) * ${RING_BINS}.0), ${RING_BINS - 1}.0);
-    gl_Position = vec4((bin + 0.5) / ${RING_BINS}.0 * 2.0 - 1.0, 0.0, 0.0, 1.0);
+    gl_Position = vec4((bin + 0.5) / ${RING_BINS}.0 * 2.0 - 1.0, a_deposit.z > 0.0 ? -0.5 : 0.5, 0.0, 1.0);
   }
 `
 

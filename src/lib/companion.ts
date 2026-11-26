@@ -58,12 +58,19 @@ export interface Pair {
   ringLength: number
   // The spin of the hole they leave, a/M, about the axis of their orbit
   spin: number
+  // Radians the orbit's plane and the holes' spins have turned about their total angular momentum
+  // (precessPair), and that axis, in the scene's x, y and z
+  precessed: number
+  precessX: number
+  precessY: number
+  precessZ: number
 }
 
 export function createPair (): Pair {
   return {
     phase: 0, mergedAt: -1, companion: 0, growth: 1, mainX: 0, mainY: 0, companionX: 0, companionY: 0, omega: 0, wave: 0,
-    merged: 0, symmetry: 0, mergedPhase: 0, mergedTurn: 1, ringPitch: 1, ringLength: 1, spin: 0
+    merged: 0, symmetry: 0, mergedPhase: 0, mergedTurn: 1, ringPitch: 1, ringLength: 1, spin: 0,
+    precessed: 0, precessX: 0, precessY: 0, precessZ: 1
   }
 }
 
@@ -87,6 +94,7 @@ export function stepPair (
     pair.omega = 0
     pair.mergedAt = -1
     pair.merged = 0
+    pair.precessed = 0
     return
   }
 
@@ -135,4 +143,56 @@ export function stepPair (
   pair.ringPitch = tone / TONE_STILL
   // It fades by e in 2 quality / tone
   pair.ringLength = quality * TONE_STILL / (tone * QUALITY_STILL)
+}
+
+/**
+ * Turns the pair's plane and the holes' spins about their total angular momentum, as spinning holes on an
+ * orbit precess at the lowest order of relativity (Apostolatos et al. 1994, simple precession): the
+ * orbit's angular momentum L and the spins S1, S2 circle J = L + S1 + S2 at (2 + 1.5 m2 / m1) |J| / r^3,
+ * in units of the main hole's mass, which J itself does not change. `normal` is the way the pair's plane
+ * faces, `main` and `second` the holes' spins (a/M) along the scene's x, y and z; the other numbers are
+ * stepPair's. Sets the axis and adds this step's turn to `pair.precessed`, `share` times the real one.
+ */
+export function precessPair (
+  pair: Pair, size: number, distance: number, speed: number, shadowShare: number, dt: number, closest: number, share: number,
+  normalX: number, normalY: number, normalZ: number, mainX: number, mainY: number, mainZ: number,
+  secondX: number, secondY: number, secondZ: number
+) {
+  if (pair.companion <= 0 || shadowShare <= 0) return
+  // The orbit in the main hole's G M / c^2, as stepPair holds it, and its angular momentum, m1 m2 / M
+  // sqrt(M r), the way the pair turns
+  const mass = 1 + size
+  const orbit = 2 * Math.max(distance, (1 + size) * closest) * SHADOW_RADII
+  const turn = pair.omega < 0 ? -1 : 1
+  const momentum = turn * size / mass * Math.sqrt(mass * orbit)
+  const secondShare = size * size
+  const x = normalX * momentum + mainX + secondX * secondShare
+  const y = normalY * momentum + mainY + secondY * secondShare
+  const z = normalZ * momentum + mainZ + secondZ * secondShare
+  const total = Math.sqrt(x * x + y * y + z * z)
+  if (!(total > 0)) return
+  pair.precessX = x / total
+  pair.precessY = y / total
+  pair.precessZ = z / total
+  // Radians per G M / c^3, then per second: stepPair's rate of the pair's time takes a Schwarzschild radius
+  // over c, twice that unit
+  const rate = (2 + 1.5 * size) * total / (orbit * orbit * orbit)
+  pair.precessed = (pair.precessed + rate * 2 * speed * LIGHT_SPEED * SHADOW_RADII / shadowShare * dt * share) % (2 * Math.PI)
+}
+
+/**
+ * Turns the direction `x`, `y`, `z` by `pair.precessed` about the pair's axis of precession (Rodrigues),
+ * into `out` at `offset`.
+ */
+export function precessed (pair: Pair, x: number, y: number, z: number, out: Float64Array, offset: number) {
+  const angle = pair.precessed
+  const cos = Math.cos(angle)
+  const sin = Math.sin(angle)
+  const kx = pair.precessX
+  const ky = pair.precessY
+  const kz = pair.precessZ
+  const along = (kx * x + ky * y + kz * z) * (1 - cos)
+  out[offset] = x * cos + (ky * z - kz * y) * sin + kx * along
+  out[offset + 1] = y * cos + (kz * x - kx * z) * sin + ky * along
+  out[offset + 2] = z * cos + (kx * y - ky * x) * sin + kz * along
 }

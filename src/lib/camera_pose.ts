@@ -87,3 +87,44 @@ export function cameraPose (
     }
   }
 }
+
+/**
+ * Turns the direction `x`, `y`, `z` by the shortest turn that takes the unit direction `from` onto the
+ * unit direction `to`, into `out` at `offset`. Two opposite directions are turned half round a
+ * direction across them.
+ */
+export function turnOnto (
+  fromX: number, fromY: number, fromZ: number, toX: number, toY: number, toZ: number, x: number, y: number, z: number,
+  out: Float64Array, offset: number
+) {
+  let kx = fromY * toZ - fromZ * toY
+  let ky = fromZ * toX - fromX * toZ
+  let kz = fromX * toY - fromY * toX
+  const cos = fromX * toX + fromY * toY + fromZ * toZ
+  let sin = Math.sqrt(kx * kx + ky * ky + kz * kz)
+  if (sin < 1e-9) {
+    if (cos > 0) {
+      out[offset] = x
+      out[offset + 1] = y
+      out[offset + 2] = z
+      return
+    }
+    // Half round: about the direction across `from` that lies nearest the screen's
+    kx = Math.abs(fromX) < 0.9 ? 0 : -fromY
+    ky = Math.abs(fromX) < 0.9 ? -fromZ : fromX
+    kz = Math.abs(fromX) < 0.9 ? fromY : 0
+    sin = Math.sqrt(kx * kx + ky * ky + kz * kz)
+    kx /= sin
+    ky /= sin
+    kz /= sin
+    sin = 0
+  } else {
+    kx /= sin
+    ky /= sin
+    kz /= sin
+  }
+  const along = (kx * x + ky * y + kz * z) * (1 - cos)
+  out[offset] = x * cos + (ky * z - kz * y) * sin + kx * along
+  out[offset + 1] = y * cos + (kz * x - kx * z) * sin + ky * along
+  out[offset + 2] = z * cos + (kx * y - ky * x) * sin + kz * along
+}

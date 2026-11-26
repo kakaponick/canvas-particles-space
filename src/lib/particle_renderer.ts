@@ -77,6 +77,8 @@ export interface CompositeSettings {
   lensCore: number
   maxBend: number
   lensReach: number
+  // The power of the pull whose cosine shapes the stylized lens's bubble
+  lensBubble: number
   twistLimit: number
   swirl: number
   absorption: number
@@ -199,6 +201,20 @@ export interface CompositeSettings {
   companionY: number
   companionRadius: number
   companionEinstein: number
+  // Its lens: the radius it pulls no harder inside, in its shadow's radii, and 0 a point mass .. 1 the
+  // stylized lens; its own spin (a/M, 0 = none), the turn of its axis on the screen and its shadow's
+  // outline; its ring's Doppler contrast, the angle of the bright side and the light of what falls in
+  companionLensCore: number
+  companionLensStyle: number
+  companionSpin: number
+  companionSpinAxis: number
+  companionShape: ShadowShape
+  companionRingDoppler: number
+  companionRingSide: number
+  companionRingFeed: number
+  // The share of the nearer hole's bend the waves are read through: the second hole's, the main one's
+  waveLensCompanion: number
+  waveLensMain: number
   // The centre the two turn around, and their spiral gravitational wave: pixels of stretch at the
   // shadow's edge (0 = off), the pair's angle, and how far its arms turn per pixel of distance
   pairX: number
@@ -628,12 +644,12 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   const particleUniforms = getUniforms(gl, particleProgram, ['resolution', 'pixelRatio', 'center', 'flight', 'doppler', 'tintAhead', 'tintEdge', 'tintBehind', 'tint', 'zoom', 'zoomFrom'] as const)
   const orbitUniforms = getUniforms(gl, orbitProgram, ['resolution', 'zoom', 'orbit', 'dimmed', 'turnX', 'turnY', 'turnZ', 'orbitFrom', 'side', 'sideMain', 'sideSecond', 'sideBend', 'sideShape'] as const)
   const compositeUniforms = getUniforms(gl, compositeProgram, [
-    'resolution', 'pixelRatio', 'time', 'hole', 'horizon', 'einstein', 'falloff', 'falloffPivot', 'lensCore', 'maxBend', 'lensReach', 'twistLimit', 'swirl', 'absorption', 'trace', 'spin', 'horizonGrid', 'horizonAxis', 'horizonTurn', 'ring',
+    'resolution', 'pixelRatio', 'time', 'hole', 'horizon', 'einstein', 'falloff', 'falloffPivot', 'lensCore', 'maxBend', 'lensReach', 'lensBubble', 'twistLimit', 'swirl', 'absorption', 'trace', 'spin', 'horizonGrid', 'horizonAxis', 'horizonTurn', 'ring',
     'ringWidth', 'ringGlow', 'ringDoppler', 'ringSide', 'ringPhase', 'ringField', 'ringBase', 'ringFeed', 'ringLine', 'ringGlowShape', 'ringColor', 'ringApproaching', 'ringReceding',
     'center', 'starGlow', 'starRadius', 'sourcePower', 'glareRadius', 'exposure',
     'lightRadius', 'lightWidth', 'lightPower', 'lightSpeed', 'echoPower', 'echoDecay',
     'waveRadius', 'waveStrength', 'waveWidth', 'remnantGlow', 'remnantRedshift', 'remnantRadius',
-    'holeOval', 'gravityWaveAmplitude', 'gravityWaveTime', 'gravityWaveOmega', 'gravityWaveInvDecay', 'gravityWaveRadius', 'gravityWaveCenter', 'gravityWaveTurn', 'companion', 'pair', 'pairWave', 'pairFront', 'pairDepth', 'pairPlane', 'turnRight', 'turnDown', 'turnAhead', 'skySphere', 'backgroundStars',
+    'holeOval', 'gravityWaveAmplitude', 'gravityWaveTime', 'gravityWaveOmega', 'gravityWaveInvDecay', 'gravityWaveRadius', 'gravityWaveCenter', 'gravityWaveTurn', 'companion', 'companionLens', 'companionSpin', 'companionRing', 'waveLens', 'pair', 'pairWave', 'pairFront', 'pairDepth', 'pairPlane', 'turnRight', 'turnDown', 'turnAhead', 'skySphere', 'backgroundStars',
     'starCell', 'starDensity', 'starFlare', 'starWarm', 'starCool', 'starLook', 'dustScale', 'dustThreshold', 'lightDustContrast',
     'titleCenter', 'titleHalfSize', 'titleAlpha', 'titleReveal', 'titleDissolve', 'titleDrift', 'titleGlow',
     'titleFlash', 'titleCooling', 'titleDust', 'titlePull', 'titleSwirl', 'titleReach', 'titleCapture', 'titleScale',
@@ -730,12 +746,14 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   const ringTexture = createLinearTexture(RING_TEXTURE_UNIT)
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT)
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, RING_BINS, 1, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, null)
-  // The outline of a spinning hole's shadow, its radius all the way round; it repeats so the outline has no
-  // seam. Half floats are filterable in WebGL2, and a radius needs more than 8 bits
+  // The outline of a spinning hole's shadow, its radius all the way round, a row for the main hole and one
+  // for the second; it repeats so the outline has no seam. Half floats are filterable in WebGL2, and a
+  // radius needs more than 8 bits
   const shadowTexture = createLinearTexture(SHADOW_TEXTURE_UNIT)
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT)
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.R16F, SHADOW_SAMPLES, 1, 0, gl.RED, gl.FLOAT, null)
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.R16F, SHADOW_SAMPLES, 2, 0, gl.RED, gl.FLOAT, null)
   let shadowVersion = -1
+  let companionShapeVersion = -1
   const titleTexture = createLinearTexture(TITLE_TEXTURE_UNIT)
   let titleWidth = 0
   let titleHeight = 0
@@ -1236,6 +1254,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     setUniform1f(gl, u.lensCore, settings.lensCore)
     setUniform1f(gl, u.maxBend, settings.maxBend)
     setUniform1f(gl, u.lensReach, settings.lensReach)
+    setUniform1f(gl, u.lensBubble, settings.lensBubble)
     setUniform1f(gl, u.twistLimit, settings.twistLimit)
     setUniform1f(gl, u.swirl, settings.swirl)
     setUniform1f(gl, u.absorption, settings.absorption)
@@ -1251,6 +1270,12 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
       shadowVersion = settings.shadowShape.version
       gl.activeTexture(gl.TEXTURE0 + SHADOW_TEXTURE_UNIT)
       gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, SHADOW_SAMPLES, 1, gl.RED, gl.FLOAT, settings.shadowShape.table)
+      gl.activeTexture(gl.TEXTURE0 + SCENE_TEXTURE_UNIT)
+    }
+    if (settings.companionShape.version !== companionShapeVersion) {
+      companionShapeVersion = settings.companionShape.version
+      gl.activeTexture(gl.TEXTURE0 + SHADOW_TEXTURE_UNIT)
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 1, SHADOW_SAMPLES, 1, gl.RED, gl.FLOAT, settings.companionShape.table)
       gl.activeTexture(gl.TEXTURE0 + SCENE_TEXTURE_UNIT)
     }
     setUniform1f(gl, u.ring, settings.ring)
@@ -1302,6 +1327,10 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
         settings.gravityWaveSpin, Math.max(settings.gravityWaveSpeed * waveRatio, 1))
     }
     setUniform4f(gl, u.companion, settings.companionX * ratio, settings.companionY * ratio, settings.companionRadius * ratio, settings.companionEinstein * ratio)
+    setUniform2f(gl, u.companionLens, Math.max(settings.companionLensCore, 0.001), settings.companionLensStyle)
+    setUniform2f(gl, u.companionSpin, settings.companionSpin, settings.companionSpinAxis)
+    setUniform3f(gl, u.companionRing, settings.companionRingDoppler, settings.companionRingSide, ringLit ? settings.companionRingFeed : 0)
+    setUniform2f(gl, u.waveLens, settings.waveLensCompanion, settings.waveLensMain)
     setUniform3f(gl, u.pairDepth, settings.pairLensMain, settings.pairLensCompanion, settings.pairNearer)
     setUniform4f(gl, u.pairPlane, settings.pairPlane[0], settings.pairPlane[1], settings.pairPlane[2], settings.pairPlane[3])
     setUniform3f(gl, u.turnRight, settings.turn[0], settings.turn[1], settings.turn[2])
