@@ -133,6 +133,10 @@ export interface FlowSettings {
   // plane (its x and y, y down the screen as the scene's is) and the one the plane faces. Straight on, in
   // the flat mode, they are the directions themselves
   turn: Float32Array
+  // Particles on Sheet: where a place of the flow (its own three directions) falls in the main hole's
+  // equator, row by row: along its first direction, its second and the height off it, each with where the
+  // flow's centre stands that way from the main hole (CSS pixels at the hole's distance) last
+  plane: Float32Array
   color: SceneColor
   // What it turns round, on the screen in CSS pixels, CSS pixels in one of its radii, and in 3D that
   // point's distance from the camera in CSS pixels (below 0: behind the camera, the flow is not drawn)
@@ -145,7 +149,8 @@ export interface FlowSettings {
 export function createFlowSettings (): FlowSettings {
   return {
     brightness: 0, count: 0, from: 1, to: 1, spread: 0, wound: 0, phase: 0, lives: 0, piece: 0, size: 1, thick: 0,
-    turn: new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]), color: createSceneColor(), x: 0, y: 0, unit: 1, depth: 1
+    turn: new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]), plane: new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0]),
+    color: createSceneColor(), x: 0, y: 0, unit: 1, depth: 1
   }
 }
 
@@ -181,7 +186,8 @@ export function stepFlow (
  * that span it, then the one it faces) tipped by `tilt` radians, the side at `node` radians round it (from
  * its x the way a positive Swirl turns) rising against the way it faces, which is toward the camera seen
  * straight on; then seen through `camera` (nine numbers,
- * row by row: the scene's direction j lands on the camera's axis i at [3i + j]).
+ * row by row: the scene's direction j lands on the camera's axis i at [3i + j]). The flow's directions in
+ * the equator's own go to `plane`; where its centre stands there is the caller's.
  */
 export function turnFlow (flow: FlowSettings, equator: ArrayLike<number>, camera: ArrayLike<number>, tilt: number, node: number) {
   // The axis it tips about lies in the equator, a quarter turn behind the side that rises: that side,
@@ -192,6 +198,7 @@ export function turnFlow (flow: FlowSettings, equator: ArrayLike<number>, camera
   const s = Math.sin(tilt)
   const k = 1 - c
   const turn = flow.turn
+  const plane = flow.plane
   // The flow's three directions in the equator's own, column by column of the turn about that axis
   for (let column = 0; column < 3; column++) {
     let p: number
@@ -210,6 +217,9 @@ export function turnFlow (flow: FlowSettings, equator: ArrayLike<number>, camera
       q = -s * ax
       r = c
     }
+    plane[column] = p
+    plane[4 + column] = q
+    plane[8 + column] = r
     // That direction in the scene, then where the camera sends it
     const x = p * equator[0] + q * equator[3] + r * equator[6]
     const y = p * equator[1] + q * equator[4] + r * equator[7]

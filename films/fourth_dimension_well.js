@@ -142,8 +142,8 @@ const sketch = (shape, seconds) => { if (seconds > 0.15) draw(shape, seconds) }
 
 // ---- the sheet as the scene lays it out, so that a drawing can lie on it ----
 
-// The scene draws the sheet with a camera of its own (src/lib/space_grid.ts, onScreen in the grid vertex
-// shader). The same sums here say where a point of the sheet stands on the screen, so that an axis, a line
+// The flat mode draws the sheet with a camera of its own (layFlatSheet in src/lib/space_grid.ts, sheetSeen
+// and sheetScreen in the grid vertex shader). The same sums here say where a point of the sheet stands on the screen, so that an axis, a line
 // down the wall of the well or a creature can be drawn on the surface while the camera moves over it.
 const LONG = 1920
 const SHORT = 1080

@@ -195,17 +195,19 @@ export interface ParticleState extends FlowState {
   // the cells), and the spokes drawn across them
   gridRings: number
   gridSpokes: number
-  // The share of the way the particles are moved from where they fly onto the sheet's surface
+  // The share of the way the particles are moved from where they fly onto the sheet's surface, and the half
+  // thickness of the slab round the main hole's equator whose particles are, in black hole radii
   gridRide: number
+  gridRideDepth: number
   gridSky: number
   // How far the Lensed Grid is drawn in towards the hole (0 leaves it flat), and the colour of every grid
   gridSkyPull: number
   gridColor: string
-  // The sheet's look: its camera's distance and how far it reaches from the hole, in long screen sides, the
-  // share of that reach it fades out over, how many times the stretch a gravitational wave gives the sky
-  // lifts it, the width of its lines in CSS pixels and the most they widen near the camera, the share of
-  // the camera's distance nearer than which it is cut off, and the black hole radii its lines are gone
-  // inside and whole beyond
+  // The sheet's look: the flat mode's camera's distance and how far the sheet reaches from the hole, in long
+  // screen sides, the share of that reach it fades out over, how many times the stretch a gravitational wave
+  // gives the sky lifts it, the width of its lines in CSS pixels and the most they widen near the camera,
+  // the share of the flat camera's distance nearer than which it is cut off, and the black hole radii its
+  // lines are gone inside and whole beyond
   gridDistance: number
   gridSpan: number
   gridFade: number
@@ -215,9 +217,6 @@ export interface ParticleState extends FlowState {
   gridNear: number
   gridClearing: number
   gridClearingEdge: number
-  // In 3D the most the sheet is seen tilted, degrees, and the degrees past that over which it fades out
-  gridTiltLimit: number
-  gridTiltFade: number
   // Width of the lensed grid's lines, CSS pixels; the CSS pixels a cell of it pulled in shrinks to before its
   // lines start to merge into a haze, and the share of that by which the haze is whole
   gridSkyLine: number
@@ -470,6 +469,7 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   gridRings: 0,
   gridSpokes: 24,
   gridRide: 0,
+  gridRideDepth: 2,
   gridSky: 0,
   gridSkyPull: 0,
   gridColor: '#80bdff',
@@ -485,8 +485,6 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   gridNear: 0.2,
   gridClearing: 1.04,
   gridClearingEdge: 1.2,
-  gridTiltLimit: 75,
-  gridTiltFade: 15,
   gridSkyLine: 1.5,
   gridSkyHaze: 6,
   gridSkyHazeSpan: 0.5,

@@ -1,9 +1,16 @@
-// The space sheet: a square grid drawn as a surface seen at an angle, dented where the black hole sits.
-// The dent is a diagram, not a picture of the hole, and it is drawn in the picture's own measure: a point
-// of the sheet stands where light passing the hole at that distance is seen, and lies as deep as time is
-// slowed at the nearest that light comes to the hole. Far away that is the Newtonian well. At the shadow's
-// edge the light skims the photon sphere, where a clock runs at 58% of its rate, and the sheet stands
-// vertical, because light seen any closer never came back (the grid vertex shader's dent()).
+// The space sheet: a square grid drawn as a surface of the scene, dented where the black hole sits. The
+// sheet is a piece of the main hole's equator (the plane matter and the flows follow): a point of it is the
+// hole's place, plus its two coordinates in that plane, plus its depth in the well along the way the plane
+// faces, away from a camera that looks down the flight. The dent is drawn in the picture's own measure: a
+// point of the sheet stands where light passing the hole at that distance is seen, and lies as deep as time
+// is slowed at the nearest that light comes to the hole. Far away that is the Newtonian well. At the
+// shadow's edge the light skims the photon sphere, where a clock runs at 58% of its rate, and the sheet
+// stands vertical, because light seen any closer never came back (dent() in webgl_shaders.ts).
+// The sheet is seen through a pose, as a particle is: in 3D the scene's own camera, so it moves, turns and
+// comes near with everything else; in the flat mode, which has no camera to move, a camera of its own
+// tipped by Sheet Tilt and set so that the well's bottom lands on the hole. While 3D eases in, the one pose
+// turns into the other. SHEET_GLSL in webgl_shaders.ts places and sees the surface; the grid program, the
+// field's step and the flows all read it from the numbers laid out here.
 // The lines are a static buffer of segments the grid vertex shader places, so the sheet costs the main
 // thread a few numbers per frame and nothing while it is off.
 
@@ -13,10 +20,16 @@ export const GRID_SEGMENTS = 192
 export const GRID_INSTANCE_FLOATS = 4
 export const GRID_INSTANCE_COUNT = 2 * (2 * GRID_LINES_PER_SIDE + 1) * GRID_SEGMENTS
 
-// The well's bottom is never closer to the camera than this share of the camera's distance
+// The well's bottom is never closer to the flat camera than this share of the camera's distance
 const MIN_CAMERA_SHARE = 0.05
+// Slots of a pose: where its camera sends the plane's first direction, its focal length; the second
+// direction, its near plane; the way the well goes down, the x of the picture's centre; the main hole's
+// place, the y of the picture's centre. Directions and places are in the camera's space (right, down,
+// ahead), in units of the plane
+export const SHEET_POSE_SLOTS = 16
 
-// Every length is in CSS pixels
+// Lengths on the plane are its units: CSS pixels seen straight on at the black hole's distance in 3D, the
+// flat camera's own pixels in the flat mode (see `unit`)
 export interface GridSettings {
   // Brightness of the lines; 0 draws nothing
   brightness: number
@@ -24,11 +37,9 @@ export interface GridSettings {
   // How far from the black hole the lines reach, and the distance from it they begin to fade out at
   span: number
   fadeFrom: number
-  // Width of a line where the camera looks, the most it widens near the camera, and the share of the
-  // camera's distance nearer than which the sheet is cut off
+  // Width of a line where the camera looks, and the most it widens near the camera
   lineWidth: number
   lineScale: number
-  near: number
   // The radii of a black hole's shadow inside which the lines are gone and beyond which they are whole
   clearFrom: number
   clearTo: number
@@ -38,37 +49,32 @@ export interface GridSettings {
   // (0 keeps the cells), and the spokes across them
   rings: number
   spokes: number
-  // The point the camera looks at, and its distance from the camera
-  viewX: number
-  viewY: number
-  distance: number
-  tiltSin: number
-  tiltCos: number
-  // The black hole on the sheet, relative to that point: across the screen and away from the camera
-  wellX: number
-  wellZ: number
-  // Radius the well ends at and its depth there
+  // The pose the surface is seen through (SHEET_POSE_SLOTS)
+  pose: Float32Array
+  // The main hole's well, at the middle of the plane: the radius it ends at and its depth there
   throat: number
   depth: number
-  // A second black hole's well, placed from the first one's; a depth of 0 is none
+  // A second black hole's well where its place falls on the plane, from the main hole; a depth of 0 is none
   well2X: number
-  well2Z: number
+  well2Y: number
   throat2: number
   depth2: number
-  // The centre the two turn around, from the first well, and the direction of the second from the first
+  // The centre the two turn around, on the plane from the main hole, and the angle of the second well
   pairX: number
-  pairZ: number
+  pairY: number
   pairPhase: number
   // The angle on the sheet of the line the two stood on as they became one
   ringPhase: number
-  // In 3D the camera's turn around the screen's vertical spins the lines in the sheet's plane, around the
-  // point the camera looks at: the cosine and sine of that turn, and 1 while it is on (0 lays them flat)
-  spinCos: number
-  spinSin: number
-  rollCos: number
-  rollSin: number
-  rolled: number
-  spun: number
+  // A place the lines are counted from, which stays put in the scene while the hole moves across the sheet
+  anchorX: number
+  anchorY: number
+  // Units of the plane in a CSS pixel seen straight on at the hole's distance: 1 in 3D, in the flat mode
+  // the flat camera's pixels at the well over those of the screen
+  unit: number
+  // How far the sheet is seen by the scene's own camera: 0 by the flat one, 1 by the 3D camera's pose
+  shared: number
+  // The equator in the scene, row by row: its two directions and the way it faces
+  equator: Float32Array
 }
 
 export function createGridSettings (): GridSettings {
@@ -79,55 +85,32 @@ export function createGridSettings (): GridSettings {
     fadeFrom: 0.5,
     lineWidth: 1.25,
     lineScale: 3,
-    near: 0.2,
     clearFrom: 1.04,
     clearTo: 1.2,
     waveLift: 4,
     rings: 0,
     spokes: 24,
-    viewX: 0,
-    viewY: 0,
-    distance: 1,
-    tiltSin: 0,
-    tiltCos: 1,
-    wellX: 0,
-    wellZ: 0,
+    pose: new Float32Array([1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0]),
     throat: 0,
     depth: 0,
     well2X: 0,
-    well2Z: 0,
+    well2Y: 0,
     throat2: 0,
     depth2: 0,
     pairX: 0,
-    pairZ: 0,
+    pairY: 0,
     pairPhase: 0,
     ringPhase: 0,
-    spinCos: 1,
-    spinSin: 0,
-    rollCos: 1,
-    rollSin: 0,
-    rolled: 0,
-    spun: 0
+    anchorX: 0,
+    anchorY: 0,
+    unit: 1,
+    shared: 0,
+    equator: new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1])
   }
 }
 
-// Spins the sheet's lines by this many radians in the sheet's own plane (the 3D camera's turn); 0 leaves
-// them as the flat mode lays them. The wells stay under the black holes, wherever the lines turn
-export function turnGrid (grid: GridSettings, radians: number) {
-  grid.spun = radians !== 0 ? 1 : 0
-  grid.spinCos = Math.cos(radians)
-  grid.spinSin = Math.sin(radians)
-}
-
-// A 3D camera's roll turns the whole drawn sheet about the middle of the screen (positive: anticlockwise)
-export function rollGrid (grid: GridSettings, radians: number) {
-  grid.rolled = radians !== 0 ? 1 : 0
-  grid.rollCos = Math.cos(radians)
-  grid.rollSin = Math.sin(radians)
-}
-
 // One record per piece of a line: the line's number counted from the one nearest the black hole, where
-// the piece starts and ends along it (-1..1), and whether the line runs across the screen
+// the piece starts and ends along it (-1..1), and whether the line runs along the plane's first direction
 export function createGridInstances (): Float32Array {
   const instances = new Float32Array(GRID_INSTANCE_COUNT * GRID_INSTANCE_FLOATS)
   let offset = 0
@@ -145,18 +128,48 @@ export function createGridInstances (): Float32Array {
   return instances
 }
 
-// Where a well sits on the sheet, kept at module level so that laying the sheet out allocates nothing
+// The sheet as one of its two cameras lays it out, before the two are blended
+interface SheetLayout {
+  pose: Float64Array
+  throat: number
+  depth: number
+  well2X: number
+  well2Y: number
+  throat2: number
+  depth2: number
+  pairX: number
+  pairY: number
+  // The direction of the line the pair stood on as it became one, on the plane
+  ringX: number
+  ringY: number
+  anchorX: number
+  anchorY: number
+  unit: number
+}
+
+function createLayout (): SheetLayout {
+  return {
+    pose: new Float64Array(SHEET_POSE_SLOTS), throat: 0, depth: 0, well2X: 0, well2Y: 0, throat2: 0, depth2: 0,
+    pairX: 0, pairY: 0, ringX: 1, ringY: 0, anchorX: 0, anchorY: 0, unit: 1
+  }
+}
+
+// Kept at module level so that laying the sheet out allocates nothing
+const flat = createLayout()
+const space = createLayout()
 let wellAcross = 0
 let wellAway = 0
 let wellThroat = 0
 let wellDepth = 0
+let wellScale = 1
 
-// Puts a well where its bottom lands on a black hole standing at this place of the screen, measured
-// from the screen's centre, with its mouth as wide as the shadow there
+// Puts a well where its bottom lands, through the flat camera, on a black hole standing at this place of
+// the screen, measured from the screen's centre, with its mouth as wide as the shadow there
 function settleWell (screenX: number, screenY: number, horizon: number, depthInRadii: number, distance: number, sin: number, cos: number) {
   const nearest = distance * MIN_CAMERA_SHARE
   // The well's size on the sheet depends on how far its bottom is from the camera, which depends on
   // its size; two rounds settle it to well under a pixel
+  let scale = 1
   let throat = horizon
   let depth = 0
   let away = 0
@@ -165,26 +178,30 @@ function settleWell (screenX: number, screenY: number, horizon: number, depthInR
     depth = depthInRadii * throat
     away = (screenY * (distance + depth * cos) - distance * depth * sin) / Math.max(distance * cos + screenY * sin, nearest)
     behind = Math.max(distance + depth * cos - away * sin, nearest)
-    if (round < 2) throat = horizon * behind / distance
+    if (round < 2) {
+      scale = behind / distance
+      throat = horizon * scale
+    }
   }
   wellAcross = screenX * behind / distance
   wellAway = away
   wellThroat = throat
   wellDepth = depth
+  wellScale = scale
 }
 
-// Lays the sheet out for one frame: the camera looks at the screen centre from above, tilted, from
-// `cameraSides` long screen sides away (2.5 is far enough for a mild perspective, and for the horizon of
-// the most tilted sheet to stay above the screen), and the well is put where its bottom lands on the black
-// hole. The sheet reaches `spanSides` long screen sides from the hole and fades out over the share `fade`
-// of that. It stays where it is on screen while the black hole moves across it. A second black hole (radius
-// above 0) gets a well of its own; `pairX`, `pairY` is the place on screen the two turn around, and
-// `ringAngle` the angle on screen of the line they stood on as they became one
-export function placeGrid (
-  grid: GridSettings,
+/**
+ * Lays the sheet out for the flat mode's camera: it looks at the screen's centre from `cameraSides` long
+ * screen sides away, tipped by `tiltDegrees` (0 looks straight down the well), and cuts the sheet off nearer
+ * than `nearShare` of that distance. The well is put where its bottom lands on the black hole (`holeX`,
+ * `holeY` on the screen, its shadow `horizon` pixels), so the sheet's lines stay put on the screen while the
+ * hole moves across them. A second black hole (radius above 0) gets a well of its own; `pairX`, `pairY` is
+ * the place on screen the two turn around, and `ringAngle` the angle on screen of the line they stood on as
+ * they became one.
+ */
+export function layFlatSheet (
   tiltDegrees: number,
   depthInRadii: number,
-  cell: number,
   width: number,
   height: number,
   holeX: number,
@@ -197,11 +214,9 @@ export function placeGrid (
   pairY: number,
   ringAngle: number,
   cameraSides: number,
-  spanSides: number,
-  fade: number
+  nearShare: number
 ) {
-  const longSide = Math.max(width, height)
-  const distance = cameraSides * longSide
+  const distance = cameraSides * Math.max(width, height)
   const tilt = tiltDegrees * Math.PI / 180
   const sin = Math.sin(tilt)
   const cos = Math.cos(tilt)
@@ -209,33 +224,190 @@ export function placeGrid (
   const centerY = height / 2
 
   settleWell(holeX - centerX, holeY - centerY, horizon, depthInRadii, distance, sin, cos)
-  grid.cell = cell
-  grid.span = Math.min(spanSides * longSide, GRID_LINES_PER_SIDE * cell)
-  grid.fadeFrom = (1 - fade) * grid.span
-  grid.viewX = centerX
-  grid.viewY = centerY
-  grid.distance = distance
-  grid.tiltSin = sin
-  grid.tiltCos = cos
-  grid.wellX = wellAcross
-  grid.wellZ = wellAway
-  grid.throat = wellThroat
-  grid.depth = wellDepth
+  const wellX = wellAcross
+  const wellY = wellAway
+  flat.throat = wellThroat
+  flat.depth = wellDepth
+  flat.unit = wellScale
+  // The camera tipped about the screen's horizontal: the plane's first direction stays across the screen,
+  // the second rises away from the camera, the well goes down and away; the hole is where its well was put
+  const pose = flat.pose
+  pose[0] = 1
+  pose[1] = 0
+  pose[2] = 0
+  pose[3] = distance
+  pose[4] = 0
+  pose[5] = cos
+  pose[6] = -sin
+  pose[7] = nearShare * distance
+  pose[8] = 0
+  pose[9] = sin
+  pose[10] = cos
+  pose[11] = centerX
+  pose[12] = wellX
+  pose[13] = cos * wellY
+  pose[14] = distance - sin * wellY
+  pose[15] = centerY
+  // The lines are counted from the screen's centre
+  flat.anchorX = -wellX
+  flat.anchorY = -wellY
 
   // A direction on screen lies further round on the tilted sheet, which is seen from the other side
-  grid.ringPhase = Math.atan2(-Math.sin(ringAngle) / cos, Math.cos(ringAngle))
-  grid.throat2 = 0
-  grid.depth2 = 0
+  flat.ringX = Math.cos(ringAngle)
+  flat.ringY = -Math.sin(ringAngle) / cos
+  flat.throat2 = 0
+  flat.depth2 = 0
+  flat.well2X = 0
+  flat.well2Y = 0
+  flat.pairX = 0
+  flat.pairY = 0
   if (companionRadius > 0) {
     settleWell(companionX - centerX, companionY - centerY, companionRadius, depthInRadii, distance, sin, cos)
-    grid.well2X = wellAcross - grid.wellX
-    grid.well2Z = wellAway - grid.wellZ
-    grid.throat2 = wellThroat
-    grid.depth2 = wellDepth
-    grid.pairPhase = Math.atan2(grid.well2Z, grid.well2X)
+    flat.well2X = wellAcross - wellX
+    flat.well2Y = wellAway - wellY
+    flat.throat2 = wellThroat
+    flat.depth2 = wellDepth
     // The centre of the pair lies on the flat sheet
     settleWell(pairX - centerX, pairY - centerY, 0, 0, distance, sin, cos)
-    grid.pairX = wellAcross - grid.wellX
-    grid.pairZ = wellAway - grid.wellZ
+    flat.pairX = wellAcross - wellX
+    flat.pairY = wellAway - wellY
   }
+}
+
+/**
+ * Lays the sheet out in the scene, seen by the 3D camera's pose (`pose`, camera_pose.ts, about the point
+ * at `pivot` on the line of flight; its focal length `focal` and the vanishing point, CSS pixels). Places
+ * are in scene units, `worldPerPixel` of them in a CSS pixel at the pivot's distance; `equator` is the
+ * plane's two directions and the way it faces, row by row. The main hole stands at `holeX`..`holeZ` with
+ * its shadow `horizon` pixels at the pivot; a second one (radius above 0) at `companionX`..`companionZ`,
+ * the two turning round `pairX`..`pairZ`, and `ringX`..`ringZ` the direction they stood in as they became one.
+ */
+export function laySpaceSheet (
+  pose: ArrayLike<number>,
+  pivot: number,
+  focal: number,
+  vanishX: number,
+  vanishY: number,
+  worldPerPixel: number,
+  nearest: number,
+  equator: ArrayLike<number>,
+  holeX: number,
+  holeY: number,
+  holeZ: number,
+  horizon: number,
+  depthInRadii: number,
+  companionX: number,
+  companionY: number,
+  companionZ: number,
+  companionRadius: number,
+  pairX: number,
+  pairY: number,
+  pairZ: number,
+  ringX: number,
+  ringY: number,
+  ringZ: number
+) {
+  // The well goes down along the way the plane faces, on the side away from a camera that looks down the flight
+  const down = equator[8] < 0 ? -1 : 1
+  const out = space.pose
+  for (let row = 0; row < 3; row++) {
+    const a = pose[row * 3]
+    const b = pose[row * 3 + 1]
+    const c = pose[row * 3 + 2]
+    out[row] = a * equator[0] + b * equator[1] + c * equator[2]
+    out[4 + row] = a * equator[3] + b * equator[4] + c * equator[5]
+    out[8 + row] = (a * equator[6] + b * equator[7] + c * equator[8]) * down
+    // The hole's place in the camera's space, in the plane's units
+    out[12 + row] = (a * holeX + b * holeY + c * (holeZ - pivot) + pose[9 + row]) / worldPerPixel
+  }
+  out[3] = focal
+  out[7] = nearest / worldPerPixel
+  out[11] = vanishX
+  out[15] = vanishY
+  space.unit = 1
+  space.throat = horizon
+  space.depth = depthInRadii * horizon
+  // The lines are counted from the point the camera circles
+  const scale = 1 / worldPerPixel
+  space.anchorX = onPlane(equator, 0, -holeX, -holeY, pivot - holeZ) * scale
+  space.anchorY = onPlane(equator, 3, -holeX, -holeY, pivot - holeZ) * scale
+  space.throat2 = 0
+  space.depth2 = 0
+  space.well2X = 0
+  space.well2Y = 0
+  space.pairX = 0
+  space.pairY = 0
+  if (companionRadius > 0) {
+    space.well2X = onPlane(equator, 0, companionX - holeX, companionY - holeY, companionZ - holeZ) * scale
+    space.well2Y = onPlane(equator, 3, companionX - holeX, companionY - holeY, companionZ - holeZ) * scale
+    space.throat2 = companionRadius
+    space.depth2 = depthInRadii * companionRadius
+    space.pairX = onPlane(equator, 0, pairX - holeX, pairY - holeY, pairZ - holeZ) * scale
+    space.pairY = onPlane(equator, 3, pairX - holeX, pairY - holeY, pairZ - holeZ) * scale
+  }
+  // The line the pair stood on, as it falls on the plane; the sheet's waves count their angles the other
+  // way round, as the flat camera sees them
+  space.ringX = onPlane(equator, 0, ringX, ringY, ringZ)
+  space.ringY = -onPlane(equator, 3, ringX, ringY, ringZ)
+}
+
+// A direction of the scene along one of the equator's rows (0: its first direction, 3: its second)
+function onPlane (equator: ArrayLike<number>, row: number, x: number, y: number, z: number) {
+  return x * equator[row] + y * equator[row + 1] + z * equator[row + 2]
+}
+
+/**
+ * Sets the sheet for this frame from the two layouts: `shared` of the way from the flat camera's (0) to the
+ * 3D camera's (1), so switching 3D on turns the sheet from its diagram view to where it lies in the scene.
+ * A layout not taken part in is not read. The lines are `cell` apart and reach `spanSides` long screen sides
+ * from the hole, fading out over the share `fade` of that.
+ */
+export function placeSheet (
+  grid: GridSettings,
+  shared: number,
+  equator: ArrayLike<number>,
+  cell: number,
+  width: number,
+  height: number,
+  spanSides: number,
+  fade: number
+) {
+  const from = shared >= 1 ? space : flat
+  const to = shared <= 0 ? flat : space
+  const share = shared <= 0 ? 0 : Math.min(shared, 1)
+  const mix = (a: number, b: number) => a + (b - a) * share
+  for (let slot = 0; slot < SHEET_POSE_SLOTS; slot++) grid.pose[slot] = mix(from.pose[slot], to.pose[slot])
+  grid.throat = mix(from.throat, to.throat)
+  grid.depth = mix(from.depth, to.depth)
+  grid.well2X = mix(from.well2X, to.well2X)
+  grid.well2Y = mix(from.well2Y, to.well2Y)
+  // A well that is there in only one of the two grows in place
+  grid.throat2 = mix(from.throat2, to.throat2)
+  grid.depth2 = mix(from.depth2, to.depth2)
+  grid.pairX = mix(from.pairX, to.pairX)
+  grid.pairY = mix(from.pairY, to.pairY)
+  grid.pairPhase = Math.atan2(grid.well2Y, grid.well2X)
+  grid.ringPhase = Math.atan2(mix(from.ringY, to.ringY), mix(from.ringX, to.ringX))
+  grid.anchorX = mix(from.anchorX, to.anchorX)
+  grid.anchorY = mix(from.anchorY, to.anchorY)
+  grid.unit = mix(from.unit, to.unit)
+  grid.shared = share
+  for (let slot = 0; slot < 9; slot++) grid.equator[slot] = equator[slot]
+  grid.cell = cell
+  grid.span = Math.min(spanSides * Math.max(width, height), GRID_LINES_PER_SIDE * cell)
+  grid.fadeFrom = (1 - fade) * grid.span
+}
+
+// The uniforms SHEET_GLSL reads, by their names without u_, as a program holds them
+type SheetUniforms<U> = Record<'sheetU' | 'sheetV' | 'sheetN' | 'sheetO' | 'sheetWell' | 'sheetWell2', U>
+
+// Hands the surface and its pose to a program that reads SHEET_GLSL, through that program's setter
+export function sendSheet<U> (set: (uniform: U, x: number, y: number, z: number, w: number) => void, u: SheetUniforms<U>, grid: GridSettings) {
+  const pose = grid.pose
+  set(u.sheetU, pose[0], pose[1], pose[2], pose[3])
+  set(u.sheetV, pose[4], pose[5], pose[6], pose[7])
+  set(u.sheetN, pose[8], pose[9], pose[10], pose[11])
+  set(u.sheetO, pose[12], pose[13], pose[14], pose[15])
+  set(u.sheetWell, grid.throat, grid.depth, 0, 0)
+  set(u.sheetWell2, grid.well2X, grid.well2Y, grid.throat2, grid.depth2)
 }

@@ -14,7 +14,7 @@ import { stepSpring, type Spring2D } from './black_hole_motion'
 import { renderTitleSprite, waitForTitleFont, type TitleSprite, type TitleStyle } from './title_sprite'
 export type { TitleSprite } from './title_sprite'
 import { clearRingEnergy, createRingEnergy, feedRing, stepRingEnergy } from './ring_energy'
-import { createGridSettings, placeGrid, rollGrid, turnGrid } from './space_grid'
+import { layFlatSheet, laySpaceSheet, placeSheet } from './space_grid'
 import { LATTICE_LINES_PER_SIDE, createLatticeSettings, latticeAnchor } from './space_lattice'
 import { FLOW_KEYS, createFlowSettings, resetFlow, stepFlow, turnFlow } from './flows'
 import { LIGHT_SPEED, SHADOW_RADII, clearOrbiters, createOrbitTuning, createOrbiters, stepOrbiters } from './orbiters'
@@ -439,7 +439,7 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       vignetteEnd: 1.45,
       filmKnee: 0.8
     },
-    grid: createGridSettings(),
+    grid: settings.sheet,
     lattice: createLatticeSettings(),
     flows: FLOW_KEYS.map(() => createFlowSettings()),
     step: settings
@@ -834,9 +834,11 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     // The point the camera circles, and how much nearer to it than that the camera's move has brought it
     const pivot = Math.max(state.farZ * state.blackHoleDepth / 100, state.farZ * state.threeDNearest)
     let nearer = 1
+    // How far the 3D camera has eased in: the sheet's pose turns from the flat camera's to the scene's with it
+    let eased = 0
     if (threeD) {
       view.spin = (view.spin + state.cameraSpin * DEGREE * dt) % FULL_TURN
-      const eased = view.blend * view.blend * (3 - 2 * view.blend)
+      eased = view.blend * view.blend * (3 - 2 * view.blend)
       yaw = eased * (state.cameraYaw * DEGREE + view.spin)
       pitch = eased * state.cameraPitch * DEGREE
       roll = eased * state.cameraRoll * DEGREE
@@ -1039,9 +1041,6 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     let blastX = originX
     let blastY = originY
     let blastScale = 1
-    // The 3D camera's turn and elevation, in radians, for the sheet
-    let viewYaw = 0
-    let viewPitch = 0
     const composite = frame.composite
     // What the composite pass sees through the camera's turn (the sky, the waves, the ringing oval) and
     // where a swallowed star's light lands: the pose's own turn in 3D, none straight on
@@ -1109,8 +1108,6 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       settings.cameraMoveRight = moveRight
       settings.cameraMoveUp = moveUp
       settings.cameraMoveIn = moveIn
-      viewYaw = yaw
-      viewPitch = pitch
       // Strokes start where the particles were seen in the frame before, unless the camera jumped: turned
       // by more than Cut at Turn, or moved by more than Cut at Move would show at the pivot
       let turned = yaw - view.yaw
@@ -1175,76 +1172,43 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       planeTurn[2 * side + 1] = seenTurn[3] * x + seenTurn[4] * y + seenTurn[5] * z
     }
 
-    // The space sheet is laid over the frame with its well under the black hole. It is laid out here, before
-    // the particles are stepped, because Particles on Sheet draws them on it.
-    // In 3D the sheet is a plane in the scene: the camera's elevation tilts it towards the camera and
-    // the camera's turn spins its lines around the point the camera circles. It is seen at its own tilt
-    // less the camera's elevation, up to a limit (75 degrees, the top of the Sheet Tilt slider, keeps its
-    // horizon above the screen). Past that it fades, and at the default fade it is gone by the time the
-    // camera would see it edge-on, so it is never seen from below
+    // The space sheet is a piece of the main hole's equator. It is laid out here, before the particles are
+    // stepped, because Particles on Sheet draws them on it. In 3D it is seen by the scene's own camera, as
+    // the particles are; the flat mode sees it through a camera of its own, tipped by Sheet Tilt, with its
+    // well's bottom on the hole as the screen shows it. While the 3D camera eases in, the sheet's pose turns
+    // from the one to the other with it
     const grid = frame.grid
-    const seenTilt = threeD ? state.gridTilt - viewPitch / DEGREE : state.gridTilt
-    const sheetTilt = threeD ? Math.min(Math.max(seenTilt, -state.gridTiltLimit), state.gridTiltLimit) : seenTilt
-    const sheetLit = threeD && seenTilt > state.gridTiltLimit ? Math.max(1 - (seenTilt - state.gridTiltLimit) / state.gridTiltFade, 0) : 1
-    const onSheet = state.gridRide > 0 && horizon * holeScale > 0
+    const onSheet = state.gridRide > 0 && horizon > 0
     if (state.gridSheet > 0 || onSheet) {
-      // A camera that rolls turns the sheet about the middle of the screen: it is laid out for the holes as
-      // they stand before the roll, and the roll is turned in when it is drawn
-      let sheetHoleX = holeX
-      let sheetHoleY = holeY
-      let sheetCompanionX = settings.companionX
-      let sheetCompanionY = settings.companionY
-      let sheetCentreX = centreX
-      let sheetCentreY = centreY
-      if (roll !== 0) {
-        const c = Math.cos(roll)
-        const s = Math.sin(roll)
-        const hx = holeX - centerX
-        const hy = holeY - centerY
-        const kx = settings.companionX - centerX
-        const ky = settings.companionY - centerY
-        sheetHoleX = centerX + c * hx - s * hy
-        sheetHoleY = centerY + s * hx + c * hy
-        sheetCompanionX = centerX + c * kx - s * ky
-        sheetCompanionY = centerY + s * kx + c * ky
-        const mx = centreX - centerX
-        const my = centreY - centerY
-        sheetCentreX = centerX + c * mx - s * my
-        sheetCentreY = centerY + s * mx + c * my
+      const shared = threeD ? eased : 0
+      if (shared < 1) {
+        layFlatSheet(
+          state.gridTilt, state.gridDepth, viewportWidth, viewportHeight, holeX, holeY, horizon * holeScale,
+          settings.companionX, settings.companionY, companionRadius * companionScale, centreX, centreY, pair.mergedPhase,
+          state.gridDistance, state.gridNear
+        )
       }
-      placeGrid(
-        grid, sheetTilt, state.gridDepth, state.gridCell / 100 * shortSide, viewportWidth, viewportHeight, sheetHoleX, sheetHoleY, horizon * holeScale,
-        sheetCompanionX, sheetCompanionY, companionRadius * companionScale, sheetCentreX, sheetCentreY, pair.mergedPhase,
-        state.gridDistance, state.gridSpan, state.gridFade
-      )
-      turnGrid(grid, viewYaw)
-      rollGrid(grid, roll)
+      if (shared > 0) {
+        const worldPerPixel = pivot / settings.focal
+        // The line the two stood on as they became one, in the scene
+        const ringCos = Math.cos(pair.mergedPhase)
+        const ringSin = Math.sin(pair.mergedPhase)
+        laySpaceSheet(
+          pose, pivot, settings.focal, settings.vanishX, settings.vanishY, worldPerPixel, NEAR_DEPTH, equator,
+          settings.holeWorldX, settings.holeWorldY, settings.holeWorldZ, horizon, state.gridDepth,
+          settings.companionWorldX, settings.companionWorldY, settings.companionWorldZ, companionRadius,
+          (hole.x - settings.vanishX) * worldPerPixel, (hole.y - settings.vanishY) * worldPerPixel, pivot,
+          pairPlane[0] * ringCos + pairPlane[3] * ringSin, pairPlane[1] * ringCos + pairPlane[4] * ringSin,
+          pairPlane[2] * ringCos + pairPlane[5] * ringSin
+        )
+      }
+      placeSheet(grid, shared, equator, state.gridCell / 100 * shortSide, viewportWidth, viewportHeight, state.gridSpan, state.gridFade)
     }
-    // Particles on Sheet: the step is handed the sheet as its camera sees it. A stroke is laid on it at both
-    // of its ends as it lies now: seen through the sheet of the frame before, as a stroke of the 3D camera is,
-    // every slow particle would be drawn as a long line while the sheet tilts
-    settings.ride = onSheet && grid.throat > 0 ? state.gridRide : 0
-    if (settings.ride > 0) {
-      const sheetScale = grid.throat / (horizon * holeScale)
-      settings.rideCos = sheetScale * grid.spinCos
-      settings.rideSin = sheetScale * grid.spinSin
-      settings.sheetViewX = grid.viewX
-      settings.sheetViewY = grid.viewY
-      settings.sheetDistance = grid.distance
-      settings.sheetNear = state.gridNear * grid.distance
-      settings.sheetSin = grid.tiltSin
-      settings.sheetCos = grid.tiltCos
-      settings.sheetWellX = grid.wellX
-      settings.sheetWellZ = grid.wellZ
-      settings.sheetThroat = grid.throat
-      settings.sheetDepth = grid.depth
-      settings.sheetRollCos = grid.rollCos
-      settings.sheetRollSin = grid.rolled * grid.rollSin
-      settings.sheetWell2X = grid.well2X
-      settings.sheetWell2Z = grid.well2Z
-      settings.sheetThroat2 = grid.throat2
-      settings.sheetDepth2 = grid.depth2
-    }
+    // Particles on Sheet: what flies within Ride Depth of the equator is laid on the sheet as it lies now.
+    // Seen through the sheet of the frame before, as a stroke of the 3D camera is, every slow particle would
+    // be drawn as a long line while the camera moves
+    settings.ride = onSheet ? state.gridRide : 0
+    settings.rideDepth = state.gridRideDepth * horizon
 
     // A frozen frame keeps the scene texture; only the composite (lens, flash, title) is redrawn
     frame.updateScene = frameScale > 0
@@ -1324,6 +1288,32 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
         flow.unit = flowUnit + (companionRadius - flowUnit) * around
       }
       flow.depth = seenScale > 0 ? settings.focal / seenScale : -1
+      // Particles on Sheet lays the flow from its place in the scene: where its centre stands from the main
+      // hole in the equator, CSS pixels at the hole's distance. Flat, the scene is seen straight on and that
+      // place is the one on the screen
+      if (settings.ride > 0) {
+        let offX = flow.x - holeX
+        let offY = flow.y - holeY
+        let offZ = 0
+        if (threeD) {
+          const worldPerPixel = pivot / settings.focal
+          const pairX = (hole.x - settings.vanishX) * worldPerPixel
+          const pairY = (hole.y - settings.vanishY) * worldPerPixel
+          const toward = around <= -1 ? 0 : around <= 0 ? around + 1 : around
+          const fromX = around <= 0 ? settings.holeWorldX : pairX
+          const fromY = around <= 0 ? settings.holeWorldY : pairY
+          const fromZ = around <= 0 ? settings.holeWorldZ : pivot
+          const toX = around <= 0 ? pairX : settings.companionWorldX
+          const toY = around <= 0 ? pairY : settings.companionWorldY
+          const toZ = around <= 0 ? pivot : settings.companionWorldZ
+          offX = (fromX + (toX - fromX) * toward - settings.holeWorldX) / worldPerPixel
+          offY = (fromY + (toY - fromY) * toward - settings.holeWorldY) / worldPerPixel
+          offZ = (fromZ + (toZ - fromZ) * toward - settings.holeWorldZ) / worldPerPixel
+        }
+        flow.plane[3] = equator[0] * offX + equator[1] * offY + equator[2] * offZ
+        flow.plane[7] = equator[3] * offX + equator[4] * offY + equator[5] * offZ
+        flow.plane[11] = equator[6] * offX + equator[7] * offY + equator[8] * offZ
+      }
       // Matter that ends inside the main hole's horizon lights its ring, as much as the field's would:
       // a particle a life, each leaving what a captured particle leaves
       if (ringFed && frame.updateScene && around <= -1 && flow.brightness > 0 && state[keys.to] < state.horizonScale) {
@@ -1676,11 +1666,10 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     composite.gridCell = gridCell
     composite.skyGridLine = state.gridSkyLine
     // The sheet was laid out before the particles were stepped (above); here is what only its drawing reads
-    grid.brightness = state.gridSheet * sheetLit
+    grid.brightness = state.gridSheet
     if (state.gridSheet > 0) {
       grid.lineWidth = state.gridLine
       grid.lineScale = state.gridLineNear
-      grid.near = state.gridNear
       grid.clearFrom = state.gridClearing
       grid.clearTo = state.gridClearingEdge
       grid.waveLift = state.gridWaveLift

@@ -531,7 +531,9 @@ One setup carries every such shot. It was seen at `gridTilt` 66 with `gridDepth`
 - The surface: `gridSheet` 0.85, `gridRings` 40 with `gridSpokes` 24, the textbook's drawing, whose spokes
   are the lines a straight fall follows; `gridSpan` 0.6 with `gridFade` 0.3 ends the sheet before its near
   side runs under the hole.
-- The particles on it: `gridRide` 1, `fieldAtHole` 1, `lensingEnabled` false, `baseSpeed` 0.
+- The particles on it: `gridRide` 1, `gridRideDepth` 40, `fieldAtHole` 1, `lensingEnabled` false,
+  `baseSpeed` 0. Ride Depth that deep lays the whole column on the sheet; at its default 2 only the matter
+  near the hole's depth rides and the rest is drawn where it flies (knobs.md, section 9).
 - Every particle alike, so the well fills and stays full: `gravityDepth` 100, `depthFade` 0, `minOpacity`
   0.1, `particleSize` and `particleSizeMin` 2, `speedGlowKnee` 0.03, `trailIntensity` 0.5, `baseBrightness`
   0.6. A `warmup` of 10, the most there is, fills the well before the first frame.

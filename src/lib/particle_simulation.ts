@@ -4,6 +4,7 @@
 import type { ParticleColor } from '../store/particle_store'
 import type { RingEnergy } from './ring_energy'
 import { nextRandom, type Random } from './random'
+import { createGridSettings, type GridSettings } from './space_grid'
 
 // Simulation runs in 60 Hz frame units: speeds and forces are tuned per 1/60 s
 export const REFERENCE_FPS = 60
@@ -160,31 +161,12 @@ export interface StepSettings {
   // Seen from the side, the 3D column fades over this share of Field Depth at both of its ends, so the
   // place particles are born and the place they leave are not hard edges
   endFade: number
-  // Particles on Sheet (RIDE_GLSL in webgl_shaders.ts): the share of the way a stroke is moved from where the scene's camera
-  // draws it to where the sheet lies under it; 0 leaves it alone and the rest unread. Then the sheet as its own
-  // camera sees it this frame, in CSS pixels: the turn and scale that take a place around the hole, seen
-  // straight on, to its place on the sheet (rideCos, rideSin); the point the camera looks at, its distance and
-  // the nearest the sheet is drawn; the tilt, the well under the main hole, the radius it ends at and its depth
-  // there; the roll of a 3D camera; a second hole's well, placed from the first (a depth of 0 is none)
+  // Particles on Sheet (RIDE_GLSL in webgl_shaders.ts): the share of the way a particle in the slab round
+  // the main hole's equator is laid on the sheet, 0 leaving it alone and the rest unread; the slab's half
+  // thickness, CSS pixels at the hole's distance; the sheet as it is laid out this frame (space_grid.ts)
   ride: number
-  rideCos: number
-  rideSin: number
-  sheetViewX: number
-  sheetViewY: number
-  sheetDistance: number
-  sheetNear: number
-  sheetSin: number
-  sheetCos: number
-  sheetWellX: number
-  sheetWellZ: number
-  sheetThroat: number
-  sheetDepth: number
-  sheetRollCos: number
-  sheetRollSin: number
-  sheetWell2X: number
-  sheetWell2Z: number
-  sheetThroat2: number
-  sheetDepth2: number
+  rideDepth: number
+  sheet: GridSettings
 }
 
 // Inertia for one step: a push of the holes is a change of speed that lasts. Per 60 Hz frame the speed
@@ -394,23 +376,7 @@ export function createStepSettings (ringEnergy: RingEnergy | null = null): StepS
     cameraMoveInFrom: 0,
     endFade: 0.12,
     ride: 0,
-    rideCos: 1,
-    rideSin: 0,
-    sheetViewX: 0,
-    sheetViewY: 0,
-    sheetDistance: 1,
-    sheetNear: 0,
-    sheetSin: 0,
-    sheetCos: 1,
-    sheetWellX: 0,
-    sheetWellZ: 0,
-    sheetThroat: 0,
-    sheetDepth: 0,
-    sheetRollCos: 1,
-    sheetRollSin: 0,
-    sheetWell2X: 0,
-    sheetWell2Z: 0,
-    sheetThroat2: 0,
-    sheetDepth2: 0
+    rideDepth: 1,
+    sheet: createGridSettings()
   }
 }

@@ -44,6 +44,39 @@ const DENT_GLSL = `  // How deep the sheet lies at a distance from a black hole 
   }
 `
 
+// The space sheet (space_grid.ts) as a surface and its pose: one text for the grid program that draws it,
+// the field's step and the flows that lay particles on it. A place of the plane is given from the main hole
+// in the plane's units, along its two directions; the surface lies that deep in the wells along the way the
+// plane faces; the pose takes it into the space of the camera that sees the sheet (right, down, ahead) and
+// draws it there. Lengths are in the plane's units (space_grid.ts), screen places in CSS pixels
+const SHEET_GLSL = `  uniform vec4 u_sheetU;      // the sheet's pose: where its camera sends the plane's first direction, its focal length
+  uniform vec4 u_sheetV;      // where it sends the second, the nearest it draws
+  uniform vec4 u_sheetN;      // where it sends the way the wells go down, the x of its picture's centre
+  uniform vec4 u_sheetO;      // where the main hole stands, the y of its picture's centre
+  uniform vec4 u_sheetWell;   // the main hole's well: the radius it ends at, its depth there; unused
+  uniform vec4 u_sheetWell2;  // a second hole's well: where it falls on the plane from the main hole, its radius and depth (0 = none)
+
+${DENT_GLSL}
+  // How deep the wells lie at a place of the plane
+  float sheetDepth (vec2 at) {
+    float depth = 0.0;
+    if (u_sheetWell.y > 0.0) depth = u_sheetWell.y * dent(length(at), u_sheetWell.x);
+    // A second black hole dents the sheet the same way, and the dents add up
+    if (u_sheetWell2.w > 0.0) depth += u_sheetWell2.w * dent(length(at - u_sheetWell2.xy), u_sheetWell2.z);
+    return depth;
+  }
+
+  // A point of the surface, at a place of the plane and a depth, in the space of the sheet's camera
+  vec3 sheetSeen (vec2 at, float depth) {
+    return u_sheetU.xyz * at.x + u_sheetV.xyz * at.y + u_sheetN.xyz * depth + u_sheetO.xyz;
+  }
+
+  // Where the sheet's camera draws a point of its space that lies beyond its near plane
+  vec2 sheetScreen (vec3 seen) {
+    return vec2(u_sheetN.w, u_sheetO.w) + seen.xy * (u_sheetU.w / seen.z);
+  }
+`
+
 // Two triangles covering clip space; the particle program reuses them as segment corners
 export const QUAD_VERTICES = new Float32Array([
   -1, -1,
@@ -1211,39 +1244,32 @@ ${DENT_GLSL}
   }
 `
 
-// The space sheet (space_grid.ts), drawn over the finished frame. Every length uniform here is in CSS
-// pixels
+// The space sheet (space_grid.ts), drawn over the finished frame: the surface of SHEET_GLSL seen through its
+// pose. Lengths on the sheet are in the plane's units, places on the screen in CSS pixels
 
 export const gridVertexShaderSource = `
   attribute vec2 a_position;  // quad corner: x picks the end of the piece, y the side
-  attribute vec4 a_gridLine;  // line number counted from the black hole, start and end along the line (-1..1), 1 = runs across the screen
+  attribute vec4 a_gridLine;  // line number counted from the black hole, start and end along the line (-1..1), 1 = runs along the plane's first direction
 
   uniform vec2 u_resolution;  // drawing buffer size in device pixels
   uniform float u_pixelRatio;
-  uniform vec2 u_view;        // the point the camera looks at
-  uniform vec4 u_camera;      // its distance from the camera, sine and cosine of the tilt, line width
-  uniform vec4 u_well;        // the black hole on the sheet relative to that point, the radius its well ends at, the well's depth
-  uniform vec4 u_well2;       // a second black hole's well, placed from the first: across, away, radius, depth; depth 0 = none
+  uniform vec4 u_lines;       // cell size, how far from the black hole the lines reach, the place the lines are counted from
+  uniform vec4 u_sheet;       // line width where the focal length is the distance, the most a line widens near the camera, the distance from the black hole the lines begin to fade out at, unused
   uniform vec4 u_pairWave;    // the pair's spiral wave: height (0 = off), the pair's angle on the sheet, turn of its arms per unit of distance, radius beyond which it weakens
-  uniform vec2 u_pairAt;      // the centre the two turn around, from the first well
-  uniform vec2 u_lines;       // cell size, how far from the black hole the lines reach
-  uniform vec4 u_sheet;       // the share of the camera's distance nearer than which the sheet is cut off, the most a line widens near the camera, the distance from the black hole the lines begin to fade out at, unused
+  uniform vec2 u_pairAt;      // the centre the two turn around, from the main hole
   uniform vec4 u_wave;        // gravitational wave: height, seconds since it left the hole, angular frequency, 1 / decay time
   uniform vec2 u_waveSpread;  // radius beyond which the wave weakens, how far it travels a second
   uniform vec4 u_waveTurn;    // cosine and sine of twice the angle on the sheet the oval's long axis had as the ringing began, the way it turns there (1, -1; 0 = it wobbles in place), unused
   uniform vec4 u_pairFront;   // once the two are one: seconds since then (negative = not yet), how far the wave travels a second, seconds the old wave takes to give way to the new
   uniform vec4 u_lens;        // the scene camera: centre of its zoom, the zoom, unused
   uniform vec2 u_jolt;        // the scene camera's shake
-  uniform vec4 u_spin;        // 3D: cosine and sine of the turn that spins the lines in the sheet's plane, 1 while it is on
-  uniform vec3 u_roll;        // 3D: cosine and sine of the camera's roll, which turns the drawn sheet about u_view, 1 while it is on
   uniform vec2 u_rings;       // rings drawn around the black hole in place of the square cells (0 = the cells), lines through the hole drawn across them
-
+${SHEET_GLSL}
   varying vec2 v_ends;        // distance along the piece from its start and from its end
   varying float v_across;     // signed distance from its axis
   varying float v_halfWidth;
   varying float v_alpha;
 
-${DENT_GLSL}
   // How strong a gravitational wave is at a distance from where it left: it falls as 1 / r. Closer than
   // the edge there is no wave yet, only the field of the source itself, which fades to nothing at the centre
   float waveReach (float dist, float edge) {
@@ -1251,14 +1277,11 @@ ${DENT_GLSL}
     return share < 1.0 ? share * share : 1.0 / share;
   }
 
-  // A point of the sheet, given from the black hole: its place on screen, its size there relative to
-  // the point the camera looks at (negative behind the cut), and how lit it is
-  vec4 onScreen (vec2 fromHole) {
+  // A point of the sheet, given from the black hole on the plane: where it lies in the space of the
+  // sheet's camera, and how lit it is
+  vec4 onSurface (vec2 fromHole) {
     float r = length(fromHole);
-    float depth = 0.0;
-    if (u_well.w > 0.0) depth = u_well.w * dent(r, u_well.z);
-    // A second black hole dents the sheet the same way, and the dents add up
-    if (u_well2.w > 0.0) depth += u_well2.w * dent(length(fromHole - u_well2.xy), u_well2.z);
+    float depth = sheetDepth(fromHole);
     // The pair's spiral wave is drawn as height: the sheet rises where the wave stretches space along the
     // line the two stood on as it left, and sinks where it squeezes. The composite pass slides the sky by
     // the same wave
@@ -1290,18 +1313,14 @@ ${DENT_GLSL}
         depth += u_wave.x * exp(-max(emitted, 0.0) * u_wave.w) * waveReach(r, u_waveSpread.x) * along;
       }
     }
-    vec2 place = fromHole + u_well.xy;
-    float behind = u_camera.x + depth * u_camera.z - place.y * u_camera.y;
-    float scale = u_camera.x / max(behind, 1.0);
-    vec2 point = u_view + vec2(place.x, place.y * u_camera.z + depth * u_camera.y) * scale;
-    if (u_roll.z > 0.0) {
-      vec2 fromView = point - u_view;
-      point = u_view + vec2(u_roll.x * fromView.x + u_roll.y * fromView.y, u_roll.x * fromView.y - u_roll.y * fromView.x);
-    }
-    // The scene camera of the intro zooms and jolts the sheet with the rest of the frame
-    point = u_lens.xy + (point - u_jolt - u_lens.xy) * u_lens.z;
-    float lit = 1.0 - smoothstep(u_sheet.z, u_lines.y, r);
-    return vec4(point, behind > u_sheet.x * u_camera.x ? scale * u_lens.z : -1.0, lit);
+    return vec4(sheetSeen(fromHole, depth), 1.0 - smoothstep(u_sheet.z, u_lines.y, r));
+  }
+
+  // Where a point of the camera's space is drawn on the frame, the scene camera's zoom and shake with the
+  // rest of it, and how much wider than at the focal length's distance a line is drawn there
+  vec3 onFrame (vec3 seen) {
+    vec2 point = u_lens.xy + (sheetScreen(seen) - u_jolt - u_lens.xy) * u_lens.z;
+    return vec3(point, u_sheetU.w / seen.z * u_lens.z);
   }
 
   void main () {
@@ -1311,7 +1330,7 @@ ${DENT_GLSL}
     float across;
     vec4 first;
     vec4 last;
-    if (u_rings.x > 0.0 && u_well.z > 0.0) {
+    if (u_rings.x > 0.0 && u_sheetWell.x > 0.0) {
       // Rings and spokes around the black hole in place of the square cells. A line the count leaves out
       // is put past the sheet's reach, where it is dropped below
       if (crosswise) {
@@ -1322,53 +1341,53 @@ ${DENT_GLSL}
         across = a_gridLine.x < 1.0 || a_gridLine.x > u_rings.x ? 2.0 * u_lines.y : 0.0;
         float kept = 1.0 - clamp(a_gridLine.x, 1.0, u_rings.x) / (u_rings.x + 1.0) / 2.3660254;
         float sunk = 1.0 - kept * kept;
-        float radius = u_well.z * 0.3849002 / (sunk * kept);
+        float radius = u_sheetWell.x * 0.3849002 / (sunk * kept);
         vec2 turn = 3.14159265 * a_gridLine.yz;
-        first = onScreen(radius * vec2(cos(turn.x), sin(turn.x)));
-        last = onScreen(radius * vec2(cos(turn.y), sin(turn.y)));
+        first = onSurface(radius * vec2(cos(turn.x), sin(turn.x)));
+        last = onSurface(radius * vec2(cos(turn.y), sin(turn.y)));
       } else {
-        // A line through the hole is two spokes; in 3D they turn with the camera, as the cells do
+        // A line through the hole is two spokes
         across = a_gridLine.x < 0.0 || a_gridLine.x >= u_rings.y ? 2.0 * u_lines.y : 0.0;
         float angle = 3.14159265 * a_gridLine.x / max(u_rings.y, 1.0);
         vec2 spoke = vec2(cos(angle), sin(angle));
-        if (u_spin.z > 0.0) spoke = vec2(u_spin.x * spoke.x - u_spin.y * spoke.y, u_spin.y * spoke.x + u_spin.x * spoke.y);
-        first = onScreen(spoke * along.x);
-        last = onScreen(spoke * along.y);
+        first = onSurface(spoke * along.x);
+        last = onSurface(spoke * along.y);
       }
-    } else if (u_spin.z > 0.0) {
-      // In 3D the lines are laid on the sheet turned by the camera's turn, around the point the camera
-      // looks at, and seen from where the camera stands; the wells are where the black holes are seen
-      vec2 wellOnSheet = vec2(u_spin.x * u_well.x + u_spin.y * u_well.y, u_spin.x * u_well.y - u_spin.y * u_well.x);
-      across = (a_gridLine.x - fract((crosswise ? wellOnSheet.y : wellOnSheet.x) / u_lines.x)) * u_lines.x;
-      vec2 pieceStart = crosswise ? vec2(along.x, across) : vec2(across, along.x);
-      vec2 pieceEnd = crosswise ? vec2(along.y, across) : vec2(across, along.y);
-      first = onScreen(vec2(u_spin.x * pieceStart.x - u_spin.y * pieceStart.y, u_spin.y * pieceStart.x + u_spin.x * pieceStart.y));
-      last = onScreen(vec2(u_spin.x * pieceEnd.x - u_spin.y * pieceEnd.y, u_spin.y * pieceEnd.x + u_spin.x * pieceEnd.y));
     } else {
-      // The lines stay where they are on the sheet while the black hole moves across it
-      across = (a_gridLine.x - fract((crosswise ? u_well.y : u_well.x) / u_lines.x)) * u_lines.x;
-      first = onScreen(crosswise ? vec2(along.x, across) : vec2(across, along.x));
-      last = onScreen(crosswise ? vec2(along.y, across) : vec2(across, along.y));
+      // The lines are counted from a place that stays put while the black hole moves across the sheet
+      across = (a_gridLine.x - fract(-(crosswise ? u_lines.w : u_lines.z) / u_lines.x)) * u_lines.x;
+      first = onSurface(crosswise ? vec2(along.x, across) : vec2(across, along.x));
+      last = onSurface(crosswise ? vec2(along.y, across) : vec2(across, along.y));
     }
 
     v_ends = vec2(0.0);
     v_across = 0.0;
     v_halfWidth = 0.0;
     v_alpha = 0.0;
-    if (abs(across) > u_lines.y || first.z < 0.0 || last.z < 0.0 || first.w + last.w <= 0.0) {
+    // What lies nearer than the camera's near plane is cut off where the piece crosses it, as a stroke of
+    // the field is
+    float near = u_sheetV.w;
+    if (abs(across) > u_lines.y || (first.z < near && last.z < near) || first.w + last.w <= 0.0) {
       gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
       return;
     }
+    if (first.z < near || last.z < near) {
+      vec4 cut = mix(first, last, (near - first.z) / (last.z - first.z));
+      if (first.z < near) first = cut;
+      else last = cut;
+    }
+    vec3 from = onFrame(first.xyz);
+    vec3 to = onFrame(last.xyz);
 
-    vec2 start = first.xy * u_pixelRatio;
-    vec2 delta = last.xy * u_pixelRatio - start;
+    vec2 start = from.xy * u_pixelRatio;
+    vec2 delta = to.xy * u_pixelRatio - start;
     float len = length(delta);
     vec2 direction = len > 0.0001 ? delta / len : vec2(1.0, 0.0);
     vec2 normal = vec2(-direction.y, direction.x);
 
     // Lines thinner than a pixel are drawn one pixel wide and dimmed by the area they would cover
     float end = a_position.x * 0.5 + 0.5;
-    float width = u_camera.w * u_pixelRatio * min(mix(first.z, last.z, end), u_sheet.y);
+    float width = u_sheet.x * u_pixelRatio * min(mix(from.z, to.z, end), u_sheet.y);
     float drawWidth = max(width, 1.0);
     float halfWidth = drawWidth * 0.5;
     float extent = halfWidth + 1.0;
@@ -1385,7 +1404,6 @@ ${DENT_GLSL}
     gl_Position = vec4(pixel.x / u_resolution.x * 2.0 - 1.0, 1.0 - pixel.y / u_resolution.y * 2.0, 0.0, 1.0);
   }
 `
-
 // Every length uniform here is in device pixels with a top-left origin
 export const gridFragmentShaderSource = `
   precision highp float;
@@ -1594,33 +1612,38 @@ ${DENT_GLSL}
   }
 `
 
-// Particles on Sheet: onScreen of the grid vertex shader said once more for what is laid on the sheet, the
-// particle field (field_step.ts) and the flows, so a change to how the sheet is placed, dented, turned or
-// rolled goes into both. Lengths are CSS pixels
-export const RIDE_GLSL = `  uniform vec4 u_ride;        // the share of the way a stroke is moved onto the sheet (0 = none), the turn and scale that take a place round the hole to the sheet (cosine, sine), the nearest the sheet is drawn
-  uniform vec4 u_sheetView;   // the point the sheet's camera looks at, its distance, device pixels in a CSS pixel
-  uniform vec4 u_sheetTilt;   // sine and cosine of the sheet's tilt, cosine and sine of a 3D camera's roll
-  uniform vec4 u_sheetWell;   // the main hole's well from that point (across, away), the radius it ends at, its depth
-  uniform vec4 u_sheetWell2;  // a second hole's well, placed from the first, the same way; depth 0 = none
-  uniform vec2 u_rideHole;    // the main black hole on the screen, device pixels
+// Particles on Sheet: the sheet's surface and pose (SHEET_GLSL), and how what is laid on it, the particle
+// field (field_step.ts) and the flows, stands there. A particle near the main hole's equator is dropped along
+// the way the plane faces onto the plane; its two coordinates there give the point of the surface it is
+// drawn at, seen through the sheet's pose. Only matter within a slab round the plane rides, the more the
+// nearer the plane. Places are in CSS pixels seen straight on at the black hole's distance
+export const RIDE_GLSL = `  uniform vec4 u_ride;        // the share of the way a particle is laid on the sheet (0 = none), the half thickness of the slab whose particles ride, the plane's units in a CSS pixel, how far the sheet is seen by the scene's own camera (0-1)
+${SHEET_GLSL}
+  // The share of the way a particle this high off the equator is laid on the sheet: all of it in the plane,
+  // none at the slab's edge
+  float rideShare (float height) {
+    return u_ride.x * (1.0 - smoothstep(0.0, u_ride.y, abs(height)));
+  }
 
-${DENT_GLSL}
-  // A place round the main black hole, seen straight on, in CSS pixels from the hole: where the sheet lies
-  // under it on the screen, in CSS pixels, and how much farther from the sheet's camera than the nearest
-  // the sheet is drawn (below 0: not drawn)
-  vec3 onSheet (vec2 fromHole) {
-    vec2 on = vec2(u_ride.y * fromHole.x - u_ride.z * fromHole.y, u_ride.z * fromHole.x + u_ride.y * fromHole.y);
-    float deep = u_sheetWell.w * dent(length(on), u_sheetWell.z);
-    if (u_sheetWell2.w > 0.0) deep += u_sheetWell2.w * dent(length(on - u_sheetWell2.xy), u_sheetWell2.z);
-    float placeY = on.y + u_sheetWell.y;
-    float behind = u_sheetView.z + deep * u_sheetTilt.y - placeY * u_sheetTilt.x;
-    float scale = u_sheetView.z / max(behind, 1.0);
-    vec2 point = vec2(on.x + u_sheetWell.x, placeY * u_sheetTilt.y + deep * u_sheetTilt.x) * scale;
-    point = vec2(u_sheetTilt.z * point.x + u_sheetTilt.w * point.y, u_sheetTilt.z * point.y - u_sheetTilt.w * point.x);
-    return vec3(u_sheetView.xy + point, behind - u_ride.w);
+  // The point of the surface over a place of the equator, given from the main hole, in the space of the
+  // sheet's camera
+  vec3 underneath (vec2 inPlane) {
+    vec2 at = inPlane * u_ride.z;
+    return sheetSeen(at, sheetDepth(at));
+  }
+
+  // A particle drawn "share" of the way from where it is seen (on the screen, and "away" from the camera,
+  // CSS pixels straight on) to the point of the surface "laid" (the sheet camera's space): the places are
+  // blended in the scene before they are seen. As far as the sheet is seen by the scene's own camera, the
+  // surface's point stands at its own distance; seen by a camera of its own, at the particle's, which blends
+  // the two on the screen
+  vec2 laidOn (vec2 screen, float away, vec3 laid, float share) {
+    float laidAway = mix(away, laid.z, u_ride.w);
+    float weight = laidAway * share;
+    float kept = away * (1.0 - share);
+    return (screen * kept + sheetScreen(laid) * weight) / (kept + weight);
   }
 `
-
 // A flow (flows.ts): every particle is placed from its own four numbers and the flow's clock, and its trail
 // is the stretch of the same path it has just come along, in pieces. Nothing about a particle is kept from
 // one frame to the next
@@ -1633,8 +1656,11 @@ export const flowVertexShaderSource = `
   uniform vec4 u_place;         // the black hole (device pixels), device pixels in a black hole radius, stroke width in device pixels
   uniform vec4 u_turnX;         // where the camera turns the flow's own x axis, and in 3D its focal length in device pixels (0 = flat, straight on)
   uniform vec4 u_turnY;         // where it turns the flow's y axis, and the black hole's distance in device pixels
-  uniform vec3 u_turnZ;         // where it turns the way the flow's plane faces
-  uniform float u_thick;        // the disc's half height as a share of the radius
+  uniform vec4 u_turnZ;         // where it turns the way the flow's plane faces, device pixels in a CSS pixel
+  uniform vec4 u_inPlaneU;      // Particles on Sheet: how far along the equator's first direction a step along each of the flow's own three goes, per device pixel; where its centre stands from the main hole that way, CSS pixels
+  uniform vec4 u_inPlaneV;      // the same along the equator's second direction
+  uniform vec4 u_inPlaneH;      // the same along the way the equator faces, its height off it
+  uniform float u_thick;      // the disc's half height as a share of the radius
   uniform vec4 u_path;          // the radii matter appears and leaves at, each to the power 1.5; the band's width as a share of the first; radians turned at one radius in a life
   uniform vec3 u_age;           // the flow's clock in lives: the share of the life now running, the whole lives before; the share of a life one piece of trail spans
   uniform vec4 u_light;         // colour, brightness
@@ -1656,7 +1682,7 @@ ${RIDE_GLSL}
   // camera draws it, and how far from the camera it lies as a share of the black hole's distance (1 in the
   // flat mode, which sees it straight on)
   vec3 seen (vec3 point) {
-    vec3 turned = u_turnX.xyz * point.x + u_turnY.xyz * point.y + u_turnZ * point.z;
+    vec3 turned = u_turnX.xyz * point.x + u_turnY.xyz * point.y + u_turnZ.xyz * point.z;
     float away = 1.0;
     vec2 at = turned.xy;
     if (u_turnX.w > 0.0) {
@@ -1723,22 +1749,33 @@ ${RIDE_GLSL}
     // A stroke that comes near the camera fades out and is gone before it would cross the whole frame
     vec3 placeOlder = placeAt(older, band, turn, lift);
     vec3 placeNewer = placeAt(newer, band, turn, lift);
-    vec2 planeOlder = placeOlder.xy;
-    vec2 planeNewer = placeNewer.xy;
     vec3 from = seen(placeOlder);
     vec3 to = seen(placeNewer);
     float nearest = min(from.z, to.z);
     if (u_ride.x > 0.0) {
-      // Particles on Sheet: the flow's plane is the sheet. A place of it is given from the main hole as the
-      // screen shows that hole, so in 3D a flow is as large on the sheet as the hole it turns round is seen
-      float size = u_turnX.w > 0.0 ? u_turnX.w / u_turnY.w : 1.0;
-      vec2 centre = u_place.xy - u_rideHole;
-      vec3 laidFrom = onSheet((centre + planeOlder * size) / u_sheetView.w);
-      vec3 laidTo = onSheet((centre + planeNewer * size) / u_sheetView.w);
-      if (min(laidFrom.z, laidTo.z) < 0.0) nearest = 0.0;
-      else nearest = mix(nearest, 1.0, u_ride.x);
-      from.xy = mix(from.xy, laidFrom.xy * u_sheetView.w, u_ride.x);
-      to.xy = mix(to.xy, laidTo.xy * u_sheetView.w, u_ride.x);
+      // Particles on Sheet: a particle of the flow is laid from its place in the scene, its tilt and its
+      // height in the disc with it, as one of the field is: dropped onto the equator, ridden by its height
+      vec3 olderIn = vec3(dot(u_inPlaneU.xyz, placeOlder), dot(u_inPlaneV.xyz, placeOlder), dot(u_inPlaneH.xyz, placeOlder)) +
+        vec3(u_inPlaneU.w, u_inPlaneV.w, u_inPlaneH.w);
+      vec3 newerIn = vec3(dot(u_inPlaneU.xyz, placeNewer), dot(u_inPlaneV.xyz, placeNewer), dot(u_inPlaneH.xyz, placeNewer)) +
+        vec3(u_inPlaneU.w, u_inPlaneV.w, u_inPlaneH.w);
+      float shareOlder = rideShare(olderIn.z);
+      float shareNewer = rideShare(newerIn.z);
+      if (shareOlder + shareNewer > 0.0) {
+        vec3 laidFrom = underneath(olderIn.xy);
+        vec3 laidTo = underneath(newerIn.xy);
+        if (min(laidFrom.z, laidTo.z) < u_sheetV.w) {
+          gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+          return;
+        }
+        // Distances from the camera in CSS pixels; the flat mode sees the flow straight on, at no depth
+        float holeAway = u_turnX.w > 0.0 ? u_turnY.w / u_turnZ.w : 1.0;
+        float fromAway = from.z * holeAway;
+        float toAway = to.z * holeAway;
+        from.xy = laidOn(from.xy / u_turnZ.w, fromAway, laidFrom, shareOlder) * u_turnZ.w;
+        to.xy = laidOn(to.xy / u_turnZ.w, toAway, laidTo, shareNewer) * u_turnZ.w;
+        nearest = min(mix(fromAway, mix(fromAway, laidFrom.z, u_ride.w), shareOlder), mix(toAway, mix(toAway, laidTo.z, u_ride.w), shareNewer)) / holeAway;
+      }
     }
     if (nearest <= NEAR_GONE) {
       gl_Position = vec4(2.0, 2.0, 2.0, 1.0);

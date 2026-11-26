@@ -7,6 +7,7 @@
 import { ATTRIBUTE_LOCATIONS, RIDE_GLSL, createProgram } from './webgl_shaders'
 import { RING_BINS } from './ring_energy'
 import { POSE_SLOTS, cameraPose } from './camera_pose'
+import { sendSheet } from './space_grid'
 import type { PaletteSampler, ParticleField, StepSettings } from './particle_simulation'
 import {
   COLOR_KEPT, FIELD_COLOR_OFFSET, FIELD_DEPOSIT_OFFSET, FIELD_FLOATS, FIELD_PALETTE, FIELD_SEGMENT_OFFSET, FIELD_STRIDE,
@@ -32,7 +33,7 @@ export interface FieldInput {
   palette: PaletteSampler
   spawnRadius: number
   speedVariance: number
-  // The step's numbers, the sheet as Particles on Sheet sees it among them
+  // The step's numbers, the sheet Particles on Sheet lays them on among them
   step: StepSettings
   // The photon ring's light from the field: radians its pattern has turned, the share of it a step keeps,
   // and whether it is to be put out first
@@ -86,11 +87,15 @@ export function createFieldFeedback (gl: WebGL2RenderingContext): FieldFeedback 
     paletteSize: uniform('u_paletteSize'),
     tick: uniform('u_tick'),
     ride: uniform('u_ride'),
-    sheetView: uniform('u_sheetView'),
-    sheetTilt: uniform('u_sheetTilt'),
+    equator: uniform('u_equator'),
+    sheetU: uniform('u_sheetU'),
+    sheetV: uniform('u_sheetV'),
+    sheetN: uniform('u_sheetN'),
+    sheetO: uniform('u_sheetO'),
     sheetWell: uniform('u_sheetWell'),
     sheetWell2: uniform('u_sheetWell2')
   }
+  const setUniform4 = gl.uniform4f.bind(gl)
   const depositPhase = gl.getUniformLocation(depositProgram, 'u_phase')
 
   // The two buffers a step reads and writes in turn, and for each the arrays a step and the ring's pass read
@@ -242,14 +247,14 @@ export function createFieldFeedback (gl: WebGL2RenderingContext): FieldFeedback 
       gl.uniform2f(stepUniforms.paletteSize, colors, input.palette.totalWeight)
     }
     gl.uniform1ui(stepUniforms.tick, (Math.imul(input.fieldSeed | 0, 0x9e3779b1) + input.fieldTick) >>> 0)
-    if (settings.ride > 0 && settings.sheetThroat > 0) {
-      gl.uniform4f(stepUniforms.ride, settings.ride, settings.rideCos, settings.rideSin, settings.sheetNear)
-      gl.uniform4f(stepUniforms.sheetView, settings.sheetViewX, settings.sheetViewY, settings.sheetDistance, 1)
-      gl.uniform4f(stepUniforms.sheetTilt, settings.sheetSin, settings.sheetCos, settings.sheetRollCos, settings.sheetRollSin)
-      gl.uniform4f(stepUniforms.sheetWell, settings.sheetWellX, settings.sheetWellZ, settings.sheetThroat, settings.sheetDepth)
-      gl.uniform4f(stepUniforms.sheetWell2, settings.sheetWell2X, settings.sheetWell2Z, settings.sheetThroat2, settings.sheetDepth2)
+    // Particles on Sheet: the surface, the pose it is seen through and the slab whose particles ride
+    const sheet = settings.sheet
+    if (settings.ride > 0) {
+      gl.uniform4f(stepUniforms.ride, settings.ride, Math.max(settings.rideDepth, 0.001), sheet.unit, sheet.shared)
+      gl.uniform3fv(stepUniforms.equator, sheet.equator)
+      sendSheet(setUniform4, stepUniforms, sheet)
     } else {
-      gl.uniform4f(stepUniforms.ride, 0, 1, 0, 0)
+      gl.uniform4f(stepUniforms.ride, 0, 1, 1, 0)
     }
 
     // The step reads one buffer and the feedback writes the other; nothing is drawn

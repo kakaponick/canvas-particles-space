@@ -425,7 +425,7 @@ function SettingsBody () {
           <SettingColor field="gridColor" />
         </div>
         <SettingsFine id="space-grid">
-          {/* The sheet (its lines, its camera, its edges, the wave, 3D), the lattice and the grid behind the lens */}
+          {/* The sheet (its lines, its flat camera, its edges, the wave, the slab its particles ride in), the lattice and the grid behind the lens */}
           <div className="flex flex-col gap-1">
             <SettingSlider field="gridSpokes" />
             <SettingSlider field="gridLine" />
@@ -437,8 +437,7 @@ function SettingsBody () {
             <SettingSlider field="gridClearing" />
             <SettingSlider field="gridClearingEdge" />
             <SettingSlider field="gridWaveLift" />
-            <SettingSlider field="gridTiltLimit" />
-            <SettingSlider field="gridTiltFade" />
+            <SettingSlider field="gridRideDepth" />
           </div>
           <div className="mt-3 flex flex-col gap-1">
             <SettingSlider field="gridLatticeLine" />

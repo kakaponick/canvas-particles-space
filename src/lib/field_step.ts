@@ -112,6 +112,7 @@ export const fieldStepVertexShaderSource = (ride: string) => `#version 300 es
   uniform vec4 u_palette[${FIELD_PALETTE}];  // a colour's bytes and the weight summed up to it
   uniform vec2 u_paletteSize;   // how many colours, their whole weight
   uniform uint u_tick;          // the step's own number, mixed with the scene's seed
+  uniform vec3 u_equator[3];    // Particles on Sheet in space: the main hole's equator, its two directions and the way it faces
 ${ride}
   out vec4 v_place;
   out vec4 v_drift;
@@ -151,12 +152,15 @@ ${STEP_DEFINES}
   vec3 horizonAt;
   float horizonRadius;
   // The stroke a particle that moved is to draw, which the step leaves for stroke(): its ends on the screen,
-  // its two places round the hole seen straight on (CSS pixels from the hole, for the sheet), how far to the
-  // far end of the field it is and the share of its opacity it is shown at, then its own move on the screen
-  // and its distance from the opening's blast, both in CSS pixels
+  // how far each is from the camera, its two places round the main hole in the hole's equator (along its two
+  // directions and the height off it, CSS pixels seen straight on, for the sheet), how far to the far end of
+  // the field it is and the share of its opacity it is shown at, then its own move on the screen and its
+  // distance from the opening's blast, both in CSS pixels
   bool moved;
   vec4 strokeEnds;
-  vec4 rideEnds;
+  vec2 strokeAway;
+  vec3 rideFrom;
+  vec3 rideTo;
   vec2 strokeLook;
   vec2 strokeMeasure;
 
@@ -228,12 +232,12 @@ ${STEP_DEFINES}
     return true;
   }
 
-  // The stroke of a particle that moved from "start" to "end" on the screen, "distanceFactor" of the way
-  // to the far end of the field. On the sheet it lies where the sheet does under the two places it has
-  // round the hole, seen straight on ("rideFrom", "rideTo", CSS pixels from the hole). "own" is how far the
-  // particle itself moved on the screen, whatever the camera did, and "fromBlast" its distance from the
-  // opening's blast, both in CSS pixels
-  void stroke (vec2 start, vec2 end, float distanceFactor, vec2 rideFrom, vec2 rideTo, float shown, float own, float fromBlast) {
+  // The stroke of a particle that moved from "start" to "end" on the screen, "away" from the camera at its
+  // two ends (CSS pixels seen straight on), "distanceFactor" of the way to the far end of the field. On the
+  // sheet it lies where the surface does over its two places in the main hole's equator ("inFrom", "inTo"),
+  // as far as it rides there. "own" is how far the particle itself moved on the screen, whatever the camera
+  // did, and "fromBlast" its distance from the opening's blast, both in CSS pixels
+  void stroke (vec2 start, vec2 end, vec2 away, float distanceFactor, vec3 inFrom, vec3 inTo, float shown, float own, float fromBlast) {
     float depthFactor = 1.0 - distanceFactor * s_depthFade;
     float lineWidth = max((1.0 - distanceFactor) * s_lineWidth, s_minLineWidth);
     float pulse = s_pulseIntensity != 0.0
@@ -248,14 +252,19 @@ ${STEP_DEFINES}
     }
     if (opacity <= 0.0) return;
 
+    // Particles on Sheet: only what flies in the slab round the equator rides, the more the nearer the plane
     if (u_ride.x > 0.0) {
-      vec3 laidFrom = onSheet(rideFrom);
-      vec3 laidTo = onSheet(rideTo);
-      if (min(laidFrom.z, laidTo.z) < 0.0) return;
-      start += (laidFrom.xy - start) * u_ride.x;
-      end += (laidTo.xy - end) * u_ride.x;
-      // Both ends of a ridden stroke are seen through the sheet as it lies now, so its length is the move
-      own = mix(own, length(laidTo.xy - laidFrom.xy), u_ride.x);
+      float shareFrom = rideShare(inFrom.z);
+      float shareTo = rideShare(inTo.z);
+      if (shareFrom + shareTo > 0.0) {
+        vec3 laidFrom = underneath(inFrom.xy);
+        vec3 laidTo = underneath(inTo.xy);
+        if (min(laidFrom.z, laidTo.z) < u_sheetV.w) return;
+        start = laidOn(start, away.x, laidFrom, shareFrom);
+        end = laidOn(end, away.y, laidTo, shareTo);
+        // Both ends of a ridden stroke are seen through the sheet as it lies now, so its length is the move
+        own = mix(own, length(sheetScreen(laidTo) - sheetScreen(laidFrom)), 0.5 * (shareFrom + shareTo));
+      }
     }
 
     // Brightness is set by the particle's own speed: the strokes are stamped with the brighter-of-two
@@ -390,7 +399,14 @@ ${STEP_DEFINES}
     // A particle that did not move draws nothing
     moved = end != start;
     strokeEnds = vec4(start, end);
-    rideEnds = vec4(start - hole, end - hole);
+    // The flat mode sees the field straight on and its sheet through a camera of its own, so a stroke is
+    // laid on the sheet as it is seen: its place on the screen round the hole, and its height off the
+    // hole's depth in pixels there
+    if (u_ride.x > 0.0) {
+      float heightScale = s_focal / max(s_holeDepth, 1.0);
+      rideFrom = vec3(start - hole, (startZ - s_holeDepth) * heightScale);
+      rideTo = vec3(end - hole, (pz - s_holeDepth) * heightScale);
+    }
     strokeLook = vec2(pz / s_farZ, 1.0);
     strokeMeasure = vec2(length(end - start), length(end - vec2(s_revealX, s_revealY)));
   }
@@ -526,10 +542,16 @@ ${STEP_DEFINES}
       if (toEnd < 1.0) shown = 1.0 - endWeight * (1.0 - max(toEnd, 0.0));
     }
     // Width and the fade with distance follow the distance from the camera. On the sheet the particle
-    // stands round the hole where it is across the line of flight, in pixels at the hole's distance
+    // stands where its place falls on the main hole's equator, in pixels at the hole's distance
     moved = true;
     strokeEnds = vec4(start, end);
-    rideEnds = vec4(was.xy - hole.xy, at.xy - hole.xy) / worldPerPixel;
+    strokeAway = vec2(seenFrom.z, seenTo.z) / worldPerPixel;
+    if (u_ride.x > 0.0) {
+      vec3 fromHole = (was - hole) / worldPerPixel;
+      vec3 toHole = (at - hole) / worldPerPixel;
+      rideFrom = vec3(dot(u_equator[0], fromHole), dot(u_equator[1], fromHole), dot(u_equator[2], fromHole));
+      rideTo = vec3(dot(u_equator[0], toHole), dot(u_equator[1], toHole), dot(u_equator[2], toHole));
+    }
     strokeLook = vec2(min(seenTo.z / s_farZ, 1.0), shown);
     // The opening reveals the field by the true distance from the blast, which happened at the hole's depth
     // where the flat view shows it, in CSS pixels at that depth
@@ -546,6 +568,9 @@ ${STEP_DEFINES}
     deposit = vec3(0.0);
     reborn = 0;
     moved = false;
+    strokeAway = vec2(1.0);
+    rideFrom = vec3(0.0);
+    rideTo = vec3(0.0);
     horizonAt = vec3(0.0);
     horizonRadius = 0.0;
     seed = (uint(gl_VertexID) * 2654435761u) ^ (u_tick * 2246822519u + 3266489917u);
@@ -556,7 +581,7 @@ ${STEP_DEFINES}
     // Each of the two is called in this one place: a card's compiler writes a function out again wherever
     // it is called, and the page waits for it
     if (reborn > 0) rebirth();
-    else if (moved) stroke(strokeEnds.xy, strokeEnds.zw, strokeLook.x, rideEnds.xy, rideEnds.zw, strokeLook.y, strokeMeasure.x, strokeMeasure.y);
+    else if (moved) stroke(strokeEnds.xy, strokeEnds.zw, strokeAway, strokeLook.x, rideFrom, rideTo, strokeLook.y, strokeMeasure.x, strokeMeasure.y);
 
     v_place = place;
     v_drift = drift;

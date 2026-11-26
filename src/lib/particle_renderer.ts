@@ -21,7 +21,7 @@ import { MAX_ORBITERS, STRETCH_FLOATS, STRETCH_SECONDS } from './orbiters'
 import type { TitleSprite } from './title_sprite'
 import { RING_BINS } from './ring_energy'
 import { SHADOW_SAMPLES, type ShadowShape } from './kerr_shadow'
-import { GRID_INSTANCE_COUNT, GRID_INSTANCE_FLOATS, GRID_LINES_PER_SIDE, createGridInstances, type GridSettings } from './space_grid'
+import { GRID_INSTANCE_COUNT, GRID_INSTANCE_FLOATS, GRID_LINES_PER_SIDE, createGridInstances, sendSheet, type GridSettings } from './space_grid'
 import { LATTICE_INSTANCE_COUNT, LATTICE_INSTANCE_FLOATS, createLatticeInstances, type LatticeSettings } from './space_lattice'
 import { FLOW_CAPACITY, FLOW_CORNER_FLOATS, FLOW_SEED_FLOATS, FLOW_VERTEX_COUNT, createFlowCorners, createFlowSeeds, type FlowSettings } from './flows'
 
@@ -590,7 +590,8 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     'cameraZoom', 'zoomCenter', 'layerZoom', 'shake', 'lensFringe', 'vignette', 'filmGrain', 'letterbox'
   ] as const)
   const gridUniforms = getUniforms(gl, gridProgram, [
-    'resolution', 'pixelRatio', 'view', 'camera', 'well', 'lines', 'wave', 'waveSpread', 'waveTurn', 'lens', 'jolt', 'color', 'shadow', 'frame', 'well2', 'pairWave', 'pairAt', 'pairFront', 'shadow2', 'spin', 'roll', 'sheet', 'clearing', 'rings'
+    'resolution', 'pixelRatio', 'sheetU', 'sheetV', 'sheetN', 'sheetO', 'sheetWell', 'sheetWell2', 'lines', 'wave', 'waveSpread', 'waveTurn', 'lens', 'jolt', 'color',
+    'shadow', 'frame', 'pairWave', 'pairAt', 'pairFront', 'shadow2', 'sheet', 'clearing', 'rings'
   ] as const)
 
   const latticeUniforms = getUniforms(gl, latticeProgram, [
@@ -598,8 +599,10 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   ] as const)
 
   const flowUniforms = getUniforms(gl, flowProgram, [
-    'resolution', 'zoom', 'place', 'turnX', 'turnY', 'turnZ', 'thick', 'path', 'age', 'light', 'ride', 'sheetView', 'sheetTilt', 'sheetWell', 'sheetWell2', 'rideHole'
+    'resolution', 'zoom', 'place', 'turnX', 'turnY', 'turnZ', 'thick', 'path', 'age', 'light', 'ride', 'sheetU', 'sheetV', 'sheetN', 'sheetO', 'sheetWell', 'sheetWell2', 'inPlaneU', 'inPlaneV', 'inPlaneH'
   ] as const)
+  // The sheet's surface and pose go to the grid and flow programs through the same setter
+  const setSheetUniform = (uniform: CachedUniform, x: number, y: number, z: number, w: number) => setUniform4f(gl, uniform, x, y, z, w)
 
   gl.useProgram(compositeProgram)
   gl.uniform1i(gl.getUniformLocation(compositeProgram, 'u_image'), SCENE_TEXTURE_UNIT)
@@ -953,15 +956,12 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     setUniform4f(gl, u.zoom, layerZoomX * ratio, layerZoomY * ratio, layerZoom, 0)
     // Particles on Sheet lays the flows on the sheet the particles were stepped with
     const step = frame.step
-    if (step.ride > 0) {
-      setUniform4f(gl, u.ride, step.ride, step.rideCos, step.rideSin, step.sheetNear)
-      setUniform4f(gl, u.sheetView, step.sheetViewX, step.sheetViewY, step.sheetDistance, ratio)
-      setUniform4f(gl, u.sheetTilt, step.sheetSin, step.sheetCos, step.sheetRollCos, step.sheetRollSin)
-      setUniform4f(gl, u.sheetWell, step.sheetWellX, step.sheetWellZ, step.sheetThroat, step.sheetDepth)
-      setUniform4f(gl, u.sheetWell2, step.sheetWell2X, step.sheetWell2Z, step.sheetThroat2, step.sheetDepth2)
-      setUniform2f(gl, u.rideHole, step.holeX * ratio, step.holeY * ratio)
+    const riding = step.ride > 0
+    if (riding) {
+      setUniform4f(gl, u.ride, step.ride, Math.max(step.rideDepth, 0.001), step.sheet.unit, step.sheet.shared)
+      sendSheet(setSheetUniform, u, step.sheet)
     } else {
-      setUniform4f(gl, u.ride, 0, 1, 0, 0)
+      setUniform4f(gl, u.ride, 0, 1, 1, 0)
     }
     gl.bindBuffer(gl.ARRAY_BUFFER, flowSeedBuffer)
     gl.enableVertexAttribArray(ATTRIBUTE_LOCATIONS.flowCorner)
@@ -977,7 +977,14 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
       const turn = flow.turn
       setUniform4f(gl, u.turnX, turn[0], turn[1], turn[2], frame.orbitFocal * ratio)
       setUniform4f(gl, u.turnY, turn[3], turn[4], turn[5], frame.orbitFocal > 0 ? flow.depth * ratio : 1)
-      setUniform3f(gl, u.turnZ, turn[6], turn[7], turn[8])
+      setUniform4f(gl, u.turnZ, turn[6], turn[7], turn[8], ratio)
+      if (riding) {
+        // Where its own places fall in the equator: a device pixel of the flow is a CSS pixel over the ratio
+        const plane = flow.plane
+        setUniform4f(gl, u.inPlaneU, plane[0] / ratio, plane[1] / ratio, plane[2] / ratio, plane[3])
+        setUniform4f(gl, u.inPlaneV, plane[4] / ratio, plane[5] / ratio, plane[6] / ratio, plane[7])
+        setUniform4f(gl, u.inPlaneH, plane[8] / ratio, plane[9] / ratio, plane[10] / ratio, plane[11])
+      }
       setUniform1f(gl, u.thick, flow.thick)
       setUniform4f(gl, u.path, flow.from, flow.to, flow.spread, flow.wound)
       setUniform3f(gl, u.age, flow.phase, flow.lives, flow.piece)
@@ -1186,19 +1193,15 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     gl.drawArrays(gl.TRIANGLES, 0, QUAD_VERTEX_COUNT)
   }
 
-  // The sheet is a diagram laid over the frame: it follows the scene camera's zoom and shake and the
-  // letterbox, ripples with the gravitational wave and stops at the black hole's shadow
+  // The sheet is drawn over the frame, seen through its pose: it follows the scene camera's zoom and shake
+  // and the letterbox, ripples with the gravitational wave and stops at the black hole's shadow
   function drawGrid (grid: GridSettings, settings: CompositeSettings) {
     const u = gridUniforms
     const zoom = Math.max(settings.cameraZoom, 0.05)
     gl.useProgram(gridProgram)
-    setUniform2f(gl, u.view, grid.viewX, grid.viewY)
-    setUniform4f(gl, u.camera, grid.distance, grid.tiltSin, grid.tiltCos, grid.lineWidth)
-    setUniform4f(gl, u.well, grid.wellX, grid.wellZ, grid.throat, grid.depth)
-    setUniform4f(gl, u.spin, grid.spinCos, grid.spinSin, grid.spun, 0)
-    setUniform3f(gl, u.roll, grid.rollCos, grid.rollSin, grid.rolled)
-    setUniform2f(gl, u.lines, Math.max(grid.cell, 1), Math.max(grid.span, 1))
-    setUniform4f(gl, u.sheet, grid.near, grid.lineScale, grid.fadeFrom, 0)
+    sendSheet(setSheetUniform, u, grid)
+    setUniform4f(gl, u.lines, Math.max(grid.cell, 1), Math.max(grid.span, 1), grid.anchorX, grid.anchorY)
+    setUniform4f(gl, u.sheet, grid.lineWidth, grid.lineScale, grid.fadeFrom, 0)
     // A spoke is half of a line through the hole
     setUniform2f(gl, u.rings, Math.min(Math.floor(grid.rings), GRID_LINES_PER_SIDE), Math.min(Math.floor(grid.spokes / 2), GRID_LINES_PER_SIDE))
     // Whole no nearer than gone
@@ -1207,16 +1210,15 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
       setUniform4f(gl, u.wave, settings.gravityWaveAmplitude * grid.waveLift, settings.gravityWaveTime,
         2 * Math.PI * settings.gravityWaveFrequency, 1 / Math.max(settings.gravityWaveDecay, 0.001))
       setUniform2f(gl, u.waveSpread, Math.max(settings.gravityWaveRadius, 1), Math.max(settings.gravityWaveSpeed, 1))
-      // The sheet looks at the scene from the other side of the screen's plane, so the oval turns the other way
+      // The sheet's waves count their angles the other way round, so the oval turns the other way
       setUniform4f(gl, u.waveTurn, Math.cos(2 * grid.ringPhase), Math.sin(2 * grid.ringPhase), -settings.gravityWaveSpin, 0)
     } else {
       setUniform4f(gl, u.wave, 0, 0, 0, 0)
     }
-    setUniform4f(gl, u.well2, grid.well2X, grid.well2Z, grid.throat2, grid.depth2)
-    // The sheet looks at the pair from the other side of the screen's plane, so its wave turns the other way
+    // The sheet's waves count their angles the other way round, so the pair's turns the other way
     if (settings.pairWave > 0 && grid.throat2 > 0) {
       setUniform4f(gl, u.pairWave, settings.pairWave * grid.waveLift, grid.pairPhase, -settings.pairPitch, Math.max(settings.gravityWaveRadius, 1))
-      setUniform2f(gl, u.pairAt, grid.pairX, grid.pairZ)
+      setUniform2f(gl, u.pairAt, grid.pairX, grid.pairY)
       setUniform4f(gl, u.pairFront, settings.pairFront, Math.max(settings.gravityWaveSpeed, 1), Math.max(settings.pairFrontSoft, 0.001), 0)
     } else {
       setUniform4f(gl, u.pairWave, 0, 0, 0, 1)
