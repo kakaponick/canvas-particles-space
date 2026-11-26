@@ -158,16 +158,17 @@ export const particleVertexShaderSource = `
 // all of them are drawn anew each frame, at the camera's zoom and around the black hole as it is now
 export const orbitVertexShaderSource = `
   attribute vec2 a_position;  // quad corner: x picks the end of the stretch, y the side
-  attribute vec4 a_segment;   // its start and end, in Schwarzschild radii from the black hole
-  attribute vec2 a_style;     // how far the traces had dimmed when it was last flown, its brightness then
+  attribute vec4 a_from;      // its start in the scene, in Schwarzschild radii from the black hole, and how far the traces had dimmed when it was last flown
+  attribute vec4 a_to;        // its end, and its brightness then
   attribute vec4 a_color;     // rgb as normalized bytes
 
   uniform vec2 u_resolution;  // drawing buffer size in device pixels
   uniform vec4 u_zoom;        // the camera: the point its zoom leaves in place (device pixels), the zoom
   uniform vec4 u_orbit;       // the black hole (device pixels), device pixels in a Schwarzschild radius, line width in device pixels
   uniform float u_dimmed;     // brightness every trace has lost since the traces began
-  uniform vec4 u_turnX;       // 3D: where the camera turns the orbits' x axis, and its focal length in device pixels (0 = flat)
-  uniform vec4 u_turnY;       // where it turns their y axis, and the black hole's distance in device pixels (below 0: behind the camera, not drawn)
+  uniform vec4 u_turnX;       // 3D: where the camera turns the scene's x axis, and its focal length in device pixels (0 = flat)
+  uniform vec4 u_turnY;       // where it turns the scene's y axis, and the black hole's distance in device pixels (below 0: behind the camera, not drawn)
+  uniform vec3 u_turnZ;       // where it turns the scene's z axis
 
   varying vec2 v_ends;
   varying float v_across;
@@ -177,8 +178,8 @@ export const orbitVertexShaderSource = `
   const float PI = 3.14159265359;
 
   // A point of an orbit, in device pixels from the black hole, as the 3D camera sees it
-  vec2 seenOrbit (vec2 point) {
-    vec3 turned = u_turnX.xyz * point.x + u_turnY.xyz * point.y;
+  vec2 seenOrbit (vec3 point) {
+    vec3 turned = u_turnX.xyz * point.x + u_turnY.xyz * point.y + u_turnZ * point.z;
     return turned.xy * u_turnX.w / max(u_turnY.w + turned.z, 1.0);
   }
 
@@ -188,7 +189,7 @@ export const orbitVertexShaderSource = `
     v_halfWidth = 0.0;
     v_color = vec4(0.0);
     // A trace loses brightness evenly, so every one of them reaches black
-    float brightness = a_style.y - (u_dimmed - a_style.x);
+    float brightness = a_to.w - (u_dimmed - a_from.w);
     if (brightness <= 0.0) {
       gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
       return;
@@ -201,12 +202,13 @@ export const orbitVertexShaderSource = `
       return;
     }
     if (u_turnX.w > 0.0) {
-      vec2 first = seenOrbit(a_segment.xy * u_orbit.z);
+      vec2 first = seenOrbit(a_from.xyz * u_orbit.z);
       start = u_zoom.xy + (u_orbit.xy + first - u_zoom.xy) * u_zoom.z;
-      delta = (seenOrbit(a_segment.zw * u_orbit.z) - first) * u_zoom.z;
+      delta = (seenOrbit(a_to.xyz * u_orbit.z) - first) * u_zoom.z;
     } else {
-      start = u_zoom.xy + (u_orbit.xy + a_segment.xy * u_orbit.z - u_zoom.xy) * u_zoom.z;
-      delta = (a_segment.zw - a_segment.xy) * u_orbit.z * u_zoom.z;
+      // Flat, the orbits are seen straight on, down the scene's z
+      start = u_zoom.xy + (u_orbit.xy + a_from.xy * u_orbit.z - u_zoom.xy) * u_zoom.z;
+      delta = (a_to.xy - a_from.xy) * u_orbit.z * u_zoom.z;
     }
     float len = length(delta);
     vec2 direction = len > 0.0001 ? delta / len : vec2(1.0, 0.0);

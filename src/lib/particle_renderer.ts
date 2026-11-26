@@ -15,10 +15,9 @@ import {
   latticeVertexShaderSource,
   flowVertexShaderSource
 } from './webgl_shaders'
-import { INSTANCE_FLOATS } from './particle_simulation'
 import { RING_LIGHT_TEXTURE_UNIT, createFieldFeedback, type FieldFeedback, type FieldInput } from './field_feedback'
 import type { SceneColor } from './scene_color'
-import { MAX_ORBITERS, STRETCH_SECONDS } from './orbiters'
+import { MAX_ORBITERS, STRETCH_FLOATS, STRETCH_SECONDS } from './orbiters'
 import type { TitleSprite } from './title_sprite'
 import { RING_BINS } from './ring_energy'
 import { SHADOW_SAMPLES, type ShadowShape } from './kerr_shadow'
@@ -26,7 +25,7 @@ import { GRID_INSTANCE_COUNT, GRID_INSTANCE_FLOATS, GRID_LINES_PER_SIDE, createG
 import { LATTICE_INSTANCE_COUNT, LATTICE_INSTANCE_FLOATS, createLatticeInstances, type LatticeSettings } from './space_lattice'
 import { FLOW_CAPACITY, FLOW_CORNER_FLOATS, FLOW_SEED_FLOATS, FLOW_VERTEX_COUNT, createFlowCorners, createFlowSeeds, type FlowSettings } from './flows'
 
-const INSTANCE_STRIDE = INSTANCE_FLOATS * 4
+const STRETCH_STRIDE = STRETCH_FLOATS * 4
 const INSTANCED_ATTRIBUTES = [ATTRIBUTE_LOCATIONS.segment, ATTRIBUTE_LOCATIONS.style, ATTRIBUTE_LOCATIONS.color]
 
 const SCENE_TEXTURE_UNIT = 0
@@ -377,8 +376,9 @@ export interface FrameInput extends FieldInput {
   // False draws into the scene only and shows nothing: a film's extra step between two of its frames
   present: boolean
   fadeAlpha: number
-  // Stars in orbit: `orbitRow` holds the stretch each of the `orbitCount` stars is flying, in
-  // Schwarzschild radii from the black hole. The renderer keeps the stretches and draws the traces from them
+  // Stars in orbit: `orbitRow` holds the stretch each of the `orbitCount` stars is flying, in the scene's
+  // three coordinates, in Schwarzschild radii from the black hole. The renderer keeps the stretches and
+  // draws the traces from them
   orbitCount: number
   orbitRow: Float32Array
   // True when the row is a new one, kept beside the earlier rows; false when it redraws the last row
@@ -529,10 +529,11 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     a_style: ATTRIBUTE_LOCATIONS.style,
     a_color: ATTRIBUTE_LOCATIONS.color
   })
+  // A trace's start and end take the places of a stroke's segment and style
   const orbitProgram = createProgram(gl, orbitVertexShaderSource, particleFragmentShaderSource, {
     ...position,
-    a_segment: ATTRIBUTE_LOCATIONS.segment,
-    a_style: ATTRIBUTE_LOCATIONS.style,
+    a_from: ATTRIBUTE_LOCATIONS.segment,
+    a_to: ATTRIBUTE_LOCATIONS.style,
     a_color: ATTRIBUTE_LOCATIONS.color
   })
   const compositeProgram = createProgram(gl, compositeVertexShaderSource, compositeFragmentShaderSource, position)
@@ -569,7 +570,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
 
   const fadeUniforms = getUniforms(gl, fadeProgram, ['color'] as const)
   const particleUniforms = getUniforms(gl, particleProgram, ['resolution', 'pixelRatio', 'center', 'flight', 'doppler', 'tintAhead', 'tintEdge', 'tint', 'zoom', 'zoomFrom'] as const)
-  const orbitUniforms = getUniforms(gl, orbitProgram, ['resolution', 'zoom', 'orbit', 'dimmed', 'turnX', 'turnY'] as const)
+  const orbitUniforms = getUniforms(gl, orbitProgram, ['resolution', 'zoom', 'orbit', 'dimmed', 'turnX', 'turnY', 'turnZ'] as const)
   const compositeUniforms = getUniforms(gl, compositeProgram, [
     'resolution', 'pixelRatio', 'time', 'hole', 'horizon', 'einstein', 'falloff', 'falloffPivot', 'lensCore', 'maxBend', 'lensReach', 'twistLimit', 'swirl', 'absorption', 'trace', 'spin', 'ring',
     'ringWidth', 'ringGlow', 'ringDoppler', 'ringSide', 'ringPhase', 'ringField', 'ringBase', 'ringFeed', 'ringLine', 'ringGlowShape', 'ringColor', 'ringApproaching', 'ringReceding',
@@ -616,11 +617,12 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
 
   // A stroke is read one record an instance: the field's from the buffer its step wrote (field_feedback.ts),
   // an orbit's trace from the ring of rows. Points the three attributes at the trace `offset` bytes into
-  // the trace buffer, which must be bound
-  function pointInstances (offset: number) {
-    gl.vertexAttribPointer(ATTRIBUTE_LOCATIONS.segment, 4, gl.FLOAT, false, INSTANCE_STRIDE, offset)
-    gl.vertexAttribPointer(ATTRIBUTE_LOCATIONS.style, 2, gl.FLOAT, false, INSTANCE_STRIDE, offset + 16)
-    gl.vertexAttribPointer(ATTRIBUTE_LOCATIONS.color, 4, gl.UNSIGNED_BYTE, true, INSTANCE_STRIDE, offset + 24)
+  // the trace buffer, which must be bound: its start in the scene and the dimming, its end and brightness,
+  // its colour
+  function pointTraces (offset: number) {
+    gl.vertexAttribPointer(ATTRIBUTE_LOCATIONS.segment, 4, gl.FLOAT, false, STRETCH_STRIDE, offset)
+    gl.vertexAttribPointer(ATTRIBUTE_LOCATIONS.style, 4, gl.FLOAT, false, STRETCH_STRIDE, offset + 16)
+    gl.vertexAttribPointer(ATTRIBUTE_LOCATIONS.color, 4, gl.UNSIGNED_BYTE, true, STRETCH_STRIDE, offset + 32)
   }
   for (const location of INSTANCED_ATTRIBUTES) gl.vertexAttribDivisor(location, 1)
 
@@ -843,9 +845,9 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     gl.bindBuffer(gl.ARRAY_BUFFER, traceBuffer)
     if (!traceSized) {
       traceSized = true
-      gl.bufferData(gl.ARRAY_BUFFER, TRACE_CAPACITY * INSTANCE_STRIDE, gl.DYNAMIC_DRAW)
+      gl.bufferData(gl.ARRAY_BUFFER, TRACE_CAPACITY * STRETCH_STRIDE, gl.DYNAMIC_DRAW)
     }
-    gl.bufferSubData(gl.ARRAY_BUFFER, rowStart[newest] * INSTANCE_STRIDE, frame.orbitRow, 0, count * INSTANCE_FLOATS)
+    gl.bufferSubData(gl.ARRAY_BUFFER, rowStart[newest] * STRETCH_STRIDE, frame.orbitRow, 0, count * STRETCH_FLOATS)
 
     // Rows that have gone dark are let go, oldest first
     while (rowCount > 1 && frame.orbitDimmed - rowFlown[oldestRow] > 1) {
@@ -880,6 +882,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     const turn = frame.orbitTurn
     setUniform4f(gl, orbitUniforms.turnX, turn[0], turn[1], turn[2], frame.orbitFocal * ratio)
     setUniform4f(gl, orbitUniforms.turnY, turn[3], turn[4], turn[5], frame.orbitDepth * ratio)
+    setUniform3f(gl, orbitUniforms.turnZ, turn[6], turn[7], turn[8])
 
     // The kept rows lie in one run of the ring, or in two when they pass its end
     const newest = (oldestRow + rowCount - 1) % TRACE_ROWS
@@ -887,12 +890,12 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     const to = rowStart[newest] + rowSize[newest]
     gl.bindBuffer(gl.ARRAY_BUFFER, traceBuffer)
     if (from < to) {
-      pointInstances(from * INSTANCE_STRIDE)
+      pointTraces(from * STRETCH_STRIDE)
       stampSegments(to - from)
     } else {
-      pointInstances(from * INSTANCE_STRIDE)
+      pointTraces(from * STRETCH_STRIDE)
       stampSegments(TRACE_CAPACITY - from)
-      pointInstances(0)
+      pointTraces(0)
       stampSegments(to)
     }
     gl.bindBuffer(gl.ARRAY_BUFFER, null)

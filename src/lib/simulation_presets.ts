@@ -25,7 +25,7 @@ export const SIMULATION_SETTING_KEYS = [
   'gridDistance', 'gridSpan', 'gridFade', 'gridWaveLift', 'gridLine', 'gridLineNear', 'gridNear', 'gridClearing', 'gridClearingEdge', 'gridTiltLimit', 'gridTiltFade', 'gridSkyLine', 'gridSkyHaze', 'gridSkyHazeSpan',
   'gridLatticeLine', 'gridLatticeGain', 'gridLatticeReach', 'gridLatticeFade', 'gridLatticeNear', 'gridLatticeFar', 'gridLatticeNearEdge', 'gridLatticeUnit',
   'orbitCount', 'orbitSize', 'orbitEccentricity', 'orbitSpeed', 'orbitTrail', 'orbitStarSize',
-  'orbitDrag', 'orbitSizeSpread', 'orbitEccentricitySpread', 'orbitClosest', 'orbitEscape', 'orbitFadeIn',
+  'orbitDrag', 'orbitSizeSpread', 'orbitEccentricitySpread', 'orbitInclination', 'orbitClosest', 'orbitEscape', 'orbitFadeIn',
   ...FLOW_SETTING_KEYS,
   'colorPalette', 'backgroundR', 'backgroundG', 'backgroundB'
 ] as const satisfies readonly (keyof ParticleState)[]

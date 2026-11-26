@@ -292,8 +292,8 @@ The lens bends the finished picture (particles, stars, grids), not the particles
 
 ## 7. Orbiting stars
 
-Up to 64 stars with real velocity in the plane of the screen: ellipses that precess, faster the closer they
-come, as around a real black hole.
+Up to 64 stars with real velocity in space, each on a plane of its own near the hole's equator: ellipses
+that precess, faster the closer they come, as around a real black hole.
 
 | What | Keys |
 |---|---|
@@ -302,22 +302,36 @@ come, as around a real black hole.
 | Rate of their time; the sign is the direction | `orbitSpeed` |
 | How long a trace stays lit, and its width | `orbitTrail`, `orbitStarSize` |
 | How much the orbits differ from the size and the stretch set | `orbitSizeSpread`, `orbitEccentricitySpread` |
+| The widest an orbit's plane is tipped out of the hole's equator, in degrees | `orbitInclination` |
 | The closest a new orbit comes, and how far out a star counts as gone, in Schwarzschild radii | `orbitClosest`, `orbitEscape` |
 | How hard the spin swings the orbits, × what the spin itself gives | `orbitDrag` |
 | Seconds a new star takes to light up | `orbitFadeIn` |
 
-- Changing `orbitSize`, `orbitEccentricity`, `orbitSizeSpread`, `orbitEccentricitySpread` or `orbitClosest`
-  makes every orbit anew, so do not glide them along a track: set them at the start, or step them with the
-  hold ease.
+- Changing `orbitSize`, `orbitEccentricity`, `orbitSizeSpread`, `orbitEccentricitySpread`, `orbitInclination`
+  or `orbitClosest` makes every orbit anew, so do not glide them along a track: set them at the start, or
+  step them with the hold ease.
+- A star is born in the equator (the plane across the line of flight while the hole does not spin, in the
+  flat mode always; in 3D the plane facing the swirl's axis, which `orbitalSpinFollow` turns toward the
+  spin's) and tipped out of it by up to `orbitInclination` degrees about a direction of its own. 0 is a
+  flat disc of rosettes, seen edge-on from the side (`cameraYaw` 90 with a still hole); 90 a ball of
+  orbits at every angle. The flat mode sees them straight on, so a tipped orbit there is only a narrower
+  ellipse. The default, 20, was set with no picture to judge it by.
+- After its birth a star is moved by its motion alone: an equator that turns later moves no orbit, and a
+  spin axis that turns later precesses the orbits about where it now stands.
 - Both spreads at 0 put every star on the same ellipse, turned differently: a clean rosette. `orbitSizeSpread`
   at its top scatters them from the shadow's edge to twice `orbitSize`.
 - `orbitClosest` and `orbitEscape` are in Schwarzschild radii, the unit of the orbits' own physics (the
   shadow is 2.6 of them), so they still follow `blackHoleSize`. Below 3 no orbit lasts: a low `orbitClosest`
   with a high `orbitEccentricity` feeds stars to the ring, a high one keeps them all clear. A low
   `orbitEscape` replaces a flung star while it is still in the frame.
-- `orbitDrag` is the stars' own multiple of the spin's pull round and leaves `frameDrag`, the particles',
-  alone. It needs `blackHoleSpin` and `spinTilt` away from 90°; raised, the rosettes turn faster and the
-  closest stars are thrown in or out.
+- `orbitDrag` is the stars' own multiple of the spin's field (Lense-Thirring) and leaves `frameDrag`, the
+  particles', alone. The spin acts about its axis as it stands in the scene, at any `spinTilt`: a tipped
+  orbit's plane turns about that axis the way the particles are carried round, 2 J / r^3 radians per unit
+  of the orbits' time with J = spin / 4 (about a fiftieth of a turn per turn at 10 Schwarzschild radii,
+  the hole's fastest spin, `orbitDrag` 1), its tilt to the axis held; within the plane the orbit turns
+  too, and a star moving with the hole's turn is pushed out, one against it pulled in. Raised, the planes
+  and the rosettes turn faster and the closest stars are thrown in or out: at 10, stars about 10
+  Schwarzschild radii out on orbits against the hole's turn fall in within a few turns.
 - `orbitCount` along a track wants the hold ease too: stars arrive in whole numbers.
 - A long `orbitTrail` over several turns draws the rosette of the precession. The traces are lines kept
   around the hole, so they follow it, grow with `blackHoleSize` and stay sharp at any zoom.
@@ -840,6 +854,10 @@ The cost of a knob, in the last column:
 |---|---|---|
 | The speed of light, 1.2 short sides a second, and how the orbits precess | orbiters.ts | has one: `orbitSpeed` is the rate of their time |
 | At most 64 stars, and traces of 60 s at most | orbiters.ts, particle_renderer.ts | machine |
+| The spin's field on the stars: that of a spinning mass, J = spin / 4, turning a plane at 2 J / r^3 | orbiters.ts | has one: `orbitDrag` |
+| The spin's field is held at its strength at the Schwarzschild radius for a star that passes inside it | orbiters.ts | machine |
+| A star's tilt is drawn evenly between 0 and `orbitInclination`, not by the sky's share at each tilt, and its node evenly round the equator | orbiters.ts | birth |
+| Every star is born going the same way round the equator | orbiters.ts | birth |
 
 ### A second black hole and the waves
 

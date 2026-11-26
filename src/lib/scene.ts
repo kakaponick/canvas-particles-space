@@ -1268,6 +1268,7 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       // the stretches they fly and draws the traces from them, around the hole as it is this frame
       orbitTuning.sizeSpread = state.orbitSizeSpread
       orbitTuning.eccentricitySpread = state.orbitEccentricitySpread
+      orbitTuning.inclination = state.orbitInclination
       orbitTuning.closest = state.orbitClosest
       orbitTuning.escape = state.orbitEscape
       orbitTuning.fadeIn = state.orbitFadeIn
@@ -1275,9 +1276,11 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       orbitTuning.flare = state.ringStarFlare
       orbitTuning.flareSpread = state.ringStarSpread
       orbitTuning.flareSides = state.ringStarSides
+      // They feel the spin about its axis as it stands in the scene (x right, y down, z away) and are born
+      // near the equator
       frame.orbitCount = stepOrbiters(
         orbiters, state.orbitCount, state.orbitSize, state.orbitEccentricity, state.orbitSpeed, dt,
-        shadowRadius, shadowRadius * state.horizonScale, sceneToward, shortSide,
+        shadowRadius, shadowRadius * state.horizonScale, sceneRight, -sceneUp, -sceneToward, equator, shortSide,
         Math.min(holeGrowth, 1), state.orbitTrail, spawn.palette, settings.ringEnergy, orbitTuning, seenTurn
       )
       frame.orbitRowNew = orbiters.rowNew

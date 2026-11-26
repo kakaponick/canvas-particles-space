@@ -365,6 +365,7 @@ function SettingsBody () {
           {/* How the orbits are made, then what the stars do on them */}
           <SettingSlider field="orbitSizeSpread" />
           <SettingSlider field="orbitEccentricitySpread" />
+          <SettingSlider field="orbitInclination" />
           <SettingSlider field="orbitClosest" />
           <SettingSlider field="orbitEscape" />
           <div className="mt-3 flex flex-col gap-1">
