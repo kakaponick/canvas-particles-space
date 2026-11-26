@@ -184,6 +184,20 @@ export interface CompositeSettings {
   // wave gives way to the ringing that follows it out
   pairFront: number
   pairFrontSoft: number
+  // How much larger than at the pivot's distance the camera sees the pair's centre, and the place the
+  // ringing's wave left from: a wave's lengths on the screen grow with it (1 in the flat mode)
+  pairScale: number
+  waveScale: number
+  // Two holes at different depths: the share of the companion's bend the main hole is seen through (the
+  // companion the nearer), the share of the main lens's bend the companion is seen through (the companion
+  // the farther), and which stands in front, from -1 (the main hole, wholly) to 1 (the companion, wholly).
+  // Zeros in the flat mode, where the two stand side by side
+  pairLensMain: number
+  pairLensCompanion: number
+  pairNearer: number
+  // The 3D camera's turn, row by row: where its right, its down and its line of sight point in the scene
+  // (the scene's own axes in the flat mode). The sky, the waves and the ringing oval are seen through it
+  turn: Float32Array
   backgroundStars: number
   starCell: number
   starDensity: number
@@ -570,7 +584,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     'center', 'starGlow', 'starRadius', 'sourcePower', 'glareRadius', 'exposure',
     'lightRadius', 'lightWidth', 'lightPower', 'lightSpeed', 'echoPower', 'echoDecay',
     'waveRadius', 'waveStrength', 'waveWidth', 'remnantGlow', 'remnantRedshift', 'remnantRadius',
-    'holeOval', 'gravityWaveAmplitude', 'gravityWaveTime', 'gravityWaveOmega', 'gravityWaveInvDecay', 'gravityWaveRadius', 'gravityWaveCenter', 'gravityWaveTurn', 'companion', 'pair', 'pairWave', 'pairFront', 'backgroundStars',
+    'holeOval', 'gravityWaveAmplitude', 'gravityWaveTime', 'gravityWaveOmega', 'gravityWaveInvDecay', 'gravityWaveRadius', 'gravityWaveCenter', 'gravityWaveTurn', 'companion', 'pair', 'pairWave', 'pairFront', 'pairDepth', 'turnRight', 'turnDown', 'turnAhead', 'backgroundStars',
     'starCell', 'starDensity', 'starFlare', 'starWarm', 'starCool', 'starLook', 'dustScale', 'dustThreshold', 'lightDustContrast',
     'titleCenter', 'titleHalfSize', 'titleAlpha', 'titleReveal', 'titleDissolve', 'titleDrift', 'titleGlow',
     'titleFlash', 'titleCooling', 'titleDust', 'titlePull', 'titleSwirl', 'titleReach', 'titleCapture', 'titleScale',
@@ -1096,21 +1110,28 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     setUniform1f(gl, u.remnantRedshift, settings.remnantRedshift)
     setUniform1f(gl, u.remnantRadius, Math.max(settings.remnantRadius * ratio, 0.5))
     setUniform4f(gl, u.remnantShape, Math.min(Math.max(settings.remnantEmberAt, 0.001), 0.999), settings.remnantWhiteness, settings.remnantDeep, settings.remnantDim)
-    setUniform1f(gl, u.gravityWaveAmplitude, settings.gravityWaveAmplitude * ratio)
+    // A wave's lengths are those of the place it left from, as large as the camera sees that place
+    const waveRatio = ratio * settings.waveScale
+    setUniform1f(gl, u.gravityWaveAmplitude, settings.gravityWaveAmplitude * waveRatio)
     if (settings.gravityWaveAmplitude > 0) {
       setUniform1f(gl, u.gravityWaveTime, settings.gravityWaveTime)
       setUniform1f(gl, u.gravityWaveOmega, 2 * Math.PI * settings.gravityWaveFrequency)
       setUniform1f(gl, u.gravityWaveInvDecay, 1 / Math.max(settings.gravityWaveDecay, 0.001))
-      setUniform1f(gl, u.gravityWaveRadius, Math.max(settings.gravityWaveRadius * ratio, 1))
+      setUniform1f(gl, u.gravityWaveRadius, Math.max(settings.gravityWaveRadius * waveRatio, 1))
       setUniform2f(gl, u.gravityWaveCenter, settings.gravityWaveX * ratio, settings.gravityWaveY * ratio)
       setUniform4f(gl, u.gravityWaveTurn, Math.cos(2 * settings.gravityWaveAngle), Math.sin(2 * settings.gravityWaveAngle),
-        settings.gravityWaveSpin, Math.max(settings.gravityWaveSpeed * ratio, 1))
+        settings.gravityWaveSpin, Math.max(settings.gravityWaveSpeed * waveRatio, 1))
     }
     setUniform4f(gl, u.companion, settings.companionX * ratio, settings.companionY * ratio, settings.companionRadius * ratio, settings.companionEinstein * ratio)
+    setUniform3f(gl, u.pairDepth, settings.pairLensMain, settings.pairLensCompanion, settings.pairNearer)
+    setUniform3f(gl, u.turnRight, settings.turn[0], settings.turn[1], settings.turn[2])
+    setUniform3f(gl, u.turnDown, settings.turn[3], settings.turn[4], settings.turn[5])
+    setUniform3f(gl, u.turnAhead, settings.turn[6], settings.turn[7], settings.turn[8])
     if (settings.pairWave > 0) {
-      setUniform4f(gl, u.pairWave, settings.pairWave * ratio, settings.pairPhase, settings.pairPitch / ratio, Math.max(settings.gravityWaveRadius * ratio, 1))
+      const pairRatio = Math.max(ratio * settings.pairScale, 0.0001)
+      setUniform4f(gl, u.pairWave, settings.pairWave * pairRatio, settings.pairPhase, settings.pairPitch / pairRatio, Math.max(settings.gravityWaveRadius * pairRatio, 1))
       setUniform2f(gl, u.pair, settings.pairX * ratio, settings.pairY * ratio)
-      setUniform4f(gl, u.pairFront, settings.pairFront, Math.max(settings.gravityWaveSpeed * ratio, 1), Math.max(settings.pairFrontSoft, 0.001), 0)
+      setUniform4f(gl, u.pairFront, settings.pairFront, Math.max(settings.gravityWaveSpeed * pairRatio, 1), Math.max(settings.pairFrontSoft, 0.001), 0)
     } else {
       setUniform4f(gl, u.pairWave, 0, 0, 0, 1)
     }

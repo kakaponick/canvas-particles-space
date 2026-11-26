@@ -338,6 +338,10 @@ export const compositeFragmentShaderSource = `
   uniform vec2 u_pair;           // the centre the two black holes turn around
   uniform vec4 u_pairWave;       // their spiral gravitational wave: pixels of stretch (0 = off), the pair's angle, turn of its arms per pixel, radius beyond which it weakens
   uniform vec4 u_pairFront;      // once the two are one: seconds since then (negative = not yet), pixels the wave travels a second, seconds the old wave takes to give way to the new
+  uniform vec3 u_pairDepth;      // two holes at different depths: the share of the second one's bend the first is seen through (the second the nearer), the share of the first one's bend the second is seen through (the second the farther), which stands in front (-1 the first .. 1 the second); zeros side by side
+  uniform vec3 u_turnRight;      // the 3D camera's turn, row by row: where its right,
+  uniform vec3 u_turnDown;       // its down
+  uniform vec3 u_turnAhead;      // and its line of sight point in the scene; the scene's own axes in the flat view
   uniform float u_backgroundStars;
   uniform float u_starCell;        // CSS pixels per background-star cell
   uniform float u_starDensity;     // share of cells holding a star

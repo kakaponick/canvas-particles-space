@@ -181,7 +181,8 @@ export function clearOrbiters (orbiters: Orbiters) {
 /**
  * Advances the stars by `dt` seconds and writes the stretch each is flying into `orbiters.row`. Lengths
  * are CSS pixels; `speed` is the rate of their time, and its sign their direction; `trail` is the
- * seconds a trace stays lit; `tuning` is how the orbits are made and held. Returns the number of stars.
+ * seconds a trace stays lit; `tuning` is how the orbits are made and held; `turn` is the camera's turn,
+ * row by row, through which a swallowed star is seen round the hole. Returns the number of stars.
  */
 export function stepOrbiters (
   orbiters: Orbiters,
@@ -198,7 +199,8 @@ export function stepOrbiters (
   trail: number,
   palette: PaletteSampler,
   ringEnergy: RingEnergy | null,
-  tuning: OrbitTuning
+  tuning: OrbitTuning,
+  turn: ArrayLike<number>
 ): number {
   const count = Math.min(Math.max(Math.floor(requested), 0), MAX_ORBITERS)
   if (count === 0 || shadowRadius <= 0) {
@@ -284,11 +286,14 @@ export function stepOrbiters (
     }
 
     if (r < capture || r > escape || r !== r) {
-      // What crosses the radius of no return lights the photon ring where it went in
+      // What crosses the radius of no return lights the photon ring where it is seen to go in: the orbits
+      // lie across the line of flight, and the ring is drawn round the hole as the camera sees it
       if (ringEnergy && r < capture) {
-        depositRingEnergy(ringEnergy, px, py, flare)
-        depositRingEnergy(ringEnergy, px - py * flareSpread, py + px * flareSpread, flareSide)
-        depositRingEnergy(ringEnergy, px + py * flareSpread, py - px * flareSpread, flareSide)
+        const seenX = turn[0] * px + turn[1] * py
+        const seenY = turn[3] * px + turn[4] * py
+        depositRingEnergy(ringEnergy, seenX, seenY, flare)
+        depositRingEnergy(ringEnergy, seenX - seenY * flareSpread, seenY + seenX * flareSpread, flareSide)
+        depositRingEnergy(ringEnergy, seenX + seenY * flareSpread, seenY - seenX * flareSpread, flareSide)
       }
       spawnOrbiter(orbiters, i, size, eccentricity, palette)
       px = x[i]

@@ -4,7 +4,7 @@
 // in SceneInput, so the scene reads no store and no window, and with the same seed and the same inputs it
 // draws the same frames.
 import { createParticleField, createPaletteSampler, createStepSettings, setParticleCount, type SpawnSettings } from './particle_simulation'
-import { POSE_SLOTS, cameraPose, cameraTurn } from './camera_pose'
+import { POSE_SLOTS, cameraPose } from './camera_pose'
 import { createParticleRenderer, type FrameInput, type ParticleRenderer } from './particle_renderer'
 import { createIntroFrame, getRingdownTiming, ringdownWobble, sampleIntro, type IntroFrame, type RingdownTiming } from './intro_timeline'
 import { INTRO_LAYERS, type IntroLayer } from './intro_tracks'
@@ -212,9 +212,7 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
   const view = {
     blend: 0, spin: 0, yaw: 0, pitch: 0, roll: 0, lookYaw: 0, lookPitch: 0, moveRight: 0, moveUp: 0, moveIn: 0, stepped: false
   }
-  // The camera's circle round the pivot, which places things in the scene, and its whole pose, which
-  // sees them (cameraPose)
-  const turn = new Float64Array(9)
+  // The camera's pose, which sees the scene (cameraPose)
   const pose = new Float64Array(POSE_SLOTS)
   // A point of the scene as the camera sees it: CSS pixels and its distance in front of the camera
   const seen = { x: 0, y: 0, depth: 1 }
@@ -350,6 +348,12 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       gravityWaveSpeed: 1,
       pairFront: -1,
       pairFrontSoft: 1,
+      pairScale: 1,
+      waveScale: 1,
+      pairLensMain: 0,
+      pairLensCompanion: 0,
+      pairNearer: 0,
+      turn: new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]),
       gravityWaveX: 0,
       gravityWaveY: 0,
       companionX: 0,
@@ -788,7 +792,7 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     const threeD = state.threeD || view.blend > 0
     // The camera's turn and elevation, in radians (0 in the flat view), then where it stands and looks
     // beyond its circle: its roll and the turn of its head, in radians, and its move right, up and in, in
-    // scene units. The circle places things in the scene (the pair's plane); the pose is how they are seen
+    // scene units. Things have their places in the scene; the pose is how they are seen
     let yaw = 0
     let pitch = 0
     let roll = 0
@@ -813,7 +817,6 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       moveRight = state.cameraMoveRight * moveUnit
       moveUp = state.cameraMoveUp * moveUnit
       moveIn = state.cameraMoveIn * moveUnit
-      cameraTurn(yaw, pitch, turn)
       cameraPose(yaw, pitch, roll, lookYaw, lookPitch, moveRight, moveUp, moveIn, pivot, pose)
       if (moveRight !== 0 || moveUp !== 0 || moveIn !== 0) {
         nearer = pivot / Math.max(Math.hypot(moveRight, moveUp, pivot - moveIn), NEAR_DEPTH)
@@ -947,22 +950,32 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     let centreX = hole.x
     let centreY = hole.y
     let centreScale = 1
+    // The explosion's place, the same way
+    let blastX = originX
+    let blastY = originY
+    let blastScale = 1
     // The 3D camera's turn and elevation, in radians, for the sheet
     let viewYaw = 0
     let viewPitch = 0
     const composite = frame.composite
+    // What the composite pass sees through the camera's turn (the sky, the waves, the ringing oval) and
+    // where a swallowed star's light lands: the pose's own turn in 3D, none straight on
+    const seenTurn = composite.turn
+    for (let slot = 0; slot < 9; slot++) seenTurn[slot] = threeD ? pose[slot] : slot % 4 === 0 ? 1 : 0
+    composite.pairLensMain = 0
+    composite.pairLensCompanion = 0
+    composite.pairNearer = 0
     if (threeD) {
       // The camera never circles a point nearer than a share of Field Depth (pivot, above), so a black hole
       // at depth 0 still has room around it
       const focal = settings.focal
       const worldPerPixel = pivot / focal
-      // The pair's centre stands where the black hole is on the screen, as far away as the pivot; the two
-      // turn around it across the line of flight, a plane the camera sees at an angle
-      const acrossX = (hole.x - settings.vanishX) * worldPerPixel
-      const acrossY = (hole.y - settings.vanishY) * worldPerPixel
-      const pairX = turn[0] * acrossX + turn[3] * acrossY
-      const pairY = turn[1] * acrossX + turn[4] * acrossY
-      const pairZ = pivot + turn[2] * acrossX + turn[5] * acrossY
+      // The pair's centre is a place of the scene: where the flat view shows the black hole, as far away
+      // as the pivot. A camera that turns sees it move across the screen as it sees everything else. The
+      // two turn around it across the line of flight, a plane the camera sees at an angle
+      const pairX = (hole.x - settings.vanishX) * worldPerPixel
+      const pairY = (hole.y - settings.vanishY) * worldPerPixel
+      const pairZ = pivot
       const unit = pairUnit * worldPerPixel
       settings.holeWorldX = pairX + pair.mainX * unit
       settings.holeWorldY = pairY + pair.mainY * unit
@@ -973,17 +986,35 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       look(settings.companionWorldX, settings.companionWorldY, pairZ, pivot, focal)
       settings.companionX = seen.x
       settings.companionY = seen.y
-      companionScale = seen.depth > NEAR_DEPTH ? pivot / seen.depth : 0
+      const companionAway = seen.depth
+      companionScale = companionAway > NEAR_DEPTH ? pivot / companionAway : 0
       look(settings.holeWorldX, settings.holeWorldY, pairZ, pivot, focal)
       holeX = seen.x
       holeY = seen.y
       // A hole the camera has flown past is not drawn
-      const holeBehind = seen.depth <= NEAR_DEPTH
-      holeScale = holeBehind ? 0 : pivot / seen.depth
+      const holeAway = seen.depth
+      const holeBehind = holeAway <= NEAR_DEPTH
+      holeScale = holeBehind ? 0 : pivot / holeAway
       look(pairX, pairY, pairZ, pivot, focal)
       centreX = seen.x
       centreY = seen.y
       centreScale = seen.depth > NEAR_DEPTH ? pivot / seen.depth : 0
+      // The explosion happened at a place of the scene too, at the pivot's depth
+      look((originX - settings.vanishX) * worldPerPixel, (originY - settings.vanishY) * worldPerPixel, pivot, pivot, focal)
+      blastX = seen.x
+      blastY = seen.y
+      blastScale = seen.depth > NEAR_DEPTH ? pivot / seen.depth : 0
+      // Two holes at different depths: the nearer one's lens bends the light of the farther, by the share
+      // of the way from the camera to the farther that lies behind the nearer (a thin lens's share of what
+      // it does to the sky), and the nearer one's shadow covers the farther one's ring, wholly once they
+      // are their two radii apart in depth
+      if (companionRadius > 0 && !holeBehind && companionAway > NEAR_DEPTH) {
+        const behind = companionAway - holeAway
+        composite.pairLensCompanion = behind > 0 ? behind / companionAway : 0
+        composite.pairLensMain = behind < 0 ? -behind / holeAway : 0
+        const apart = (horizon + companionRadius) * worldPerPixel
+        composite.pairNearer = apart > 0 ? Math.min(Math.max(-behind / apart, -1), 1) : 0
+      }
       settings.holeX = holeX
       settings.holeY = holeY
       settings.holeDepth = pivot
@@ -1077,6 +1108,8 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       let sheetHoleY = holeY
       let sheetCompanionX = settings.companionX
       let sheetCompanionY = settings.companionY
+      let sheetCentreX = centreX
+      let sheetCentreY = centreY
       if (roll !== 0) {
         const c = Math.cos(roll)
         const s = Math.sin(roll)
@@ -1088,10 +1121,14 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
         sheetHoleY = centerY + s * hx + c * hy
         sheetCompanionX = centerX + c * kx - s * ky
         sheetCompanionY = centerY + s * kx + c * ky
+        const mx = centreX - centerX
+        const my = centreY - centerY
+        sheetCentreX = centerX + c * mx - s * my
+        sheetCentreY = centerY + s * mx + c * my
       }
       placeGrid(
         grid, sheetTilt, state.gridDepth, state.gridCell / 100 * shortSide, viewportWidth, viewportHeight, sheetHoleX, sheetHoleY, horizon * holeScale,
-        sheetCompanionX, sheetCompanionY, companionRadius * companionScale, hole.x, hole.y, pair.mergedPhase,
+        sheetCompanionX, sheetCompanionY, companionRadius * companionScale, sheetCentreX, sheetCentreY, pair.mergedPhase,
         state.gridDistance, state.gridSpan, state.gridFade
       )
       turnGrid(grid, viewYaw)
@@ -1155,7 +1192,7 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       frame.orbitCount = stepOrbiters(
         orbiters, state.orbitCount, state.orbitSize, state.orbitEccentricity, state.orbitSpeed, dt,
         shadowRadius, shadowRadius * state.horizonScale, sceneToward, shortSide,
-        Math.min(holeGrowth, 1), state.orbitTrail, spawn.palette, settings.ringEnergy, orbitTuning
+        Math.min(holeGrowth, 1), state.orbitTrail, spawn.palette, settings.ringEnergy, orbitTuning, seenTurn
       )
       frame.orbitRowNew = orbiters.rowNew
       frame.orbitDimmed = orbiters.dimmed
@@ -1230,14 +1267,14 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     const cameraZoom = introZoom * state.cameraZoom
     // Two zooms in one: the intro's around the explosion and the Zoom setting's around the black hole
     // together leave one point of the frame where it is
-    let zoomX = originX
-    let zoomY = originY
+    let zoomX = blastX
+    let zoomY = blastY
     const zoomed = 1 - 1 / cameraZoom
     if (state.cameraZoom !== 1 && Math.abs(zoomed) > 1e-6) {
       const own = 1 - 1 / state.cameraZoom
       const shared = 1 / state.cameraZoom - 1 / cameraZoom
-      zoomX = (hole.x * own + originX * shared) / zoomed
-      zoomY = (hole.y * own + originY * shared) / zoomed
+      zoomX = (centreX * own + blastX * shared) / zoomed
+      zoomY = (centreY * own + blastY * shared) / zoomed
     }
     // The camera looks beside the black hole: the point that far from it (in a pair, a share of the way to either
     // hole, and radii to the right and up) stands where the hole would. It is the zoom's fixed point that
@@ -1248,8 +1285,8 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     if (zoomed > 1e-6) {
       // In a pair the zoom holds their common centre still: towards the second hole above 0, the main one below
       const inPair = pair.companion > 0 ? state.cameraPair : 0
-      const lookX = (inPair > 0 ? settings.companionX - hole.x : hole.x - holeX) * inPair + state.cameraX * shadowRadius
-      const lookY = (inPair > 0 ? settings.companionY - hole.y : hole.y - holeY) * inPair - state.cameraY * shadowRadius
+      const lookX = (inPair > 0 ? settings.companionX - centreX : centreX - holeX) * inPair + state.cameraX * shadowRadius
+      const lookY = (inPair > 0 ? settings.companionY - centreY : centreY - holeY) * inPair - state.cameraY * shadowRadius
       if (lookX !== 0 || lookY !== 0) {
         const stillX = zoomX
         const stillY = zoomY
@@ -1358,8 +1395,9 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     composite.companionY = settings.companionY
     composite.companionRadius = companionRadius * companionScale
     composite.companionEinstein = companionRadius > 0 ? einstein * companionScale * pair.companion / pair.growth : 0
-    composite.pairX = hole.x
-    composite.pairY = hole.y
+    composite.pairX = centreX
+    composite.pairY = centreY
+    composite.pairScale = centreScale
     composite.pairPhase = pair.phase
     composite.pairPitch = pair.omega / (LIGHT_SPEED * shortSide)
     composite.ring = hidden.ring || !state.ringEnabled ? 0 : state.ringBrightness * ringPower
@@ -1398,17 +1436,19 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     readSceneColor(composite.ringColor, state.ringColor)
     readSceneColor(composite.ringApproaching, state.ringColorApproaching, SIMULATION_COLOR_SPECS.ringColorApproaching.exact)
     readSceneColor(composite.ringReceding, state.ringColorReceding, SIMULATION_COLOR_SPECS.ringColorReceding.exact)
-    composite.centerX = blastAtHole ? hole.x : originX
-    composite.centerY = blastAtHole ? hole.y : originY
+    // The explosion as the camera sees it: its place, and its fronts as much larger as it stands nearer
+    const frontScale = blastAtHole ? centreScale : blastScale
+    composite.centerX = blastAtHole ? centreX : blastX
+    composite.centerY = blastAtHole ? centreY : blastY
     composite.starGlow = intro.starGlow
     composite.starRadius = intro.starRadius * shortSide
     composite.sourcePower = intro.sourcePower
     composite.glareRadius = params.glareRadius * shortSide
     composite.exposure = intro.exposure
-    composite.lightRadius = intro.lightFront * explosionReach
+    composite.lightRadius = intro.lightFront * explosionReach * frontScale
     composite.lightWidth = params.lightWidth * shortSide
     composite.lightPower = intro.lightPower
-    composite.lightSpeed = lightSpeed
+    composite.lightSpeed = lightSpeed * frontScale
     composite.lightDustContrast = params.lightDustContrast
     composite.echoPower = intro.echoPower
     composite.echoDecay = params.echoDecay
@@ -1433,7 +1473,7 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     composite.dustShockOffset = params.dustShockOffset
     composite.dustShockSharpness = params.dustShockSharpness
     composite.dustShockTint = params.dustShockTint
-    composite.waveRadius = intro.matterFront * explosionReach
+    composite.waveRadius = intro.matterFront * explosionReach * frontScale
     composite.waveStrength = intro.waveStrength * params.waveRefraction
     composite.waveWidth = params.waveWidth * shortSide
     composite.remnantGlow = intro.remnantGlow
@@ -1454,7 +1494,7 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     // Two that became one send the ringing of the hole they leave, from where they met and at the pair's
     // own speed of light, once the intro's wave is gone. It starts as strong as the pair's spiral had
     // grown, which flies on ahead of it until its last arm is past the far corner
-    const farthest = Math.hypot(Math.max(hole.x, viewportWidth - hole.x), Math.max(hole.y, viewportHeight - hole.y))
+    const farthest = Math.hypot(Math.max(centreX, viewportWidth - centreX), Math.max(centreY, viewportHeight - centreY)) / Math.max(centreScale, 0.01)
     const pairWave = hidden.gravityWave ? 0 : pair.wave * pairUnit
     const mergerWave = !introWave && pairWave > 0 && sinceMerger >= 0 && sinceMerger <= farthest / pairLight + mergerRing.decay * GRAVITY_WAVE_FADES
     composite.pairWave = sinceMerger >= 0 && sinceMerger * pairLight > farthest + shadowRadius ? 0 : pairWave
@@ -1467,8 +1507,9 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       ? 0
       : mergerWave ? pairWave : params.gravityWaveGain * params.ringdownAmplitude * shadowRadius
     composite.gravityWaveTime = mergerWave ? sinceMerger : cueWave ? sinceCueRing : intro.ringdownTime
-    composite.gravityWaveX = mergerWave || cueWave ? hole.x : originX
-    composite.gravityWaveY = mergerWave || cueWave ? hole.y : originY
+    composite.gravityWaveX = mergerWave || cueWave ? centreX : blastX
+    composite.gravityWaveY = mergerWave || cueWave ? centreY : blastY
+    composite.waveScale = mergerWave || cueWave ? centreScale : blastScale
     composite.gravityWaveFrequency = mergerWave ? mergerRing.frequency : ringTiming.frequency
     composite.gravityWaveDecay = mergerWave ? mergerRing.decay : ringTiming.decay
     composite.gravityWaveRadius = shadowRadius
