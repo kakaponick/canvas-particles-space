@@ -42,7 +42,7 @@ const STEP_KEYS = [
   'gravityDepth', 'lineWidth', 'minLineWidth', 'gravityStrength', 'orbitalStrength', 'swirlX', 'swirlY', 'swirlZ', 'farZ', 'depthFade',
   'pulseSpeedMultiplier', 'pulseIntensity', 'baseBrightness', 'minOpacity', 'maxOpacity', 'speedGlow', 'speedKnee', 'revealRadius', 'revealX',
   'revealY', 'revealFeather', 'opacityScale', 'threeD', 'holeWorldX', 'holeWorldY', 'holeWorldZ', 'companionWorldX',
-  'companionWorldY', 'companionWorldZ', 'endFade', 'frontAway', 'frontDepth', 'holeSeen', 'companionSeen'
+  'companionWorldY', 'companionWorldZ', 'endFade', 'frontAway', 'frontDepth', 'frontReach', 'holeSeen', 'companionSeen', 'holeFront', 'companionFront'
 ] as const satisfies readonly (keyof StepSettings)[]
 const DERIVED_KEYS = ['hasHole', 'ringFed', 'revealing', 'inertial', 'keep', 'gain', 'velocityGain', 'spawnRadius', 'speedVariance'] as const
 const STEP_NAMES: readonly string[] = [...STEP_KEYS, ...DERIVED_KEYS]
@@ -308,8 +308,8 @@ ${STEP_DEFINES}
     segment = vec4(start, end);
     bool front = false;
     if (s_frontAway > 0.0) {
-      float behind = seenBehind(middleAway, s_frontAway, s_frontDepth, 0.5 * (start + end), vec3(s_holeX, s_holeY, s_holeSeen),
-        vec3(s_companionX, s_companionY, s_companionSeen));
+      float behind = seenBehind(middleAway, s_frontDepth, s_frontReach, 0.5 * (start + end), vec4(s_holeX, s_holeY, s_holeSeen, s_holeFront),
+        vec4(s_companionX, s_companionY, s_companionSeen, s_companionFront));
       front = behind <= 0.0 || (behind < 1.0 && behind < ownShare());
     }
     style = vec2(lineWidth, front ? -opacity : opacity);

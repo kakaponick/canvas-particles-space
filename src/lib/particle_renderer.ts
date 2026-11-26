@@ -935,17 +935,22 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   }
 
   // The two shadows where the layers of lines hold them, at the camera's zoom, for the side a piece in the
-  // band behind the holes takes: what is seen within one is the lens's (BEHIND_GLSL)
-  function sendShadows (main: CachedUniform, second: CachedUniform, step: StepSettings) {
+  // band behind the holes takes: what is seen within one is the lens's (BEHIND_GLSL). `depth` turns the
+  // step's measure of a hole's distance from the camera into the shader's own
+  function sendShadows (main: CachedUniform, second: CachedUniform, step: StepSettings, depth: number) {
     const x = layerZoomX * ratio
     const y = layerZoomY * ratio
     const scale = ratio * layerZoom
-    if (step.holeSeen > 0) setUniform3f(gl, main, x + (step.holeX * ratio - x) * layerZoom, y + (step.holeY * ratio - y) * layerZoom, step.holeSeen * scale)
-    else setUniform3f(gl, main, 0, 0, 0)
-    if (step.companionSeen > 0) {
-      setUniform3f(gl, second, x + (step.companionX * ratio - x) * layerZoom, y + (step.companionY * ratio - y) * layerZoom, step.companionSeen * scale)
+    if (step.holeSeen > 0) {
+      setUniform4f(gl, main, x + (step.holeX * ratio - x) * layerZoom, y + (step.holeY * ratio - y) * layerZoom, step.holeSeen * scale, step.holeFront * depth)
     } else {
-      setUniform3f(gl, second, 0, 0, 0)
+      setUniform4f(gl, main, 0, 0, 0, 0)
+    }
+    if (step.companionSeen > 0) {
+      setUniform4f(gl, second, x + (step.companionX * ratio - x) * layerZoom, y + (step.companionY * ratio - y) * layerZoom, step.companionSeen * scale,
+        step.companionFront * depth)
+    } else {
+      setUniform4f(gl, second, 0, 0, 0, 0)
     }
   }
 
@@ -956,8 +961,8 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   function drawOrbits (frame: FrameInput, front: number) {
     gl.useProgram(orbitProgram)
     // The nearer hole's distance in the device pixels the stars' depth is measured in
-    setUniform3f(gl, orbitUniforms.side, front, frame.step.frontAway * ratio, frame.step.frontDepth * ratio)
-    sendShadows(orbitUniforms.sideMain, orbitUniforms.sideSecond, frame.step)
+    setUniform3f(gl, orbitUniforms.side, front, frame.step.frontDepth * ratio, frame.step.frontReach)
+    sendShadows(orbitUniforms.sideMain, orbitUniforms.sideSecond, frame.step, ratio)
     setUniform4f(gl, orbitUniforms.zoom, layerZoomX * ratio, layerZoomY * ratio, layerZoom, 0)
     setUniform4f(gl, orbitUniforms.orbit, frame.orbitX * ratio, frame.orbitY * ratio, frame.orbitUnit * ratio, frame.orbitWidth * ratio)
     setUniform1f(gl, orbitUniforms.dimmed, frame.orbitDimmed)
@@ -1011,8 +1016,8 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     setUniform3f(gl, u.fade, lattice.fadeFrom, lattice.farthest, lattice.gone)
     // The lattice's depth is in scene units, pivot / focal of them in a CSS pixel
     const sceneUnits = lattice.pivot / Math.max(lattice.focal, 1)
-    setUniform3f(gl, u.side, front, step.frontAway * sceneUnits, step.frontDepth * sceneUnits)
-    sendShadows(u.sideMain, u.sideSecond, step)
+    setUniform3f(gl, u.side, front, step.frontDepth * sceneUnits, step.frontReach)
+    sendShadows(u.sideMain, u.sideSecond, step, sceneUnits)
     const light = lattice.brightness * lattice.gain
     setUniform4f(gl, u.color, Math.min(color.r * light, 1), Math.min(color.g * light, 1), Math.min(color.b * light, 1), 1)
     gl.enableVertexAttribArray(ATTRIBUTE_LOCATIONS.latticeLine)
@@ -1064,8 +1069,9 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
       setUniform4f(gl, u.turnY, turn[3], turn[4], turn[5], frame.orbitFocal > 0 ? flow.depth * ratio : 1)
       setUniform4f(gl, u.turnZ, turn[6], turn[7], turn[8], ratio)
       // A flow's depth is a share of its centre's distance from the camera
-      setUniform3f(gl, u.side, front, flow.depth > 0 ? step.frontAway / flow.depth : 0, flow.depth > 0 ? step.frontDepth / flow.depth : 0)
-      sendShadows(u.sideMain, u.sideSecond, step)
+      const share = flow.depth > 0 ? 1 / flow.depth : 0
+      setUniform3f(gl, u.side, front, step.frontDepth * share, step.frontReach)
+      sendShadows(u.sideMain, u.sideSecond, step, share)
       if (riding) {
         // Where its own places fall in the equator: a device pixel of the flow is a CSS pixel over the ratio
         const plane = flow.plane

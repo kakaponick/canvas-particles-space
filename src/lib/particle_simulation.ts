@@ -173,6 +173,13 @@ export interface StepSettings {
   // companionY (0 for a hole not there): what lies behind the holes and is seen within one is the lens's
   holeSeen: number
   companionSeen: number
+  // How far in front of the camera each of the two stands, in frontAway's measure (0 for a hole not there):
+  // what stands behind the nearer and before the farther is the nearer one's alone to bend
+  holeFront: number
+  companionFront: number
+  // How far from the nearer hole's centre on the picture, in radii of its shadow, its lens takes what stands
+  // behind it and before the farther hole; it lets go by twice that
+  frontReach: number
   // Particles on Sheet (RIDE_GLSL in webgl_shaders.ts): the share of the way a particle in the slab round
   // the main hole's equator is laid on the sheet, 0 leaving it alone and the rest unread; the slab's half
   // thickness, CSS pixels at the hole's distance; the sheet as it is laid out this frame (space_grid.ts)
@@ -391,6 +398,9 @@ export function createStepSettings (ringEnergy: RingEnergy | null = null): StepS
     frontDepth: 0,
     holeSeen: 0,
     companionSeen: 0,
+    holeFront: 0,
+    companionFront: 0,
+    frontReach: 1.5,
     ride: 0,
     rideDepth: 1,
     sheet: createGridSettings()

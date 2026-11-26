@@ -1165,7 +1165,7 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     }
     // In 3D what stands nearer the camera than the nearer black hole is in front of the holes: its light
     // comes straight to the camera, neither bent by the lens nor covered by a shadow, and the renderer draws
-    // it into layers of its own. Something between two holes is taken as behind both. The flat law takes
+    // it into layers of its own. Something between two holes is behind the nearer alone. The flat law takes
     // whatever covers the hole at any depth, so it has no front, nor has a hole not there or behind the camera
     let frontAway = 0
     if (threeD && horizon > 0 && holeAway > NEAR_DEPTH) {
@@ -1177,7 +1177,14 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     // what is seen within a shadow is the lens's whole
     settings.frontDepth = frontAway > 0 ? state.threeDFrontDepth * horizon : 0
     settings.holeSeen = frontAway > 0 ? horizon * holeScale : 0
-    settings.companionSeen = frontAway > 0 && companionRadius > 0 ? companionRadius * companionScale : 0
+    const secondBefore = frontAway > 0 && companionRadius > 0 && companionAway > NEAR_DEPTH
+    settings.companionSeen = secondBefore ? companionRadius * companionScale : 0
+    settings.holeFront = frontAway > 0 ? holeAway * settings.focal / pivot : 0
+    settings.companionFront = secondBefore ? companionAway * settings.focal / pivot : 0
+    // What stands between the two is the nearer hole's alone to bend, as far over the picture as its lens
+    // moves things: two Einstein rings, or a little past its shadow while there is no lens
+    const lensOn = state.lensingEnabled && !hidden.lens && einsteinRatio > 0
+    settings.frontReach = lensOn ? Math.max(2 * einsteinRatio, 1.5) : 1.5
     // The plane the waves and the ringing oval lie in, as the camera sees its two directions (right and
     // down on the picture): the pair's while there is one. A hole alone has no orbit, and its ringing and
     // a wave fired at it keep the plane across the line of flight, the one the opening is seen in

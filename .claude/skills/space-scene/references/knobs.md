@@ -681,8 +681,9 @@ that precess, faster the closer they come, as around a real black hole.
   before. So a camera circled to the side sees the column pass in front of the hole on its near side and
   behind it on its far side, and a fly-by (`cameraMoveIn`) sees the particles it passes cross the shadow.
   The camera's zoom, jolt, lens fringe, exposure and the film act on what is in front; the waves and the
-  opening's matter front do not. With two holes the nearer one decides: what lies between them counts as
-  behind both. The flat mode has none of this, since its horizon takes whatever covers the hole.
+  opening's matter front do not. With two holes, what lies between them is behind the nearer one alone: its lens bends it and its
+  shadow covers it where it passes on the picture, and elsewhere it is drawn where it is, so the
+  matter round the farther hole keeps its shape while the other circles. The flat mode has none of this, since its horizon takes whatever covers the hole.
 - The boundary is not a plane. Over `threeDFrontDepth` radii behind the hole (2) the share seen through
   the lens grows from none to all, as a thin lens's bend grows with the depth of what it bends, and
   whatever there is seen within the shadow stays hidden by it. A particle of the field or of a flow goes
@@ -1020,9 +1021,10 @@ The cost of a knob, in the last column:
 | The orbits' traces are set in perspective around the hole's own place on the screen, not each point on its own, which a camera that looks far aside or comes very near shows as a slight misfit | webgl_shaders.ts | pixel: each point projected alone |
 | In 3D, which side of the holes a thing is on: the middle of its stroke or piece, by its depth along the camera's line of sight against the hole's; a stroke that spans the band of `threeDFrontDepth` takes the share at its middle, and a particle that changes side leaves its old trail fading where it was drawn | field_step.ts, webgl_shaders.ts | particle: a stroke cut at the boundary and drawn into both layers |
 | In the band behind the holes a thing is drawn in two places, where it is and where the lens shows it, never bent by a share of the lens: a particle of the field or a flow on one side past a share of its own, a trace or a lattice line in both at their shares | field_step.ts, webgl_shaders.ts | pixel: a layer per depth, or the depth kept per pixel and the lens read again at its share |
-| How the share seen through the lens grows across the band: a thin lens's d / (D + d), scaled to be whole at `threeDFrontDepth`, D the nearer hole's distance from the camera | webgl_shaders.ts | frame: a curve, not a number |
+| How the share seen through the lens grows across the band: a thin lens's d / (D + d), scaled to be whole at `threeDFrontDepth`, D that hole's distance from the camera | webgl_shaders.ts | frame: a curve, not a number |
 | In the band, what is seen within a shadow is the lens's whole: the shadow as a circle of its radius round the hole's place, not a spinning hole's outline | webgl_shaders.ts, field_step.ts | particle: the outline read per stroke |
-| With two holes the boundary is the nearer one: what lies between them is behind both, so the nearer hole's shadow covers it and the farther one's lens does not see it in front of itself | scene.ts | pixel: a third layer between the two, read through the farther hole's lens alone |
+| How far the nearer of two holes takes what stands between them: within two of its Einstein rings on the picture (1.5 shadow radii with no lens) in full, let go by twice that | scene.ts, webgl_shaders.ts | frame |
+| What the nearer hole takes of the matter between the two is read through both lenses, the farther hole's own too | webgl_shaders.ts | pixel: a third layer between the two, read through the nearer hole's lens alone |
 | Light in front of the holes is laid over them as the brighter of it and what is there, as the layers keep theirs, not added to the ring's | webgl_shaders.ts | frame: a law, not a number |
 | The gravitational waves and the opening's matter front move what lies behind the holes and leave what is in front alone, though both pass between them and the camera | webgl_shaders.ts | pixel: the front layers read through the waves too |
 | The trails in front of the holes go at once when the front ends (3D eased out, the hole gone or behind the camera) and start black when it begins | particle_renderer.ts | frame: their layer kept and faded until it is dark |

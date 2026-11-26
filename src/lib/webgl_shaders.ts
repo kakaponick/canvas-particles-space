@@ -86,23 +86,38 @@ ${DENT_GLSL}
 // measure. 0 depth is a hard plane. Whatever lies behind the hole and is seen within a shadow ("main" and
 // "second": the centre on the screen, where "at" is measured, and the radius; 0 for no hole) is the lens's
 // whole, which the shadow covers. The field's step and the line shaders read this one text
-export const BEHIND_GLSL = `  float seenBehind (float away, float plane, float depth, vec2 at, vec3 main, vec3 second) {
-    float behind = away - plane;
-    if (behind <= 0.0) return 0.0;
+export const BEHIND_GLSL = `  // The share of a thing "away" from the camera, seen at "at" on the picture, that is behind one hole:
+  // its shadow's centre and radius there, and how far the hole itself stands from the camera
+  float behindHole (float away, float depth, vec2 at, vec4 hole) {
+    float behind = away - hole.w;
+    if (hole.z <= 0.0 || behind <= 0.0) return 0.0;
     if (behind >= depth) return 1.0;
-    vec2 fromMain = at - main.xy;
-    vec2 fromSecond = at - second.xy;
-    if (dot(fromMain, fromMain) < main.z * main.z || dot(fromSecond, fromSecond) < second.z * second.z) return 1.0;
-    return behind * (plane + depth) / ((plane + behind) * depth);
+    vec2 from = at - hole.xy;
+    if (dot(from, from) < hole.z * hole.z) return 1.0;
+    return behind * (hole.w + depth) / ((hole.w + behind) * depth);
+  }
+
+  // The share seen through the lens. Behind both holes it is all the lens's. What stands behind the
+  // nearer hole and before the farther is the nearer one's alone to bend, which the layer behind cannot
+  // draw (it is read through both lenses): it goes there only where the nearer hole's lens reaches it on
+  // the picture, within "reach" of its shadow's radii and fading out by twice that, and is drawn where it
+  // is elsewhere, so the matter round the farther hole is not bent by its own hole's lens
+  float seenBehind (float away, float depth, float reach, vec2 at, vec4 main, vec4 second) {
+    float one = behindHole(away, depth, at, main);
+    if (second.z <= 0.0) return one;
+    float two = behindHole(away, depth, at, second);
+    vec4 nearer = main.w <= second.w ? main : second;
+    float reached = 1.0 - smoothstep(reach, 2.0 * reach, length(at - nearer.xy) / nearer.z);
+    return max(min(one, two), max(one, two) * reached);
   }
 `
 
 // The line shaders take the side of a piece's middle: the composite pass lays the front layer over the
 // holes unbent and reads the other through the lens. One draw writes both (the stroke fragment shader),
 // a piece in the band behind the hole into both at their shares
-const SIDE_GLSL = `  uniform vec3 u_side;        // x: 1 while something can stand in front of the black holes (0: all of it is behind them); y: the nearer hole's distance from the camera, z: Front Depth, both in the shader's own measure
-  uniform vec3 u_sideMain;    // the main hole's shadow in the layer: its centre and radius, device pixels at the camera's zoom
-  uniform vec3 u_sideSecond;  // the second hole's (radius 0 without one)
+const SIDE_GLSL = `  uniform vec3 u_side;        // x: 1 while something can stand in front of the black holes (0: all of it is behind them); y: Front Depth, in the shader's own measure of depth; z: how far the nearer hole's lens reaches on the picture, in its shadow's radii
+  uniform vec4 u_sideMain;    // the main hole's shadow in the layer: its centre and radius, device pixels at the camera's zoom; the hole's distance from the camera, in the shader's own measure
+  uniform vec4 u_sideSecond;  // the second hole's (radius 0 without one)
   varying float v_front;      // the share of a piece drawn in front of the holes, the rest seen through the lens
 ${BEHIND_GLSL}
   // The share in front of a piece "away" from the camera whose middle lands at "at" in the layer
