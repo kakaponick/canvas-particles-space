@@ -26,9 +26,10 @@ const QUALITY_FIT = [0.7, 1.4187, -0.499] as const
 const TONE_STILL = TONE_FIT[0] + TONE_FIT[1]
 const QUALITY_STILL = QUALITY_FIT[0] + QUALITY_FIT[1]
 
-// Everything here is in radii of the main black hole before it grows, and relative to the pair's centre
+// Everything here is in radii of the main black hole before it grows, and relative to the pair's centre,
+// along the two directions of the plane the pair circles in (pairPlane in scene.ts sets it in the scene)
 export interface Pair {
-  // Angle of the companion as seen from the main hole, radians on screen
+  // Angle of the companion as seen from the main hole, radians in the pair's plane
   phase: number
   // Second of the scene the two became one; negative while they are apart
   mergedAt: number
