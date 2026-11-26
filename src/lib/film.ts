@@ -1140,6 +1140,10 @@ comes to this same object: see "A film as a script" below. Names and ranges are 
                              the opening (star, explosion, black hole forming) as a clip: "at" is the second it
                              starts (negative starts the film inside it). "intro": false leaves it out and the
                              film opens on the running scene; "title": false drops the words
+  "warmup": ${DEFAULT_WARMUP},                with "intro": false only: seconds the scene runs before the first frame,
+                             0-${MAX_WARMUP}. 0 for a said look, drawn from the knobs at once (the lens, the shadow,
+                             the ring's glow, the grids, the flows, the camera); seconds for a grown one, which
+                             needs the field to fill (trails, capture, rings that inertia closes, a long exposure)
   "tracks": { "blackHoleSize": [[0, 6], [4, 14], [9, 14, "linear"]] },
                              keyframes [seconds, value, ease?] for any numeric setting or intro parameter;
                              ease is how the value arrives: ease (default) | linear | in | out | hold.
@@ -1165,13 +1169,17 @@ comes to this same object: see "A film as a script" below. Names and ranges are 
                              Several in one cue keep the opening's own order (the star brightens, then the
                              blast, then the ringing); one blast and one ringing at a time, a new one takes
                              over. Their look is the intro parameters: "params" sets some at that second,
-                             and tracks can move them. A title is an event too, with words of its own:
-                             { "at": 20, "title": "ACT TWO", "params": { "titleEntrance": "Fades in" } };
-                             it lives from titleInAt (the default entrance: from collapseAt, lit by the light
-                             front, so fire "light" with it) to dissolveAt + dissolveDuration
+                             and tracks can move them. A title is an event too, with words of its own, lensed
+                             and lit like the opening's: { "at": 20, "title": "ACT TWO" }. It lives by the
+                             opening's title parameters counted from the cue: it arrives by titleEntrance at
+                             titleInAt (the default entrance comes at collapseAt, lit by the light front: fire
+                             "light" with it) and leaves by titleExit from dissolveAt over dissolveDuration; by default it
+                             starts to fall into the hole after about two seconds and is gone by the fifth.
+                             One title shows at a time: a new one replaces it. A chapter card: see the recipe
   "captions": [{ "text": "Event horizon", "from": 2, "to": 6, "at": "hole" }]
                              at: bottom (default) | top | center | [x, y] shares of the frame | hole | einstein |
-                             companion; the last three point a line at the shadow's edge, the Einstein ring
+                             companion (a preview labels each frame with its second and shot in the top-left
+                             corner, over a caption there; a still and the render have no label); the last three point a line at the shadow's edge, the Einstein ring
                              or the second black hole, from "angle" degrees (0 right, 90 up); "radius" starts
                              the line that many black hole radii out instead, the unit of orbitSize and
                              lensingRadius (the shadow's edge is 1, which is 2.6 Schwarzschild radii).
@@ -1218,28 +1226,34 @@ comes to this same object: see "A film as a script" below. Names and ranges are 
                              which the stroke draws itself
 }
 
-Everything but duration is optional. Start from describe to find setting keys; lengths around the black hole
-are in black hole radii, so blackHoleSize alone scales it.
+Everything but duration is optional. Start from describe to find setting keys.
 
 Recipes
   Zoom into the hole:      "tracks": { "cameraZoom": [[0, 1], [8, 2.5]] }
   Look beside the hole:    "tracks": { "cameraZoom": [[0, 1], [3, 3]], "cameraX": [[3, 0], [7, 4]] }
-                           (radii right of the hole; the camera pans only while zoomed in, inside the picture)
+                           (radii right of the hole; a pan needs the zoom above 1)
   Pan between two holes:   "settings": { "companionSize": 0.7, "cameraZoom": 3 },
                            "tracks": { "cameraPair": [[2, -1], [6, 1]] }   (-1 main, 0 their centre, 1 second)
   Move the hole:           "tracks": { "blackHoleX": [[0, 0.3], [10, 0.7]], "blackHoleY": [[0, 0.5]] }
   Real black hole:         "preset": "Schwarzschild", "intro": false
   Curved space sheet:      "settings": { "gridSheet": 0.6, "gridTilt": 65, "gridDepth": 3 }
-  Matter on the sheet:     "settings": { "gridSheet": 0.8, "gridRings": 40, "gridDepth": 5, "blackHoleY": 0.7, "gridRide": 1,
-                             "fieldAtHole": 1, "lensingEnabled": false, "baseSpeed": 0, "gravityReach": 16, "gravityDepth": 100,
-                             "depthFade": 0, "particleSizeMin": 3 }
-                           (the particles lie on the well and drain down it: on a sheet they show what moves, and where)
+  A ring of matter:        "intro": false, "warmup": 8, "settings": { "gravityInertia": 0.92, "orbitalStrength": 90,
+                             "gravityStrength": 5, "gravityReach": 8, "baseSpeed": 1, "trailIntensity": 0.08 }
+                           (a grown look: inertia keeps the speed gravity gives, the swirl turns it, and near passes
+                           close into a bright ring round the shadow; the warm-up gathers it before the first frame)
+  Matter on the sheet:     "intro": false, "warmup": 10, "settings": { "gridSheet": 0.85, "gridTilt": 66, "gridDepth": 6,
+                             "blackHoleY": 0.7, "gridRide": 1, "fieldAtHole": 1, "lensingEnabled": false }
+                           (a grown look: the particles lie on the surface as the vectors of space; the setup that
+                           keeps the well full and the motions on it are in
+                           .claude/skills/space-scene/references/films.md, "On the sheet")
   Lens made visible:       "settings": { "gridSky": 0.5 }
-  Orbiting stars (S2):     "settings": { "orbitCount": 12, "orbitEccentricity": 0.7, "orbitTrail": 10 }
+  Stars on tight orbits:   "settings": { "orbitCount": 12, "orbitEccentricity": 0.7, "orbitTrail": 10 }
+                           (eccentric orbits swing fast past the hole and slow far out, as S2 does round Sgr A*)
   Two black holes merging: "settings": { "companionSize": 0.7, "gridSheet": 0.5 },
                            "tracks": { "companionDistance": [[0, 9], [10, 0, "in"]] }
   Slow motion at a moment: "speed": [[0, 1], [4, 1], [5, 0.15], [8, 0.15], [9, 1]]
   The flight alone slowed: "tracks": { "baseSpeed": [[0, 6], [4, 6], [5, 0.5], [8, 0.5], [9, 6]] }
+                           (a particle's light is its own speed on the screen, so the slowed field dims)
   A wave from the hole:    "intro": false, "settings": { "gridSheet": 0.5 },
                            "cues": [{ "at": 4, "play": ["ringdown", "gravityWave"] }]
   A second explosion:      "cues": [{ "at": 14, "play": ["star", "glare", "light", "echo", "shockwave", "camera"] }]
@@ -1248,6 +1262,7 @@ Recipes
   The camera pulls back:   "tracks": { "cameraZoom": [[0, 1], [6, 0.5]] }
   A chapter title:         "cues": [{ "at": 12, "title": "ACT TWO",
                              "params": { "titleEntrance": "Fades in", "titleExit": "Fades out", "titleInAt": 0, "dissolveAt": 3 } }]
+                           (a card that fades in at the cue, stays the 3 s of dissolveAt and fades out over dissolveDuration)
   In from black and out:   "fade": [[0, 1], [1.5, 0], [10.5, 0], [12, 1]]
   Words on black:          "fade": [[0, 1], [3, 1], [4.5, 0]], "captions": [{ "text": "Sagittarius A*", "from": 0.5, "to": 3.5, "at": "center" }]
   A formula beside the hole: "captions": [{ "text": "Schwarzschild radius\\nr_{s} = 2GM / c^{2}", "from": 2, "to": 8,
@@ -1273,9 +1288,10 @@ Recipes
   A picture in a corner:   "graphics": [{ "kind": "image", "src": "films/photo.png", "center": [0.82, 0.24], "width": 0.3,
                              "from": 1, "to": 7 }]
   Vertical short:          "size": "vertical", "settings": { "blackHoleY": 0.42 }
-  Matter told where to go: "warmup": 0, "settings": { "fieldEnabled": false, "flowA": 1.8, "flowACount": 3000, "flowAFrom": 3.2,
-                             "flowATo": 3.2, "flowASpread": 1.6, "flowASwirl": 1.2, "flowALife": 10, "flowATrail": 0.9 }
-                           a ring that is whole in the first frame; flowATo below flowAFrom is a fall, above it an
-                           outflow, and flowB and flowC are two more at once (describe "flow")
+  Matter told where to go: "intro": false, "warmup": 0, "settings": { "fieldEnabled": false, "flowA": 1.8, "flowACount": 3000,
+                             "flowAFrom": 3.2, "flowATo": 3.2, "flowASpread": 1.6, "flowASwirl": 1.2, "flowALife": 10,
+                             "flowATrail": 0.9, "flowASize": 1.3 }
+                           (a flow, a said look: a ring round the shadow and its mirrored copy inside the lens; flowB and flowC are two more at once, a fall or an outflow by their From and To:
+                           describe "flow")
 
 Check with preview (a contact sheet of frames) before render; both take the same film.`

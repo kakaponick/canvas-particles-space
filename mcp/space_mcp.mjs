@@ -45,11 +45,15 @@ const PAGE_READY_MS = 30_000
 const PROGRESS_EVERY_MS = 1000
 
 const INSTRUCTIONS = 'Makes 1-180 s videos of a black-hole particle scene from a "film": one JSON object, or a short ' +
-  'script that plays the film forward. Call space_guide first for both and their recipes, space_describe to find ' +
-  'setting names, space_check to read a film back as a timeline, space_preview to look at frames, then space_render ' +
-  'to write the mp4. A film with "clips" is a reel: several films and fractal films cut, faded or dissolved into ' +
-  'one video of up to 600 s. The space_fractal_ tools make a zoom into the Mandelbrot set the same way, as deep as asked: ' +
-  'space_fractal_guide first.'
+  'script that plays the film forward. The scene runs on physical laws, and every effect asked for is one of them: ' +
+  'find its law in .claude/skills/space-scene/references/knobs.md (the knobs that take part and the gate without which ' +
+  'it does not show), say what it will change in the frame and where, and test that with a tracer before writing the ' +
+  'film: a 2 s film with "size": "720p" and "intro": false, drawn by space_preview as one still. That loop, the tracer ' +
+  'and the sweep of one knob are in .claude/skills/space-scene/SKILL.md. space_guide tells the film format, the script ' +
+  'language and recipes; space_describe each setting\'s range and meaning; space_preview draws frames and prints the ' +
+  'timeline the film was understood as; space_check reads that timeline without drawing; space_render writes the mp4. ' +
+  'A film with "clips" is a reel: several films and fractal films cut, faded or dissolved into one video of up to 600 s. ' +
+  'The space_fractal_ tools make a zoom into the Mandelbrot set the same way, as deep as asked: space_fractal_guide first.'
 
 // A film comes one of two ways, and every tool that takes a film takes either
 const FILM_INPUT = {
@@ -71,13 +75,15 @@ const ONE_SCENE = { type: 'boolean', description: 'For a reel (a film with "clip
 const TOOLS = [
   {
     name: 'space_guide',
-    description: 'How to write a film for the scene: the JSON format, the script language, a reel of several films in one video, and ready recipes. Read it first.',
+    description: 'How to write a film for the scene: the JSON format, the script language, a reel of several films in one video, and ready recipes. Read it first. ' +
+      'Which knobs make a physical effect, and the gate that makes it show, are in .claude/skills/space-scene/references/knobs.md.',
     inputSchema: { type: 'object', properties: {} }
   },
   {
     name: 'space_describe',
     description: 'What a film can set and animate: settings, intro parameters and presets, with ranges. ' +
-      'Without a filter it lists every key in one line each; a filter word ("lens", "ring", "title", "orbit") gives the full meaning of the matches.',
+      'Without a filter it lists every key in one line each; a filter word ("lens", "ring", "title", "orbit") gives the full meaning of the matches. ' +
+      'Take the word from the law\'s section of .claude/skills/space-scene/references/knobs.md.',
     inputSchema: {
       type: 'object',
       properties: { filter: { type: 'string', description: 'A word to search keys, names and descriptions for' } }
@@ -87,7 +93,8 @@ const TOOLS = [
     name: 'space_check',
     description: 'Reads a film without drawing it, in a moment: its length and frame, the timeline it was understood as ' +
       '(one line for each thing, in the order it happens), what was adjusted, and every mistake at once. ' +
-      'For a script also the seconds it marked, and the JSON it comes to when "out" names a file for it.',
+      'For a script also the seconds it marked, and the JSON it comes to when "out" names a file for it. ' +
+      'space_preview prints the same timeline, so a film about to be previewed needs no check first.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -100,7 +107,8 @@ const TOOLS = [
     name: 'space_preview',
     description: 'Draws frames of a film side by side in one picture, each with its second, exactly as the render will make them. ' +
       'A film cut into shots is shown as its storyboard: one frame from the middle of each shot, with its name. ' +
-      'Use it to check a film before rendering. With "still" it draws one frame as it is, for a poster or a YouTube thumbnail.',
+      'It prints the timeline the film was understood as. Use it to check a film before rendering. With "still" it draws one frame as it is: ' +
+      'a tracer (a 2 s 720p film with "intro": false that tests one effect, at "at": [1]), a poster or a YouTube thumbnail.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -573,8 +581,17 @@ function describeText (settings, intro, presets, introPresets, layerInfo, filter
     lines.push('LAYERS  switch along the film in "layers" (true shows), hide for the whole film in "intro.hide"; an event is also fired again in "cues"')
     for (const layer of layers) lines.push(`  ${layer}  ${layerInfo.events.includes(layer) ? 'event' : 'state'}  ${layerInfo.about[layer]}`)
   }
+  // A preset found by its name or description reads as the settings it sets (a page built before "sets" has none to show)
+  const named = full ? presets.filter(preset => preset.name.toLowerCase().includes(word) || (preset.description ?? '').toLowerCase().includes(word)) : []
+  if (named.length > 0) {
+    lines.push('PRESETS  "preset": a starting point the film\'s "settings" go on top of')
+    for (const preset of named) {
+      const sets = Object.entries(preset.sets ?? {}).map(([key, value]) => `${key} ${typeof value === 'number' ? round(value) : JSON.stringify(value)}`)
+      lines.push(`  ${preset.name}${preset.description ? `  ${preset.description}` : ''}${sets.length > 0 ? `; sets apart from Default: ${sets.join(', ')}` : ''}`)
+    }
+  }
   if (!full) {
-    lines.push(`PRESETS  "preset": ${presets.map(preset => preset.name).join(' | ')}`)
+    lines.push(`PRESETS  "preset": ${presets.map(preset => preset.name).join(' | ')} (a preset's name as the filter shows what it sets)`)
     lines.push(`INTRO PRESETS  "intro.preset": ${introPresets.map(preset => preset.name).join(' | ')}`)
     lines.push('TIME  "speed": the pace of the scene\'s time along the film, 0 (a still frame) to 4, as keyframes or one number')
     lines.push('Give a filter word for the full meaning of the keys that match it.')

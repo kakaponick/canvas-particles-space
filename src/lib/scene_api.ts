@@ -32,7 +32,7 @@ const HELP = `window.space: the scene for agents. Every call returns plain JSON-
   describe(filter?)        simulation settings: key, label, value, default, range, description; sliders, switches, colours
   get(keys?) / set(patch) / reset(keys?)    read, change (one batch, values clamped to range), back to defaults
   pause() / play()         freeze or run the whole scene
-  preset.list() / preset.apply(name)        saved simulation presets
+  preset.list() / preset.apply(name)        simulation presets, each with the settings it sets apart from Default
   intro.describe(filter?) / intro.get(keys?) / intro.set(patch) / intro.reset(keys?)
   intro.seek(seconds) / intro.play() / intro.pause() / intro.step() / intro.restart() / intro.speed(x) / intro.loop(on)
                            a paused timeline freezes the particle field: after a seek it moves only the lens, flash
@@ -63,6 +63,12 @@ function readFilm (source: unknown, input?: unknown): { film: unknown, notes: st
   if (typeof source !== 'string') return { film: source, notes: [] }
   const written = writeFilm(source, input)
   return { film: written.film, notes: written.notes }
+}
+
+// What a preset sets apart from the Default preset, so a preset reads as the knobs it turns
+function presetChanges (settings: object): Record<string, unknown> {
+  const base = DEFAULT_PRESET.settings as unknown as Record<string, unknown>
+  return Object.fromEntries(Object.entries(settings).filter(([key, value]) => JSON.stringify(value) !== JSON.stringify(base[key])))
 }
 
 const matches = (filter: string | undefined, ...texts: string[]) =>
@@ -226,7 +232,11 @@ export const sceneApi = {
   preset: {
     list: () => {
       const { presets, activeId } = usePresetStore.getState()
-      return { active: activeId, presets: [...BUILT_IN_PRESETS, ...presets].map(({ id, name, description }) => ({ id, name, ...(description ? { description } : {}) })) }
+      return {
+        active: activeId,
+        presets: [...BUILT_IN_PRESETS, ...presets].map(({ id, name, description, settings }) =>
+          ({ id, name, ...(description ? { description } : {}), sets: presetChanges(settings) }))
+      }
     },
     apply: (name: string) => {
       const { presets, applyPreset } = usePresetStore.getState()

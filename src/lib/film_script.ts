@@ -696,7 +696,8 @@ is the film above. It is plain JavaScript: functions, loops, Math. The same scri
 
   film({ size: 'vertical', fps: 60, seed: 8, preset: 'Schwarzschild', settings: { gridSheet: 0.5 } })
                              first and once, all optional: size, width, height, scale, fps, seed, preset,
-                             settings, warmup as in the JSON. No duration: the film ends where the script does
+                             settings, warmup as in the JSON (warmup only in a script that never calls
+                             opening). No duration: the film ends where the script does
   opening({ title: 'ACT ONE', preset: 'Nebula', params: { ... }, hide: ['camera'] })
                              the opening, as "intro" takes it; time moves to its end. A script that never
                              calls it has no opening and starts on the running scene
@@ -723,7 +724,7 @@ is the film above. It is plain JavaScript: functions, loops, Math. The same scri
   draw({ kind: 'line', arrow: 'end', points: [{ hole: ['r', 0] }, { hole: [1, 0] }], values: { r: [9, 4] } }, 5)
                              its own numbers the short way a caption's are: two ends, or a function of its
                              seconds, s => 4 + 2 * Math.cos(s). A plot's points are a list the script works out
-  title('ACT TWO', 3)        a title card for 3 s, lensed like the opening's; without seconds it lives by
+  title('ACT TWO', 3)        a title card for 3 s, the title cue of the JSON; without seconds it lives by
                              the intro's own title parameters. Options: { font, uppercase, params }
   fire('ringdown', 'gravityWave', { gravityWaveGain: 2 })   events of the opening again, with their params
   hide('gravity'); show('gravity')         layers switched at this second
