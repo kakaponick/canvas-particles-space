@@ -138,7 +138,9 @@ old scene and reject keys the code already has. Films, scripts and docs are read
 | A key's range, default, unit, figures, real-physics anchor | `describe` with a filter word |
 | Which knobs belong to a law, how they act on each other, its gate and traps | [references/knobs.md](references/knobs.md), the section of the law |
 | The craft of a film that reads: shots, the camera's moves, captions, timing, the particles on the sheet | [references/films.md](references/films.md) |
-| A YouTube film: its poster, planned before the timeline | films.md points to the poster's file |
+| A YouTube film: its poster, planned before the timeline | [references/poster.md](references/poster.md) |
+| Several films joined into one video (a reel) | [references/reels.md](references/reels.md) |
+| A film above 60 fps | [references/high_frame_rates.md](references/high_frame_rates.md) |
 | The live page: `window.space` in a browser, screenshots, the user's own Chrome | [references/live_page.md](references/live_page.md) |
 | A Mandelbrot (fractal) zoom: its own renderer, format and targets | `space_fractal_guide` (or `space.mjs fractal-guide`) |
 | A new knob, or an effect no combination of knobs gives | `CLAUDE.md`, "Driving the scene as an agent"; `docs/films.md` for film code |
