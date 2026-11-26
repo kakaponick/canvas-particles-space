@@ -213,6 +213,9 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
   }
   // The camera's pose, which sees the scene (cameraPose)
   const pose = new Float64Array(POSE_SLOTS)
+  // The equator: the plane through the main black hole that matter told where to go lies in. Three
+  // directions of the scene, row by row: two that span the plane, then the one it faces
+  const equator = new Float64Array([1, 0, 0, 0, 1, 0, 0, 0, 1])
   // A point of the scene as the camera sees it: CSS pixels and its distance in front of the camera
   const seen = { x: 0, y: 0, depth: 1 }
 
@@ -241,7 +244,7 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     orbitY: 0,
     orbitUnit: 1,
     orbitWidth: 1,
-    orbitTurn: new Float32Array(6),
+    orbitTurn: new Float32Array(9),
     orbitFocal: 0,
     orbitDepth: 1,
     doppler: 0,
@@ -937,6 +940,32 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     settings.swirlX = swirlHeld ? swirlX / swirlLength : 0
     settings.swirlY = swirlHeld ? swirlY / swirlLength : 0
     settings.swirlZ = swirlHeld ? swirlZ / swirlLength : -1
+    // The equator faces the way the swirl turns about: down the line of flight while the hole stands still
+    // or the scene is flat, the spin's axis as far as the swirl follows it. Its two directions are the
+    // scene's x and y carried there by the shortest turn, so a plane that does not tilt keeps its places
+    const faceX = threeD ? -settings.swirlX : 0
+    const faceY = threeD ? -settings.swirlY : 0
+    const faceZ = threeD ? -settings.swirlZ : 1
+    if (faceZ > -0.999999) {
+      const fold = 1 / (1 + faceZ)
+      equator[0] = 1 - faceX * faceX * fold
+      equator[1] = -faceX * faceY * fold
+      equator[2] = -faceX
+      equator[3] = -faceX * faceY * fold
+      equator[4] = 1 - faceY * faceY * fold
+      equator[5] = -faceY
+    } else {
+      // Facing straight back up the flight there is no shortest turn: it turns over about the scene's x
+      equator[0] = 1
+      equator[1] = 0
+      equator[2] = 0
+      equator[3] = 0
+      equator[4] = -1
+      equator[5] = 0
+    }
+    equator[6] = faceX
+    equator[7] = faceY
+    equator[8] = faceZ
     settings.inertia = state.gravityInertia
     settings.farZ = state.farZ
     settings.depthFade = state.depthFade
@@ -1073,9 +1102,9 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       settings.cameraMoveRightFrom = cut ? moveRight : view.moveRight
       settings.cameraMoveUpFrom = cut ? moveUp : view.moveUp
       settings.cameraMoveInFrom = cut ? moveIn : view.moveIn
-      // The orbiting stars circle the main hole across the line of flight too: the renderer turns their
-      // traces with the camera's columns for that plane and sets them at the hole's distance (below 0: the
-      // hole is behind the camera and they are not drawn)
+      // The orbiting stars and the flows circle the main hole: the renderer turns what they draw with the
+      // camera's columns (where it sends the scene's x, then y, then z) and sets it at the hole's distance
+      // (below 0: the hole is behind the camera and they are not drawn)
       const orbitTurn = frame.orbitTurn
       orbitTurn[0] = pose[0]
       orbitTurn[1] = pose[3]
@@ -1083,6 +1112,9 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       orbitTurn[3] = pose[1]
       orbitTurn[4] = pose[4]
       orbitTurn[5] = pose[7]
+      orbitTurn[6] = pose[2]
+      orbitTurn[7] = pose[5]
+      orbitTurn[8] = pose[8]
       frame.orbitFocal = focal
       frame.orbitDepth = holeBehind ? -1 : focal / holeScale
     } else {

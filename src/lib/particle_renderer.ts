@@ -387,8 +387,8 @@ export interface FrameInput extends FieldInput {
   orbitY: number
   orbitUnit: number
   orbitWidth: number
-  // In 3D the orbits lie across the line of flight and the camera sees them at an angle: the columns of
-  // its turn for that plane (x then y, three numbers each), its focal length in CSS pixels (0 in the flat
+  // In 3D the camera sees the orbits and the flows at an angle: the columns of its turn (where it sends
+  // the scene's x, then y, then z, three numbers each), its focal length in CSS pixels (0 in the flat
   // mode, which draws them flat) and the black hole's distance in the same pixels
   orbitTurn: Float32Array
   orbitFocal: number
