@@ -151,8 +151,9 @@ takes an audio file and lays it under the picture from the first second.
   at 0, a sheet seen from straight above (`gridTilt` 0).
 - A preview plays the film from its start to the last second asked for and encodes nothing: about a
   second and a half for 40 seconds of film, so look often. A render is held by the video encoder: on a machine
-  set up to encode outside the browser (`docs/films.md`) about 285 frames a second at 1080p and 70 at 4K,
-  through the browser's own encoder about 200 and 30. The answer of a render names which made the file. Up to 60 000 particles cost a render nothing.
+  set up to encode outside the browser (`docs/films.md`) about 285 frames a second at 1080p and 77 at 4K,
+  through the browser's own encoder about 205 and 88. The answer of a render names which made the file.
+  Up to 60 000 particles cost a render nothing.
 - The script starts a browser of its own, about three seconds a call; several jobs on one line share it.
   Five checks one call each took 16 s, the same five on one line 3 s. So a set of films goes through each
   step in one call: `check a.js b.js c.js`, `preview a.js a.jpg - b.js b.jpg -`, `render a.js a.mp4 high
@@ -173,11 +174,10 @@ motion: a 120 fps film played at 30 is the whole scene four times slower.
 
 - The scene is stepped once a frame there. It is the same motion as the 60 fps film, not the same
   frames: stars and particles are born at other moments.
-- Through the browser's own encoder (a machine not set up to encode outside it), 4K and anything above
-  120 fps is encoded in software, which is slow and gives every frame the bits of a 60 fps frame. Measured
-  on this machine at the default quality: 4K at 120 fps
-  is about 240 Mbit/s, 4K at 180 fps 320 to 365 Mbit/s. It renders 4K at 22 to 24 frames a second at
-  60 fps and 32 to 40 above it: a minute in 4K at 180 fps is 10 800 frames, took 337 s and came to 2.4 GB.
+- 4K and frame rates above 60 are encoded on the graphics card too. Through the browser's own encoder the
+  quality is a quantizer, so the file takes what the picture needs: at the default quality 4K at 60 fps is
+  about 105 Mbit/s, 4K at 120 fps about 140, 1080p at 240 fps about 95. Through ffmpeg it is the bitrate the
+  quality names, counted for 60 fps at most and spread over the faster frames.
 - A render through the tools goes to the disk as it is encoded, so its size is bound by the disk, not by
   the browser's memory. Only a film saved by hand with `download` is put together in the page.
 - The stream names the H.264 level its size and rate need (6.0 for 4K at 120 fps, 6.1 at 180). Chrome

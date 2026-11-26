@@ -21,6 +21,11 @@ const FONT_WAIT_MS = 8000
 const FRAMES_PER_BREATH = 24
 // Bits per pixel per frame: the field is fine detail in motion, which costs more than ordinary video
 const QUALITY_BITS = { medium: 0.12, high: 0.25, max: 0.45 } as const
+// The quantizer the card's encoder in the browser is driven by, for each quality: lower is finer. Told a
+// bitrate, that encoder holds one picture whatever the budget (38.5 dB against the still at 1080p and at
+// 4K alike, 15 of the 124 Mbit/s a 4K film at high is given). At 20 a 4K film at 60 fps comes to about
+// 105 Mbit/s and 45.6 dB, at 24 to 65 and 44.5, at 16 to 165 and 46.3; 1080p to 45, 28 and 71 Mbit/s
+const QUALITY_QUANTIZER = { medium: 24, high: 20, max: 16 } as const
 export type FilmQuality = keyof typeof QUALITY_BITS
 // The fastest film the bits are counted for; see where the bitrate is set
 const BITRATE_FPS = 60
@@ -306,6 +311,25 @@ export interface EncodeJob {
   draw: (index: number) => unknown
 }
 
+// The frame rates the card's encoder may be told a film has, when it refuses the film's own
+const TOLD_RATES = [60, 30]
+
+// The frame rate to tell the browser's hardware encoder so that it takes the film, or null when it takes
+// the frame at none. The browser offers the card's encoder by frame size and frame rate together: here
+// 1080p up to 60 a second and 4K up to 30, and anything past that goes to its software encoder, a third
+// as fast. A film is not encoded in real time, so the rate told is only what the encoder divides the
+// bitrate by; the frames carry their own times. Told 30, the card encodes 4K at 60 fps, or at 240
+async function hardwareRate (width: number, height: number, fps: number, bitrate: number) {
+  for (const rate of [fps, ...TOLD_RATES.filter(option => option < fps)]) {
+    const support = await VideoEncoder.isConfigSupported({
+      codec: 'avc1.640034', width, height, bitrate: Math.round(bitrate * rate / fps), framerate: rate,
+      hardwareAcceleration: 'prefer-hardware', avc: { format: 'avc' }
+    }).catch(() => null)
+    if (support?.supported) return rate
+  }
+  return null
+}
+
 // The quality asked for, refused before anything is drawn
 export function readQuality (options: RenderOptions): FilmQuality {
   const quality = options.quality ?? 'high'
@@ -315,20 +339,21 @@ export function readQuality (options: RenderOptions): FilmQuality {
 
 // Encodes the frames a renderer draws into an mp4. The file goes to `upload` piece by piece, or is put
 // together in the page for `download` and kept as `blob` for a caller there. Called inside `exclusively`.
-// A render is held by the video encoder, which Chrome already runs on the graphics card (about 200 frames
-// a second at 1080p on an RTX 3070, the main thread busy a third of that time). Measured and of no use:
-// encoding from the WebGL canvas without the 2D copy, `prefer-hardware`, `realtime`, reading the pixels
-// back by hand, other H.264 profiles. Two hardware encoders side by side reach about 300 frames a second
-// at the price of a second of frames held in video memory; that is not built. What is faster is an
-// encoder outside the browser, where the film server has one: `encodeLocally` below
+// A render is held by the video encoder. The browser runs it on the graphics card for a frame and a rate
+// the card's encoder is offered at (`hardwareRate`): about 205 frames a second at 1080p and 88 at 4K on an
+// RTX 3070, the main thread busy a third of that time. Its software encoder, which takes what is left,
+// makes 35 at 4K. Measured and of no use: encoding from the WebGL canvas without the 2D copy, `realtime`,
+// other H.264 profiles, a constant bitrate. Two hardware encoders side by side reach about 300 frames a
+// second at 1080p at the price of a second of frames held in video memory; that is not built. What is
+// faster at 1080p is an encoder outside the browser, where the film server has one: `encodeLocally`
 export async function encodeVideo (job: EncodeJob, options: RenderOptions, started: number) {
   const quality = readQuality(options)
   const media = await import('mediabunny')
   const { canvas } = job
-  // The bits are counted for 60 frames a second at most. The browser's software H.264 encoder, the one
-  // that takes 4K and anything above 120 fps, gives every frame what a 60 fps frame gets whatever the
+  // The bits are counted for 60 frames a second at most. The browser's software H.264 encoder, which
+  // takes what the card's is not offered for, gives every frame what a 60 fps frame gets whatever the
   // rate, so the file grows with the rate by itself, and it refuses a budget above about 300 Mbit/s;
-  // a hardware encoder spreads the same budget over the faster frames
+  // ffmpeg spreads the same budget over the faster frames
   const bitrate = Math.round(canvas.width * canvas.height * Math.min(job.fps, BITRATE_FPS) * QUALITY_BITS[quality])
 
   // The film server's browser on a machine with an encoder of its own takes the frames there
@@ -353,10 +378,20 @@ export async function encodeVideo (job: EncodeJob, options: RenderOptions, start
   const level = codec === 'avc'
     ? avcLevel(canvas.width, canvas.height, job.fps, bitrate * Math.max(job.fps, BITRATE_FPS) / BITRATE_FPS)
     : 0
+  const told = codec === 'avc' ? await hardwareRate(canvas.width, canvas.height, job.fps, bitrate) : null
+  // The card's encoder is told the rate it takes and driven by a quantizer. Where the browser cannot
+  // drive it so, it is given the bitrate, counted for the rate it was told: it gives a frame the
+  // bitrate's share of that rate
   const video = new media.CanvasSource(canvas, {
     codec,
-    bitrate,
     keyFrameInterval: KEY_FRAME_SECONDS,
+    ...(told !== null
+      ? {
+        quality: new media.Quality({ quantizer: QUALITY_QUANTIZER[quality], bitrate: Math.round(bitrate * told / job.fps) }),
+        hardwareAcceleration: 'prefer-hardware' as const,
+        onEncoderConfig: (config: VideoEncoderConfig) => { config.framerate = told }
+      }
+      : { bitrate }),
     onEncodedPacket: (_packet, meta) => {
       if (level > 0 && meta?.decoderConfig) meta.decoderConfig = raiseAvcLevel(meta.decoderConfig, level)
     }
@@ -431,7 +466,7 @@ export async function encodeVideo (job: EncodeJob, options: RenderOptions, start
       height: canvas.height,
       codec,
       audio: audioCodec,
-      encoder: 'browser',
+      encoder: told !== null ? 'browser, on the card' : 'browser, in software',
       megabytes: Number((bytes / 1e6).toFixed(2)),
       megabitsPerSecond: Number((bytes * 8 / 1e6 / (job.frames / job.fps)).toFixed(1)),
       renderSeconds: Number(((performance.now() - started) / 1000).toFixed(1))
@@ -443,9 +478,8 @@ export async function encodeVideo (job: EncodeJob, options: RenderOptions, start
 const FRAMES_AHEAD = 4
 
 // The same film through the encoder the film server's browser brings (mcp/local_encoder.cjs: ffmpeg on the
-// graphics card's own H.264 encoder). The browser's encoder takes 4K in software, about 20 frames a
-// second; this one is held only by how fast a frame is read back and passed on, about 65 at 4K on an RTX
-// 3070. A frame is packed and read back by `packer` a few frames behind the drawing, and written into
+// graphics card's own H.264 encoder). It is held by how fast a frame is read back and passed on: about
+// 285 frames a second at 1080p and 77 at 4K on an RTX 3070. A frame is packed and read back by `packer` a few frames behind the drawing, and written into
 // ffmpeg's input as it arrives; the sound is ffmpeg's to read and lay under the picture
 async function encodeLocally (
   job: EncodeJob, path: string, audio: string | undefined, bitrate: number,
@@ -515,7 +549,7 @@ async function encodeLocally (
       height: canvas.height,
       codec: 'avc',
       audio: audio ? 'aac' : null,
-      encoder: 'nvenc',
+      encoder: 'ffmpeg, on the card',
       megabytes: Number((bytes / 1e6).toFixed(2)),
       megabitsPerSecond: Number((bytes * 8 / 1e6 / (job.frames / job.fps)).toFixed(1)),
       renderSeconds: Number(((performance.now() - started) / 1000).toFixed(1))

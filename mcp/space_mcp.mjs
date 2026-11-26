@@ -15,7 +15,7 @@
 //   CHROME_PATH=path                another Chrome, Chromium or Edge
 //
 // On a machine with Electron and an ffmpeg that has h264_nvenc, a render is encoded outside the browser,
-// which is what makes 4K fast (findLocalEncoder; docs/films.md says where the two are looked for):
+// which is faster at 1080p (findLocalEncoder; docs/films.md says where the two are looked for):
 //   SPACE_ELECTRON=path             Electron's program
 //   SPACE_FFMPEG=path               ffmpeg
 //   SPACE_BROWSER_ENCODER=1         Chrome and its own encoder, as on a machine without them
@@ -122,7 +122,7 @@ const TOOLS = [
       properties: {
         ...FILM_INPUT,
         out: { type: 'string', description: 'Path of the mp4 to write; relative paths start at the working directory' },
-        quality: { type: 'string', enum: ['medium', 'high', 'max'], description: 'Bitrate; high by default' },
+        quality: { type: 'string', enum: ['medium', 'high', 'max'], description: 'How fine the picture is encoded; high by default' },
         audio: { type: 'string', description: 'Path of an audio file (mp3, wav, m4a, ogg) laid under the picture from its start' },
         oneScene: ONE_SCENE
       },
@@ -168,7 +168,7 @@ const TOOLS = [
       properties: {
         ...FRACTAL_INPUT,
         out: { type: 'string', description: 'Path of the mp4 to write; relative paths start at the working directory' },
-        quality: { type: 'string', enum: ['medium', 'high', 'max'], description: 'Bitrate; high by default' },
+        quality: { type: 'string', enum: ['medium', 'high', 'max'], description: 'How fine the picture is encoded; high by default' },
         audio: { type: 'string', description: 'Path of an audio file (mp3, wav, m4a, ogg) laid under the picture from its start' }
       },
       required: ['out']
@@ -771,7 +771,7 @@ async function runTool (name, args, report) {
         fs.rmSync(target.path, { force: true })
         return draw()
       })
-      const arrived = target.written || (summary.encoder !== 'browser' && fs.existsSync(target.path))
+      const arrived = target.written || (summary.encoder.startsWith('ffmpeg') && fs.existsSync(target.path))
       if (target.error || !arrived) throw target.error ?? new Error('The file did not arrive from the page')
       closeFile()
       fs.renameSync(target.path, out)
