@@ -5,7 +5,7 @@
 import { clamp, fail } from './agent_values'
 import {
   DEFAULT_SHEET_FRAMES, MAX_SHEET_FRAMES, breathe, checkCancelled, createFilmPlayer, createSheet, encodeVideo, exclusively,
-  framesAt, progress, readQuality, sheetLayout, stillSecond, type PreviewOptions, type RenderOptions
+  framesAt, progress, readQuality, sheetLayout, stillSecond, stillSize, type PreviewOptions, type RenderOptions
 } from './film_render'
 import { createFractalPlayer, loadFonts } from './fractal_render'
 import { planReel, type ReelClip, type ReelPlan } from './reel'
@@ -229,7 +229,8 @@ export async function previewReel (source: unknown, options: PreviewOptions & Re
   return exclusively(last + 1, async () => {
     const player = await createReelPlayer(plan, tileWidth / plan.width, options, indices[0])
     try {
-      const sheet = createSheet(player.canvas.width, player.canvas.height, columns, rows, still !== null)
+      const size = still ? stillSize(options, player.canvas.width, player.canvas.height) : player.canvas
+      const sheet = createSheet(size.width, size.height, columns, rows, still !== null)
       progress.phase = 'rendering'
       for (let slot = 0; slot < indices.length; slot++) {
         checkCancelled()

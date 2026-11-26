@@ -493,14 +493,24 @@ export function stillSecond (options: PreviewOptions) {
   return [second]
 }
 
+// The size a still is written at: the film's own frame, or that frame shrunk to `stillWidth`, which is how a
+// poster is judged at the size a feed shows it (168 px wide on a phone)
+export function stillSize (options: PreviewOptions, width: number, height: number) {
+  if (options.stillWidth === undefined) return { width, height }
+  const shrunk = clamp(Math.round(Number(options.stillWidth)), 16, width)
+  if (!Number.isFinite(shrunk)) fail('stillWidth takes a width in pixels')
+  return { width: shrunk, height: Math.max(1, Math.round(height * shrunk / width)) }
+}
+
 // One picture of frames side by side, each with its label in the corner unless it is a still, read back as
-// a JPEG
+// a JPEG. A tile is drawn at the sheet's tile size, so a still can be shrunk on the way
 export function createSheet (tileWidth: number, tileHeight: number, columns: number, rows: number, still = false) {
   const sheet = document.createElement('canvas')
   sheet.width = tileWidth * columns
   sheet.height = tileHeight * rows
   const ctx = sheet.getContext('2d', { alpha: false })
   if (!ctx) fail('A 2D canvas is not available')
+  ctx.imageSmoothingQuality = 'high'
   const labelSize = Math.max(11, Math.round(tileHeight * 0.055))
   ctx.font = `600 ${labelSize}px system-ui, sans-serif`
   ctx.textBaseline = 'top'
@@ -508,7 +518,7 @@ export function createSheet (tileWidth: number, tileHeight: number, columns: num
     place (slot: number, tile: CanvasImageSource, label: string) {
       const x = (slot % columns) * tileWidth
       const y = Math.floor(slot / columns) * tileHeight
-      ctx.drawImage(tile, x, y)
+      ctx.drawImage(tile, x, y, tileWidth, tileHeight)
       if (still) return
       ctx.fillStyle = 'rgba(0, 0, 0, 0.6)'
       ctx.fillRect(x, y, ctx.measureText(label).width + labelSize * 0.8, labelSize * 1.5)
@@ -516,8 +526,8 @@ export function createSheet (tileWidth: number, tileHeight: number, columns: num
       ctx.fillText(label, x + labelSize * 0.4, y + labelSize * 0.3)
     },
     finish () {
-      // A still is kept finer: it is shown to people, and a thumbnail of 1280x720 stays well under 2 MB
-      const jpeg = sheet.toDataURL('image/jpeg', still ? 0.92 : 0.86)
+      // A still is shown to people: 0.9, the top of the 85-90 % YouTube's guides give for a photograph
+      const jpeg = sheet.toDataURL('image/jpeg', still ? 0.9 : 0.86)
       // Base64 without the data URL's head
       return { image: jpeg.slice(jpeg.indexOf(',') + 1), mimeType: 'image/jpeg', width: sheet.width, height: sheet.height }
     }
@@ -531,6 +541,8 @@ export interface PreviewOptions {
   frames?: number
   // One frame, the first second of `at`, at the film's own size and with no label (`stillSecond`)
   still?: boolean
+  // A still shrunk to this many pixels wide (`stillSize`)
+  stillWidth?: number
   // Where each picture of the film's graphics is read from, as in a render
   images?: Record<string, string>
 }
@@ -560,7 +572,8 @@ export async function previewFilm (source: unknown, options: PreviewOptions = {}
     const player = await createFilmPlayer(plan, tileWidth / plan.width, options.images)
     try {
       const tile = player.canvas
-      const sheet = createSheet(tile.width, tile.height, columns, rows, still !== null)
+      const size = still ? stillSize(options, tile.width, tile.height) : tile
+      const sheet = createSheet(size.width, size.height, columns, rows, still !== null)
 
       progress.phase = 'rendering'
       let slot = 0

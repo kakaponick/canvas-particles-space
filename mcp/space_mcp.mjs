@@ -105,6 +105,7 @@ const TOOLS = [
         at: { type: 'array', items: { type: 'number' }, description: 'Seconds to show; a frame of each shot, or evenly spread, when left out' },
         frames: { type: 'number', description: 'How many frames to spread evenly over the film when "at" is left out (default 9)' },
         still: { type: 'boolean', description: 'One frame, the first second of "at", at the film\'s own size and with no label: a picture to use as it is' },
+        stillWidth: { type: 'number', description: 'A still shrunk to this many pixels wide, to judge a poster at the size a feed shows it (168)' },
         out: { type: 'string', description: 'Where to write the picture as a .jpg as well; relative paths start at the working directory' },
         oneScene: ONE_SCENE
       }
@@ -611,6 +612,7 @@ async function runTool (name, args, report) {
     if (Array.isArray(args.at)) options.at = args.at
     if (typeof args.frames === 'number') options.frames = args.frames
     if (args.still === true) options.still = true
+    if (typeof args.stillWidth === 'number') options.stillWidth = args.stillWidth
     if (args.input !== undefined) options.input = args.input
     const pictures = await filmPictures(page, film, args.input)
     if (pictures.missing.length > 0) throw new Error(pictures.missing.join('\n'))

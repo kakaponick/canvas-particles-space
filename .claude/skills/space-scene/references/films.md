@@ -520,70 +520,87 @@ What goes wrong on the sheet:
 
 ## 17. The poster: a YouTube thumbnail planned with the film
 
-On YouTube the thumbnail is seen before anything of the film, and most often instead of it: with the title it
-decides who clicks (CTR) and, by what it promises, who stays. So a film made to be published is planned from
-its poster: the picture first, then the film that keeps what it promises. The poster and the title are a
-pair, and the first lines of the description a third voice saying the same thing (the `youtube-seo` skill
-writes the title and the description; this section is the picture).
+On YouTube the thumbnail is a banner looked at for less than a second, before the film and most often instead
+of it: it carries one idea and raises a question the film answers. With the title it decides who clicks, and
+by what it promises, who stays; YouTube weighs both. So a film made to be published is planned from its poster:
+the picture first, then the film that keeps its promise. The poster and the title are one package (the
+`youtube-seo` skill writes the title and the description; this section is the picture).
 
-1. **Say the promise before the timeline.** One sentence: what the poster shows, the moment of the film it
-   comes from, and its words, e.g. "the ring lit from below, the hole a third of the frame, words: ONE SECOND
-   TO FALL". A poster does not retell the film: it asks a question the film answers ("what is it like to
-   fall in?") or shows a result the film arrives at. The title names the subject; the poster adds the feeling,
-   the contrast or the number, never the title's own words. The moment becomes a shot of the film, reached in
-   its first third: a viewer who clicked for a picture and does not get it leaves, and YouTube shows the film
-   to fewer people after that. A poster whose mood the film does not have is the same mistake.
-2. **One focus, readable at the size it is seen.** Most viewers see the poster on a phone, about 170 px wide
-   in a list of results and 360 px on the home page, where the particles' fine detail turns to grey:
-   - one subject (the hole, the ring, the two holes of a merger) at least a third of the frame's height, on a
-     third of the frame, with air round it and nothing of it at the very edge;
-   - the subject set off from what is behind it by light: the ring's glow, a dark field round a bright
-     thing, one strong colour (`accent`, the ring, the `gridSky`), trails short enough not to fog the black;
-   - the corners YouTube covers kept clear of words and of the subject: the bottom right holds the film's
-     length, and the top left a badge in some lists and playlists.
-3. **Few words, or none.** One to four words (six at most), in the title's language, as one caption of
-   `size` 0.12 to 0.2 (at 720p 0.12 is 86 px high) in a heavy plain face, `unbounded` or `orbitron`, with a
-   `plate` or the black of the sky behind them so they do not sink into the particles. A poster whose picture
-   says it alone (a merger at its flash) takes no words at all.
-4. **The channel's own look.** Posters of one channel share their face, their accent colour and where the
-   words stand, so a viewer who knows the channel finds the film in a feed. Take them from the channel's last
-   poster in `films/*_poster.*`; the first one sets them.
-5. **Make it a film of its own, in two or three takes.** A poster is `films/<name>_poster.js` (or `.json`)
-   beside the film: `"size": "720p"` (1280x720, 16:9, the size YouTube asks for), `"intro": false`, the film's
-   `seed`, the settings of the moment it shows (in a script, the same function that makes that shot), a
-   `warmup` long enough for the trails, a second or two of `duration`, and the words as its caption. Make two
-   or three takes that differ in their angle, not in a detail: another moment, another question, words or no
-   words; each take is a file of its own (`<name>_poster.js`, `<name>_poster2.js`). When a frame of the film itself already is the poster, a still of
-   that second will do, captions and all.
-6. **Draw each as a still**, one frame as the render makes it, with no label; several go in one call:
+1. **The idea before the timeline.** One sentence: why a viewer clicks, what the poster shows, the moment of
+   the film it comes from, and its words, e.g. "the ring lit from below, the hole a third of the frame, words:
+   ONE SECOND TO FALL". Intrigue, not a spoiler: an unusual object, a before and after, the moment just before
+   something happens, never the answer itself. The picture shows the what and the title the why, or the other
+   way round; neither repeats the other. The film reaches that moment in its first seconds where it can, in
+   its first third at the latest, in the poster's mood: a poster the film does not keep gets the click and
+   loses the viewer.
+2. **Look at the niche first.** Open the poster of the top results for the film's main phrases (`videos.csv`
+   of `scripts/yt_keywords.mjs` holds their ids; a poster is `https://i.ytimg.com/vi/<id>/hqdefault.jpg`) and
+   make what is not there: another colour, another closeness, another composition.
+3. **One focus, at most three elements** on the whole poster: the subject, the background, and at most the
+   words or one arrow. Designed for the size it is seen at, 160 to 360 px wide on a phone, not for 4K:
+   - the subject (the hole, the ring, the two holes of a merger) a third of the frame or more, set off from a
+     plain background by its silhouette, by light, a glow round it;
+   - a clear order: the eye lands on the subject first, then on the words; the rule of thirds, or the subject
+     on one half and the words on the other;
+   - two or three colours, one of them the accent, in a contrasting pair (blue and orange, black and yellow),
+     saturation and local contrast a little higher than the film's own. Red is not the accent: it competes with
+     YouTube's own red. The edges are not pure black or pure white: such a poster loses its border in the dark
+     or the light theme, so let the sky, a nebula or the stars reach the edges.
+4. **Few words, or none.** Three to five words at most, adding context or an emotion to the title, never the
+   title in large letters; a number reads faster than a word. In the viewers' language, as one caption in a
+   heavy plain face (`unbounded`, which holds Cyrillic, or `orbitron`), its line 1/8 to 1/6 of the frame's
+   height (`size` 0.125 to 0.17), light on dark with a `plate` where the picture behind is busy, one key word
+   or number in the accent colour (`*{word}`). A word that does not read small is cut, not shrunk. A poster
+   whose picture says it alone takes no words: make one take without them.
+5. **The places it is shown.** Nothing that matters in the bottom right corner (the length) or on the bottom
+   edge (the red bar of what was watched): leave a margin. The middle holds the point: a vertical crop of a
+   16:9 poster shows only the middle. A channel logo is never on it.
+6. **Make it a film of its own, at 4K.** A poster is `films/<name>_poster.js` (or `.json`) beside the film:
+   `"size": "4k"` (3840x2160, what YouTube now asks for; 1280x720 is the least a Test & Compare take may be),
+   `"intro": false`, the film's `seed`, the settings of the moment it shows (in a script, the same function that
+   makes that shot), a `warmup` long enough for the trails, a second or two of `duration`, the words as its
+   caption. A frame of the film is not the poster: it is often smeared by motion and weak in light, so the
+   poster is the moment staged again, still and lit for it. A vertical film (a Short) gets a vertical poster of
+   its own, 2160x3840 (`"width": 2160, "height": 3840`), never a crop of a 16:9 one.
+7. **Two or three takes that differ in their idea**, not in a shade: with words and without, the subject close
+   and the whole scene, another colour scheme. Each take is a file of its own (`<name>_poster.js`,
+   `<name>_poster2.js`). They go to Test & Compare in YouTube Studio on the desktop (up to three; not for
+   Shorts), which picks by the share of watch time, not by clicks.
+8. **Draw each as a still**, one frame as the render makes it, with no label; several go in one call:
    `node .claude/skills/space-scene/scripts/space.mjs still films/<name>_poster.js films/<name>_poster.jpg 1.5`
-   (through the server: `space_preview` with `still` and `out`). Then look at it small: a preview of 16 of
-   its seconds lays its frames at 384 px, the size of the home page,
-   `preview films/<name>_poster.js out/<name>_poster_small.jpg 0.4,0.5,0.6,0.7,0.8,0.9,1,1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9`.
-   What does not read there is made bigger or taken out.
-7. **Check it against the list below, then let the user choose.** Show the takes side by side with the
-   titles they were made for, and say which one you would publish and why; the user picks.
+   (through the server: `space_preview` with `still` and `out`). Then the shrink test: the same still at 168 px
+   wide, the size of a phone's feed,
+   `still films/<name>_poster.js out/<name>_poster_small.jpg 1.5 168`. At that size it must be clear what
+   happens, and squinting at it must leave one bright patch, the subject. What does not pass is simplified.
+9. **The checklist, then the user chooses.** Show the takes side by side with the titles they were made for,
+   say which one you would publish and why; the user picks.
 
-| Check | The question |
-|---|---|
-| Sense | Does a glance of one second tell what the film asks or gives? |
-| Size | At 384 px, do the subject and the words still read? |
-| Words | Four or fewer, large, set off from the picture, none of them the title's? |
-| Corners | Bottom right and top left free of the words and the subject? |
-| Honesty | Does the film reach this picture, in its first third, in this mood? |
+- [ ] One idea, said in one sentence
+- [ ] The poster and the title complete each other, neither repeats the other
+- [ ] One subject, at most three elements
+- [ ] Three to five words at most, heavy, in contrast, one accent
+- [ ] Reads at 168 px wide (`still ... 168`), and the squint leaves the subject
+- [ ] Bottom right corner and bottom edge free of anything that matters
+- [ ] Edges not pure black or white, accent not red
+- [ ] The film keeps the promise, in its first seconds where it can
+- [ ] 3840x2160 (a Short: 2160x3840), JPG, under 50 MB
+- [ ] Two or three takes for Test & Compare
+- [ ] Nothing of others' without rights, nothing against the community guidelines
 
 Report the poster with the film: the path of the chosen jpg and of the others, its words, the second of the
 film it promises, and the titles it stands beside.
 
-A vertical film published as a Short is shown in the Shorts feed by a frame of its own, picked in the
-YouTube app, so its poster is a moment of the film: name its second in the report instead.
+To publish, the jpg goes through `postiz upload` (images up to 10 MB) and its `id` and `path` become the
+post's `thumbnail` (the `postiz` skill). YouTube takes a custom thumbnail only from a verified channel, as a JPG
+or PNG under 50 MB, with a daily limit of uploads ("Daily custom thumbnail limit reached": wait 24 hours). The
+API Postiz sets it through may still hold the old 2 MB limit; if the thumbnail is refused, the 4K jpg goes in by
+hand in YouTube Studio.
 
-To publish, the jpg goes through `postiz upload` and its `id` and `path` become the post's `thumbnail`
-(the `postiz` skill). YouTube takes a custom thumbnail only from a verified channel, as a JPG or PNG under
-2 MB; a still of 1280x720 is well under that.
+After it is out, the poster is read with retention, against the channel's own other films, not a norm from
+the internet: a high CTR with viewers leaving early means the poster promised more than the film gives; a low
+CTR with viewers who stay means the film is good and its poster does not sell it. A film with good retention
+and a weak CTR is the one to give a new poster. Keep a table of the tests (film, what was tested, which take
+won): after ten or fifteen it shows what this channel's viewers click.
 
-After it is out, the poster is read with the film's retention in YouTube Studio: a high CTR with viewers
-leaving early means the poster promised more than the film gives; a low CTR with viewers who stay means the
-film is good and its poster does not sell it. Either way the poster is the cheap thing to change: a new take
-replaces it, or Test & Compare in YouTube Studio, where the channel has it, tries the takes against one
-another.
+Rules: [YouTube Help, custom thumbnails](https://support.google.com/youtube/answer/72431?hl=en),
+[Test & Compare](https://support.google.com/youtube/answer/13861714).
