@@ -19,16 +19,16 @@ const DEPARTMENTS = [
   ['HYPERCUBE RIGGING', '16 corners, 32 edges, one copy inside the cube'],
   ['RED EDGE PAINTERS', 'eight edges, one colour'],
   ['STAR DEMOLITION', 'one star, used once'],
-  ['PARTICLE WRANGLERS', '40 000 particles, each fed to the ring by hand'],
-  ['WELL SURVEY', 'depth: 5.5 radii, measured along W'],
+  ['PARTICLE WRANGLERS', '40 000 particles, each laid on the sheet by hand'],
+  ['WELL SURVEY', '40 rings, each one step down W'],
   ['AXIS GRIPS', 'X and Y held level, W held down'],
   ['STRAIGHT DOWN UNIT', 'the camera that rose above the sheet'],
   ['FLAT CREATURE UNIT', 'handlers, stand-ins and one consultant on flatness'],
   ['LATTICE BENDERS', 'a cage of space, drawn in by 10'],
   ['RIPPLE & CHIRP', 'GW150914, re-enacted at a thousandth of a proton'],
-  ['THROAT, TUNNEL & WHITE HOLE CATERING', 'served at the far end'],
-  ['MANDELBROT DESCENT', 'still falling, last seen at ×10^{20}'],
-  ['VOICE & THE WORD “CENTRE”', 'one voice, 32 lines, two spellings']
+  ['NEUTRON STAR HANDLING', 'one heavy object, lowered to the bottom of the well'],
+  ['WORMHOLE & WHITE HOLE CASTING', 'two parts, struck out before the shoot'],
+  ['VOICE & THE WORD “CENTRE”', 'one voice, 38 lines, two spellings']
 ]
 const ROWS = 5
 const COLUMNS = 4

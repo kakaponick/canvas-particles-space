@@ -1,15 +1,17 @@
-// The fourth dimension, clip 4 of films/fourth_dimension.json: the fall. A spinning black hole in its lattice,
-// seen by a camera that circles it and then goes in until the shadow fills the frame; the reel dissolves from
-// there into the fall into the Mandelbrot set.
+// The fourth dimension, clip 5 of films/fourth_dimension.json: the fall. A spinning black hole in its lattice,
+// seen by a camera that circles it and then goes in until the shadow is all there is. The film ends in that
+// dark, on its own figure: a circle inside a circle, the one direction left drawn in red, and the title.
 // The narration sets the pace, as in clip 1 (fourth_dimension_ladder.js says how).
 //   node .claude/skills/space-scene/scripts/space.mjs preview films/fourth_dimension_fall.js out.jpg - --input films/voice/fourth_dimension_lines.json
-/* global film, set, to, wait, shot, caption, mark, now, at, meanwhile, input */
+/* global film, set, to, wait, shot, caption, draw, mark, now, at, input */
 const lines = input.lines ?? {}
 const cues = input.cues ?? {}
 const say = (name, guess) => { mark('say:' + name); return lines[name] ?? guess }
 const heard = (name, word, guess) => cues[name]?.[word] ?? guess
 
 const W = '#ff3b5c'
+const INK = '#eef2ff'
+const SOFT = '#c9d4f0'
 
 film({
   fps: 60,
@@ -82,5 +84,30 @@ shot('already falling', () => {
   at(start + heard('falling', 'remember', 2.5) + 1.3, () => {
     caption('a direction you cannot point to', falling - 0.6 - now(), { at: [0.5, 0.84], size: 0.04, font: 'noto', plate: 0.6 })
   })
-  wait(spoken + 2)
+  // The dark comes with the shadow: the picture is black as the camera arrives and the line ends
+  wait(Math.max(spoken - 1.2, falling + 0.4 - start))
+  to({ fade: 1 }, 1.4)
+})
+
+// The last card, on the black the camera fell into. The frame is 16 wide and 9 high, and a radius is a share
+// of its height, so a point of a circle stands 9/16 of that far along the frame
+shot('the fourth dimension', () => {
+  const centre = [0.5, 0.36]
+  const outer = 0.125
+  const inner = 0.042
+  const along = radius => 0.5 - radius * 9 / 16
+  const hold = 7
+  wait(0.4)
+  draw({ kind: 'circle', center: centre, radius: outer, color: INK, width: 0.003, draw: 1.3, fade: 0.9 }, hold)
+  wait(0.5)
+  draw({ kind: 'circle', center: centre, radius: inner, color: INK, width: 0.003, draw: 1, fade: 0.9 }, hold - 0.5)
+  wait(0.7)
+  draw({
+    kind: 'line', arrow: 'end', points: [[along(outer), centre[1]], [along(inner + 0.012), centre[1]]], color: W, width: 0.0045, draw: 1.1, fade: 0.9
+  }, hold - 1.2)
+  wait(0.9)
+  caption('THE *{FOURTH} DIMENSION', hold - 2.1, { at: [0.5, 0.63], size: 0.062, font: 'unbounded', accent: W, fade: 0.9 })
+  wait(0.8)
+  caption('a hypothesis', hold - 2.9, { at: [0.5, 0.735], size: 0.034, font: 'noto', color: SOFT, fade: 0.9 })
+  wait(hold - 2.9 + 0.5)
 })

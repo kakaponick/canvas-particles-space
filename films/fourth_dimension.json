@@ -14,7 +14,7 @@
         "kind": "black",
         "seconds": 2
       },
-      "input": {"lines":{"line":4.47,"cube":2.4,"inward":7.07,"limit":6.59,"hole":8.8,"textbook":7.69,"axes":8.84,"literally":5.13,"down":4.81,"rise":5.12,"vanished":7.44,"circle":12.28,"creature":14.58,"we":4.41,"falls":4.18,"everywhere":10.45,"weight":4.59},"cues":{"inward":{"inward":1.72,"place":2.82},"hole":{"shadow":4.32,"ring":5.6,"sky":7.38},"textbook":{"sheet":4.66,"well":6.84},"axes":{"x":1.44,"y":2.6,"w":6.58},"down":{"down":1.94},"rise":{"rise":2.14},"vanished":{"grid":4.3},"circle":{"inward":3.52,"circle":5.1,"w":7.16,"cube":10.62},"creature":{"flat":4.98,"slides":12.66},"we":{"three":3.04},"falls":{"falls":1.62},"everywhere":{"inward":4.36,"star":6.24,"planet":7.84,"ground":8.94},"weight":{"feel":2.22,"weight":3.92}}}
+      "input": {"lines":{"line":4.47,"cube":2.4,"inward":7.07,"limit":6.59,"hole":8.8,"textbook":7.69,"axes":8.84,"literally":5.13,"down":4.81,"rise":5.12,"vanished":10.4,"circle":12.28,"creature":14.58,"we":4.41,"falls":4.18,"everywhere":10.45,"weight":4.59,"star":9.42},"cues":{"inward":{"inward":1.72,"place":2.82},"hole":{"shadow":4.32,"ring":5.6,"sky":7.38},"textbook":{"sheet":4.66,"well":6.84},"axes":{"x":1.44,"y":2.6,"w":6.58},"down":{"down":1.94},"rise":{"rise":2.14},"vanished":{"depth":1.98,"ring":3.82,"above":7.06},"circle":{"inward":3.52,"circle":5.1,"w":7.16,"cube":10.62},"creature":{"flat":4.98,"look":6.46,"slides":12.66},"we":{"three":3.04},"falls":{"falls":1.62},"everywhere":{"inward":4.36,"star":6.24,"planet":7.84,"ground":8.94},"weight":{"feel":2.22,"weight":3.92},"star":{"neutron":3.32}}}
     },
     {
       "name": "what follows",
@@ -23,7 +23,7 @@
         "kind": "black",
         "seconds": 2
       },
-      "input": {"lines":{"line":4.47,"hole":8.8,"stretch":7.69,"ripple":11.43,"proton":4.63,"throat":15.16,"white":6.68},"cues":{"hole":{"shadow":4.32,"ring":5.6,"sky":7.38},"stretch":{"stretches":5.94},"ripple":{"ripple":2.38,"two":7.26},"proton":{"proton":3.94},"throat":{"singularity":6.26,"throat":10.28,"tunnel":11.5,"wormhole":14.4},"white":{"pours":3.74,"white":5.44}}}
+      "input": {"lines":{"line":4.47,"hole":8.8,"circle":12.28,"stretch":7.69,"ripple":11.43,"proton":4.63,"star":9.42,"object":11.66,"nothing":15.99},"cues":{"hole":{"shadow":4.32,"ring":5.6,"sky":7.38},"circle":{"inward":3.52,"circle":5.1,"w":7.16,"cube":10.62},"stretch":{"stretches":5.94},"ripple":{"ripple":2.38,"two":7.26},"proton":{"proton":3.94},"star":{"neutron":3.32},"object":{"deeper":1.92,"light":3.44,"black":5.62,"object":8.78},"nothing":{"singularity":2.44,"wormhole":4.16,"white":5.44,"likely":8.08,"well":12.26,"simple":13.26}}}
     },
     {
       "name": "the experiment",
@@ -41,103 +41,7 @@
         "kind": "black",
         "seconds": 2
       },
-      "input": {"lines":{"hypothesis":8.28,"falling":9.72},"cues":{"falling":{"remember":2.54,"falling":8.26}}}
-    },
-    {
-      "name": "inward",
-      "fractal": {
-        "duration": 13,
-        "target": "spiral",
-        "palette": [
-          "#02030f",
-          "#123a6b",
-          "#4de3ff",
-          "#6a2cc0",
-          "#ff3b5c",
-          "#ffb347"
-        ],
-        "drift": 0.05,
-        "glow": 0.25,
-        "tracks": {
-          "rate": [
-            [
-              0,
-              0.25
-            ],
-            [
-              3.5,
-              1.5,
-              "in"
-            ],
-            [
-              9,
-              2.4,
-              "linear"
-            ],
-            [
-              13,
-              2.4
-            ]
-          ],
-          "spin": [
-            [
-              0,
-              0
-            ],
-            [
-              13,
-              14,
-              "linear"
-            ]
-          ]
-        },
-        "fade": [
-          [
-            0,
-            0
-          ],
-          [
-            9.2,
-            0
-          ],
-          [
-            11.4,
-            1
-          ]
-        ],
-        "captions": [
-          {
-            "text": "THE *{FOURTH} DIMENSION",
-            "from": 8.6,
-            "to": 12.7,
-            "at": [
-              0.5,
-              0.46
-            ],
-            "size": 0.062,
-            "font": "unbounded",
-            "accent": "#ff3b5c",
-            "fade": 0.8
-          },
-          {
-            "text": "a hypothesis",
-            "from": 9.4,
-            "to": 12.7,
-            "at": [
-              0.5,
-              0.57
-            ],
-            "size": 0.034,
-            "font": "noto",
-            "color": "#c9d4f0",
-            "fade": 0.8
-          }
-        ]
-      },
-      "transition": {
-        "kind": "dissolve",
-        "seconds": 1.6
-      }
+      "input": {"lines":{"line":4.47,"circle":12.28,"hypothesis":8.28,"falling":9.72},"cues":{"circle":{"inward":3.52,"circle":5.1,"w":7.16,"cube":10.62},"falling":{"remember":2.54,"falling":8.26}}}
     },
     {
       "name": "the credits of a studio that never was",

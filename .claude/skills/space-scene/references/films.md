@@ -430,7 +430,8 @@ sections 2 to 4 of knobs.md; this is how to use them in a film.
 5. Preview one frame of every shot at full size. The particles are done when each frame shows its
    sentence with the captions covered.
 
-Looks that have been filmed (`films/fourth_dimension_*.js`), at `blackHoleSize` 8:
+Looks that have been seen on a contact sheet, most of them filmed in `films/fourth_dimension_*.js`, at
+`blackHoleSize` 8:
 
 | Look | Settings | What the viewer sees |
 |---|---|---|
@@ -438,6 +439,8 @@ Looks that have been filmed (`films/fourth_dimension_*.js`), at `blackHoleSize` 
 | Bent paths | `gravityInertia` 1, `baseSpeed` 2.5, `gravityStrength` 6, `gravityReach` 9 | Streaks swing round the hole and fly on. `gravityStrength` moved from 0.3 to 7 along a track is the pull arriving |
 | A disc in space | `threeD`, `gravityInertia` 0.95, `baseSpeed` 0.4, `gravityStrength` 6, `gravityReach` 12, `orbitalStrength` 80, `baseBrightness` 2, `speedGlow` 0.3 | A tilted disc circling the hole, its far side bent over the shadow by the traced lens. With `blackHoleSpin` and `frameDrag` 5 it winds |
 | Infall | `baseSpeed` 0, `orbitalStrength` 0, `trailIntensity` 0.03, `gravityStrength` 6, `gravityReach` 12, `gravityDepth` 60 | Hair-thin rays that brighten toward the hole and are faint beyond three radii: a second voice under a grid on a dark sky, not a picture alone. `orbitalStrength` 70 leans them into a spiral; `particleSizeMin` raised to `particleSize` heaps a bright band on the horizon |
+| Matter on the sheet | `gridRide` 1 on a tilted sheet (`gridRings` 40 draws it as a textbook does), `fieldAtHole` 1, `lensingEnabled` false, `baseSpeed` 0, `gravityDepth` 100, `gravityInertia` 0.75, `orbitalStrength` 80, `gravityStrength` 4, `gravityReach` 16, `speedGlowKnee` 0.03, `trailIntensity` 0.5, and every particle alike: `depthFade` 0, `minOpacity` 0.1, `particleSize` and `particleSizeMin` 2, `baseBrightness` 0.6 | The well lined with matter that drains down it, from its mouth to the hole and all the way round; from above (`gridTilt` 0) the same matter is the disc round the shadow. A `warmup` of 10, the most there is, fills it. `orbitalStrength` 0 with `gravityInertia` 0.3 sends it straight in along the spokes; `gravityInertia` from 0.82 gathers it into one band circling the wall |
+| Falling in space | `threeD`, `orbitalStrength` 0, `gravityInertia` 0.5, `gravityStrength` 7, `gravityReach` 18, `baseSpeed` 0.25, `baseBrightness` 1.3, `speedGlow` 0.3, `trailIntensity` 0.06 | Streaks toward the hole from every side, among the lattice's lines; `gravityStrength` 11 is a harder fall |
 | A push | the infall with `gravityStrength` -12 and `horizonScale` 0 | The field emptied round the hole and heaped into a ring beyond it. With a flight (`baseSpeed` 3) and the ring's glow filling the shadow (`ringGlow` 3, `ringGlowSkirt` 1, `ringGlowSkirtShare` 3, `ringBase` 3) it is a white hole |
 | Stillness | `baseSpeed` 0 and no pull | A dark field: the stars and the nebula alone |
 | The stream as a direction | `threeD` with `blackHoleSize` 0: `cameraYaw` 90 runs it across the frame, `cameraPitch` 80 up it, both at 0 straight at the viewer | One direction of space, shown by everything moving along it. A move of 0.7 s from one to the next is a whip that smears the trails |
@@ -452,6 +455,23 @@ What decides whether a look shows:
   a dim one: give it a dark sky, `speedGlow` toward 0, and judge it at full size.
 - A look forms and leaves over seconds. Start its `to()` under the line before the one it belongs to.
 - A hole given more mass along the film (`blackHoleSize` on a track) carries its ring with it.
+- The particles live in the plane of the screen. Over a tilted sheet they float in front of it, a ring
+  seen face on above a well seen from the side, and no look mends that: `gridRide` 1 lays them on the
+  sheet (knobs.md, section 9). A drawing is laid on the sheet by the sheet's own sums, in the script:
+  `laySheet` in `films/fourth_dimension_well.js` gives an axis, a line down the well's wall or a dot its
+  place at every tilt, so the camera can move while they stay on the surface.
+- With `baseSpeed` 0 the hole uses the field up: what it takes comes back at the far end of the field,
+  where the default `gravityDepth` no longer reaches and the far particles are dim hairlines. A look that
+  must last a minute takes `gravityDepth` 100 and every particle alike (the row above). Before a 3D shot
+  that follows, the field is one cloud at that far end: set `numParticles` to 500, its least, and back in
+  two `set()`s a frame apart, while the picture is dark or empty, and it is made anew at every depth.
+- What falls into a hole comes from where the field is. The field is born round the centre of the frame,
+  so a hole placed low or to one side gathers matter on the side with more frame, and a swirl carries
+  that side round: a veil on one wall of the well, a disc with a gap. `fieldAtHole` 1 feeds the hole from
+  every side. A lopsided fall is this, not a look to tune: no brightness or glow mends it.
+- A camera that moves, the sheet's tilt and depth included, moves every particle on the screen, and a
+  long trail draws that as rain. Shorten the trails for the move (`trailIntensity` 0.5), and make the
+  swing into 3D a cut for them (`cameraCutTurn` 0 for the seconds of `threeDEase`).
 - A shape is laid where the particles already go: an arrow over a stream is a label, an arrow in place of
   one is a diagram of something the scene could have shown.
 

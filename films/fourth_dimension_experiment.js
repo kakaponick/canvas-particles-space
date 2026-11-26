@@ -21,19 +21,26 @@ const ASPECT = 9 / 16
 film({
   fps: 60,
   seed: 23,
-  warmup: 8,
+  warmup: 10,
   settings: {
     blackHoleSize: 8,
     blackHoleY: 0.72,
     numParticles: 40000,
-    // The ring of matter at the bottom of the well, as in clips 2 and 3
-    gravityInertia: 0.92,
-    orbitalStrength: 90,
-    gravityStrength: 5,
-    gravityReach: 8,
-    baseSpeed: 0.5,
-    trailIntensity: 0.08,
-    baseBrightness: 0.9,
+    // The well full of the matter that drains down it, lying on the sheet, as in clips 2 and 3
+    lensingEnabled: false,
+    gravityInertia: 0.75,
+    orbitalStrength: 80,
+    gravityStrength: 4,
+    gravityReach: 16,
+    gravityDepth: 100,
+    baseSpeed: 0,
+    speedGlowKnee: 0.03,
+    trailIntensity: 0.5,
+    depthFade: 0,
+    minOpacity: 0.1,
+    particleSize: 2,
+    particleSizeMin: 2,
+    baseBrightness: 0.6,
     nebula: 0.8,
     nebulaScale: 700,
     nebulaSparseness: 0.4,
@@ -49,9 +56,17 @@ film({
     ringGlow: 0.6,
     gridColor: '#4de3ff',
     gridCell: 4,
-    gridSheet: 0.9,
+    gridSheet: 0.85,
     gridTilt: 66,
-    gridDepth: 5.5
+    gridDepth: 5.5,
+    gridRings: 40,
+    // The field is born round the hole, which stands low in the frame over a tilted sheet: fed from the
+    // frame's centre, the well would fill on one side only
+    fieldAtHole: 1,
+    gridSpokes: 24,
+    gridRide: 1,
+    gridSpan: 0.6,
+    gridFade: 0.3
   }
 })
 set({ letterbox: 0.11, filmHold: 1, vignette: 0.4, filmGrain: 0.04 })
