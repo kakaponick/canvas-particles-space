@@ -29,7 +29,7 @@ dist-ssr
 # Rendered films, their sound and their posters; the films themselves are the json and js files
 films/*.mp4
 films/*.wav
-films/*_poster.jpg
+films/*_poster*.jpg
 films/voice/
 
 # Test runs of the agent skills; the skills themselves are tracked
