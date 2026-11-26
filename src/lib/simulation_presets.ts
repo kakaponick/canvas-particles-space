@@ -16,7 +16,7 @@ export const SIMULATION_SETTING_KEYS = [
   'blackHoleFollowing', 'blackHoleX', 'blackHoleY', 'cameraZoom', 'cameraX', 'cameraY', 'cameraPair', 'cameraCutZoom', 'cameraCutShift',
   'threeD', 'cameraYaw', 'cameraPitch', 'cameraSpin', 'cameraRoll', 'cameraLookYaw', 'cameraLookPitch',
   'cameraMoveRight', 'cameraMoveUp', 'cameraMoveIn', 'threeDEndFade', 'threeDEase', 'threeDNearest', 'cameraCutTurn',
-  'companionSize', 'companionDistance', 'companionSpeed', 'companionWaves', 'companionClosest', 'companionSpin', 'companionOval', 'companionHandover',
+  'companionSize', 'companionDistance', 'companionSpeed', 'companionWaves', 'companionTilt', 'companionNode', 'companionClosest', 'companionSpin', 'companionOval', 'companionHandover',
   'ringEnabled', 'ringFeedEnabled', 'ringBrightness', 'ringGlow', 'ringWidth', 'ringDoppler', 'ringSide', 'ringSpinFollow', 'ringBase', 'ringFeed', 'ringAfterglow', 'ringFlowSpeed',
   'ringColor', 'ringColorApproaching', 'ringColorReceding', 'ringWidthMin', 'ringOffset', 'ringSoftness', 'ringGlowCore', 'ringGlowCoreShare', 'ringGlowSkirt', 'ringGlowSkirtShare',
   'ringFeedCapture', 'ringFeedSkim', 'ringFeedReach', 'ringStarFlare', 'ringStarSpread', 'ringStarSides',

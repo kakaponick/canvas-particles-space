@@ -334,6 +334,7 @@ export const compositeFragmentShaderSource = `
   uniform vec4 u_pairWave;       // their spiral gravitational wave: pixels of stretch (0 = off), the pair's angle, turn of its arms per pixel, radius beyond which it weakens
   uniform vec4 u_pairFront;      // once the two are one: seconds since then (negative = not yet), pixels the wave travels a second, seconds the old wave takes to give way to the new
   uniform vec3 u_pairDepth;      // two holes at different depths: the share of the second one's bend the first is seen through (the second the nearer), the share of the first one's bend the second is seen through (the second the farther), which stands in front (-1 the first .. 1 the second); zeros side by side
+  uniform vec4 u_pairPlane;      // the plane the waves and the ringing oval lie in, its two directions as the camera sees them: the first's right and down on the picture, then the second's
   uniform vec3 u_turnRight;      // the 3D camera's turn, row by row: where its right,
   uniform vec3 u_turnDown;       // its down
   uniform vec3 u_turnAhead;      // and its line of sight point in the scene; the scene's own axes in the flat view
@@ -701,13 +702,13 @@ ${DENT_GLSL}
     return share < 1.0 ? share * share : 1.0 / share;
   }
 
-  // A quadrupole in the plane the pairs circle in (the scene's x-y plane) read along a direction of the
-  // picture: c.x times (x*x - y*y) plus c.y times 2*x*y, for x and y the parts of v along the scene's x and y
-  // axes as the camera sees them. Straight on they are v itself; as the plane turns edge-on one of them
+  // A quadrupole in the plane the pair circles in (u_pairPlane) read along a direction of the picture:
+  // c.x times (x*x - y*y) plus c.y times 2*x*y, for x and y the parts of v along the plane's two directions
+  // as the camera sees them. Facing the camera they are v itself; as the plane turns edge-on one of them
   // shrinks to nothing, so the pattern flattens with it
   float planeQuad (vec2 v, vec2 c) {
-    float x = dot(v, vec2(u_turnRight.x, u_turnDown.x));
-    float y = dot(v, vec2(u_turnRight.y, u_turnDown.y));
+    float x = dot(v, u_pairPlane.xy);
+    float y = dot(v, u_pairPlane.zw);
     return c.x * (x * x - y * y) + c.y * 2.0 * x * y;
   }
 

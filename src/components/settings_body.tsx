@@ -278,7 +278,9 @@ function SettingsBody () {
         <SettingSlider field="companionSpeed" />
         <SettingSlider field="companionWaves" />
         <SettingsFine id="companion">
-          {/* The last turns, then what the merger leaves */}
+          {/* The plane of the orbit, the last turns, then what the merger leaves */}
+          <SettingSlider field="companionTilt" />
+          <SettingSlider field="companionNode" />
           <SettingSlider field="companionClosest" />
           <SettingSlider field="companionSpin" />
           <SettingSlider field="companionOval" />

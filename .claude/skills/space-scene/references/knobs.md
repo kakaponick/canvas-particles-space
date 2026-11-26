@@ -332,6 +332,7 @@ come, as around a real black hole.
 | Gap between the centres, in main hole radii | `companionDistance` |
 | Rate of the pair's time; the sign is the direction | `companionSpeed` |
 | Strength of the spiral gravitational wave of the pair | `companionWaves` |
+| The plane the two circle in: its tilt from the plane across the line of flight, and the side of the screen it tips away from the camera | `companionTilt`, `companionNode` |
 | Where the closing pair stops speeding up, as a share of touching | `companionClosest` |
 | What a merger leaves: its spin × the real one, its oval × the opening's, the wobbles its ringing takes to take over the wave | `companionSpin`, `companionOval`, `companionHandover` |
 
@@ -357,13 +358,23 @@ come, as around a real black hole.
   `gravityWaveGain` shapes only the opening's wave and a fired one.
 - A wave stretches the sky across its path, never along it, and weakens as 1 over the distance. At
   `companionWaves` 1 the sheet sways through a merger; at 3 it folds into steep spiral arms.
-- In 3D the waves and the merged hole's oval lie in the plane the pair circles in, and the camera sees
-  the slice through the pair that faces it: from above the orbit a two-armed spiral, from its side
-  rings, twice as strong along the orbit's axis as in its plane, round a shadow that swells and shrinks
-  along that plane.
-- In 3D the two holes stand at their own depths, so from the side of the orbit one passes in front of
-  the other: the nearer one's lens bends the light of the farther, which is seen pushed out round it,
-  and its shadow hides what of the farther ring lies behind it.
+- The pair circles in a plane of its own. `companionTilt` 0 is the plane across the line of flight, the
+  one the flat view looks straight at; 90 stands it edge-on to a camera looking along the flight, so the
+  two pass in front of each other at every half turn; 180 is the same plane circled the other way.
+  `companionNode` is the side of the screen that tilts away from the camera: 0 the top (at 90 the orbit
+  is a horizontal line), 90 the left (a vertical line). The plane stays where it is set: the holes' spins
+  do not turn it.
+- The waves and the merged hole's oval lie in the pair's plane, and the camera sees the slice through
+  the pair that faces it: from above the orbit a two-armed spiral, from its side rings, twice as strong
+  along the orbit's axis as in its plane, round a shadow that swells and shrinks along that plane. The
+  hole a merger leaves spins about the orbit's axis, the way the pair turned. A hole alone (the
+  opening's ringing, a fired `ringdown` or `gravityWave` with `companionSize` 0) rings in the plane
+  across the line of flight whatever the tilt.
+- The two holes stand at their own depths, so seen along the orbit's plane one passes in front of the
+  other: the nearer one's lens bends the light of the farther, which is seen pushed out round it, and
+  its shadow hides what of the farther ring lies behind it. The flat mode keeps that order but draws
+  the orbit as it lies across the screen, both holes at their own size; 3D straight on draws the same
+  with perspective, the nearer hole larger and farther from their centre.
 - At `companionSpeed` 1 a turn at 8 radii takes about 15 s. A short film wants 2 to show the pair circling.
 - Two horizons take more of the flight than one: over a long approach the field can thin out. Lower
   `gravityStrength`, or `horizonScale`, when the picture needs the particles.
@@ -843,6 +854,10 @@ The cost of a knob, in the last column:
 | How much of the nearer hole's bend the farther one is seen through in 3D: its depth behind it over its distance from the camera, a thin lens | scene.ts | frame: a law, not a number |
 | The depth between two holes at which the nearer one's shadow hides the farther one's ring in full: the sum of their radii | scene.ts | frame |
 | A wave is drawn where the pixel is, not where the nearer hole's lens takes its ray | webgl_shaders.ts | pixel |
+| The pair's plane does not precess: the holes' spins neither turn it nor are turned by it | scene.ts | frame: a law, not a number |
+| A hole alone rings, and sends a fired wave, in the plane across the line of flight; a pair's plane only while there is a second hole | scene.ts | frame |
+| The flat mode draws a tilted orbit at no depth, as it lies across the screen: neither hole larger for being nearer | scene.ts | frame |
+| The sheet's spiral wave turns with the line between the two wells as they land on the sheet, not with the tilted orbit itself | space_grid.ts | frame |
 
 ### The grids and the sky
 

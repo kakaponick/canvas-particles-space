@@ -266,6 +266,10 @@ export interface ParticleState extends FlowState {
   companionDistance: number
   companionSpeed: number
   companionWaves: number
+  // The plane the pair circles in: degrees it tilts from the plane across the line of flight, and the side
+  // of the screen it tips away from the camera (0 the top, 90 the left)
+  companionTilt: number
+  companionNode: number
   // The merger: the share of touching inside which the pair turns no faster, the spin the merged hole
   // keeps as a multiple of what two holes without spin leave, how many times longer its oval is than that of
   // a hole forming in the opening, and the wobbles over which its ringing takes over from the pair's wave
@@ -516,6 +520,8 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   companionDistance: 8,
   companionSpeed: 1,
   companionWaves: 1,
+  companionTilt: 0,
+  companionNode: 0,
   companionClosest: 0.6,
   companionSpin: 1,
   companionOval: 3,

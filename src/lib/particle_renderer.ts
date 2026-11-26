@@ -191,12 +191,16 @@ export interface CompositeSettings {
   // Two holes at different depths: the share of the companion's bend the main hole is seen through (the
   // companion the nearer), the share of the main lens's bend the companion is seen through (the companion
   // the farther), and which stands in front, from -1 (the main hole, wholly) to 1 (the companion, wholly).
-  // Zeros in the flat mode, where the two stand side by side
+  // Zeros while the two stand side by side
   pairLensMain: number
   pairLensCompanion: number
   pairNearer: number
+  // The plane the waves and the ringing oval lie in (the pair's orbit, or the plane across the line of
+  // flight for a hole alone), as the camera sees its two directions: the first's right and down on the
+  // picture, then the second's
+  pairPlane: Float32Array
   // The 3D camera's turn, row by row: where its right, its down and its line of sight point in the scene
-  // (the scene's own axes in the flat mode). The sky, the waves and the ringing oval are seen through it
+  // (the scene's own axes in the flat mode). The sky is seen through it
   turn: Float32Array
   backgroundStars: number
   starCell: number
@@ -572,7 +576,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     'center', 'starGlow', 'starRadius', 'sourcePower', 'glareRadius', 'exposure',
     'lightRadius', 'lightWidth', 'lightPower', 'lightSpeed', 'echoPower', 'echoDecay',
     'waveRadius', 'waveStrength', 'waveWidth', 'remnantGlow', 'remnantRedshift', 'remnantRadius',
-    'holeOval', 'gravityWaveAmplitude', 'gravityWaveTime', 'gravityWaveOmega', 'gravityWaveInvDecay', 'gravityWaveRadius', 'gravityWaveCenter', 'gravityWaveTurn', 'companion', 'pair', 'pairWave', 'pairFront', 'pairDepth', 'turnRight', 'turnDown', 'turnAhead', 'backgroundStars',
+    'holeOval', 'gravityWaveAmplitude', 'gravityWaveTime', 'gravityWaveOmega', 'gravityWaveInvDecay', 'gravityWaveRadius', 'gravityWaveCenter', 'gravityWaveTurn', 'companion', 'pair', 'pairWave', 'pairFront', 'pairDepth', 'pairPlane', 'turnRight', 'turnDown', 'turnAhead', 'backgroundStars',
     'starCell', 'starDensity', 'starFlare', 'starWarm', 'starCool', 'starLook', 'dustScale', 'dustThreshold', 'lightDustContrast',
     'titleCenter', 'titleHalfSize', 'titleAlpha', 'titleReveal', 'titleDissolve', 'titleDrift', 'titleGlow',
     'titleFlash', 'titleCooling', 'titleDust', 'titlePull', 'titleSwirl', 'titleReach', 'titleCapture', 'titleScale',
@@ -1110,6 +1114,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     }
     setUniform4f(gl, u.companion, settings.companionX * ratio, settings.companionY * ratio, settings.companionRadius * ratio, settings.companionEinstein * ratio)
     setUniform3f(gl, u.pairDepth, settings.pairLensMain, settings.pairLensCompanion, settings.pairNearer)
+    setUniform4f(gl, u.pairPlane, settings.pairPlane[0], settings.pairPlane[1], settings.pairPlane[2], settings.pairPlane[3])
     setUniform3f(gl, u.turnRight, settings.turn[0], settings.turn[1], settings.turn[2])
     setUniform3f(gl, u.turnDown, settings.turn[3], settings.turn[4], settings.turn[5])
     setUniform3f(gl, u.turnAhead, settings.turn[6], settings.turn[7], settings.turn[8])
