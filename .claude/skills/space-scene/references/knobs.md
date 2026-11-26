@@ -94,8 +94,9 @@ once, A, B and C, beside the field or without it.
 | Where its matter appears, where it leaves, how wide the band is, in radii | `flowAFrom`, `flowATo`, `flowASpread` |
 | How fast it turns (the sign is the direction), and the seconds a particle takes | `flowASwirl`, `flowALife` |
 | Its look: seconds of trail, stroke width, colour | `flowATrail`, `flowASize`, `flowAColor` |
-| The second flow, the same | `flowB`, `flowBCount`, `flowBFrom`, `flowBTo`, `flowBSpread`, `flowBSwirl`, `flowBLife`, `flowBTrail`, `flowBSize`, `flowBColor` |
-| The third | `flowC`, `flowCCount`, `flowCFrom`, `flowCTo`, `flowCSpread`, `flowCSwirl`, `flowCLife`, `flowCTrail`, `flowCSize`, `flowCColor` |
+| Which hole of a pair it turns round | `flowAPair` |
+| The second flow, the same | `flowB`, `flowBCount`, `flowBFrom`, `flowBTo`, `flowBSpread`, `flowBSwirl`, `flowBLife`, `flowBTrail`, `flowBSize`, `flowBPair`, `flowBColor` |
+| The third | `flowC`, `flowCCount`, `flowCFrom`, `flowCTo`, `flowCSpread`, `flowCSwirl`, `flowCLife`, `flowCTrail`, `flowCSize`, `flowCPair`, `flowCColor` |
 
 - The two radii are the shape. `flowATo` the same as `flowAFrom` keeps every particle on its circle: a ring,
   a disc with a wide `flowASpread`. Below it the matter closes in, as in a fall from rest, and below 1 it
@@ -118,9 +119,16 @@ once, A, B and C, beside the field or without it.
   nothing to it. Strokes keep the brighter of two, so many particles in a narrow band are one flat band:
   for streaks, fewer and thinner.
 - Its trail is a line in the scene, not a fade of the picture, so a camera that moves does not smear it.
-- A flow is a drawing of matter, not matter the scene knows: it does not feed the photon ring, the horizon
-  takes none of it, a second black hole does not pull it, and it does not lie on the sheet (`gridRide`
-  lays the field there, not the flows).
+- `gridRide` lays the flows on the sheet as it lays the field: the flow's plane is the sheet, so a ring
+  lies round the mouth of the well and a fall runs down its wall, all the way round and from the first
+  frame. The sheet's setup is the field's (films.md, section 16), `lensingEnabled` false with it.
+- A flow round the main hole whose `flowATo` is below `horizonScale` lights the photon ring while
+  `ringFeedEnabled` is on: a particle a life, each leaving `ringFeedCapture`, shared out all the way
+  round. A dense fast flow fills the ring; `ringFeed` and `ringFeedCapture` say how far.
+- With a second black hole `flowAPair` says what the flow turns round: -1 the main hole, 0 the centre
+  the two turn about (a ring wider than `companionDistance` there is a disc round both), 1 the second
+  hole, in whose radii the flow is then measured. The second hole does not pull a flow off its path:
+  matter torn from one hole to the other is two flows, or the field.
 - Without a black hole (`blackHoleSize` 0) a flow keeps `gridLatticeUnit` for its radius.
 
 ## 3. Gravity on the particles
@@ -773,6 +781,7 @@ The cost of a knob, in the last column:
 | In 3D a stroke fades nearer the camera than half the hole's distance and is gone at a fifth | flows.ts | frame |
 | A trail is drawn in 12 pieces; a flow holds 40 000 particles at most; three flows | flows.ts | machine |
 | Where a flow's particles stand at second 0: one set of numbers for every film, whatever its seed | flows.ts | birth |
+| What a flow leaves in the photon ring: a particle a life, each direction a half to one and a half times its even share | scene.ts, ring_energy.ts | frame |
 
 ### The photon ring
 

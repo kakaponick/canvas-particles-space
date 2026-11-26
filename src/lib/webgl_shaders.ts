@@ -1463,6 +1463,33 @@ ${DENT_GLSL}
   }
 `
 
+// Particles on Sheet for what the graphics card places: rideStroke of sheet_ride.ts and onScreen of the grid
+// vertex shader said once more, so a change to how the sheet is placed, dented, turned or rolled goes into
+// all three. Lengths are CSS pixels
+const RIDE_GLSL = `  uniform vec4 u_ride;        // the share of the way a stroke is moved onto the sheet (0 = none), the turn and scale that take a place round the hole to the sheet (cosine, sine), the nearest the sheet is drawn
+  uniform vec4 u_sheetView;   // the point the sheet's camera looks at, its distance, device pixels in a CSS pixel
+  uniform vec4 u_sheetTilt;   // sine and cosine of the sheet's tilt, cosine and sine of a 3D camera's roll
+  uniform vec4 u_sheetWell;   // the main hole's well from that point (across, away), the radius it ends at, its depth
+  uniform vec4 u_sheetWell2;  // a second hole's well, placed from the first, the same way; depth 0 = none
+  uniform vec2 u_rideHole;    // the main black hole on the screen, device pixels
+
+${DENT_GLSL}
+  // A place round the main black hole, seen straight on, in CSS pixels from the hole: where the sheet lies
+  // under it on the screen, in CSS pixels, and how much farther from the sheet's camera than the nearest
+  // the sheet is drawn (below 0: not drawn)
+  vec3 onSheet (vec2 fromHole) {
+    vec2 on = vec2(u_ride.y * fromHole.x - u_ride.z * fromHole.y, u_ride.z * fromHole.x + u_ride.y * fromHole.y);
+    float deep = u_sheetWell.w * dent(length(on), u_sheetWell.z);
+    if (u_sheetWell2.w > 0.0) deep += u_sheetWell2.w * dent(length(on - u_sheetWell2.xy), u_sheetWell2.z);
+    float placeY = on.y + u_sheetWell.y;
+    float behind = u_sheetView.z + deep * u_sheetTilt.y - placeY * u_sheetTilt.x;
+    float scale = u_sheetView.z / max(behind, 1.0);
+    vec2 point = vec2(on.x + u_sheetWell.x, placeY * u_sheetTilt.y + deep * u_sheetTilt.x) * scale;
+    point = vec2(u_sheetTilt.z * point.x + u_sheetTilt.w * point.y, u_sheetTilt.z * point.y - u_sheetTilt.w * point.x);
+    return vec3(u_sheetView.xy + point, behind - u_ride.w);
+  }
+`
+
 // A flow (flows.ts): every particle is placed from its own four numbers and the flow's clock, and its trail
 // is the stretch of the same path it has just come along, in pieces. Nothing about a particle is kept from
 // one frame to the next
@@ -1478,7 +1505,7 @@ export const flowVertexShaderSource = `
   uniform vec4 u_path;          // the radii matter appears and leaves at, each to the power 1.5; the band's width as a share of the first; radians turned at one radius in a life
   uniform vec3 u_age;           // the flow's clock in lives: the share of the life now running, the whole lives before; the share of a life one piece of trail spans
   uniform vec4 u_light;         // colour, brightness
-
+${RIDE_GLSL}
   varying vec2 v_ends;
   varying float v_across;
   varying float v_halfWidth;
@@ -1502,7 +1529,7 @@ export const flowVertexShaderSource = `
       away = depth / u_turnY.w;
       point = turned.xy * u_turnX.w / max(depth, 1.0);
     }
-    return vec3(u_zoom.xy + (u_place.xy + point - u_zoom.xy) * u_zoom.z, away);
+    return vec3(u_place.xy + point, away);
   }
 
   // Where a particle stands at an age of 0 to 1 of its life, in device pixels from the black hole. "band" is
@@ -1551,15 +1578,30 @@ export const flowVertexShaderSource = `
     }
 
     // A stroke that comes near the camera fades out and is gone before it would cross the whole frame
-    vec3 from = seen(placeAt(older, band, turn));
-    vec3 to = seen(placeAt(newer, band, turn));
+    vec2 planeOlder = placeAt(older, band, turn);
+    vec2 planeNewer = placeAt(newer, band, turn);
+    vec3 from = seen(planeOlder);
+    vec3 to = seen(planeNewer);
     float nearest = min(from.z, to.z);
+    if (u_ride.x > 0.0) {
+      // Particles on Sheet: the flow's plane is the sheet. A place of it is given from the main hole as the
+      // screen shows that hole, so in 3D a flow is as large on the sheet as the hole it turns round is seen
+      float size = u_turnX.w > 0.0 ? u_turnX.w / u_turnY.w : 1.0;
+      vec2 centre = u_place.xy - u_rideHole;
+      vec3 laidFrom = onSheet((centre + planeOlder * size) / u_sheetView.w);
+      vec3 laidTo = onSheet((centre + planeNewer * size) / u_sheetView.w);
+      if (min(laidFrom.z, laidTo.z) < 0.0) nearest = 0.0;
+      else nearest = mix(nearest, 1.0, u_ride.x);
+      from.xy = mix(from.xy, laidFrom.xy * u_sheetView.w, u_ride.x);
+      to.xy = mix(to.xy, laidTo.xy * u_sheetView.w, u_ride.x);
+    }
     if (nearest <= NEAR_GONE) {
       gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
       return;
     }
-    vec2 start = from.xy;
-    vec2 delta = to.xy - start;
+    // The camera's zoom is applied to the stroke itself, so it is drawn anew at its larger size
+    vec2 start = u_zoom.xy + (from.xy - u_zoom.xy) * u_zoom.z;
+    vec2 delta = (to.xy - from.xy) * u_zoom.z;
     float len = length(delta);
     vec2 direction = len > 0.0001 ? delta / len : vec2(1.0, 0.0);
     vec2 normal = vec2(-direction.y, direction.x);

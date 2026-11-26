@@ -40,7 +40,7 @@ const FLOW_SPECS = Object.fromEntries(FLOW_KEYS.flatMap(keys => {
   const flow = `flow ${keys.slot}`
   return [
     [keys.brightness, spec(name, 0, 3, 0.01, fixed(2, '×'), 'Matter sent round the hole; 0 = off',
-      `Brightness of ${flow}, a band of particles that is told where to go round the black hole instead of being left to the particle field: its matter appears at From, leaves at To after Life seconds and turns by Swirl. From and To alike make a ring, To below From a fall into the hole, To above From an outflow. A flow needs no warm-up: it is whole in the first frame it is asked for, at any second of a film. It lies in the plane the orbiting stars circle in, face on in the flat mode and turned by the 3D camera, is bent by the lens and covered by the shadow. Three flows, A, B and C, stand in a scene at once. 0 turns this one off.`)],
+      `Brightness of ${flow}, a band of particles that is told where to go round the black hole instead of being left to the particle field: its matter appears at From, leaves at To after Life seconds and turns by Swirl. From and To alike make a ring, To below From a fall into the hole, To above From an outflow. A flow needs no warm-up: it is whole in the first frame it is asked for, at any second of a film. It lies in the plane the orbiting stars circle in, face on in the flat mode and turned by the 3D camera, is bent by the lens and covered by the shadow; with Particles on Sheet above 0 it lies on the sheet as the field does, and a flow round the main hole whose To is inside the Event Horizon lights the photon ring while Infall Light is on. Three flows, A, B and C, stand in a scene at once. 0 turns this one off.`)],
     [keys.count, spoken(spec('Count', 0, FLOW_CAPACITY, 100, count, 'How many particles the flow holds',
       `How many particles ${flow} holds. They are placed and drawn by the graphics card alone, so they cost the processor nothing.`), `${name} Count`)],
     [keys.from, spoken(spec('From', 0.2, 60, 0.1, fixed(1, '×'), 'Radius matter appears at, in hole radii',
@@ -56,7 +56,9 @@ const FLOW_SPECS = Object.fromEntries(FLOW_KEYS.flatMap(keys => {
     [keys.trail, spoken(spec('Trail', 0, 10, 0.01, fixed(2, ' s'), 'Seconds of path drawn behind a particle',
       `Seconds of its own path drawn behind each particle of ${flow}, fading toward the tail. It is a line in the scene, not a fade of the picture, so a camera that moves does not smear it. 0 draws dots.`), `${name} Trail`)],
     [keys.size, spoken(spec('Size', 0.3, 20, 0.1, fixed(1, ' px'), 'Width of a stroke of the flow',
-      `Stroke width of the particles of ${flow}, in CSS pixels, the same at any distance.`), `${name} Size`)]
+      `Stroke width of the particles of ${flow}, in CSS pixels, the same at any distance.`), `${name} Size`)],
+    [keys.pair, spoken(spec('Around', -1, 1, 0.01, fixed(2), 'It circles: -1 main, 0 centre, 1 second',
+      `What ${flow} turns round while there is a second black hole: -1 the main hole, 0 the centre the two turn about, 1 the second hole, and the points between lie on the lines between them. Toward the second hole the flow's radii turn into that hole's radii. Without a second hole it circles the main one whatever this says.`), `${name} Around`)]
   ]
 })) as Record<FlowSliderKey, SimulationSettingSpec>
 

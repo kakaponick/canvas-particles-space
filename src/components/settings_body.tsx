@@ -385,12 +385,13 @@ function SettingsBody () {
           </div>
         ))}
         <SettingsFine id="flows">
-          {/* The band's width, the trail and the stroke of each flow */}
+          {/* The band's width, the trail and the stroke of each flow, and which hole it turns round */}
           {FLOW_KEYS.map((keys, index) => (
             <div key={keys.slot} className={index > 0 ? 'mt-3 flex flex-col gap-1' : 'flex flex-col gap-1'}>
               <SettingSlider field={keys.spread} />
               <SettingSlider field={keys.trail} />
               <SettingSlider field={keys.size} />
+              <SettingSlider field={keys.pair} />
             </div>
           ))}
         </SettingsFine>

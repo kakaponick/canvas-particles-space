@@ -22,7 +22,7 @@ import type { SimulationSettings } from './simulation_presets'
 import { stepSpring, type Spring2D } from './black_hole_motion'
 import { renderTitleSprite, waitForTitleFont, type TitleSprite, type TitleStyle } from './title_sprite'
 export type { TitleSprite } from './title_sprite'
-import { clearRingEnergy, createRingEnergy, stepRingEnergy } from './ring_energy'
+import { clearRingEnergy, createRingEnergy, feedRing, stepRingEnergy } from './ring_energy'
 import { createGridSettings, placeGrid, rollGrid, turnGrid } from './space_grid'
 import { LATTICE_LINES_PER_SIDE, createLatticeSettings, latticeAnchor } from './space_lattice'
 import { FLOW_KEYS, createFlowSettings, resetFlow, stepFlow } from './flows'
@@ -451,9 +451,7 @@ export function createScene (
     grid: createGridSettings(),
     lattice: createLatticeSettings(),
     flows: FLOW_KEYS.map(() => createFlowSettings()),
-    flowX: 0,
-    flowY: 0,
-    flowUnit: 1
+    step: settings
   }
 
   function readBackground (state: SimulationSettings) {
@@ -942,6 +940,10 @@ export function createScene (
     // How much larger than at the pivot's distance each black hole looks; 0 hides one behind the camera
     let holeScale = 1
     let companionScale = 1
+    // The centre a pair turns about, on the screen, and how much larger than at the pivot it looks
+    let centreX = hole.x
+    let centreY = hole.y
+    let centreScale = 1
     // The 3D camera's turn and elevation, in radians, for the sheet
     let viewYaw = 0
     let viewPitch = 0
@@ -975,6 +977,10 @@ export function createScene (
       // A hole the camera has flown past is not drawn
       const holeBehind = seen.depth <= NEAR_DEPTH
       holeScale = holeBehind ? 0 : pivot / seen.depth
+      look(pairX, pairY, pairZ, pivot, focal)
+      centreX = seen.x
+      centreY = seen.y
+      centreScale = seen.depth > NEAR_DEPTH ? pivot / seen.depth : 0
       settings.holeX = holeX
       settings.holeY = holeY
       settings.holeDepth = pivot
@@ -1161,18 +1167,41 @@ export function createScene (
       scene.simulationMs = performance.now() - simStart
     }
     // The flows turn round the main hole in the plane the orbiting stars circle in, at the size the hole has
-    // now; without a hole they keep the lattice's stand-in for its radius. Their clocks run with the scene
-    frame.flowX = holeX
-    frame.flowY = holeY
-    frame.flowUnit = shadowRadius > 0 ? horizon : state.gridLatticeUnit * shortSide
+    // now; without a hole they keep the lattice's stand-in for its radius. Around moves a flow to the centre
+    // a pair turns about and on to the second hole, whose radii it then takes. Their clocks run with the scene
+    const flowUnit = shadowRadius > 0 ? horizon : state.gridLatticeUnit * shortSide
     for (let slot = 0; slot < FLOW_KEYS.length; slot++) {
       const keys = FLOW_KEYS[slot]
       const flow = frame.flows[slot]
+      const life = state[keys.life]
       stepFlow(
-        flow, frame.updateScene ? dt : 0, frame.flowUnit > 0 ? state[keys.brightness] : 0, state[keys.count], state[keys.from], state[keys.to],
-        state[keys.spread], state[keys.swirl], state[keys.life], state[keys.trail], state[keys.size]
+        flow, frame.updateScene ? dt : 0, flowUnit > 0 ? state[keys.brightness] : 0, state[keys.count], state[keys.from], state[keys.to],
+        state[keys.spread], state[keys.swirl], life, state[keys.trail], state[keys.size]
       )
       readSceneColor(flow.color, state[keys.color])
+      const around = companionRadius > 0 ? state[keys.pair] : -1
+      let seenScale = holeScale
+      flow.unit = flowUnit
+      if (around <= -1) {
+        flow.x = holeX
+        flow.y = holeY
+      } else if (around <= 0) {
+        const share = around + 1
+        flow.x = holeX + (centreX - holeX) * share
+        flow.y = holeY + (centreY - holeY) * share
+        seenScale = holeScale + (centreScale - holeScale) * share
+      } else {
+        flow.x = centreX + (settings.companionX - centreX) * around
+        flow.y = centreY + (settings.companionY - centreY) * around
+        seenScale = centreScale + (companionScale - centreScale) * around
+        flow.unit = flowUnit + (companionRadius - flowUnit) * around
+      }
+      flow.depth = seenScale > 0 ? settings.focal / seenScale : -1
+      // Matter that ends inside the main hole's horizon lights its ring, as much as the field's would:
+      // a particle a life, each leaving what a captured particle leaves
+      if (ringFed && frame.updateScene && around <= -1 && flow.brightness > 0 && state[keys.to] < state.horizonScale) {
+        feedRing(ringEnergy, flow.count / Math.max(life, 0.01) * dt * state.ringFeedCapture * Math.min(flow.brightness, 1))
+      }
     }
     frame.speedGlow = state.speedGlow
     frame.speedKnee = state.speedGlowKnee

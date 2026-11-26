@@ -484,10 +484,13 @@ and face on in the flat mode:
 
 - A flow comes and goes by its brightness on a track, over the seconds the shot wants, and the field can
   be switched (`fieldEnabled` on a track) at a cut.
-- A shot with a tilted sheet still takes its matter from the field (`gridRide`): a flow does not lie on
-  the sheet.
-- A flow does not light the photon ring. A shot that wants the ring to answer the infall keeps the field
-  under the flow, or raises `ringBase`.
+- On a tilted sheet a flow lies on the surface with `gridRide` 1, as the field does, and needs none of
+  the field's care: no warm-up, no `fieldAtHole`, no well that fills on one wall. Seen at `gridTilt` 66,
+  `gridDepth` 7, `blackHoleY` 0.7 with `lensingEnabled` false: a fall from 9 radii to 0.8 with
+  `flowASwirl` 0.7 lines the well from its mouth to the hole, and a ring at 4 radii lies round the mouth.
+- A flow that ends inside the horizon lights the photon ring (`ringFeedEnabled`), evenly all the way round.
+- With a second hole each flow says what it turns round (`flowAPair`): a fall into the main hole, a ring
+  round the second and a wide ring round both were seen on one frame.
 
 What decides whether a look shows:
 

@@ -12,16 +12,19 @@ export interface RingEnergy {
   texels: Uint8Array
   // Radians the stored pattern has turned
   phase: number
+  // How many times the ring was fed all the way round, which is what makes each feeding uneven its own way
+  fed: number
 }
 
 export function createRingEnergy (): RingEnergy {
-  return { bins: new Float32Array(RING_BINS), texels: new Uint8Array(RING_BINS), phase: 0 }
+  return { bins: new Float32Array(RING_BINS), texels: new Uint8Array(RING_BINS), phase: 0, fed: 0 }
 }
 
 export function clearRingEnergy (ring: RingEnergy) {
   ring.bins.fill(0)
   ring.texels.fill(0)
   ring.phase = 0
+  ring.fed = 0
 }
 
 // Adds energy in the direction (x, y) from the black hole, spread over three neighbouring bins
@@ -31,6 +34,21 @@ export function depositRingEnergy (ring: RingEnergy, x: number, y: number, amoun
   ring.bins[index] += amount * 0.5
   ring.bins[(index + 1) & BIN_MASK] += amount * 0.25
   ring.bins[(index - 1) & BIN_MASK] += amount * 0.25
+}
+
+// Adds energy all the way round the ring, as matter that falls in from every side leaves it: a flow
+// (flows.ts) has no particle to follow in, so what it brings is shared out, a half to one and a half
+// times its even share to each direction, so the ring flickers as it does under the field
+export function feedRing (ring: RingEnergy, amount: number) {
+  const share = amount / RING_BINS
+  const { bins } = ring
+  let noise = Math.imul(++ring.fed, 0x9e3779b1)
+  for (let i = 0; i < RING_BINS; i++) {
+    noise = Math.imul(noise ^ (noise >>> 15), 0x2c1b3c6d)
+    noise = Math.imul(noise ^ (noise >>> 12), 0x297a2d39)
+    noise ^= noise >>> 15
+    bins[i] += share * (0.5 + (noise >>> 0) / 4294967296)
+  }
 }
 
 // Fades the energy by `afterglow` seconds per e-fold and turns the pattern at `flowSpeed` radians a second

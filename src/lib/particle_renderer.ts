@@ -15,7 +15,7 @@ import {
   latticeVertexShaderSource,
   flowVertexShaderSource
 } from './webgl_shaders'
-import { INSTANCE_FLOATS } from './particle_simulation'
+import { INSTANCE_FLOATS, type StepSettings } from './particle_simulation'
 import type { SceneColor } from './scene_color'
 import { MAX_ORBITERS, STRETCH_SECONDS } from './orbiters'
 import type { TitleSprite } from './title_sprite'
@@ -426,12 +426,11 @@ export interface FrameInput {
   grid: GridSettings
   // The space lattice, drawn into the orbits' layer and read through the lens
   lattice: LatticeSettings
-  // The flows (flows.ts), drawn into that layer too: one record for each slot, the black hole they turn
-  // round and CSS pixels in a black hole radius. In 3D they lie where the orbits do (orbitTurn)
+  // The flows (flows.ts), drawn into that layer too: one record for each slot. In 3D they lie where the
+  // orbits do (orbitTurn)
   flows: FlowSettings[]
-  flowX: number
-  flowY: number
-  flowUnit: number
+  // The numbers the particles were stepped with, the sheet as Particles on Sheet sees it among them
+  step: StepSettings
 }
 
 export interface ParticleRenderer {
@@ -587,7 +586,9 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     'resolution', 'zoom', 'row0', 'row1', 'row2', 'shift', 'vanish', 'hole', 'companion', 'lattice', 'anchor', 'color', 'fade'
   ] as const)
 
-  const flowUniforms = getUniforms(gl, flowProgram, ['resolution', 'zoom', 'place', 'turnX', 'turnY', 'path', 'age', 'light'] as const)
+  const flowUniforms = getUniforms(gl, flowProgram, [
+    'resolution', 'zoom', 'place', 'turnX', 'turnY', 'path', 'age', 'light', 'ride', 'sheetView', 'sheetTilt', 'sheetWell', 'sheetWell2', 'rideHole'
+  ] as const)
 
   gl.useProgram(compositeProgram)
   gl.uniform1i(gl.getUniformLocation(compositeProgram, 'u_image'), SCENE_TEXTURE_UNIT)
@@ -970,7 +971,18 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     gl.useProgram(flowProgram)
     setUniform4f(gl, u.zoom, layerZoomX * ratio, layerZoomY * ratio, layerZoom, 0)
     setUniform4f(gl, u.turnX, turn[0], turn[1], turn[2], frame.orbitFocal * ratio)
-    setUniform4f(gl, u.turnY, turn[3], turn[4], turn[5], frame.orbitFocal > 0 ? frame.orbitDepth * ratio : 1)
+    // Particles on Sheet lays the flows on the sheet the particles were stepped with
+    const step = frame.step
+    if (step.ride > 0) {
+      setUniform4f(gl, u.ride, step.ride, step.rideCos, step.rideSin, step.sheetNear)
+      setUniform4f(gl, u.sheetView, step.sheetViewX, step.sheetViewY, step.sheetDistance, ratio)
+      setUniform4f(gl, u.sheetTilt, step.sheetSin, step.sheetCos, step.sheetRollCos, step.sheetRollSin)
+      setUniform4f(gl, u.sheetWell, step.sheetWellX, step.sheetWellZ, step.sheetThroat, step.sheetDepth)
+      setUniform4f(gl, u.sheetWell2, step.sheetWell2X, step.sheetWell2Z, step.sheetThroat2, step.sheetDepth2)
+      setUniform2f(gl, u.rideHole, step.holeX * ratio, step.holeY * ratio)
+    } else {
+      setUniform4f(gl, u.ride, 0, 1, 0, 0)
+    }
     gl.bindBuffer(gl.ARRAY_BUFFER, flowSeedBuffer)
     gl.enableVertexAttribArray(ATTRIBUTE_LOCATIONS.flowCorner)
     gl.enableVertexAttribArray(ATTRIBUTE_LOCATIONS.flowSeed)
@@ -980,7 +992,8 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
       if (!(flow.brightness > 0) || flow.count === 0) continue
       // Each flow reads its own stretch of the particles' numbers
       gl.vertexAttribPointer(ATTRIBUTE_LOCATIONS.flowSeed, FLOW_SEED_FLOATS, gl.FLOAT, false, 0, slot * FLOW_CAPACITY * FLOW_SEED_FLOATS * 4)
-      setUniform4f(gl, u.place, frame.flowX * ratio, frame.flowY * ratio, frame.flowUnit * ratio, flow.size * ratio)
+      setUniform4f(gl, u.place, flow.x * ratio, flow.y * ratio, flow.unit * ratio, flow.size * ratio)
+      setUniform4f(gl, u.turnY, turn[3], turn[4], turn[5], frame.orbitFocal > 0 ? flow.depth * ratio : 1)
       setUniform4f(gl, u.path, flow.from, flow.to, flow.spread, flow.wound)
       setUniform3f(gl, u.age, flow.phase, flow.lives, flow.piece)
       setUniform4f(gl, u.light, flow.color.r, flow.color.g, flow.color.b, flow.brightness)

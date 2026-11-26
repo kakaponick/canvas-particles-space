@@ -13,6 +13,9 @@
 // trail are a second one, shared by every particle. They are drawn into the layer the orbits' traces live
 // in, which the composite pass reads through the lens, so a flow behind the hole is bent by it and the
 // shadow covers it.
+// With Particles on Sheet a flow lies on the sheet as the field does (RIDE_GLSL in webgl_shaders.ts), a flow
+// that ends inside the horizon lights the photon ring, and Around sets a flow round the second black hole
+// or the centre the two turn about.
 import { createRandom, nextRandom } from './random'
 import { createSceneColor, type SceneColor } from './scene_color'
 
@@ -37,14 +40,14 @@ const FLOW_SEED = 0x5f10e5
 
 // The numeric settings of one flow, by the end of their keys: `flowA` is its brightness, `flowACount` how
 // many particles it holds, and so on
-const FLOW_PARTS = ['', 'Count', 'From', 'To', 'Spread', 'Swirl', 'Life', 'Trail', 'Size'] as const
+const FLOW_PARTS = ['', 'Count', 'From', 'To', 'Spread', 'Swirl', 'Life', 'Trail', 'Size', 'Pair'] as const
 type FlowPart = typeof FLOW_PARTS[number]
 export type FlowSliderKey = `flow${FlowSlot}${FlowPart}`
 export type FlowColorKey = `flow${FlowSlot}Color`
 export type FlowState = Record<FlowSliderKey, number> & Record<FlowColorKey, string>
 
 // A new flow, until it is told otherwise, is off, and once lit a fall into the hole from twelve radii
-const FLOW_DEFAULTS: Record<FlowPart, number> = { '': 0, Count: 6000, From: 12, To: 1, Spread: 4, Swirl: 0.3, Life: 6, Trail: 0.4, Size: 1.5 }
+const FLOW_DEFAULTS: Record<FlowPart, number> = { '': 0, Count: 6000, From: 12, To: 1, Spread: 4, Swirl: 0.3, Life: 6, Trail: 0.4, Size: 1.5, Pair: -1 }
 export const FLOW_DEFAULT_COLORS: Record<FlowSlot, string> = { A: '#ffd9a8', B: '#a8d4ff', C: '#ff8fb8' }
 
 // The keys of one flow's settings
@@ -59,6 +62,7 @@ export interface FlowKeys {
   life: FlowSliderKey
   trail: FlowSliderKey
   size: FlowSliderKey
+  pair: FlowSliderKey
   color: FlowColorKey
 }
 
@@ -73,6 +77,7 @@ export const FLOW_KEYS: readonly FlowKeys[] = FLOW_SLOTS.map(slot => ({
   life: `flow${slot}Life`,
   trail: `flow${slot}Trail`,
   size: `flow${slot}Size`,
+  pair: `flow${slot}Pair`,
   color: `flow${slot}Color`
 }))
 
@@ -111,10 +116,16 @@ export interface FlowSettings {
   // Width of a stroke, in CSS pixels
   size: number
   color: SceneColor
+  // What it turns round, on the screen in CSS pixels, CSS pixels in one of its radii, and in 3D that
+  // point's distance from the camera in CSS pixels (below 0: behind the camera, the flow is not drawn)
+  x: number
+  y: number
+  unit: number
+  depth: number
 }
 
 export function createFlowSettings (): FlowSettings {
-  return { brightness: 0, count: 0, from: 1, to: 1, spread: 0, wound: 0, phase: 0, lives: 0, piece: 0, size: 1, color: createSceneColor() }
+  return { brightness: 0, count: 0, from: 1, to: 1, spread: 0, wound: 0, phase: 0, lives: 0, piece: 0, size: 1, color: createSceneColor(), x: 0, y: 0, unit: 1, depth: 1 }
 }
 
 /**
