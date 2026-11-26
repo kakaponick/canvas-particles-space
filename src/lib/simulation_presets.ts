@@ -2,9 +2,10 @@
 // resting place and whether it follows the cursor included; runtime state and per-device choices
 // (pause, frame rate cap, adaptive budget) stay out of it.
 import type { ParticleColor, ParticleState } from '../store/particle_store'
+import { FLOW_SETTING_KEYS } from './flows'
 
 export const SIMULATION_SETTING_KEYS = [
-  'numParticles', 'baseSpeed', 'speedVariance', 'farZ', 'trailIntensity', 'speedGlow', 'speedGlowKnee',
+  'numParticles', 'fieldEnabled', 'baseSpeed', 'speedVariance', 'farZ', 'trailIntensity', 'speedGlow', 'speedGlowKnee',
   'particleSize', 'particleSizeMin', 'spawnRadius', 'fieldAtHole', 'blackHoleDepth', 'gravityDepth', 'scrollSpeedStep',
   'baseBrightness', 'depthFade', 'minOpacity', 'maxOpacity', 'pulseIntensity', 'pulseSpeedMultiplier',
   'flightTintAhead', 'flightTintEdge', 'flightTintGradient', 'flightTintLimit', 'flightTintFrom', 'flightTintFull',
@@ -25,6 +26,7 @@ export const SIMULATION_SETTING_KEYS = [
   'gridLatticeLine', 'gridLatticeGain', 'gridLatticeReach', 'gridLatticeFade', 'gridLatticeNear', 'gridLatticeFar', 'gridLatticeNearEdge', 'gridLatticeUnit',
   'orbitCount', 'orbitSize', 'orbitEccentricity', 'orbitSpeed', 'orbitTrail', 'orbitStarSize',
   'orbitDrag', 'orbitSizeSpread', 'orbitEccentricitySpread', 'orbitClosest', 'orbitEscape', 'orbitFadeIn',
+  ...FLOW_SETTING_KEYS,
   'colorPalette', 'backgroundR', 'backgroundG', 'backgroundB'
 ] as const satisfies readonly (keyof ParticleState)[]
 

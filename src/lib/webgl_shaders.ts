@@ -5,6 +5,7 @@
 import { SHADOW_SAMPLES } from './kerr_shadow'
 import { KERR_GLSL } from './kerr_glsl'
 import { LATTICE_SEGMENTS } from './space_lattice'
+import { FLOW_EDGE, FLOW_NEAR_FADE, FLOW_NEAR_GONE, FLOW_SEGMENTS } from './flows'
 
 // Attribute locations shared by every program; location 0 is always the full-screen quad
 export const ATTRIBUTE_LOCATIONS = {
@@ -13,7 +14,9 @@ export const ATTRIBUTE_LOCATIONS = {
   style: 2,
   color: 3,
   gridLine: 4,
-  latticeLine: 5
+  latticeLine: 5,
+  flowCorner: 6,
+  flowSeed: 7
 } as const
 
 // How deep the sheet lies, how far a node of the lattice is pulled in and how far the Lensed Grid is drawn in,
@@ -1456,6 +1459,128 @@ ${DENT_GLSL}
     v_across = acrossPiece;
     v_halfWidth = halfWidth;
     v_color = vec4(u_color.rgb, min(shown * targetArea / drawnArea, 1.0));
+    gl_Position = vec4(pixel / u_resolution * 2.0 - 1.0, 0.0, 1.0);
+  }
+`
+
+// A flow (flows.ts): every particle is placed from its own four numbers and the flow's clock, and its trail
+// is the stretch of the same path it has just come along, in pieces. Nothing about a particle is kept from
+// one frame to the next
+export const flowVertexShaderSource = `
+  attribute vec3 a_flowCorner;  // x: 0 at the piece's newer end, 1 at its older; y: the side; z: the piece, from the particle back
+  attribute vec4 a_flowSeed;    // the particle's own numbers, 0 to 1: when in a life, where round the hole, where across the band, how bright
+
+  uniform vec2 u_resolution;    // drawing buffer size in device pixels
+  uniform vec4 u_zoom;          // the camera: the point its zoom leaves in place (device pixels), the zoom
+  uniform vec4 u_place;         // the black hole (device pixels), device pixels in a black hole radius, stroke width in device pixels
+  uniform vec4 u_turnX;         // 3D: where the camera turns the flows' x axis, and its focal length in device pixels (0 = flat)
+  uniform vec4 u_turnY;         // where it turns their y axis, and the black hole's distance in device pixels
+  uniform vec4 u_path;          // the radii matter appears and leaves at, each to the power 1.5; the band's width as a share of the first; radians turned at one radius in a life
+  uniform vec3 u_age;           // the flow's clock in lives: the share of the life now running, the whole lives before; the share of a life one piece of trail spans
+  uniform vec4 u_light;         // colour, brightness
+
+  varying vec2 v_ends;
+  varying float v_across;
+  varying float v_halfWidth;
+  varying vec4 v_color;
+
+  const float PI = 3.14159265359;
+  const float PIECES = ${FLOW_SEGMENTS}.0;
+  const float EDGE = ${FLOW_EDGE};
+  // The distance from the 3D camera, as a share of the black hole's, under which a stroke begins to fade,
+  // and the one it is gone at
+  const float NEAR_FADE = ${FLOW_NEAR_FADE};
+  const float NEAR_GONE = ${FLOW_NEAR_GONE};
+
+  // A point of the flows' plane, in device pixels from the black hole, where the camera draws it, and how
+  // far from the camera it lies as a share of the black hole's distance (1 in the flat mode)
+  vec3 seen (vec2 point) {
+    float away = 1.0;
+    if (u_turnX.w > 0.0) {
+      vec3 turned = u_turnX.xyz * point.x + u_turnY.xyz * point.y;
+      float depth = u_turnY.w + turned.z;
+      away = depth / u_turnY.w;
+      point = turned.xy * u_turnX.w / max(depth, 1.0);
+    }
+    return vec3(u_zoom.xy + (u_place.xy + point - u_zoom.xy) * u_zoom.z, away);
+  }
+
+  // Where a particle stands at an age of 0 to 1 of its life, in device pixels from the black hole. "band" is
+  // its place across the band, as a multiple of the band's middle, and "turn" the angle it appeared at.
+  // Its radius to the power 1.5 runs evenly from the first radius to the last, as in a fall from rest, and
+  // it turns at Kepler's rate, radius^-1.5, whose sum along that fall is a logarithm
+  vec2 placeAt (float age, float band, float turn) {
+    float fallen = mix(u_path.x, u_path.y, age);
+    float x = (u_path.y - u_path.x) * age / u_path.x;
+    float mean = abs(x) < 0.001 ? 1.0 - 0.5 * x : log(1.0 + x) / x;
+    float angle = turn + u_path.w * age / u_path.x * mean * pow(band, -1.5);
+    // The screen's y runs down, so a positive swirl turns anticlockwise to the eye
+    return band * pow(fallen, 2.0 / 3.0) * u_place.z * vec2(cos(angle), -sin(angle));
+  }
+
+  // A particle appears over the first share of its life and leaves over the last
+  float present (float age) {
+    return smoothstep(0.0, EDGE, age) * (1.0 - smoothstep(1.0 - EDGE, 1.0, age));
+  }
+
+  void main () {
+    v_ends = vec2(0.0);
+    v_across = 0.0;
+    v_halfWidth = 0.0;
+    v_color = vec4(0.0);
+
+    // Which life the particle is in and how far into it; every life starts at another place
+    float turns = u_age.x + a_flowSeed.x;
+    float life = floor(turns);
+    float age = turns - life;
+    float lives = u_age.y + life;
+    float turn = 2.0 * PI * fract(a_flowSeed.y + lives * 0.6180340);
+    float band = max(1.0 + (fract(a_flowSeed.z + lives * 0.7548777) - 0.5) * u_path.z, 0.05);
+
+    // The piece runs from where the particle was to where it was a little later; before its birth it was nowhere
+    float newer = max(age - a_flowCorner.z * u_age.z, 0.0);
+    float older = max(age - (a_flowCorner.z + 1.0) * u_age.z, 0.0);
+    // The trail dims toward its tail as the square of what is left of it, so the particle itself stands out
+    float leftNewer = 1.0 - a_flowCorner.z / PIECES;
+    float leftOlder = 1.0 - (a_flowCorner.z + 1.0) / PIECES;
+    float lightNewer = present(newer) * leftNewer * leftNewer;
+    float lightOlder = present(older) * leftOlder * leftOlder;
+    if (lightNewer <= 0.0 || u_turnY.w < 0.0) {
+      gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+      return;
+    }
+
+    // A stroke that comes near the camera fades out and is gone before it would cross the whole frame
+    vec3 from = seen(placeAt(older, band, turn));
+    vec3 to = seen(placeAt(newer, band, turn));
+    float nearest = min(from.z, to.z);
+    if (nearest <= NEAR_GONE) {
+      gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+      return;
+    }
+    vec2 start = from.xy;
+    vec2 delta = to.xy - start;
+    float len = length(delta);
+    vec2 direction = len > 0.0001 ? delta / len : vec2(1.0, 0.0);
+    vec2 normal = vec2(-direction.y, direction.x);
+
+    // Lines thinner than a pixel are drawn one pixel wide and dimmed by the area they would cover
+    float width = u_place.w * u_zoom.z;
+    float drawWidth = max(width, 1.0);
+    float halfWidth = drawWidth * 0.5;
+    float extent = halfWidth + 1.0;
+    float toNewer = 1.0 - a_flowCorner.x;
+    float along = mix(-extent, len + extent, toNewer);
+    float across = a_flowCorner.y * extent;
+    vec2 pixel = start + direction * along + normal * across;
+    float targetArea = len * width + PI * width * width * 0.25;
+    float drawnArea = len * drawWidth + PI * (halfWidth * halfWidth + 1.0 / 12.0);
+
+    float light = u_light.a * (0.4 + 0.6 * a_flowSeed.w) * mix(lightOlder, lightNewer, toNewer) * smoothstep(NEAR_GONE, NEAR_FADE, nearest);
+    v_ends = vec2(along, len - along);
+    v_across = across;
+    v_halfWidth = halfWidth;
+    v_color = vec4(u_light.rgb, min(light * targetArea / drawnArea, 1.0));
     gl_Position = vec4(pixel / u_resolution * 2.0 - 1.0, 0.0, 1.0);
   }
 `

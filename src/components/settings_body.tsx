@@ -1,6 +1,7 @@
 import { useId, type ReactNode } from 'react'
 import { useParticleStore } from '../store/particle_store'
 import { hexToRgb, rgbToHex } from '../lib/utils'
+import { FLOW_KEYS } from '../lib/flows'
 import ColorPalette from './controls/color_palette'
 import SettingSlider from './controls/setting_slider'
 import SettingColor from './controls/setting_color'
@@ -114,6 +115,16 @@ function StylizedLens ({ children }: { children: ReactNode }) {
 }
 
 // The 3D switch heads its section: the camera's sliders below it only matter while it is on
+function ParticlesSection ({ children }: { children: ReactNode }) {
+  const on = useParticleStore(state => state.fieldEnabled)
+  const toggle = useParticleStore(state => state.toggleField)
+  return (
+    <SettingsSection id="particles" title="Particles" dimmed={!on} action={<SettingsSwitch on={on} onToggle={toggle} label="Particle field" />}>
+      {children}
+    </SettingsSection>
+  )
+}
+
 function ThreeDSection ({ children }: { children: ReactNode }) {
   const on = useParticleStore(state => state.threeD)
   const toggle = useParticleStore(state => state.toggleThreeD)
@@ -168,7 +179,7 @@ function SettingsBody () {
         </SettingsFine>
       </ThreeDSection>
 
-      <SettingsSection id="particles" title="Particles">
+      <ParticlesSection>
         {/* The field, then its motion, then the look of a particle */}
         <SettingSlider field="numParticles" />
         <SettingSlider field="farZ" />
@@ -186,7 +197,7 @@ function SettingsBody () {
           <SettingSlider field="fieldAtHole" />
           <SettingSlider field="particleSizeMin" />
         </SettingsFine>
-      </SettingsSection>
+      </ParticlesSection>
 
       <SettingsSection id="lighting" title="Particle Lighting">
         {/* Brightness, then the opacity range, then the pulse */}
@@ -357,6 +368,31 @@ function SettingsBody () {
             <SettingSlider field="orbitDrag" />
             <SettingSlider field="orbitFadeIn" />
           </div>
+        </SettingsFine>
+      </SettingsSection>
+
+      <SettingsSection id="flows" title="Flows">
+        {/* Three bands of matter told where to go: each its brightness, its count, its path and its colour */}
+        {FLOW_KEYS.map((keys, index) => (
+          <div key={keys.slot} className={index > 0 ? 'mt-3 flex flex-col gap-1' : 'flex flex-col gap-1'}>
+            <SettingSlider field={keys.brightness} />
+            <SettingSlider field={keys.count} />
+            <SettingSlider field={keys.from} />
+            <SettingSlider field={keys.to} />
+            <SettingSlider field={keys.swirl} />
+            <SettingSlider field={keys.life} />
+            <SettingColor field={keys.color} />
+          </div>
+        ))}
+        <SettingsFine id="flows">
+          {/* The band's width, the trail and the stroke of each flow */}
+          {FLOW_KEYS.map((keys, index) => (
+            <div key={keys.slot} className={index > 0 ? 'mt-3 flex flex-col gap-1' : 'flex flex-col gap-1'}>
+              <SettingSlider field={keys.spread} />
+              <SettingSlider field={keys.trail} />
+              <SettingSlider field={keys.size} />
+            </div>
+          ))}
         </SettingsFine>
       </SettingsSection>
 

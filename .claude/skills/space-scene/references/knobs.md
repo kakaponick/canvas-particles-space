@@ -79,6 +79,49 @@ What follows from how it is drawn:
   fast flight is two flat colours. The two colours take a hex string and can be keyframed.
 - On the page the count is trimmed by the particle budget; in a film `numParticles` is exact, up to
   200 000, and costs render time in proportion.
+- `fieldEnabled` false takes the field away: none of its particles is stepped or drawn, and the flows below,
+  the grids, the stars and the lens are the whole scene. Turned on again the field is made anew at every depth.
+
+### Flows: matter told where to go
+
+The field is left to its laws, and a look grows out of it over seconds. A flow is said: a band of particles
+round the hole that appear at one radius, leave at another and turn as they go. Three stand in a scene at
+once, A, B and C, beside the field or without it.
+
+| What | Keys |
+|---|---|
+| A flow's brightness (0 is off) and how many particles it holds | `flowA`, `flowACount` |
+| Where its matter appears, where it leaves, how wide the band is, in radii | `flowAFrom`, `flowATo`, `flowASpread` |
+| How fast it turns (the sign is the direction), and the seconds a particle takes | `flowASwirl`, `flowALife` |
+| Its look: seconds of trail, stroke width, colour | `flowATrail`, `flowASize`, `flowAColor` |
+| The second flow, the same | `flowB`, `flowBCount`, `flowBFrom`, `flowBTo`, `flowBSpread`, `flowBSwirl`, `flowBLife`, `flowBTrail`, `flowBSize`, `flowBColor` |
+| The third | `flowC`, `flowCCount`, `flowCFrom`, `flowCTo`, `flowCSpread`, `flowCSwirl`, `flowCLife`, `flowCTrail`, `flowCSize`, `flowCColor` |
+
+- The two radii are the shape. `flowATo` the same as `flowAFrom` keeps every particle on its circle: a ring,
+  a disc with a wide `flowASpread`. Below it the matter closes in, as in a fall from rest, and below 1 it
+  ends inside the shadow. Above it the matter flows outward.
+- `flowASwirl` is turns a second at one radius, and falls outward by Kepler's law. 0 is a straight fall or
+  a straight outflow; with a fall it winds the matter into a spiral that tightens toward the hole.
+- A flow has no warm-up and no history. It is whole in the first frame it is asked for, so a film of flows
+  starts with a warm-up of 0, and a flow that comes in the middle of a film is its brightness on a track.
+- A particle lives `flowALife` seconds and appears again elsewhere in the band, fading in and out at the
+  ends. A long life on a ring is a steady ring; a short one twinkles.
+- Every number of a flow moves along a track. `flowALife` changes how fast the particles go and never
+  where they are. `flowACount` adds and takes particles at once, wherever they are in their lives.
+- The flows lie in the plane the orbiting stars circle in: face on in the flat mode, turned by the 3D
+  camera (`threeD` with `cameraPitch` 60 is a disc seen from above its rim). That camera stands about
+  twelve radii from the hole at the default `blackHoleSize`, so a flow wider than that passes it: strokes
+  that come near fade out.
+- The lens bends a flow as it bends everything behind the hole: a ring shows farther out than its radius
+  says and again, mirrored, inside the Einstein ring. `lensingEnabled` false draws it where it was set.
+- A flow's light is said, not earned by speed: `speedGlow`, `baseBrightness` and `trailIntensity` do
+  nothing to it. Strokes keep the brighter of two, so many particles in a narrow band are one flat band:
+  for streaks, fewer and thinner.
+- Its trail is a line in the scene, not a fade of the picture, so a camera that moves does not smear it.
+- A flow is a drawing of matter, not matter the scene knows: it does not feed the photon ring, the horizon
+  takes none of it, a second black hole does not pull it, and it does not lie on the sheet (`gridRide`
+  lays the field there, not the flows).
+- Without a black hole (`blackHoleSize` 0) a flow keeps `gridLatticeUnit` for its radius.
 
 ## 3. Gravity on the particles
 
@@ -717,6 +760,19 @@ The cost of a knob, in the last column:
 | What spin lying in the screen does along the line of sight: nothing, so both sides of a tilted hole fall alike | particle_simulation.ts | particle |
 | A captured particle is reborn in four tries, else on the rim, up to half a capture radius outside it | particle_simulation.ts, particle_simulation_3d.ts | machine |
 | Motion capped at six reference frames a step; a stall treated as one frame | particle_simulation.ts, frame_pacing.ts | machine |
+
+### The flows
+
+| Fixed | File in src/lib | Cost |
+|---|---|---|
+| The path: the radius to the power 1.5 runs evenly from the first radius to the last, and the turn rate falls as the radius to the power -1.5 | flows.ts, webgl_shaders.ts | frame |
+| The plane the flows lie in: the orbiting stars', with no tilt of its own and no thickness | scene.ts, webgl_shaders.ts | frame |
+| A particle appears over the first 6% of its life and leaves over the last | flows.ts | frame |
+| Each particle is drawn at 40% to 100% of its flow's brightness | webgl_shaders.ts | frame |
+| A trail dims toward its tail as the square of what is left of it | webgl_shaders.ts | frame |
+| In 3D a stroke fades nearer the camera than half the hole's distance and is gone at a fifth | flows.ts | frame |
+| A trail is drawn in 12 pieces; a flow holds 40 000 particles at most; three flows | flows.ts | machine |
+| Where a flow's particles stand at second 0: one set of numbers for every film, whatever its seed | flows.ts | birth |
 
 ### The photon ring
 

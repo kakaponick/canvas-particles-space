@@ -25,6 +25,7 @@ export type { TitleSprite } from './title_sprite'
 import { clearRingEnergy, createRingEnergy, stepRingEnergy } from './ring_energy'
 import { createGridSettings, placeGrid, rollGrid, turnGrid } from './space_grid'
 import { LATTICE_LINES_PER_SIDE, createLatticeSettings, latticeAnchor } from './space_lattice'
+import { FLOW_KEYS, createFlowSettings, resetFlow, stepFlow } from './flows'
 import { LIGHT_SPEED, SHADOW_RADII, clearOrbiters, createOrbitTuning, createOrbiters, stepOrbiters } from './orbiters'
 import { createPair, stepPair } from './companion'
 import { CLOSEST_CAMERA, CRITICAL_IMPACT, cameraFor, einsteinRatioAt, shadowAngle } from './lens_trace'
@@ -222,7 +223,7 @@ export function createScene (
     speedVariance: input.settings.speedVariance,
     radius: input.settings.spawnRadius
   }
-  setParticleCount(field, input.particleCount, spawn)
+  setParticleCount(field, input.settings.fieldEnabled ? input.particleCount : 0, spawn)
 
   const settings = createStepSettings(ringEnergy)
   // The 3D camera: how far it has eased from the flat view (0) to its place (1), the radians it has turned
@@ -448,7 +449,11 @@ export function createScene (
       filmKnee: 0.8
     },
     grid: createGridSettings(),
-    lattice: createLatticeSettings()
+    lattice: createLatticeSettings(),
+    flows: FLOW_KEYS.map(() => createFlowSettings()),
+    flowX: 0,
+    flowY: 0,
+    flowUnit: 1
   }
 
   function readBackground (state: SimulationSettings) {
@@ -542,8 +547,9 @@ export function createScene (
     field.count = 0
     clearOrbiters(orbiters)
     clearRingEnergy(ringEnergy)
+    for (let slot = 0; slot < frame.flows.length; slot++) resetFlow(frame.flows[slot])
     syncSpawn(from.settings)
-    setParticleCount(field, from.particleCount, spawn)
+    setParticleCount(field, from.settings.fieldEnabled ? from.particleCount : 0, spawn)
     placeHole(from)
     renderer?.clearScene(readBackground(from.settings))
   }
@@ -744,7 +750,9 @@ export function createScene (
     scene.ringdown = ringdown
 
     syncSpawn(state)
-    if (from.particleCount !== field.count) setParticleCount(field, from.particleCount, spawn)
+    // With the field off none of its particles is kept; turned on again it is made anew at every depth
+    const fieldCount = state.fieldEnabled ? from.particleCount : 0
+    if (fieldCount !== field.count) setParticleCount(field, fieldCount, spawn)
     ensureInstanceCapacity(instances, field.capacity)
 
     // The black hole: born where the intro happens, then pulled toward its target on a spring.
@@ -1151,6 +1159,20 @@ export function createScene (
       if (ringFed) stepRingEnergy(ringEnergy, dt, state.ringAfterglow, reducedMotion ? 0 : state.ringFlowSpeed)
       frame.instances = instances.floats
       scene.simulationMs = performance.now() - simStart
+    }
+    // The flows turn round the main hole in the plane the orbiting stars circle in, at the size the hole has
+    // now; without a hole they keep the lattice's stand-in for its radius. Their clocks run with the scene
+    frame.flowX = holeX
+    frame.flowY = holeY
+    frame.flowUnit = shadowRadius > 0 ? horizon : state.gridLatticeUnit * shortSide
+    for (let slot = 0; slot < FLOW_KEYS.length; slot++) {
+      const keys = FLOW_KEYS[slot]
+      const flow = frame.flows[slot]
+      stepFlow(
+        flow, frame.updateScene ? dt : 0, frame.flowUnit > 0 ? state[keys.brightness] : 0, state[keys.count], state[keys.from], state[keys.to],
+        state[keys.spread], state[keys.swirl], state[keys.life], state[keys.trail], state[keys.size]
+      )
+      readSceneColor(flow.color, state[keys.color])
     }
     frame.speedGlow = state.speedGlow
     frame.speedKnee = state.speedGlowKnee

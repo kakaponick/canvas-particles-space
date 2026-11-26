@@ -231,7 +231,10 @@ to the photon rings at the shadow's edge in a tall frame; `kerr_around.js` flies
 pole to pole with `ringSide` and `ringDoppler` following the spin. `fourth_dimension.json` is a reel of six
 clips paced by a narration; its `fourth_dimension_well.js` is the film to copy for particles on the sheet:
 the textbook's well with matter lying on it, a camera that rises above it, and axes and lines that stay on
-the surface while it moves. Copy the nearest one and change it; they all pass the check.
+the surface while it moves. `flows.json` is the film to copy for matter told where to go (section 16): a
+ring from its first frame, a fall brought in by its brightness, a swirl that winds it, a camera that rises
+over the plane and an outflow, with the particle field off. Copy the nearest one and change it; they all
+pass the check.
 
 What lights the photon rings under Ray Traced is whatever lies right round the hole in the picture behind
 it: each ring is the whole sky squeezed, and only a bright thing near the hole survives the squeeze. The
@@ -464,6 +467,27 @@ Looks that have been seen on a contact sheet, most of them filmed in `films/four
 | Stillness | `baseSpeed` 0 and no pull | A dark field: the stars and the nebula alone |
 | The stream as a direction | `threeD` with `blackHoleSize` 0: `cameraYaw` 90 runs it across the frame, `cameraPitch` 80 up it, both at 0 straight at the viewer | One direction of space, shown by everything moving along it. A move of 0.7 s from one to the next is a whip that smears the trails |
 | A tunnel | `baseSpeed` 70, `flightTintFrom` 0, `cameraZoom` 0.5, `trailIntensity` 0.05 | The flight folded round into a tube of two colours |
+
+### Flows: a look that is said
+
+A look of the field is grown: it takes seconds to gather and answers to a dozen settings at once. A flow
+(knobs.md, section 2) is said in the terms of the shot: where the matter is, where it goes, which way it
+turns. It is there in the first frame, three stand in one shot, and with `fieldEnabled` false they are
+all the matter there is. Seen together on one frame at `blackHoleSize` 8, in 3D at `cameraPitch` 62
+and face on in the flat mode:
+
+| The shot says | Settings | What the viewer sees |
+|---|---|---|
+| Matter circles the hole | `flowA` 1.8, `flowACount` 3000, `flowAFrom` and `flowATo` 3.2, `flowASpread` 1.6, `flowASwirl` 1.2, `flowALife` 10, `flowATrail` 0.9, `flowASize` 1.3 | A ring of streaks round the shadow and its mirrored copy inside the lens. At 8000 particles in a band 0.8 wide it is one flat band |
+| Matter falls in from every side and winds as it goes | `flowB` 1.6, `flowBCount` 9000, `flowBFrom` 11, `flowBTo` 0.6, `flowBSpread` 8, `flowBSwirl` 0.8, `flowBLife` 6, `flowBTrail` 0.6, `flowBSize` 1.2 | Streaks over the whole frame that lean into a spiral and tighten toward the hole. `flowBSwirl` 0 is the straight fall |
+| Matter is thrown out | `flowC` 2, `flowCCount` 1500, `flowCFrom` 1.2, `flowCTo` 16, `flowCSpread` 0.6, `flowCSwirl` 0, `flowCLife` 2.5, `flowCTrail` 0.25, `flowCSize` 1.6 | Short bright rays leaving the shadow's edge in every direction |
+
+- A flow comes and goes by its brightness on a track, over the seconds the shot wants, and the field can
+  be switched (`fieldEnabled` on a track) at a cut.
+- A shot with a tilted sheet still takes its matter from the field (`gridRide`): a flow does not lie on
+  the sheet.
+- A flow does not light the photon ring. A shot that wants the ring to answer the infall keeps the field
+  under the flow, or raises `ringBase`.
 
 What decides whether a look shows:
 

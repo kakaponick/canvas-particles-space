@@ -12,7 +12,8 @@ import {
   compositeFragmentShaderSource,
   gridVertexShaderSource,
   gridFragmentShaderSource,
-  latticeVertexShaderSource
+  latticeVertexShaderSource,
+  flowVertexShaderSource
 } from './webgl_shaders'
 import { INSTANCE_FLOATS } from './particle_simulation'
 import type { SceneColor } from './scene_color'
@@ -22,6 +23,7 @@ import { RING_BINS } from './ring_energy'
 import { SHADOW_SAMPLES, type ShadowShape } from './kerr_shadow'
 import { GRID_INSTANCE_COUNT, GRID_INSTANCE_FLOATS, GRID_LINES_PER_SIDE, createGridInstances, type GridSettings } from './space_grid'
 import { LATTICE_INSTANCE_COUNT, LATTICE_INSTANCE_FLOATS, createLatticeInstances, type LatticeSettings } from './space_lattice'
+import { FLOW_CAPACITY, FLOW_CORNER_FLOATS, FLOW_SEED_FLOATS, FLOW_VERTEX_COUNT, createFlowCorners, createFlowSeeds, type FlowSettings } from './flows'
 
 const INSTANCE_STRIDE = INSTANCE_FLOATS * 4
 const INSTANCED_ATTRIBUTES = [ATTRIBUTE_LOCATIONS.segment, ATTRIBUTE_LOCATIONS.style, ATTRIBUTE_LOCATIONS.color]
@@ -424,6 +426,12 @@ export interface FrameInput {
   grid: GridSettings
   // The space lattice, drawn into the orbits' layer and read through the lens
   lattice: LatticeSettings
+  // The flows (flows.ts), drawn into that layer too: one record for each slot, the black hole they turn
+  // round and CSS pixels in a black hole radius. In 3D they lie where the orbits do (orbitTurn)
+  flows: FlowSettings[]
+  flowX: number
+  flowY: number
+  flowUnit: number
 }
 
 export interface ParticleRenderer {
@@ -538,9 +546,13 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     a_position: ATTRIBUTE_LOCATIONS.position,
     a_latticeLine: ATTRIBUTE_LOCATIONS.latticeLine
   })
-  const programs = [fadeProgram, particleProgram, orbitProgram, compositeProgram, gridProgram, latticeProgram]
+  const flowProgram = createProgram(gl, flowVertexShaderSource, particleFragmentShaderSource, {
+    a_flowCorner: ATTRIBUTE_LOCATIONS.flowCorner,
+    a_flowSeed: ATTRIBUTE_LOCATIONS.flowSeed
+  })
+  const programs = [fadeProgram, particleProgram, orbitProgram, compositeProgram, gridProgram, latticeProgram, flowProgram]
 
-  if (!fadeProgram || !particleProgram || !orbitProgram || !compositeProgram || !gridProgram || !latticeProgram) {
+  if (!fadeProgram || !particleProgram || !orbitProgram || !compositeProgram || !gridProgram || !latticeProgram || !flowProgram) {
     for (const program of programs) {
       if (program) gl.deleteProgram(program)
     }
@@ -574,6 +586,8 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   const latticeUniforms = getUniforms(gl, latticeProgram, [
     'resolution', 'zoom', 'row0', 'row1', 'row2', 'shift', 'vanish', 'hole', 'companion', 'lattice', 'anchor', 'color', 'fade'
   ] as const)
+
+  const flowUniforms = getUniforms(gl, flowProgram, ['resolution', 'zoom', 'place', 'turnX', 'turnY', 'path', 'age', 'light'] as const)
 
   gl.useProgram(compositeProgram)
   gl.uniform1i(gl.getUniformLocation(compositeProgram, 'u_image'), SCENE_TEXTURE_UNIT)
@@ -613,6 +627,15 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   // The lattice's lines never change either; they get their buffer the first time the lattice is shown
   const latticeBuffer = gl.createBuffer()
   let latticeFilled = false
+
+  // The flows' particles and the pieces of a trail never change; they get their buffers the first time a
+  // flow is shown
+  const flowSeedBuffer = gl.createBuffer()
+  const flowCornerBuffer = gl.createBuffer()
+  let flowFilled = false
+  // Whether the layer of lines holds the flows as they now stand. A step that is not shown leaves them
+  // out: they have no past to keep, so only a frame that is seen pays for them
+  let flowsLaid = false
 
   function createLinearTexture (unit: number) {
     const texture = gl.createTexture()
@@ -702,6 +725,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     gl.viewport(0, 0, width, height)
     orbitSized = false
     orbitLit = false
+    flowsLaid = false
     // The picture is drawn again at the new size; the orbits' traces are lines and outlast it
     wipeScene(background)
 
@@ -718,6 +742,8 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     setUniform1f(gl, gridUniforms.pixelRatio, ratio)
     gl.useProgram(latticeProgram)
     setUniform2f(gl, latticeUniforms.resolution, width, height)
+    gl.useProgram(flowProgram)
+    setUniform2f(gl, flowUniforms.resolution, width, height)
   }
 
   function wipeScene (background: readonly [number, number, number]) {
@@ -924,6 +950,45 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     gl.drawArraysInstanced(gl.TRIANGLES, 0, QUAD_VERTEX_COUNT, LATTICE_INSTANCE_COUNT)
     gl.blendEquation(gl.FUNC_ADD)
     gl.disableVertexAttribArray(ATTRIBUTE_LOCATIONS.latticeLine)
+    gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuffer)
+  }
+
+  // The flows are drawn anew every frame into the layer of lines: every particle and its trail are placed by
+  // the vertex shader from the flow's clock, the brighter of a stroke and what is there
+  function drawFlows (frame: FrameInput) {
+    if (!flowFilled) {
+      flowFilled = true
+      gl.bindBuffer(gl.ARRAY_BUFFER, flowCornerBuffer)
+      gl.bufferData(gl.ARRAY_BUFFER, createFlowCorners(), gl.STATIC_DRAW)
+      gl.vertexAttribPointer(ATTRIBUTE_LOCATIONS.flowCorner, FLOW_CORNER_FLOATS, gl.FLOAT, false, 0, 0)
+      gl.bindBuffer(gl.ARRAY_BUFFER, flowSeedBuffer)
+      gl.bufferData(gl.ARRAY_BUFFER, createFlowSeeds(), gl.STATIC_DRAW)
+      gl.vertexAttribDivisor(ATTRIBUTE_LOCATIONS.flowSeed, 1)
+    }
+    const u = flowUniforms
+    const turn = frame.orbitTurn
+    gl.useProgram(flowProgram)
+    setUniform4f(gl, u.zoom, layerZoomX * ratio, layerZoomY * ratio, layerZoom, 0)
+    setUniform4f(gl, u.turnX, turn[0], turn[1], turn[2], frame.orbitFocal * ratio)
+    setUniform4f(gl, u.turnY, turn[3], turn[4], turn[5], frame.orbitFocal > 0 ? frame.orbitDepth * ratio : 1)
+    gl.bindBuffer(gl.ARRAY_BUFFER, flowSeedBuffer)
+    gl.enableVertexAttribArray(ATTRIBUTE_LOCATIONS.flowCorner)
+    gl.enableVertexAttribArray(ATTRIBUTE_LOCATIONS.flowSeed)
+    gl.blendEquationSeparate(gl.MAX, gl.FUNC_ADD)
+    for (let slot = 0; slot < frame.flows.length; slot++) {
+      const flow = frame.flows[slot]
+      if (!(flow.brightness > 0) || flow.count === 0) continue
+      // Each flow reads its own stretch of the particles' numbers
+      gl.vertexAttribPointer(ATTRIBUTE_LOCATIONS.flowSeed, FLOW_SEED_FLOATS, gl.FLOAT, false, 0, slot * FLOW_CAPACITY * FLOW_SEED_FLOATS * 4)
+      setUniform4f(gl, u.place, frame.flowX * ratio, frame.flowY * ratio, frame.flowUnit * ratio, flow.size * ratio)
+      setUniform4f(gl, u.path, flow.from, flow.to, flow.spread, flow.wound)
+      setUniform3f(gl, u.age, flow.phase, flow.lives, flow.piece)
+      setUniform4f(gl, u.light, flow.color.r, flow.color.g, flow.color.b, flow.brightness)
+      gl.drawArraysInstanced(gl.TRIANGLES, 0, FLOW_VERTEX_COUNT, flow.count)
+    }
+    gl.blendEquation(gl.FUNC_ADD)
+    gl.disableVertexAttribArray(ATTRIBUTE_LOCATIONS.flowCorner)
+    gl.disableVertexAttribArray(ATTRIBUTE_LOCATIONS.flowSeed)
     gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuffer)
   }
 
@@ -1200,23 +1265,50 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
       }
       uploadInstances(frame)
       drawParticles(frame)
-      // The orbits' traces and the lattice share one layer of lines
+      // The orbits' traces, the lattice and the flows share one layer of lines
       const latticeShown = frame.lattice.brightness > 0
-      if (frame.orbitCount > 0 || latticeShown) openLines()
+      let flowsShown = false
+      for (let slot = 0; slot < frame.flows.length; slot++) {
+        if (frame.flows[slot].brightness > 0 && frame.flows[slot].count > 0) flowsShown = true
+      }
+      flowsLaid = flowsShown && frame.present
+      const linesShown = latticeShown || flowsLaid
+      if (frame.orbitCount > 0 || linesShown) openLines()
       if (frame.orbitCount > 0) drawOrbits(frame)
       if (latticeShown) drawLattice(frame.lattice, frame.composite.gridColor)
+      if (flowsLaid) drawFlows(frame)
       gl.bindFramebuffer(gl.FRAMEBUFFER, null)
       // The last star gone, its traces go with it
       if (frame.orbitCount === 0) {
-        if (!latticeShown) clearOrbits()
+        if (!linesShown) clearOrbits()
         dropTraces()
       }
-      orbitsShown = frame.orbitCount > 0 || latticeShown
+      orbitsShown = frame.orbitCount > 0 || linesShown
 
       if (frame.ringFed) {
         gl.activeTexture(gl.TEXTURE0 + RING_TEXTURE_UNIT)
         gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, RING_BINS, 1, gl.LUMINANCE, gl.UNSIGNED_BYTE, frame.ringTexels)
         gl.activeTexture(gl.TEXTURE0 + SCENE_TEXTURE_UNIT)
+      }
+    }
+    // A flow is whole in the frame it is first asked for, a still one too: a frame that moves nothing and
+    // is shown lays the flows into the layer of lines, over the orbits and the lattice if they are there
+    if (!frame.updateScene && frame.present && !flowsLaid) {
+      let flowsShown = false
+      for (let slot = 0; slot < frame.flows.length; slot++) {
+        if (frame.flows[slot].brightness > 0 && frame.flows[slot].count > 0) flowsShown = true
+      }
+      if (flowsShown) {
+        if (orbitLit) {
+          gl.bindFramebuffer(gl.FRAMEBUFFER, orbitFramebuffer)
+        } else {
+          openLines()
+          if (frame.lattice.brightness > 0) drawLattice(frame.lattice, frame.composite.gridColor)
+        }
+        drawFlows(frame)
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+        flowsLaid = true
+        orbitsShown = true
       }
     }
     if (!frame.present) return
@@ -1228,6 +1320,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     for (const location of INSTANCED_ATTRIBUTES) gl.vertexAttribDivisor(location, 0)
     gl.vertexAttribDivisor(ATTRIBUTE_LOCATIONS.gridLine, 0)
     gl.vertexAttribDivisor(ATTRIBUTE_LOCATIONS.latticeLine, 0)
+    gl.vertexAttribDivisor(ATTRIBUTE_LOCATIONS.flowSeed, 0)
     gl.disableVertexAttribArray(ATTRIBUTE_LOCATIONS.position)
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
     gl.deleteFramebuffer(sceneFramebuffer)
@@ -1242,6 +1335,8 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     gl.deleteBuffer(traceBuffer)
     gl.deleteBuffer(gridBuffer)
     gl.deleteBuffer(latticeBuffer)
+    gl.deleteBuffer(flowSeedBuffer)
+    gl.deleteBuffer(flowCornerBuffer)
     for (const program of programs) gl.deleteProgram(program)
   }
 

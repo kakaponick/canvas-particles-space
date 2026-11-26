@@ -1,4 +1,5 @@
 import { createWithEqualityFn } from 'zustand/traditional'
+import { createFlowState, type FlowState } from '../lib/flows'
 
 export interface ParticleColor {
   r: number
@@ -8,8 +9,12 @@ export interface ParticleColor {
   percent: number
 }
 
-export interface ParticleState {
+// The flows' settings (flows.ts) are the same nine numbers and a colour for each of its slots
+export interface ParticleState extends FlowState {
   numParticles: number
+  // The particle field itself: off, no particle of it is stepped or drawn, and the flows, the grids and
+  // the lens are the whole scene
+  fieldEnabled: boolean
   baseSpeed: number
   gravityStrength: number
   orbitalStrength: number
@@ -326,6 +331,7 @@ export interface ParticleState {
   toggleLensingTraced: () => void
   togglePause: () => void
   toggleThreeD: () => void
+  toggleField: () => void
   setFrameRateCap: (fps: number) => void
   setMeasuredFps: (fps: number) => void
   toggleAdaptiveParticles: () => void
@@ -342,6 +348,7 @@ const isSmallScreen = typeof window !== 'undefined' && window.matchMedia('(max-w
 
 export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   numParticles: isSmallScreen ? 12000 : 24000,
+  fieldEnabled: true,
   baseSpeed: 1.5,
   gravityStrength: 2.5,
   orbitalStrength: 40,
@@ -527,6 +534,7 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   orbitClosest: 1.3,
   orbitEscape: 400,
   orbitFadeIn: 0.6,
+  ...createFlowState(),
   frameRateCap: 0,
   measuredFps: 0,
   adaptiveParticles: true,
@@ -554,6 +562,7 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   toggleLensingTraced: () => set((state) => ({ lensingTraced: !state.lensingTraced })),
   togglePause: () => set((state) => ({ isPaused: !state.isPaused })),
   toggleThreeD: () => set((state) => ({ threeD: !state.threeD })),
+  toggleField: () => set((state) => ({ fieldEnabled: !state.fieldEnabled })),
   setFrameRateCap: (fps) => set({ frameRateCap: fps }),
   setMeasuredFps: (fps) => set({ measuredFps: fps }),
   toggleAdaptiveParticles: () => set((state) => ({ adaptiveParticles: !state.adaptiveParticles })),

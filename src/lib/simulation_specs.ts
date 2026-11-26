@@ -5,6 +5,7 @@ import { BASE_SPEED_MAX, BASE_SPEED_MIN, BASE_SPEED_STEP } from './base_speed'
 import { HORIZON_SCALE_MAX } from './simulation_presets'
 import { GRID_COLOR, GRID_LINES_PER_SIDE } from './space_grid'
 import { LATTICE_LINES_PER_SIDE } from './space_lattice'
+import { FLOW_CAPACITY, FLOW_KEYS, type FlowColorKey, type FlowSliderKey } from './flows'
 
 export interface SimulationSettingSpec {
   label: string
@@ -32,6 +33,32 @@ const count = (value: number) => Math.round(value).toLocaleString('en-US')
 const percentOfOne = (value: number) => `${Math.round(value * 100)}%`
 const percentOfOneFine = (value: number) => `${(value * 100).toFixed(1)}%`
 const degrees = (value: number) => `${Math.round(value * 180 / Math.PI)}°`
+
+// The settings of the flows (flows.ts): the same nine for each slot, told once
+const FLOW_SPECS = Object.fromEntries(FLOW_KEYS.flatMap(keys => {
+  const name = `Flow ${keys.slot}`
+  const flow = `flow ${keys.slot}`
+  return [
+    [keys.brightness, spec(name, 0, 3, 0.01, fixed(2, '×'), 'Matter sent round the hole; 0 = off',
+      `Brightness of ${flow}, a band of particles that is told where to go round the black hole instead of being left to the particle field: its matter appears at From, leaves at To after Life seconds and turns by Swirl. From and To alike make a ring, To below From a fall into the hole, To above From an outflow. A flow needs no warm-up: it is whole in the first frame it is asked for, at any second of a film. It lies in the plane the orbiting stars circle in, face on in the flat mode and turned by the 3D camera, is bent by the lens and covered by the shadow. Three flows, A, B and C, stand in a scene at once. 0 turns this one off.`)],
+    [keys.count, spoken(spec('Count', 0, FLOW_CAPACITY, 100, count, 'How many particles the flow holds',
+      `How many particles ${flow} holds. They are placed and drawn by the graphics card alone, so they cost the processor nothing.`), `${name} Count`)],
+    [keys.from, spoken(spec('From', 0.2, 60, 0.1, fixed(1, '×'), 'Radius matter appears at, in hole radii',
+      `The radius, in black hole radii, at which the matter of ${flow} appears: the middle of the band Spread gives.`), `${name} From`)],
+    [keys.to, spoken(spec('To', 0, 60, 0.1, fixed(1, '×'), 'Radius it leaves at; same as From = ring',
+      `The radius, in black hole radii, at which the matter of ${flow} leaves, Life seconds after it appeared. The same as From keeps every particle on its circle: a ring. Below From it closes in, its radius to the power 1.5 falling evenly with time as in a fall from rest, and below 1 it ends inside the shadow. Above From it flows outward.`), `${name} To`)],
+    [keys.spread, spoken(spec('Spread', 0, 30, 0.1, fixed(1, '×'), 'Width of the band it starts in, in radii',
+      `Width of the band the matter of ${flow} appears in, in black hole radii, with From in its middle. The band narrows in proportion as the flow closes in. 0 puts every particle on one radius.`), `${name} Spread`)],
+    [keys.swirl, spoken(spec('Swirl', -5, 5, 0.01, fixed(2, ' /s'), 'Turns a second at one radius; sign = way',
+      `Turns a second a particle of ${flow} makes round the hole at one black hole radius; farther out it turns slower, as the radius to the power -1.5, which is Kepler's law. Positive turns anticlockwise to the eye, negative clockwise. 0 moves the matter straight along its radius.`), `${name} Swirl`)],
+    [keys.life, spoken(spec('Life', 0.2, 120, 0.1, fixed(1, ' s'), 'Seconds a particle takes from From to To',
+      `Seconds a particle of ${flow} takes from From to To, after which it appears again at another place in the band. Shorter is a faster flow. Moved along a film's track it changes how fast the particles go and never where they are.`), `${name} Life`)],
+    [keys.trail, spoken(spec('Trail', 0, 10, 0.01, fixed(2, ' s'), 'Seconds of path drawn behind a particle',
+      `Seconds of its own path drawn behind each particle of ${flow}, fading toward the tail. It is a line in the scene, not a fade of the picture, so a camera that moves does not smear it. 0 draws dots.`), `${name} Trail`)],
+    [keys.size, spoken(spec('Size', 0.3, 20, 0.1, fixed(1, ' px'), 'Width of a stroke of the flow',
+      `Stroke width of the particles of ${flow}, in CSS pixels, the same at any distance.`), `${name} Size`)]
+  ]
+})) as Record<FlowSliderKey, SimulationSettingSpec>
 
 export const SIMULATION_SETTING_SPECS = {
   numParticles: spoken(spec('Count', 500, 200000, 500, count, 'How many particles fly at once',
@@ -363,7 +390,8 @@ export const SIMULATION_SETTING_SPECS = {
   orbitEscape: spoken(spec('Escape Radius', 5, 2000, 5, fixed(0, ' rs'), 'A star this far out is replaced',
     'The distance from the black hole, in Schwarzschild radii, at which a star flung out counts as gone and a new one takes its place. 400 is far outside the frame; low values replace a star while it is still in sight.'), 'Orbit Escape Radius'),
   orbitFadeIn: spoken(spec('Fade In', 0, 10, 0.05, fixed(2, ' s'), 'Seconds a new star takes to light up',
-    'Seconds a new star and the start of its trace take to reach full brightness. 0 makes a star appear at once.'), 'Orbit Fade In')
+    'Seconds a new star and the start of its trace take to reach full brightness. 0 makes a star appear at once.'), 'Orbit Fade In'),
+  ...FLOW_SPECS
 } satisfies Record<string, SimulationSettingSpec>
 
 export type SimulationSliderKey = keyof typeof SIMULATION_SETTING_SPECS
@@ -387,6 +415,11 @@ export interface SimulationColorSpec {
 
 const color = (label: string, hint: string, description: string, spokenName?: string, exact?: SimulationColorSpec['exact']): SimulationColorSpec =>
   ({ label, hint, description, spokenName, exact })
+
+const FLOW_COLOR_SPECS = Object.fromEntries(FLOW_KEYS.map(keys => [
+  keys.color,
+  color('Color', 'Color of the flow\'s particles', `The color of the particles of flow ${keys.slot}; each is drawn at 40% to 100% of it.`, `Flow ${keys.slot} Color`)
+])) as Record<FlowColorKey, SimulationColorSpec>
 
 export const SIMULATION_COLOR_SPECS = {
   flightTintAhead: color('Flight Tint Ahead', 'Color a fast flight turns the middle',
@@ -417,7 +450,8 @@ export const SIMULATION_COLOR_SPECS = {
     'Star Warm Tint', { hex: '#ffd19e', rgb: [1.0, 0.82, 0.62] }),
   starsColorCool: color('Cool Tint', 'Color of the coolest background stars',
     'The color of the coolest background stars. Each star\'s tint lies somewhere between Warm Tint and this.',
-    'Star Cool Tint', { hex: '#bfd9ff', rgb: [0.75, 0.85, 1.0] })
+    'Star Cool Tint', { hex: '#bfd9ff', rgb: [0.75, 0.85, 1.0] }),
+  ...FLOW_COLOR_SPECS
 } satisfies Record<string, SimulationColorSpec>
 
 export type SimulationColorKey = keyof typeof SIMULATION_COLOR_SPECS

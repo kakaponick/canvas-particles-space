@@ -14,6 +14,7 @@ export const sliderName = (spec: SimulationSettingSpec | SimulationColorSpec) =>
 // The colour settings: each takes '#rrggbb' and moves channel by channel along a film's track
 export const COLORS = SIMULATION_COLOR_SPECS as Record<string, SimulationColorSpec>
 export const TOGGLES: Record<string, string> = {
+  fieldEnabled: 'The particle field: the flight through space and everything gravity does with it. false steps and draws no particle of it, so the flows, the grids and the lens are the whole scene and a step costs almost nothing; turned on again the field is made anew at every depth.',
   blackHoleFollowing: 'The black hole follows the cursor; false anchors it at blackHoleX, blackHoleY.',
   ringEnabled: 'Photon ring around the shadow.',
   ringFeedEnabled: 'Matter falling in or skimming past brightens the photon ring.',

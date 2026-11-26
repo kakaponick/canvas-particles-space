@@ -1273,5 +1273,9 @@ Recipes
   A picture in a corner:   "graphics": [{ "kind": "image", "src": "films/photo.png", "center": [0.82, 0.24], "width": 0.3,
                              "from": 1, "to": 7 }]
   Vertical short:          "size": "vertical", "settings": { "blackHoleY": 0.42 }
+  Matter told where to go: "warmup": 0, "settings": { "fieldEnabled": false, "flowA": 1.8, "flowACount": 3000, "flowAFrom": 3.2,
+                             "flowATo": 3.2, "flowASpread": 1.6, "flowASwirl": 1.2, "flowALife": 10, "flowATrail": 0.9 }
+                           a ring that is whole in the first frame; flowATo below flowAFrom is a fall, above it an
+                           outflow, and flowB and flowC are two more at once (describe "flow")
 
 Check with preview (a contact sheet of frames) before render; both take the same film.`
