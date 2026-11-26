@@ -32,5 +32,8 @@ films/*.wav
 films/*_poster*.jpg
 films/voice/
 
+# What scripts/yt_keywords.mjs gathers: read once, kept nowhere
+yt-keywords/
+
 # Test runs of the agent skills; the skills themselves are tracked
 .claude/skills/*-workspace/
