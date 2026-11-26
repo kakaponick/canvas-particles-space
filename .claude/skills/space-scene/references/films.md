@@ -1,11 +1,12 @@
 # Making a film that reads
 
-The format is in `space_guide`; this file is what the format does not say: how a film is put together so
-that a viewer sees what was meant, and what has already gone wrong once.
+The format is in `space_guide`, the script language in its "A film as a script", the laws in knobs.md;
+this file is the craft: how a film is put together so that a viewer sees what was meant. The words
+tracer, gate, said and grown, vectors and radii are SKILL.md's.
 
 ## Contents
 
-1. Start from the picture, not from the keys
+1. Start from the picture
 2. How a film starts
 3. Keyframes
 4. The camera
@@ -13,7 +14,7 @@ that a viewer sees what was meant, and what has already gone wrong once.
 6. Sound
 7. Checking before rendering
 8. High frame rates
-9. Recipes that are not in the guide
+9. Recipes, with their causes
 10. Films to start from
 11. The timeline: time, layers and events
 12. Writing a film as a script
@@ -23,73 +24,65 @@ that a viewer sees what was meant, and what has already gone wrong once.
 16. The particle field: a look for every shot
 17. The poster: a YouTube thumbnail planned with the film
 
-## 1. Start from the picture, not from the keys
+## 1. Start from the picture
 
 Write down, second by second, what the viewer should see. Then give each moment the one or two knobs that
-make it, from knobs.md. A film that moves ten things at once shows none of them; one built on a single
-ability of the scene, taken to its end, is the one people watch twice.
+make it, from knobs.md. A film built on a single ability of the scene, taken to its end, is the one people
+watch twice; give each moment one thing that moves.
 
-The particles are in every one of those pictures, and they are its vectors: what moves in a shot, and
-which way, is what the particles do there. So each shot says what they do, and a shot with a sheet lays
-them on it: section 16.
+The particles are in every one of those pictures, and they are its vectors. So each shot says what they
+do, and a shot with a sheet lays them on it: section 16.
 
-A film made for YouTube starts one step earlier: with its thumbnail. Before the first second is written,
-say in a sentence what the poster shows and which moment of the film keeps its promise: section 17.
+A film made for YouTube starts one step earlier, with its poster: section 17.
 
-Give every change time: a viewer needs about three seconds to take in a new picture, and a label needs to
-stay as long as it takes to read twice.
+Give every change time: a viewer needs about three seconds to take in a new picture, and a label stays as
+long as it takes to read twice.
 
 ## 2. How a film starts
 
-- A film starts from the page's defaults, never from what a browser has saved. State everything the film
-  depends on in `settings`.
-- With the opening (the default) the film begins in the dark with the star; the scene is fully there after
-  about six seconds (`introEnd`). A negative `at` starts the film inside it: `"intro": { "at": -4 }` opens
-  as the title is being taken.
-- `"intro": false` opens on the running scene. The `warmup` (2 s by default, up to 10) runs before the
-  first frame so the trails are already drawn; a film with long traces or a long exposure wants more.
+- A film is the page's defaults plus its `settings`: put everything it depends on there.
+- With the opening (the default) the film begins in the dark with the star, so a still at second 0 is
+  black; the scene is fully there after about six seconds (`introEnd`). A negative `at` starts the film
+  inside it: `"intro": { "at": -4 }` opens as the title is being taken.
+- `"intro": false` opens on the running scene, after a `warmup` (2 s unless set, up to 10) that runs only
+  in a film without the opening. A said look needs `"warmup": 0`; a grown one (trails, a ring of matter,
+  a long exposure, a well that fills) needs the seconds it takes to gather, 8 to 10 for most.
 - A black hole placed off-centre: with the opening, `originAtHole` at 1 (the default) makes the whole
   explosion happen there.
 - `seed` picks the field of stars and particles. Change it when one frame has an unlucky clump.
-- A film has no cursor. The hole rests at `blackHoleX`, `blackHoleY` and tracks move it.
+- The hole rests at `blackHoleX`, `blackHoleY`, and tracks move it: a film has no cursor.
 
 ## 3. Keyframes
 
 - A track holds its first value before its first key and its last value after its last, so a value that
-  should not move until second 10 needs a key at 10 as well as the one at its end.
+  stays put until second 10 needs a key at 10 as well as the one at its end.
 - The ease belongs to the key the value arrives at. `linear` for steady motion (a path of many short
-  steps), `in` for something that accelerates (two holes closing), `hold` for anything counted in whole
-  numbers or that restarts when it changes: `orbitCount`, `orbitSize`, `orbitEccentricity`.
-- A switch (`lensingEnabled`, `ringEnabled`, `ringFeedEnabled`, `threeD`) takes true or false and flips
-  at its second. To fade instead of cut, keyframe the number behind it (`lensingRadius`, `ringBrightness`,
-  `ringFeed`). `threeD` needs no fade: the camera turns between the flat view and its place in 3D
-  (`cameraYaw`, `cameraPitch`) over `threeDEase` seconds, 1.2 unless set.
+  steps), `in` for something that accelerates (two holes closing), `hold` for a count and for the keys
+  knobs.md says restart when they change (the orbits, section 7).
+- A switch (`lensingEnabled`, `ringEnabled`, `ringFeedEnabled`, `threeD`) flips at its second. To fade,
+  keyframe the number behind it (`lensingRadius`, `ringBrightness`, `ringFeed`). `threeD` turns the camera
+  between the flat view and its place in 3D (`cameraYaw`, `cameraPitch`) over `threeDEase` seconds by
+  itself.
 - A curved path of the hole is many short `linear` keys on `blackHoleX` and `blackHoleY`, a few tenths of
   a second apart, generated by a script and pasted in.
 - Intro parameters can be keyframed in a film without the opening when the scene uses them outside it:
-  a fired event's do, and `ringdownAmplitude` is how far a merged hole is drawn out.
-- `cameraZoom` in tracks is the Zoom setting.
+  a fired event's look, and `ringdownAmplitude`, how far a merged hole is drawn out.
 
 ## 4. The camera
 
-- The zoom redraws the scene: at 4× the ring is still a hairline and the traces are still sharp. Use it
-  freely on particles, the ring, orbits and grids.
-- While the zoom changes, particle trails streak across the frame like a moving camera's. A slow push
-  (a factor of two over five seconds or more) looks deliberate; a fast one smears the field. A jump of
-  more than `cameraCutZoom` in one frame, 8% unless set, is a cut: the trails start afresh. Raise it, with
-  `cameraCutShift` for a pan and `cameraCutTurn` in 3D, for a whip that smears the field across the frame.
-- The opening's title and dust are the two things that still soften when magnified; do not push in on
-  them.
-- At a high zoom keep the hole away from the frame's edge: where the lens reads from outside the frame a
-  thin mirrored band can appear.
-- Below 1 the camera pulls back, to 0.5 at most. The frame then shows the scene smaller with its mirror
-  images around it, which reads as a tunnel or a kaleidoscope, not as a wider sky. Use it as a figure of
-  its own (an ending that falls away, a beat before a push-in), and keep the hole in the middle.
-- The zoom holds the black hole still (the centre of a pair, when there are two). To frame something
-  else while zoomed in, pan: `cameraX` and `cameraY` in radii from the hole, `cameraPair` for one of two
-  holes. The camera moves inside the picture the scene draws and stops at its edge, so the reach grows
-  with the zoom and is nothing at 1; the check says so when a film pans and never zooms in. To frame
-  something else at no zoom, move the hole.
+The rules of zoom, pan and cut are knobs.md section 11; this is how to use them.
+
+- The zoom redraws the scene: at 4x the ring is still a hairline and the traces still sharp. Push in on
+  the particles, the ring, the orbits and the grids; frame the opening's title and dust at zoom 1, since
+  those two soften when magnified.
+- A slow push, a factor of two over five seconds or more, looks deliberate: while the zoom changes, the
+  trails streak like a moving camera's, and a fast push smears the field.
+- At a high zoom keep the hole well inside the frame: where the lens reads from outside the frame a thin
+  mirrored band can appear.
+- Below 1 the frame shows the scene smaller with its mirror images round it, a tunnel or a kaleidoscope.
+  Use it as a figure of its own (an ending that falls away, a beat before a push-in), with the hole in the
+  middle.
+- To frame something else at zoom 1, move the hole; zoomed in, pan.
 - A camera held on one hole of a pair (`cameraPair` at 1 or -1) turns with the orbit, so the whole field
   streaks past it: a tracking shot. Keep it to a few seconds, or lower `trailIntensity` for it.
 - Vertical frame: put the hole a little above the middle (`blackHoleY` near 0.42) and leave the lower third
@@ -100,9 +93,9 @@ stay as long as it takes to read twice.
 - Captions are in the language of the request. They are drawn over the finished frame, so they stay sharp
   at any zoom.
 - `hole`, `einstein` and `companion` point a line at the thing itself and follow it; `angle` turns the line
-  so two labels do not cross. Use them to name what is on screen, and plain `bottom` captions to say what
+  so two labels keep apart. Use them to name what is on screen, and plain `bottom` captions to say what
   is happening.
-- One caption at a time in one place. Leave a gap of half a second between two in the same place.
+- One caption at a time in one place, with a gap of half a second between two in the same place.
 - In a vertical frame a label pointing sideways is pushed back from the edge; point it from above or
   below (`angle` 90 or 270).
 - A caption the request did not ask for is named in the reply, with how to drop it.
@@ -116,75 +109,56 @@ stay as long as it takes to read twice.
 - What a caption's text can say beyond plain words is section 13.
 - The opening's title is the intro's own (`title`, `font`, `uppercase`); a new line is `\n`.
   `"title": false` drops it.
-- A title after the opening is a cue with words: `{ "at": 12, "title": "ACT TWO" }`. It is lensed and lit
-  like the opening's and lives by the same parameters: how it arrives (`titleEntrance`, `titleInAt`,
-  `titleInDuration`), how it leaves (`titleExit`, `dissolveAt`, `dissolveDuration`), counted from the
-  cue. With the defaults the light front lights it at once, it starts to fall into the hole a little over
-  two seconds later and is gone by the fifth; for a chapter card set `"Fades in"`, `"Fades out"`, `titleInAt` 0 and `dissolveAt` to the seconds it
-  stays. One title is on screen at a time: a new one replaces the one still showing.
-- The film stock of the opening (`letterbox`, `vignette`, `filmGrain`, `lensFringe`) leaves with the
-  opening. For bars or grain over a whole film set `filmHold` to 1 beside them; without it the plan
-  notes that they will not show.
+- A title after the opening is a cue with words, lensed and lit like the opening's: the guide's recipe
+  "A chapter title" is a card. One title is on screen at a time; a new one replaces the one showing.
+- Bars, grain and the rest of the opening's film stock over a whole film: knobs.md section 13 (`filmHold`).
 
 ## 6. Sound
 
-A film is silent unless the request asks for sound. A soundtrack, effects or a narration nobody asked for
-are not a bonus: they were added once and had to be taken out. When sound is asked for, `space_render`
-takes an audio file and lays it under the picture from the first second.
+A film is silent; lay sound under it when the request names sound. `space_render` then takes an audio file
+and lays it under the picture from the first second.
 
 ## 7. Checking before rendering
 
 - Read the timeline under the preview first: it is the film as it was understood, a line for each thing
   that happens. Section 11 says what goes on it.
-- Preview at the seconds where something changes, and one frame shortly after each. An even spread misses
-  the moment that went wrong. The label on a frame shows tenths of a second, so two frames on either
-  side of a cut can carry the same label.
+- Preview at the seconds where something changes, and one frame shortly after each; an even spread misses
+  the moment that went wrong. The film is ready to render when each of those frames shows what its line
+  of the timeline says, where the shot's sentence puts it. The label on a frame shows tenths of a second,
+  so two frames on either side of a cut can carry the same label.
+- A preview writes each frame's second, and in a storyboard the shot's name, in a strip along its top
+  edge; that label is the preview's only, and a still (`still`) and the render carry none. Judge a caption
+  in the top-left corner with a still.
+- A frame that shows nothing where the effect should be has a shut gate: the `Gate:` line of the law's
+  section in knobs.md names the knob that opens it.
 - Two previews of one film are the same picture byte for byte. If a change to the code breaks that, the
   scene has picked up a clock or `Math.random`.
-- A check of the plan alone (no drawing) is `space_check`, or `window.space.film.check(film)` on a page
-  with `?agent`: it lists the timeline it understood, every value it moved into range and every mistake
-  at once. A preview prints the same timeline, so a film about to be previewed needs no check first.
+- `space_check` (or `window.space.film.check(film)` on a page with `?agent`) is the plan alone, with no
+  drawing: the timeline it understood, every value it moved into range and every mistake at once. A preview
+  prints the same timeline, so a film about to be previewed goes straight to the preview.
 - A film cut into shots is previewed as its storyboard when no seconds are asked for: one frame from the
   middle of each shot, with the shot's name. Read it as a viewer would read a comic strip.
-- Things that pass the check and still show nothing: a lens with nothing behind it (raise `gridSky` or the
-  stars), a ring with nothing falling in, a `baseSpeed` of 0 without gravity, orbit traces with `orbitTrail`
-  at 0, a sheet seen from straight above (`gridTilt` 0).
-- A preview plays the film from its start to the last second asked for and encodes nothing: about a
-  second and a half for 40 seconds of film, so look often. A render is held by the video encoder: on a machine
-  set up to encode outside the browser (`docs/films.md`) about 285 frames a second at 1080p and 77 at 4K,
-  through the browser's own encoder about 205 and 88. The answer of a render names which made the file.
-  Up to 60 000 particles cost a render nothing.
-- The script starts a browser of its own, about three seconds a call; several jobs on one line share it.
-  Five checks one call each took 16 s, the same five on one line 3 s. So a set of films goes through each
-  step in one call: `check a.js b.js c.js`, `preview a.js a.jpg - b.js b.jpg -`, `render a.js a.mp4 high
-  b.js b.mp4 high`. After a fix, preview again only the films that changed, at the seconds that changed.
+- A preview plays the film from its start to the last second asked for and encodes nothing, about a
+  second and a half for 40 seconds of film, so look often. The answer of a render names the encoder that
+  made the file.
+- The script starts a browser of its own, about three seconds a call, and several jobs on one line share
+  it: five checks one call each took 16 s, the same five on one line 3 s. So a set of films goes through
+  each step in one call: `check a.js b.js c.js`, `preview a.js a.jpg - b.js b.jpg -`, `render a.js a.mp4
+  high b.js b.mp4 high`. After a fix, preview again only the films that changed, at the seconds that
+  changed.
 - A render needs nothing after it but the mp4. Once the previews are right, start it in the background and
   commit the films and finish the rest while it runs.
-- A film is rendered once: one mp4 at the default quality. A second quality, a lighter copy or another
-  version waits for the user to ask: each doubles the render, so a file that came out large is reported
-  with its size, not rendered again smaller unasked. A render made stale by a new request is stopped at
-  once, before the new work is thought through.
-- Rendered mp4 and audio files and the posters' jpg in `films/` are kept out of git; the json is the film. On Windows a render
-  fails to replace an mp4 that a player still has open.
+- Render once: one mp4 at the default quality, reported with its size. Another quality, a lighter copy or
+  another version is made on the user's word. A render made stale by a new request is stopped at once,
+  before the new work is thought through.
+- In `films/` the json or js is the film; the rendered mp4, audio and the posters' jpg stay out of git. On
+  Windows a render fails to replace an mp4 that a player still has open.
 
 ## 8. High frame rates
 
-`fps` goes up to 240. Web players stop at 60, so a faster film is for a display that fast or for slow
-motion: a 120 fps film played at 30 is the whole scene four times slower.
+Above 60 fps, for a fast display or slow motion: [high_frame_rates.md](high_frame_rates.md).
 
-- The scene is stepped once a frame there. It is the same motion as the 60 fps film, not the same
-  frames: stars and particles are born at other moments.
-- 4K and frame rates above 60 are encoded on the graphics card too. Through the browser's own encoder the
-  quality is a quantizer, so the file takes what the picture needs: at the default quality 4K at 60 fps is
-  about 105 Mbit/s, 4K at 120 fps about 140, 1080p at 240 fps about 95. Through ffmpeg it is the bitrate the
-  quality names, counted for 60 fps at most and spread over the faster frames.
-- A render through the tools goes to the disk as it is encoded, so its size is bound by the disk, not by
-  the browser's memory. Only a film saved by hand with `download` is put together in the page.
-- The stream names the H.264 level its size and rate need (6.0 for 4K at 120 fps, 6.1 at 180). Chrome
-  plays it, though it drops frames of 4K at 180 fps (36 of 363 in two seconds of the minute-long film);
-  a television or a phone may not take a level above 5.2 at all, so check the device the film is for.
-
-## 9. Recipes that are not in the guide
+## 9. Recipes, with their causes
 
 Long exposure, the hole drawing with its own pull:
 
@@ -192,7 +166,9 @@ Long exposure, the hole drawing with its own pull:
 "settings": { "trailIntensity": 0, "baseSpeed": 0, "numParticles": 60000, "gravityReach": 8, "gravityStrength": 12, "orbitalStrength": 260 }
 ```
 
-then move the hole along a path, and bring `trailIntensity` up at the end to let the drawing fade.
+`trailIntensity` 0 lets nothing fade, and at `baseSpeed` 0 only what the pull moves draws a stroke, so the
+picture keeps every path the hole bends; the strong swirl winds those paths into knots round the hole.
+Move the hole along a path, and bring `trailIntensity` up at the end to let the drawing fade.
 
 A rosette of precession:
 
@@ -201,18 +177,21 @@ A rosette of precession:
 "tracks": { "orbitCount": [[0, 1], [8, 3, "hold"], [16, 8, "hold"], [24, 20, "hold"]] }
 ```
 
+The orbiting stars feel gravity with the Schwarzschild radius cut out of Newton's law, so an eccentric
+orbit's ellipse turns a little further round on every pass, as S2's does; the long trail keeps every pass,
+and the turned ellipses lay a rosette. A smaller or more eccentric orbit turns faster.
+
 Stars swallowed one by one, each lighting the ring: grow `horizonScale` from 1 to 5 over the last seconds.
+The horizon widens past the stars' closest passes, and each star it takes flares the ring where it went in.
 
 The lens explained: `gridSky` on, `baseBrightness` down to about 0.3, `lensingTraced` false to start
-on the stylized lens, then keyframe `lensingRadius`,
-`lensingReach` from 0 to 1 and `lensingRotation` through zero to the other sign. To end on the real thing,
-flip `lensingTraced` to true: the ring, its mirrored image and the photon rings as a hole that does not spin
-makes them.
+on the stylized lens, then keyframe `lensingRadius`, `lensingReach` from 0 to 1 and `lensingRotation`
+through zero to the other sign. To end on the real thing, flip `lensingTraced` to true: the ring, its
+mirrored image and the photon rings as a hole that does not spin makes them.
 
 A merger: `companionDistance` to 0 with the `in` ease, the sheet on, `companionSpeed` at 2 in a short
-film. `companionWaves` is the strength of the whole wave, the spiral and the last ringing alike: 1 sways
-the sheet, 3 folds it into steep spiral arms. Look at the frames half a second either side of the merger:
-that is where the hole is an oval and the wave is at its peak.
+film; its wave strengths are knobs.md section 8. Look at the frames half a second either side of the
+merger: that is where the hole is an oval and the wave is at its peak.
 
 The opening in slow motion: `lightCrossTime` at its top, `matterSpeed` low, and every later moment
 (`remnantAt`, `horizonAt`, `dissolveAt`, `releaseAt`, `introEnd`) moved out to match, so the light takes
@@ -220,38 +199,89 @@ seconds to cross the frame.
 
 ## 10. Films to start from
 
-In `films/`: `showreel.json` is a 50-second tour with labels (the opening, a zoom, the lens by keyframes,
-orbits, the sheet, a merger); `exposure.json`, `rosette.json`, `graph_paper.json`, `rapid.json` and
-`waltz.json` are each built on one ability. `language.js` is a film written as a script: shots, a path
-drawn by a function, a part used as a function, a loop of waves, slow motion, a title card, fades.
-`horizon.js` is a film that explains, carried by its text: words on black, a definition, a formula, a label,
-counters read from the film, a list that builds, and the scene's time slowed by the formula on screen. Three
-films show the Ray Traced lens and spin: `ray_closer.js` flies the camera from 190 to 2 Schwarzschild radii
-by `lensingRadius` alone, a dolly zoom with its distances read from the same function; `ray_deeper.js` dives
-to the photon rings at the shadow's edge in a tall frame; `kerr_around.js` flies over a spinning hole from
-pole to pole with `ringSide` and `ringDoppler` following the spin. `fourth_dimension.json` is a reel of six
-clips paced by a narration; its `fourth_dimension_well.js` is the film to copy for particles on the sheet:
-the textbook's well with matter lying on it, a camera that rises above it, and axes and lines that stay on
-the surface while it moves. `flows.json` is the film to copy for matter told where to go (section 16): a
-ring from its first frame, a fall brought in by its brightness, a swirl that winds it, a camera that rises
-over the plane and an outflow, with the particle field off. Copy the nearest one and change it; they all
-pass the check.
+Every film in `films/`, one line each: what it shows, and the particle looks of section 16 it uses. Copy
+the nearest one and change it; they all pass the check.
+
+One ability each:
+
+- `exposure.json`: a long exposure, the hole moved along a path drawing with its own pull (section 9).
+- `rosette.json`: orbiting stars added one by one, their precessing ellipses laying a rosette (section 9).
+- `zoom.json`: a push in on the hole and the orbits round it, the lensed grid brought in.
+- `rapid.json`: a zoom into the photon ring, its Doppler sides and flowing patches.
+- `curved_space.json`: the lensed grid alone, read through the lens.
+- `graph_paper.json`: the lensed grid bent by the lens's keys, then by a second hole.
+- `waltz.json`: two holes closing on the sheet, their wave on it; the field a whirlpool round them (an infall leaned by a strong swirl).
+- `frame_drag.js`: frame dragging in the field: an infall that leans into a spiral as the hole spins up,
+  then the mirrored spiral as the axis turns (straight infall, carried round a spinning hole).
+- `flows.json`: matter told where to go: a ring from its first frame, a fall that a swirl winds, a camera
+  that rises over the plane, an outflow, with the field off (the three flows).
+
+Tours and language:
+
+- `showreel.json`: a 50-second tour with labels (the opening, a zoom, the lens by keyframes, orbits, the
+  sheet, a merger); `showreel_sound.mjs` and `showreel_voice.mjs` make its soundtrack and narration.
+- `language.js`: a film written as a script: shots, a path drawn by a function, a part used as a function,
+  a loop of waves, slow motion, a title card, fades.
+- `three_d.js`: the scene in three dimensions: a disc in the hole's equator passing before the shadow, an
+  equator that leans with the spin, a pair on a tilted orbit, a sheet whose well runs down to the hole
+  (flows for the disc, particles on the sheet).
+- `horizon.js`: a film carried by its text: words on black, a definition, a formula, a label, counters
+  read from the film, a list that builds.
+- `graphics.js`: everything drawn over the picture: rings that mark radii, an arrow with a label, a chart
+  with a walking dot, a second hole's orbit and a pan to it, a framed picture.
+- `reel.json`: a reel of `horizon.js`, a fractal clip and `graphics.js`.
+
+The Ray Traced lens and spin:
+
+- `ray_closer.js`: the camera from 190 to 2 Schwarzschild radii by `lensingRadius` alone, a dolly zoom.
+- `ray_deeper.js`: a dive to the photon rings at the shadow's edge, in a tall frame, lit by orbiting stars.
+- `kerr_around.js`: over a spinning hole from pole to pole, `ringSide` and `ringDoppler` following the spin.
+
+Real black holes:
+
+- `sgr_a.js`: Sagittarius A* and S2's precessing orbit, then the S cluster (orbiting stars).
+- `m87.js`: M87* as the Event Horizon Telescope saw it, axis 17° off the line of sight (orbiting stars).
+- `grs1915.js`: GRS 1915+105's 50-second heartbeat in real time: the inner ring fills, falls in and flares,
+  with a light curve drawn in step (ring of matter in 3D, carried round a spinning hole).
+- `grs1915_free.js`: the same hole seen by a camera that leaves its circle, flies past the shadow and under
+  it (the same looks).
+- `gw150914.js`: the first gravitational wave heard: 36 and 29 solar masses closing by the real inspiral law
+  over the sheet, the camera riding the smaller hole.
+- `ogle_0462.js`: the first lone black hole, drifting across the bulge's star field, found by its lens.
+
+The Fourth Dimension, a published film (`fourth_dimension_youtube.md` holds its release):
+
+- `fourth_dimension.json`: the reel of its six clips paced by a narration (`fourth_dimension_omnivoice.json`
+  the same reel in another voice, `fourth_dimension_voice.mjs` the narration's maker).
+- `fourth_dimension_ladder.js`: a point pulled into a line, a square, a cube and a hypercube, the fourth
+  pull pointing inward.
+- `fourth_dimension_well.js`: the film to copy for particles on the sheet: the textbook's well with matter
+  on it, a camera that rises above it, axes and lines that stay on the surface (ring of matter, then the
+  sheet's setup with the drain and the fall, then a fall in space).
+- `fourth_dimension_ripple.js`: the well deepening, two holes rippling the sheet, the matter on it riding the
+  waves (the sheet's setup).
+- `fourth_dimension_experiment.js`: the Earth at the bottom of its own well, space falling in along every
+  spoke, a clock on the well's wall (the sheet's fall).
+- `fourth_dimension_fall.js`: a spinning hole in its lattice, circled and then entered (a disc in 3D wound by
+  the spin's drag).
+- `fourth_dimension_credits.js`: credits that fall into the hole as dust.
+- `fourth_dimension_poster.js`, `_poster2.js`, `_poster3.js`: its three poster takes (poster.md).
+
+Mandelbrot zooms (`docs/fractal_films.md`): `mandelbrot.json`, `mandelbrot_loop.json`, `mandelbrot_story.js`.
 
 What lights the photon rings under Ray Traced is whatever lies right round the hole in the picture behind
 it: each ring is the whole sky squeezed, and only a bright thing near the hole survives the squeeze. The
 lensed grid and the stars turn to an even speckle there; orbiting stars with long traces (`orbitCount` 40,
 `orbitSize` 2.5, `orbitTrail` 20) give every ring a copy of their loops, as a real hole's rings hold its
 disc. The drawn photon ring sits on top of the traced ones, so turn it off for a look at them. The stylized
-lens at a high zoom on the shadow's edge shows folds where it reads past the picture's edge, not "no rings":
-do not set it against the traced one there.
+lens at a high zoom on the shadow's edge folds where it reads past the picture's edge: compare the two
+lenses away from the shadow's edge.
 
 ## 11. The timeline: time, layers and events
 
-A film is a timeline with five kinds of things on it, and each ability of the scene is one kind. A value
-that changes smoothly is keyframes in tracks. A layer that is there or not is a switch in layers. The
-opening is a clip, placed by intro. An event of the opening is fired again by a cue. The pace of the
-scene's own time is speed. Putting a thing in the wrong kind is what makes a film unreadable: a flash
-written as a curve, a value written as a cut.
+A film is a timeline with five kinds of things on it, and each ability of the scene is one kind: a glide is
+a track, there-or-not is a layer, the opening is a clip placed by `intro`, a moment is a cue, and the pace
+of the scene's own time is `speed`.
 
 What the plan understood comes back as a timeline, one line for each thing in the order it happens, from
 the check on the page and under every preview. Read it before looking at the frames: a key at the wrong
@@ -262,80 +292,67 @@ Time:
 - Speed is scene seconds in a film second. Every second written in a film stays a second of the film:
   keys, captions, cues, and the second the opening starts at. Only the scene slows.
 - Slow motion is real: at 0.1 the scene takes ten times finer steps, so trails and orbits stay smooth.
-  Ease into it and out of it over half a second, a cut in speed reads as a glitch.
-- At 0 the scene is one still picture. The camera can still move over it, but it is magnified, not
-  redrawn, so a long push-in on a still frame softens; hold the still short or keep the zoom below 2.
+  Ease into it and out of it over half a second; a cut in speed reads as a glitch.
+- At 0 the scene is one still picture. The camera can still move over it, magnifying rather than
+  redrawing, so a long push-in on a still frame softens; hold the still short or keep the zoom below 2.
 - The opening runs on the scene's time, so a slowed opening ends later. The timeline says when.
 
 Layers:
 
 - A switch cuts. To fade something, keyframe the number behind it instead.
-- Switching the pull off flies the particles straight through the black hole's place; the dark gap around
-  it fills in over a few seconds. Switching the shadow off leaves that gap as well.
+- With the pull switched off the particles fly straight through the black hole's place; the dark gap
+  around it fills in over a few seconds. Switching the shadow off leaves that gap as well.
 - A layer hidden in intro is hidden for the whole film. A switch in layers replaces that for its layer,
   and like any track it holds its first key's value before that key.
 
 Events:
 
-- A cue fires after the opening is over, or in a film without it. Inside the opening the check refuses
-  it and says when the opening ends.
+- A cue fires after the opening is over, or in a film without it; the check names the second the opening
+  ends.
 - Several events in one cue keep the opening's own order: the star takes its seconds to brighten, the
   blast follows, the ringing comes later still. For two things at the same instant write two cues.
-- One blast and one ringing play at a time. A new blast replaces the one still playing; it does not cut
-  off a wave that is crossing the frame, which is on the other clock.
+- One blast and one ringing play at a time. A new blast replaces the one still playing; a wave already
+  crossing the frame runs on, on its own clock.
 - Events happen at the black hole, wherever tracks have moved it, and follow it while they play.
 - What an event looks like is the intro parameters. A cue's own parameters are set at its second and stay;
   a track on the same parameter wins. A stronger wave: `gravityWaveGain` and `ringdownAmplitude` in the
-  cue. A wave shows on the sheet and the lensed grid, and barely on the particles alone.
+  cue. A wave shows on the sheet and the lensed grid; the particles alone barely show it.
 - A fired event leaves nothing behind: once it has faded, the frames are the film's without it. Only a
   fired title's words stay: they are the title until another cue gives new ones.
 
 ## 12. Writing a film as a script
 
-The words are in `space_guide`; this is how to use them.
+The language is the guide's "A film as a script"; this is how to use it.
 
-When to write a script and not the JSON: the film has more than a few things on its timeline, something in
-it repeats, something follows a path, or its lengths are still changing. In a script a shot made a second
-longer moves everything after it by itself; in the JSON every later second is rewritten by hand.
+A film is a script once it has more than a few things on its timeline, something in it repeats, something
+follows a path, or its lengths are still changing: a shot made a second longer moves everything after it
+by itself.
 
 - Cut the film into shots, in the order they play, and name each by what the viewer sees. A shot is one
   picture: if its one frame on the storyboard does not say what the shot is for, the shot is two shots or
   none.
-- `to` starts from where the value is, so nothing is repeated to hold it: a hold is `wait`.
-- What runs under several shots (a slow tilt of the sheet, a slow push) goes into `meanwhile` before them.
-- A caption with no seconds lasts as long as the shot it is in. Give seconds only to a label that comes
-  and goes inside a shot.
 - A part used twice is a function with what changes as its arguments; a rhythm is a loop:
   `const beat = 60 / 96; for (...) { fire('ringdown', 'gravityWave'); wait(beat) }`.
 - `drive` is for a path no ease draws: a circle, a pulse, numbers from data. Begin it where the value
-  already is (grow the radius from 0), or the value jumps on its first frame. It writes 60 keys a second,
+  already is (grow the radius from 0), so its first frame continues the last. It writes 60 keys a second,
   so keep it to the seconds that need it and use `to` with an ease wherever a curve will do.
 - `'spring'` runs about an eighth past its target before it settles. A value near the end of its range is
-  held at the end, and the check says so; then move it with `'out'` instead.
-- One value cannot be moved by two calls at once, which is the one mistake a script makes easy: a
-  `meanwhile` that moves the zoom for the whole film, and a shot that moves it too. The error names both
-  lines. Give the long move to one of them.
-- After `opening()` the second is not a round one (the opening is over on a frame, at about 5.83 s). Never
-  write that second by hand: what follows `opening()` in the script is after it, and `at()` takes the
-  `end` that `opening()` returns.
-- Chance comes from the film's seed (`random`, `pick`, `Math.random`): the same script is the same film,
-  and another seed is another one.
-- One script, several films: what differs is read from `input` (the words in two languages, a vertical and
-  a wide frame), given as `--input words.json` to the runner or as `input` to the tools.
+  held at the end, and the check says so; move such a value with `'out'`.
+- What follows `opening()` goes after it in the script, or at the `end` it returns: the opening is over on
+  a frame, at about 5.83 s.
+- One script, several films: the runner takes `input` as `--input words.json`, the tools as `input`.
 - Sound: `space_check` lists the seconds the script marked (`mark`, and the start of every shot). A
   soundtrack is laid on those seconds; a narration goes the other way, the length of each spoken line
   given as `input` and the shot waiting that long.
 - Text to be read is held by the script, not by the voice. A sentence spoken over two dated notes left
   them 3 s on screen once a faster voice said it: the sentence that follows became a line of its own, said
   when the notes had been up for as long as they take to read (`films/fourth_dimension_experiment.js`, its
-  last shot). A caption whose seconds come out of two spoken words is checked for the short case, and left
-  out under about 1.2 s: shorter, it is a flash.
-- Inside an `at` block `to` moves that block's clock: a caption's seconds worked out before the `to` are
-  the `to` too long.
-- A film of a set length is not added up by hand: `to`, `drive` and `opening` move time as `wait` does,
-  `meanwhile` does not, and sums of them go wrong. The last shot waits for what is left,
-  `wait(60 - 3 - now())` before a closing `to({ fade: 1 }, 3)`, and the film is 60 s however the shots
-  before it change.
+  last shot). A caption whose seconds come out of two spoken words is checked for the short case, and
+  dropped under about 1.2 s, where it is a flash.
+- Inside an `at` block `to` moves that block's clock: work out a caption's seconds after the `to`.
+- A film of a set length is counted by the script: `to`, `drive` and `opening` move time as `wait` does,
+  `meanwhile` does not. The last shot waits for what is left, `wait(60 - 3 - now())` before a closing
+  `to({ fade: 1 }, 3)`, and the film is 60 s however the shots before it change.
 - `fade` is the first and the last second of most films: `set({ fade: 1 })`, then `to({ fade: 0 }, 2)`.
   Captions stay above it, so a line on black is a caption while the fade is 1. A title is part of the
   picture and goes dark with it.
@@ -353,28 +370,25 @@ takes; this is what each thing is for.
 - A formula is written in the text itself: `r_{s} = 2GM / c^{2}`, `M_{☉}`, `10^{-35} m`. Type the real
   signs (λ, Δ, ∞, ≈, √, →, ·, ×, −): they are bundled, the same on every machine. Give a formula a line of
   its own under the words that name it, and keep it on screen for as long as it takes to read twice.
-- One stressed term a caption: `*{event horizon}` puts it in the accent colour. A caption with three
-  stressed terms has none.
-- A number that changes is a number in the text, never a new caption a second: `#{cameraZoom:1}×` reads
-  the scene, `#{years:1}` reads the caption's own `values`. A counter says what the picture cannot: years
-  passing, a distance closing, how many times slower the scene's time runs. Keep the words around the
-  number the same length as it grows, or set `align` to `left` so they do not shake.
+- One stressed term a caption: `*{event horizon}` puts it in the accent colour.
+- A number that changes is a number in the text: `#{cameraZoom:1}×` reads the scene, `#{years:1}` reads
+  the caption's own `values`. A counter says what the picture cannot: years passing, a distance closing,
+  how many times slower the scene's time runs. Keep the words around the number the same length as it
+  grows, or set `align` to `left`, so the line holds still.
 - Words that arrive. `reveal: 'words'` over the seconds a sentence takes to say keeps the eye with a
   narration; `'lines'` builds a list one point at a time, each line when the picture reaches it;
-  `'letters'` is a readout being typed. A caption that arrives is laid out whole first, so nothing moves
+  `'letters'` is a readout being typed. A caption that arrives is laid out whole first, so it holds still
   as it fills in.
-- A label on a place: `at: 'hole'` with `radius` starts its line that many black hole radii from the
-  centre, the unit `orbitSize` and `lensingRadius` are in. The shadow's edge is 1, and it is 2.6
-  Schwarzschild radii across from the centre, so a distance given in Schwarzschild radii is divided by
-  2.6. Two labels on one hole take different `angle`s.
+- A label on a place: `at: 'hole'` with `radius` starts its line that many radii from the centre. Two
+  labels on one hole take different `angle`s.
 - A column of text beside the picture: `at: [0.74, 0.4]`, `width: 0.4`, `align: 'left'`, and the hole moved
-  to the other side (`blackHoleX` near 0.36). Text over the hole itself hides what it explains.
+  to the other side (`blackHoleX` near 0.36): set text in the column the moved hole leaves free.
 - `plate` is for words over a bright picture (a sheet at full strength, a zoom into the ring). On the
-  dark scene a plate under 0.6 barely shows; from 0.6 it reads as a card.
+  dark scene a plate reads as a card from 0.6.
 - Words on black are a caption while `fade` is 1: a quotation, a date, a question before the picture
   answers it.
 - Underscores, asterisks and braces in plain text stay what they are: a mark is a sign with a brace right
-  after it (`^{`, `_{`, `*{`, `#{`), and nothing else is read as one.
+  after it (`^{`, `_{`, `*{`, `#{`).
 
 ## 14. Shapes over the picture
 
@@ -384,10 +398,9 @@ kind.
 - A shape is for what words cannot point at: a radius (a circle), a direction or a cause (an arrow), a
   law (a plot), a thing from outside the scene (an image). One or two on the screen at a time; each one
   is something the viewer has to read.
-- A shape that explains the scene rides on it: give its places as `{ hole: [dx, dy] }` in black hole
-  radii, and it follows the hole, the zoom and the pan. The shadow's edge is 1 and is 2.6 Schwarzschild
-  radii, so the horizon is a circle of radius 1 / 2.6 and the photon sphere one of 1.5 / 2.6. A shape
-  that belongs to the film (a chart, a framed picture) is given in shares of the frame.
+- A shape that explains the scene rides on it: give its places as `{ hole: [dx, dy] }` in radii, and it
+  follows the hole, the zoom and the pan. A shape that belongs to the film (a chart, a framed picture) is
+  given in shares of the frame.
 - Let a shape read the number it shows. `radius: 'lensingRadius'` keeps a ring on the Einstein ring while
   a track moves it; `radius: 'companionDistance'` around the main hole is the second hole's orbit seen
   from it. A plot's `marker` and a caption's `#{...}` given the same value move together, which is what
@@ -397,275 +410,188 @@ kind.
 - `draw` (seconds) makes a stroke draw itself, as `reveal` does for words. Use it when the shape arrives
   with the sentence that names it.
 - A plot wants few points where the curve is flat and many where it bends; a script writes them in a
-  loop. Its labels take a caption's marks (`r / r_{s}`), not live numbers: the number goes in a caption
-  beside it.
+  loop. Its labels take a caption's marks (`r / r_{s}`); a live number goes in a caption beside it.
 - An image is read before the first frame. Through the film server its `src` may be a path, from the
-  folder the server runs in (the repository); in the page it is a URL or a data URL. Say in a caption
-  what a picture is when it is not the scene's own: a diagram, an observation, a simulation. It is a
-  raster file (png, jpeg, webp, gif, avif): an SVG is refused.
+  folder the server runs in (the repository); in the page it is a URL or a data URL. It is a raster file:
+  png, jpeg, webp, gif or avif. Say in a caption what a picture is when it is not the scene's own: a
+  diagram, an observation, a simulation.
 - A body that is not a black hole (a planet, a star seen as a disc) is a picture over the hole: an image
   centred at `{ hole: [0, 0] }`, a little wider than the shadow, with `lensingEnabled` and `ringEnabled`
   false. The hole under it still makes the well and pulls the particles, and the picture rides the hole,
   the zoom and the pan. `films/fourth_dimension_experiment.js` stands the Earth so: NASA's photograph cut
   out on a clear ground, its disc 0.78 of the half side, drawn 2.62 radii wide.
+- Lay an arrow over a stream the particles already draw: the arrow names the motion, the particles show it.
 - Shapes lie over `fade` and under the captions, so a chart can stand on black.
 
 ## 15. A reel: several films in one video
 
-A JSON object with `clips`; the same tools take it wherever they take a film, and its keys are in
-`space_guide`. `films/reel.json` is one.
-
-- Reach for a reel when one film cannot be it: another setup of the scene that should not flow out of
-  the first (a cut, with its own seed and warm-up), another kind of picture (the fall into the fractal),
-  or a film that exists and is worth a stretch of (`"film": "films/horizon.js"` with `from` and `to`).
-  What one scene can do by tracks stays one film: a reel's clips share nothing but the frame.
-- Make and check each clip alone first. In a reel it draws the frames it draws alone, so nothing new can
-  go wrong inside it; what is left to judge is the joins.
-- `from` is paid for: a scene only plays forward, so the seconds before it are stepped unseen. A clip cut
-  from near the end of a long film costs nearly the whole film.
-- A cut wants a change the eye can name (closer, another subject, another colour). Through black is the
-  safe join between two pictures that have nothing in common, and a pause the narration can use. A
-  dissolve wants two pictures that rhyme: a round shadow into a round bulb of the fractal, one grid into
-  another. It holds two scenes at once for its seconds; `oneScene` plays every dissolve through black
-  when the machine is short of memory.
-- A clip's captions and shapes are its own and end with it. Words that must run over a join go on both
-  clips, with the same place and size.
-- The frame and the rate are the reel's: a clip written for another frame is drawn in the reel's, and a
-  caption placed for a vertical frame will not sit right in a wide one.
+Several films, or stretches of them, cut, faded or dissolved into one video: [reels.md](reels.md).
 
 ## 16. The particle field: a look for every shot
 
-The particles are the scene's vector field: every stroke is an arrow that points where its particle goes
-and is as bright as it is fast. So whatever a shot says is moving (matter, light, space itself) is shown by
-the particles moving that way; grids, shapes and captions only name it. A film that leaves the field at
-its defaults shows one flight in every shot, and whoever knows the scene sees it at once. So every shot
-gets a **look**: a handful of particle settings chosen for what the shot says. The keys and their laws are
-sections 2 to 4 of knobs.md; this is how to use them in a film.
+The particles are the scene's vectors: each stroke runs where its particle went in the last 60th of a second
+and is as bright as the particle was fast on the screen. So whatever a shot says is moving (matter, light,
+space itself) is shown by the particles moving that way, and grids, shapes and captions name it. Every
+shot gets a **look**: a handful of particle settings chosen for what the shot says, in place of the default
+flight. The laws are knobs.md sections 2 to 4; each row below gives the look's law as cause -> stroke, so
+the stroke is known before the frame is drawn and a look can be changed by its cause.
 
-1. Say in one sentence what the particles do in the shot: "matter circles the hole", "space falls inward
-   along every spoke", "nothing moves". A shot whose sentence is "they fly past as usual" has no look yet.
-2. Take the look from the tables below, or build one from knobs.md.
-3. See it before writing the film: a reel of 7 s clips, one look each, with `"intro": false` and
-   `"warmup": 8`, previewed with no seconds asked for, is one picture of every look under its name, in
-   about ten seconds. The warm-up matters: a ring takes seconds to gather.
+1. Say in one sentence what the particles do in the shot: "matter falls straight in", "matter circles the
+   hole", "space turns with the spinning hole", "nothing moves". "They fly past as usual" is a shot with no
+   look yet.
+2. Take the row whose first column is that sentence, or build a look from knobs.md by its law.
+3. Tracer: one still of the look alone at 720p, `"intro": false`, the warm-up its row names, nothing else
+   set; several looks go through one `preview` call, one film and one jpg each. Done when the still shows
+   what the row's last column says.
 4. Lay the looks along the film: the first in `film()`, each next one a `to()` over 2 to 3 s where its
-   shot begins, under a comment that says what the particles now show.
+   shot begins, under a comment that says what the particles now show. A grown look forms over seconds:
+   start its `to()` under the line before the one it belongs to.
 5. Preview one frame of every shot at full size. The particles are done when each frame shows its
    sentence with the captions covered.
 
-Looks that have been seen on a contact sheet, most of them filmed in `films/fourth_dimension_*.js`, at
-`blackHoleSize` 8:
+Field looks, each seen in a tracer at 720p from the settings in its row (everything else at its default,
+the flat mode unless the row sets `threeD`):
 
-| Look | Settings | What the viewer sees |
-|---|---|---|
-| A ring of matter | `gravityInertia` 0.92, `orbitalStrength` 90, `gravityStrength` 5, `gravityReach` 8, `baseSpeed` 1, `trailIntensity` 0.08 | A bright ring of swirling matter round the shadow and its mirrored copy inside the lens: the picture of a black hole people know. At a zoom keep `baseBrightness` near 1.1; from 1.5 the ring burns out |
-| Bent paths | `gravityInertia` 1, `baseSpeed` 2.5, `gravityStrength` 6, `gravityReach` 9 | Streaks swing round the hole and fly on. `gravityStrength` moved from 0.3 to 7 along a track is the pull arriving |
-| A disc in space | `threeD`, `gravityInertia` 0.95, `baseSpeed` 0.4, `gravityStrength` 6, `gravityReach` 12, `orbitalStrength` 80, `baseBrightness` 2, `speedGlow` 0.3 | A tilted disc circling the hole, its far side bent over the shadow by the traced lens. With `blackHoleSpin` and `frameDrag` 5 it winds |
-| Infall | `baseSpeed` 0, `orbitalStrength` 0, `trailIntensity` 0.03, `gravityStrength` 6, `gravityReach` 12, `gravityDepth` 60 | Hair-thin rays that brighten toward the hole and are faint beyond three radii: a second voice under a grid on a dark sky, not a picture alone. `orbitalStrength` 70 leans them into a spiral; `particleSizeMin` raised to `particleSize` heaps a bright band on the horizon |
-| On the sheet | the setup and the motions of the part below | The particles lying on the surface of the well and moving on it |
-| Falling in space | `threeD`, `orbitalStrength` 0, `gravityInertia` 0.5, `gravityStrength` 7, `gravityReach` 18, `baseSpeed` 0.25, `baseBrightness` 1.3, `speedGlow` 0.3, `trailIntensity` 0.06 | Streaks toward the hole from every side, among the lattice's lines; `gravityStrength` 11 is a harder fall |
-| A push | the infall with `gravityStrength` -12 and `horizonScale` 0 | The field emptied round the hole and heaped into a ring beyond it. With a flight (`baseSpeed` 3) and the ring's glow filling the shadow (`ringGlow` 3, `ringGlowSkirt` 1, `ringGlowSkirtShare` 3, `ringBase` 3) it is a white hole |
-| Stillness | `baseSpeed` 0 and no pull | A dark field: the stars and the nebula alone |
-| The stream as a direction | `threeD` with `blackHoleSize` 0: `cameraYaw` 90 runs it across the frame, `cameraPitch` 80 up it, both at 0 straight at the viewer | One direction of space, shown by everything moving along it. A move of 0.7 s from one to the next is a whip that smears the trails |
-| A tunnel | `baseSpeed` 70, `flightTintFrom` 0, `cameraZoom` 0.5, `trailIntensity` 0.05 | The flight folded round into a tube of two colours |
+| The particles | Law: cause -> stroke | Settings | Grown, warm-up | What the viewer sees |
+|---|---|---|---|---|
+| fall straight in | No flight and no swirl, so only the pull moves a particle: straight at the hole, faster the nearer (inverse square) -> a radial stroke, brighter toward the hole | `baseSpeed` 0, `orbitalStrength` 0, `trailIntensity` 0.03, `gravityStrength` 6, `gravityReach` 12, `gravityDepth` 60 | 8 s | Hair-thin rays that brighten toward the hole and fade beyond three radii: a second voice under a grid on a dark sky. `orbitalStrength` 70 leans them into a spiral |
+| gather into a ring | Inertia keeps most of the speed the pull and the swirl give -> near passes close into orbits, strokes run round the hole, the field outside thins | `gravityInertia` 0.92, `orbitalStrength` 90, `gravityStrength` 5, `gravityReach` 8, `baseSpeed` 1, `trailIntensity` 0.08 | 8 s | A bright ring of swirling matter a radius or two out from the shadow, streaks winding into it from the whole frame: the picture of a black hole people know. At a zoom keep `baseBrightness` near 1.1; from 1.5 the ring burns out |
+| swing past on bent paths | Inertia 1 keeps all of it, free fall: a fast particle swings round the hole on an open path -> long curved strokes that bend at the hole and fly on | `gravityInertia` 1, `baseSpeed` 2.5, `gravityStrength` 6, `gravityReach` 9 | 4 s | Straight streaks that curl round the shadow in a loose whorl. `gravityStrength` moved from 0.3 to 7 along a track is the pull arriving |
+| circle in a disc | In 3D the pull follows the true distance and the swirl turns about one axis -> the kept orbits lie in the plane across it: an ellipse of strokes | `threeD`, `gravityInertia` 0.95, `baseSpeed` 0.4, `gravityStrength` 6, `gravityReach` 12, `orbitalStrength` 80, `baseBrightness` 2, `speedGlow` 0.3 | 8 s | A bright tilted disc of streaks circling the hole, seen from the 3D camera's default place; its near side covers the shadow. With `blackHoleSpin` and `frameDrag` 5 the spin's drag winds it |
+| fall in from every side | In 3D the pull reaches every side alike; half the speed kept and no swirl -> straight strokes that hurry inward from all round | `threeD`, `orbitalStrength` 0, `gravityInertia` 0.5, `gravityStrength` 7, `gravityReach` 18, `baseSpeed` 0.3, `baseBrightness` 1.3, `speedGlow` 0.3, `trailIntensity` 0.06 | 6 s | Streaks converging on the hole out of the column of the field; `gravityStrength` 11 is a harder fall |
+| are carried round a spinning hole | A spinning hole turns the space near it, as 2J / r^3, one power steeper than the pull -> radial strokes that bend into a vortex hugging the shadow, straight farther out | the infall's `baseSpeed` 0, `orbitalStrength` 0, with `lensingEnabled` false, `cameraZoom` 3, `blackHoleSpin` 0.99, `spinTilt` 2, `frameDrag` 6, `gravityReach` 8, `trailIntensity` 0.05 | 8 s | A tight vortex of curved strokes round the shadow, the outer field still falling straight: the real shape, readable. At `frameDrag` 1 the rays barely lean even at this zoom. `frameDrag` 4 with `frameDragFalloff` 0 winds a spiral across the whole frame, but the drag then falls as the pull does: a caption over it may say that space turns near the hole, not how its turn falls off |
+| are pushed out | A negative pull pushes outward and weakens with distance; with no horizon nothing is taken -> the field is driven out to where the push gives out | the infall with `gravityStrength` -12 and `horizonScale` 0 | 8 s | The field emptied round the hole and heaped into a wide ring beyond it. With a flight (`baseSpeed` 3) and the ring's glow filling the shadow (`ringGlow` 3, `ringGlowSkirt` 1, `ringGlowSkirtShare` 3, `ringBase` 3) it is a white hole |
+| stream past one way | No hole, so the flight alone moves the field, along the line the camera is turned to -> parallel strokes | `threeD`, `blackHoleSize` 0, `cameraYaw` 90 runs it across the frame, `cameraPitch` 80 up it, both at 0 straight at the viewer | 2 s (the default) | One direction of space, shown by everything moving along it. A move of 0.7 s from one to the next is a whip that smears the trails |
+| fold into a tunnel | A zoom below 1 shows the frame's mirror images round it, and a fast flight is tinted ahead and at the edges -> strokes folded into a kaleidoscope of two colours | `baseSpeed` 70, `flightTintFrom` 0, `cameraZoom` 0.5, `trailIntensity` 0.05 | 2 s (the default) | The flight folded round into a tube of two colours |
+| stand still | A particle that does not move draws no stroke | `baseSpeed` 0 and `gravityStrength` 0 | none | A dark field: the stars and the nebula alone |
+| ride the well | The particles' own laws, drawn on the sheet's surface | the setup and the motions of "On the sheet" below | 10 s | The particles lying on the well and moving on it |
 
 ### Flows: a look that is said
 
-A look of the field is grown: it takes seconds to gather and answers to a dozen settings at once. A flow
-(knobs.md, section 2) is said in the terms of the shot: where the matter is, where it goes, which way it
-turns. It is there in the first frame, three stand in one shot, and with `fieldEnabled` false they are
-all the matter there is. Seen together on one frame at `blackHoleSize` 8, in 3D at `cameraPitch` 62
-and face on in the flat mode:
+A look of the field is grown: it gathers over seconds and answers to a dozen settings at once. A flow
+(knobs.md section 2) is said in the terms of the shot: where the matter is, where it goes, which way it
+turns, whole from its first frame (`"warmup": 0`). Three stand in one shot, and with `fieldEnabled` false
+they are all the matter there is. Each row was seen in a tracer in 3D at `cameraYaw` 0, `cameraPitch` 62,
+with the field off, as `films/flows.json` films them:
 
-| The shot says | Settings | What the viewer sees |
-|---|---|---|
-| Matter circles the hole | `flowA` 1.8, `flowACount` 3000, `flowAFrom` and `flowATo` 3.2, `flowASpread` 1.6, `flowASwirl` 1.2, `flowALife` 10, `flowATrail` 0.9, `flowASize` 1.3 | A ring of streaks round the shadow and its mirrored copy inside the lens. At 8000 particles in a band 0.8 wide it is one flat band |
-| Matter falls in from every side and winds as it goes | `flowB` 1.6, `flowBCount` 9000, `flowBFrom` 11, `flowBTo` 0.6, `flowBSpread` 8, `flowBSwirl` 0.8, `flowBLife` 6, `flowBTrail` 0.6, `flowBSize` 1.2 | Streaks over the whole frame that lean into a spiral and tighten toward the hole. `flowBSwirl` 0 is the straight fall |
-| Matter is thrown out | `flowC` 2, `flowCCount` 1500, `flowCFrom` 1.2, `flowCTo` 16, `flowCSpread` 0.6, `flowCSwirl` 0, `flowCLife` 2.5, `flowCTrail` 0.25, `flowCSize` 1.6 | Short bright rays leaving the shadow's edge in every direction |
+| The matter | Law: cause -> stroke | Settings | Grown, warm-up | What the viewer sees |
+|---|---|---|---|---|
+| circles the hole | To equal to From keeps every particle on its circle, and Swirl turns it by Kepler's law -> strokes along the circle | the guide's recipe "Matter told where to go", with `flowASize` 1.3 | said, 0 | A ring of streaks round the shadow and its mirrored copy inside the lens. At 8000 particles in a band 0.8 wide it is one flat band |
+| falls in and winds as it goes | To below From is a fall from rest, slow far out and hurried at the end; the swirl's rate grows inward -> strokes that lean into a spiral and tighten toward the hole | `flowB` 1.6, `flowBCount` 9000, `flowBFrom` 11, `flowBTo` 0.6, `flowBSpread` 8, `flowBSwirl` 0.8, `flowBLife` 6, `flowBTrail` 0.6, `flowBSize` 1.2 | said, 0 | Streaks over the whole frame wound into a spiral round the shadow. `flowBSwirl` 0 is the straight fall |
+| is thrown out | To above From is an outflow, and a short life keeps each ray short -> radial strokes leaving the hole | `flowC` 2, `flowCCount` 1500, `flowCFrom` 1.2, `flowCTo` 16, `flowCSpread` 0.6, `flowCSwirl` 0, `flowCLife` 2.5, `flowCTrail` 0.25, `flowCSize` 1.6 | said, 0 | Short bright rays leaving the shadow's edge in every direction |
 
 - A flow comes and goes by its brightness on a track, over the seconds the shot wants, and the field can
   be switched (`fieldEnabled` on a track) at a cut.
-- On a tilted sheet a flow lies on the surface with `gridRide` 1, as the field does, and needs none of
-  the field's care: no warm-up, no `fieldAtHole`, no well that fills on one wall. Seen at `gridTilt` 66,
-  `gridDepth` 7, `blackHoleY` 0.7 with `lensingEnabled` false: a fall from 9 radii to 0.8 with
-  `flowASwirl` 0.7 lines the well from its mouth to the hole, and a ring at 4 radii lies round the mouth.
 - A flow that ends inside the horizon lights the photon ring (`ringFeedEnabled`), evenly all the way round.
 - With a second hole each flow says what it turns round (`flowAPair`): a fall into the main hole, a ring
   round the second and a wide ring round both were seen on one frame.
 
-What decides whether a look shows:
+What decides whether a field look shows:
 
 - In the flat mode the flight comes at the camera out of the point where the hole usually stands, so the
   default streaks run away from the hole. A shot that says "falls in" lets gravity carry the motion
   (the ring, bent paths, the infall) or goes to 3D.
 - A particle's light is its speed and a far particle is a hairline (`particleSizeMin`), so a slow look is
   a dim one: give it a dark sky, `speedGlow` toward 0, and judge it at full size.
-- A look forms and leaves over seconds. Start its `to()` under the line before the one it belongs to.
-- A hole given more mass along the film (`blackHoleSize` on a track) carries its ring with it.
 - With `baseSpeed` 0 the hole uses the field up: what it takes comes back at the far end of the field,
-  where the default `gravityDepth` no longer reaches and a particle is a dim hairline. A look that must
-  last takes `gravityDepth` 100 and every particle alike (`depthFade` 0, `particleSizeMin` raised to
-  `particleSize`). Before a 3D shot that follows, the field is one cloud at that far end: set
+  beyond the default `gravityDepth`, as a dim hairline, so the look thins over a long shot; judge it at the
+  shot's last second. Every particle alike (`gravityDepth` 100, `depthFade` 0, `particleSizeMin` raised to
+  `particleSize`, all three) keeps it full, and heaps the whole depth's fall into a bright band at the
+  shadow's edge, on the Einstein ring with the lens on and at the well's bottom on the sheet; any two of the
+  three leave no band. Take every particle alike for a shot seen from afar, where the band reads as matter
+  gathered at the hole; keep the defaults for a shot about what happens close to the shadow (frame
+  dragging, the lens, a ring at a zoom), where the band would cover it.
+- Before a 3D shot that follows a long `baseSpeed` 0 look, the field is one cloud at its far end: set
   `numParticles` to 500, its least, and back in two `set()`s a frame apart, while the picture is dark or
   empty, and it is made anew at every depth.
 - What falls into a hole comes from where the field is. The field is born round the centre of the frame,
   so a hole placed low or to one side gathers matter on the side with more frame, and a swirl carries
-  that side round: a veil on one wall of the well, a disc with a gap. `fieldAtHole` 1 feeds the hole from
-  every side. A lopsided fall is this, not a look to tune: no brightness or glow mends it.
+  that side round: a veil on one wall of the well, a disc with a gap. A lopsided fall is this: set
+  `fieldAtHole` to 1 and the hole is fed from every side.
+- A hole given more mass along the film (`blackHoleSize` on a track) carries its ring with it.
 - A camera that moves, the sheet's tilt and depth included, moves every particle on the screen, and a
   long trail draws that as rain. Shorten the trails for the move (`trailIntensity` 0.5), and make the
   swing into 3D a cut for them (`cameraCutTurn` 0 for the seconds of `threeDEase`).
-- A shape is laid where the particles already go: an arrow over a stream is a label, an arrow in place of
-  one is a diagram of something the scene could have shown.
 
 ### On the sheet: the particles as the vectors of space
 
-A sheet shows how space lies. The particles laid on it show where it goes: each stroke is an arrow on the
-surface, down the well along a spoke, round its wall, or held in a band. It is how the scene draws space
-itself in motion, so a shot with a tilted sheet has its particles on the sheet, and its sentence says
-which way they go.
+A sheet shows how space lies; the particles laid on it show where it goes: down the well along a spoke,
+round its throat, or held in a band. So a shot with a tilted sheet has its particles on the sheet, and its
+sentence says which way they go. This is the one home of the setup; the guide's recipe "Matter on the
+sheet" and knobs.md section 9 point here.
 
-One setup carries every such shot. It was seen at `gridTilt` 66 with `gridDepth` 5 to 10 and the hole at
-`blackHoleY` 0.6 to 0.78, and from above at `gridTilt` 0 with the hole at 0.5:
+The setup, as filmed in `films/fourth_dimension_well.js` and `fourth_dimension_ripple.js`, at `gridTilt`
+66 with `gridDepth` 5 to 10 and the hole at `blackHoleY` 0.6 to 0.78, and from above at `gridTilt` 0 with
+the hole at 0.5:
 
-- The surface: `gridSheet` 0.85, `gridRings` 40 with `gridSpokes` 24, the textbook's drawing, whose spokes
-  are the lines a straight fall follows; `gridSpan` 0.6 with `gridFade` 0.3 ends the sheet before its near
-  side runs under the hole.
-- The particles on it: `gridRide` 1, `fieldAtHole` 1, `lensingEnabled` false, `baseSpeed` 0. The default
-  `gridRideDepth` of 40 lays the whole column on the sheet; at 2 only the matter near the hole's depth
-  rides and the rest is drawn where it flies (knobs.md, section 9).
-- Every particle alike, so the well fills and stays full: `gravityDepth` 100, `depthFade` 0, `minOpacity`
-  0.1, `particleSize` and `particleSizeMin` 2, `speedGlowKnee` 0.03, `trailIntensity` 0.5, `baseBrightness`
-  0.6. A `warmup` of 10, the most there is, fills the well before the first frame.
+- The surface: `gridSheet` 0.85, `gridRings` 40 with `gridSpokes` 24 and `gridCell` 4, the textbook's
+  drawing, whose spokes are the lines a straight fall follows; `gridSpan` 0.6 with `gridFade` 0.3 ends the
+  sheet before its near side runs under the hole.
+- The gate, four knobs beside `gridRide` 1, each with its cause:
+  - `baseSpeed` 0: the flat flight would run outward along the sheet;
+  - `lensingEnabled` false: the lens bends the particles round the hole on the screen, off the surface;
+  - `fieldAtHole` 1: over a tilted sheet the hole stands low, and fed from the frame's centre the well
+    fills on one wall;
+  - `particleSizeMin` raised to `particleSize`, both 2: what the hole took comes back at the far end of
+    the field, drawn there as a hairline.
+- Every particle alike, so the well stays fed: `gravityDepth` 100, `depthFade` 0, `minOpacity` 0.1,
+  `speedGlowKnee` 0.03, `trailIntensity` 0.5, `baseBrightness` 0.6, `numParticles` 40000. A `warmup` of
+  10, the most there is, gathers the matter before the first frame. As in the field (above), this heaps
+  the fall into a bright mound round the well's throat: the matter the hole gathers, seen from afar.
+- `gridRideDepth` at its default lays the whole column on the sheet; lowered to 2, only the matter near the
+  hole's depth rides and the rest is drawn where it flies (knobs.md section 9).
 
-The motion is the sentence of the shot:
+The motion is the sentence of the shot. Each row was seen in a tracer of the setup at `gridDepth` 6, from
+the side at `gridTilt` 66 with `blackHoleY` 0.7 and from above at `gridTilt` 0 with the hole at 0.5. The
+field on the sheet lights the throat and the flat part; the wall from the mouth to the hole, and a ring
+round the mouth, are drawn by flows (the last two rows):
 
-| The shot says | Settings | From the side | From above |
-|---|---|---|---|
-| Space falls inward, points inward, stretches | `orbitalStrength` 0, `gravityInertia` 0.3, `gravityStrength` 6, `gravityReach` 14, `trailIntensity` 0.05, `speedGlowKnee` 0.02, `minOpacity` 0.2 | Rays over the whole sheet, each down its spoke and into the well | A star of rays closing on the hole from every side |
-| Matter drains down the well | `gravityInertia` 0.75, `orbitalStrength` 80, `gravityStrength` 4, `gravityReach` 16 | The well lined from its mouth to the hole, all the way round, turning as it goes; `orbitalStrength` -80 turns it the other way | A whole disc round the shadow |
-| Matter circles and stays | `gravityInertia` 0.82, `orbitalStrength` 100 | One band circling the wall part of the way down | A thin ring close round the shadow |
-| Matter orbits the well | `gravityInertia` 0.9, `orbitalStrength` 90 | A ring lying on the sheet round the mouth of the well | A ring two radii out |
-| More mass, a deeper well | `gridDepth` up along a track, with `gravityStrength` 6 and `baseBrightness` 0.8 | The wall grows longer and the matter runs faster down it | |
+| The matter | Law: cause -> stroke | Settings | Grown, warm-up | From the side | From above |
+|---|---|---|---|---|---|
+| falls inward along the spokes | No swirl and little speed kept: each particle goes straight in along its radius -> strokes down the spokes | `orbitalStrength` 0, `gravityInertia` 0.3, `gravityStrength` 6, `gravityReach` 14, `trailIntensity` 0.05, `speedGlowKnee` 0.02, `minOpacity` 0.2 | 10 s | Faint rays down the spokes over the flat part, heaped into a bright mound at the throat | A star of faint rays closing on a bright collar round the shadow |
+| drains into the throat | Some speed kept and a swirl: a particle spirals in rather than orbiting -> short curved strokes crowding the throat | `gravityInertia` 0.75, `orbitalStrength` 80, `gravityStrength` 4, `gravityReach` 16 | 10 s | A bright mound round the throat, the wall above it nearly empty; `orbitalStrength` -80 turns it the other way | A bright collar round the shadow |
+| circles low in the throat | More speed kept and a stronger swirl: the spiral slows into near-orbits deep down -> strokes round the throat | `gravityInertia` 0.82, `orbitalStrength` 100 | 10 s | A translucent band circling low in the throat | A thin ring close round the shadow |
+| orbits in the throat | Most of the speed kept: passes close into orbits a little farther out -> strokes round the throat from its mouth down | `gravityInertia` 0.9, `orbitalStrength` 90 | 10 s | A translucent tube of orbits filling the throat | A ring about one and a half radii out, dark between it and the shadow |
+| goes deeper with more mass | A deeper well lays the same fall over a longer throat, and the stronger pull speeds it | the drain with `gridDepth` up along a track to 10, `blackHoleY` to 0.78, `gravityStrength` 6, `baseBrightness` 0.8 | 10 s | The throat lengthens and the mound rides down with the hole | |
+| lines the wall from mouth to hole | A flow told to fall, laid on the sheet: its path runs down the surface -> strokes down the wall, wound by its swirl | `fieldEnabled` false, `gridTilt` 66, `gridDepth` 7, `blackHoleY` 0.7, `flowA` 1.5, `flowACount` 9000, `flowAFrom` 9, `flowATo` 0.8, `flowASpread` 6, `flowASwirl` 0.7, `flowALife` 8, `flowATrail` 0.6, `flowASize` 1.2 | said, 0 | The wall lined from the mouth to the hole, all the way round, turning as it goes | |
+| rings the mouth of the well | A flow told to circle at 4 radii, laid on the sheet -> strokes round the mouth | with the row above, `flowB` 1.5, `flowBCount` 3000, `flowBFrom` and `flowBTo` 4, `flowBSpread` 1, `flowBSwirl` 1, `flowBLife` 10, `flowBTrail` 0.9 | said, 0 | A bright ring lying on the sheet round the mouth | |
 
-In 3D the scene's camera sees the sheet where it lies, the well's bottom on the hole (knobs.md, section 11):
+A flow on the sheet needs `gridRide` 1 and `lensingEnabled` false and nothing else of the setup: it is said,
+so it has no far end to come back from and no side of the frame to be fed from.
+
+In 3D the scene's camera sees the sheet where it lies, the well's bottom on the hole (knobs.md section 11):
 
 - The familiar view, the well hanging down the screen into the shadow, is a negative `cameraPitch`, -20 to
-  -50, at `cameraYaw` 0: from -40 the picture is near the flat mode's at `gridTilt` 66. A positive pitch shows the
-  same well upside down, rising to the hole like a mound. Straight on is the view from above, `gridTilt` 0.
+  -50, at `cameraYaw` 0: from -40 the picture is near the flat mode's at `gridTilt` 66. A positive pitch
+  shows the same well upside down, rising to the hole like a mound. Straight on is the view from above,
+  `gridTilt` 0.
 - `cameraPitch` -89 is the textbook's cut, the sheet a line across the frame and the funnel hanging from it
   to the hole: past about 57° at `gridDepth` 6 the camera has gone through the sheet and sees the well from
   outside, from the hole's side. `cameraYaw` 180 sees that side too: the funnel's tip toward the camera with
   the hole on it.
-- The looks of the table were made in the flat mode. In 3D the field's gravity ends at a sphere and the
-  field does not line the wall: at `baseSpeed` 0 the warm-up drains the sphere and nothing refills it, and
-  with the flight on only a band round the mouth and streaks over the flat part are lit. So "Matter drains
-  down the well" is a flow there, with the field off (`fieldEnabled` false) or dim: `flowA` 1.5, `flowACount` 20000, `flowAFrom` 8, `flowATo` 1,
-  `flowASpread` 6, `flowALife` 8, `flowASwirl` 0.4, `flowATrail` 0.6, `flowASize` 1.2 lines the well from
-  its mouth to the hole, all the way round and turning, from the first frame and from every side. A ring
-  (`flowBFrom` and `flowBTo` 4, `flowBSpread` 1) lies round the mouth.
+- In 3D the field's gravity ends at a sphere, so at `baseSpeed` 0 the warm-up drains it and nothing refills
+  it, and with the flight on only a band round the mouth and streaks over the flat part are lit. There the
+  matter on the well is flows, with the field off or dim: `flowA` 1.5, `flowACount` 20000, `flowAFrom` 8,
+  `flowATo` 1, `flowASpread` 6, `flowALife` 8, `flowASwirl` 0.4, `flowATrail` 0.6, `flowASize` 1.2 at
+  `cameraPitch` -40 lines the well from its mouth to the hole, all the way round and turning, from the
+  first frame (seen in a tracer at `gridDepth` 6). A ring (`flowBFrom` and `flowBTo` 4, `flowBSpread` 1)
+  lies round the mouth.
 
-What goes wrong on the sheet:
+What keeps the picture on the sheet right:
 
-- With `gridRide` 0 the particles stay in the plane of the screen: a ring seen face on, floating in front
-  of a well seen from the side. No look mends that.
-- With `particleSizeMin` at its default the well looks empty: what the hole took is a hairline now.
-- With `fieldAtHole` 0 the well fills on one wall, since over a tilted sheet the hole stands low.
-- Close to the hole, many wide white strokes cover the far wall of the well like a veil and hide its
-  rings: the eye goes to the veil, not to what stands in the well. For a shot about something beside the
-  hole they are few, thin and of the sheet's colour: `numParticles` 10000, `particleSize` and
-  `particleSizeMin` 1.2 at `cameraZoom` 3 and 1.8 from afar, `colorPalette` near `gridColor`,
-  `trailIntensity` 0.2. The rings then show through strokes that run down them.
-- The lens bends the particles round the hole on the screen, off the surface: `lensingEnabled` false.
-- The sheet's waves do not lift the particles on it. A ripple is filmed on a sheet without them
-  (knobs.md, section 8).
-- A drawing does not ride the sheet by itself. The script lays it there by the sheet's own sums:
-  `laySheet` in `films/fourth_dimension_well.js` gives an axis, a line down the well's wall or a dot its
-  place at every tilt, depth and place of the hole, so the camera can move while they stay on the surface.
+- From above, the square cells hardly show the well: the depth reads from above through `gridRings`,
+  whose contour lines crowd toward the hole, or from the side at `gridTilt` 60 and more.
+- For a shot about something beside the hole, the strokes in the well are few, thin and of the sheet's
+  colour, so its rings show through them: `numParticles` 10000, `particleSize` and `particleSizeMin` 1.2
+  at `cameraZoom` 3 and 1.8 from afar, `colorPalette` near `gridColor`, `trailIntensity` 0.2.
+- The particles and flows on the sheet rise and fall with its waves (`gridRideWave`, whole by default, seen
+  once `gridWaveLift` lifts the sheet): a ripple carries the matter on it. At 0 they hold still while the
+  sheet ripples under them (knobs.md section 8 for the waves).
+- A drawing rides the sheet when the script lays it there by the sheet's own sums: `laySheet` in
+  `films/fourth_dimension_well.js` gives an axis, a line down the well's wall or a dot its place at every
+  tilt, depth and place of the hole, so the camera can move while they stay on the surface.
 
 ## 17. The poster: a YouTube thumbnail planned with the film
 
-On YouTube the thumbnail is a banner looked at for less than a second, before the film and most often instead
-of it: it carries one idea and raises a question the film answers. With the title it decides who clicks, and
-by what it promises, who stays; YouTube weighs both. So a film made to be published is planned from its poster:
-the picture first, then the film that keeps its promise. The poster and the title are one package (the
-`youtube-seo` skill writes the title and the description; this section is the picture).
-
-1. **The idea before the timeline.** One sentence: why a viewer clicks, what the poster shows, the moment of
-   the film it comes from, and its words, e.g. "the ring lit from below, the hole a third of the frame, words:
-   ONE SECOND TO FALL". Intrigue, not a spoiler: an unusual object, a before and after, the moment just before
-   something happens, never the answer itself. The picture shows the what and the title the why, or the other
-   way round; neither repeats the other. The film reaches that moment in its first seconds where it can, in
-   its first third at the latest, in the poster's mood: a poster the film does not keep gets the click and
-   loses the viewer.
-2. **Look at the niche first.** Open the poster of the top results for the film's main phrases (`videos.csv`
-   of `scripts/yt_keywords.mjs` holds their ids; a poster is `https://i.ytimg.com/vi/<id>/hqdefault.jpg`) and
-   make what is not there: another colour, another closeness, another composition.
-3. **One focus, at most three elements** on the whole poster: the subject, the background, and at most the
-   words or one arrow. Designed for the size it is seen at, 160 to 360 px wide on a phone, not for 4K:
-   - the subject (the hole, the ring, the two holes of a merger) a third of the frame or more, set off from a
-     plain background by its silhouette, by light, a glow round it;
-   - a clear order: the eye lands on the subject first, then on the words; the rule of thirds, or the subject
-     on one half and the words on the other;
-   - two or three colours, one of them the accent, in a contrasting pair (blue and orange, black and yellow),
-     saturation and local contrast a little higher than the film's own. Red is not the accent: it competes with
-     YouTube's own red. The edges are not pure black or pure white: such a poster loses its border in the dark
-     or the light theme, so let the sky, a nebula or the stars reach the edges.
-4. **Few words, or none.** Three to five words at most, adding context or an emotion to the title, never the
-   title in large letters; a number reads faster than a word. In the viewers' language, as one caption in a
-   heavy plain face (`unbounded`, which holds Cyrillic, or `orbitron`), its line 1/8 to 1/6 of the frame's
-   height (`size` 0.125 to 0.17), light on dark with a `plate` where the picture behind is busy, one key word
-   or number in the accent colour (`*{word}`). A word that does not read small is cut, not shrunk. A poster
-   whose picture says it alone takes no words: make one take without them.
-5. **The places it is shown.** Nothing that matters in the bottom right corner (the length) or on the bottom
-   edge (the red bar of what was watched): leave a margin. The middle holds the point: a vertical crop of a
-   16:9 poster shows only the middle. A channel logo is never on it.
-6. **Make it a film of its own, at 4K.** A poster is `films/<name>_poster.js` (or `.json`) beside the film:
-   `"size": "4k"` (3840x2160, what YouTube now asks for; 1280x720 is the least a Test & Compare take may be),
-   `"intro": false`, the film's `seed`, the settings of the moment it shows (in a script, the same function that
-   makes that shot), a `warmup` long enough for the trails, a second or two of `duration`, the words as its
-   caption. A frame of the film is not the poster: it is often smeared by motion and weak in light, so the
-   poster is the moment staged again, still and lit for it. A vertical film (a Short) gets a vertical poster of
-   its own, 2160x3840 (`"width": 2160, "height": 3840`), never a crop of a 16:9 one.
-7. **Two or three takes that differ in their idea**, not in a shade: with words and without, the subject close
-   and the whole scene, another colour scheme. Each take is a file of its own (`<name>_poster.js`,
-   `<name>_poster2.js`). They go to Test & Compare in YouTube Studio on the desktop (up to three; not for
-   Shorts), which picks by the share of watch time, not by clicks.
-8. **Draw each as a still**, one frame as the render makes it, with no label; several go in one call:
-   `node .claude/skills/space-scene/scripts/space.mjs still films/<name>_poster.js films/<name>_poster.jpg 1.5`
-   (through the server: `space_preview` with `still` and `out`). Then the shrink test: the same still at 168 px
-   wide, the size of a phone's feed,
-   `still films/<name>_poster.js out/<name>_poster_small.jpg 1.5 168`. At that size it must be clear what
-   happens, and squinting at it must leave one bright patch, the subject. What does not pass is simplified.
-9. **The checklist, then the user chooses.** Show the takes side by side with the titles they were made for,
-   say which one you would publish and why; the user picks.
-
-- [ ] One idea, said in one sentence
-- [ ] The poster and the title complete each other, neither repeats the other
-- [ ] One subject, at most three elements
-- [ ] Three to five words at most, heavy, in contrast, one accent
-- [ ] Reads at 168 px wide (`still ... 168`), and the squint leaves the subject
-- [ ] Bottom right corner and bottom edge free of anything that matters
-- [ ] Edges not pure black or white, accent not red
-- [ ] The film keeps the promise, in its first seconds where it can
-- [ ] 3840x2160 (a Short: 2160x3840), JPG, under 50 MB
-- [ ] Two or three takes for Test & Compare
-- [ ] Nothing of others' without rights, nothing against the community guidelines
-
-Report the poster with the film: the path of the chosen jpg and of the others, its words, the second of the
-film it promises, and the titles it stands beside.
-
-To publish, the jpg goes through `postiz upload` (images up to 10 MB) and its `id` and `path` become the
-post's `thumbnail` (the `postiz` skill). YouTube takes a custom thumbnail only from a verified channel, as a JPG
-or PNG under 50 MB, with a daily limit of uploads ("Daily custom thumbnail limit reached": wait 24 hours). The
-API Postiz sets it through may still hold the old 2 MB limit; if the thumbnail is refused, the 4K jpg goes in by
-hand in YouTube Studio.
-
-After it is out, the poster is read with retention, against the channel's own other films, not a norm from
-the internet: a high CTR with viewers leaving early means the poster promised more than the film gives; a low
-CTR with viewers who stay means the film is good and its poster does not sell it. A film with good retention
-and a weak CTR is the one to give a new poster. Keep a table of the tests (film, what was tested, which take
-won): after ten or fifteen it shows what this channel's viewers click.
-
-Rules: [YouTube Help, custom thumbnails](https://support.google.com/youtube/answer/72431?hl=en),
-[Test & Compare](https://support.google.com/youtube/answer/13861714).
+A film to be published is planned from its poster, drawn with `still` before the timeline is written:
+[poster.md](poster.md).
