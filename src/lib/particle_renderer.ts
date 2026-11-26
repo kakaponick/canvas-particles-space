@@ -206,6 +206,9 @@ export interface CompositeSettings {
   // The 3D camera's turn, row by row: where its right, its down and its line of sight point in the scene
   // (the scene's own axes in the flat mode). The sky is seen through it
   turn: Float32Array
+  // How far the sky has turned from the flat mode's backdrop (0) to the sphere round the 3D camera (1): the
+  // share the 3D camera has eased in by
+  skySphere: number
   backgroundStars: number
   starCell: number
   starDensity: number
@@ -587,7 +590,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     'center', 'starGlow', 'starRadius', 'sourcePower', 'glareRadius', 'exposure',
     'lightRadius', 'lightWidth', 'lightPower', 'lightSpeed', 'echoPower', 'echoDecay',
     'waveRadius', 'waveStrength', 'waveWidth', 'remnantGlow', 'remnantRedshift', 'remnantRadius',
-    'holeOval', 'gravityWaveAmplitude', 'gravityWaveTime', 'gravityWaveOmega', 'gravityWaveInvDecay', 'gravityWaveRadius', 'gravityWaveCenter', 'gravityWaveTurn', 'companion', 'pair', 'pairWave', 'pairFront', 'pairDepth', 'pairPlane', 'turnRight', 'turnDown', 'turnAhead', 'backgroundStars',
+    'holeOval', 'gravityWaveAmplitude', 'gravityWaveTime', 'gravityWaveOmega', 'gravityWaveInvDecay', 'gravityWaveRadius', 'gravityWaveCenter', 'gravityWaveTurn', 'companion', 'pair', 'pairWave', 'pairFront', 'pairDepth', 'pairPlane', 'turnRight', 'turnDown', 'turnAhead', 'skySphere', 'backgroundStars',
     'starCell', 'starDensity', 'starFlare', 'starWarm', 'starCool', 'starLook', 'dustScale', 'dustThreshold', 'lightDustContrast',
     'titleCenter', 'titleHalfSize', 'titleAlpha', 'titleReveal', 'titleDissolve', 'titleDrift', 'titleGlow',
     'titleFlash', 'titleCooling', 'titleDust', 'titlePull', 'titleSwirl', 'titleReach', 'titleCapture', 'titleScale',
@@ -1217,6 +1220,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     setUniform3f(gl, u.turnRight, settings.turn[0], settings.turn[1], settings.turn[2])
     setUniform3f(gl, u.turnDown, settings.turn[3], settings.turn[4], settings.turn[5])
     setUniform3f(gl, u.turnAhead, settings.turn[6], settings.turn[7], settings.turn[8])
+    setUniform1f(gl, u.skySphere, settings.skySphere)
     if (settings.pairWave > 0) {
       const pairRatio = Math.max(ratio * settings.pairScale, 0.0001)
       setUniform4f(gl, u.pairWave, settings.pairWave * pairRatio, settings.pairPhase, settings.pairPitch / pairRatio, Math.max(settings.gravityWaveRadius * pairRatio, 1))

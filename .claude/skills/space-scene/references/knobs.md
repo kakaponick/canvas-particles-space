@@ -544,7 +544,12 @@ that precess, faster the closer they come, as around a real black hole.
 - Fixed stars behind everything, bent by the lens and rippled by the waves. They keep their size at any
   zoom.
 - A star lives in its own cell of the star grid, in the middle of it: a `starsSize` of more than a quarter
-  of `starCell` is cut off square at the cell's edge, so raise the two together.
+  of `starCell` is cut off square at the cell's edge, so raise the two together. In 3D the cells lie on the
+  sphere of the sky and are up to 0.7 times as narrow in some directions, so the cut comes a little sooner.
+- In 3D the stars lie on a sphere round the camera, as many to a patch of sky in every direction and as
+  many straight ahead as the flat mode has; a 90° camera spreads a patch wider at the frame's sides than in
+  its middle, so there they stand further apart on the screen. The flat mode's stars are a backdrop, even
+  across the screen. Switching `threeD` turns one into the other over `threeDEase`.
 - `starsTwinkleSpeed` multiplies the stars' clock: moved along a track it shifts every swing at once, a
   flicker. Set it at a cut, or with `starsTwinkle` at 0.
 - The same colour in `starsColorWarm` and `starsColorCool` gives a sky of one colour.
@@ -569,9 +574,11 @@ that precess, faster the closer they come, as around a real black hole.
   thick, so raise `nebulaCoreFrom` (0.9) or the core colour washes over everything.
 - It shows as the opening lets the stars show, and hiding the `stars` layer hides it. It adds light, so a
   dark background colour under it (`backgroundR`..`backgroundB`) deepens the gaps between the clouds.
-- In 3D it is painted on the box of the sky (section 11) and turns rigidly with the camera: a cloud keeps
-  its shape and its place among the stars at any turn. Near an edge of the box the clouds of the two
-  faces blend.
+- In 3D it lies on the sphere of the sky (section 11) and turns rigidly with the camera: a cloud keeps
+  its shape and its place among the stars at any turn, and the clouds are of one size and grain in every
+  direction, `nebulaScale` straight ahead as in the flat mode. They are other clouds than the flat mode's,
+  which switching `threeD` turns into them over `threeDEase`. Their drift runs through space the way the
+  flat ones drift on the screen, so it is that way on the screen only straight on.
 
 ## 11. Where the black hole is, and the camera
 
@@ -635,9 +642,11 @@ that precess, faster the closer they come, as around a real black hole.
 - What turns with the camera is the field, the orbits (each on a plane of its own near the hole's
   equator, which lies across the line of flight while the hole does not spin), the flows (in that
   equator, each with its own tilt), the second black hole (it circles in a plane of its own,
-  `companionTilt`), its waves, and the sky. The sky is a box round the camera that stands still in the scene: the stars, the nebula and
-  the Lensed Grid cross the frame as a real sky does when a camera turns, faster at the frame's edges
-  than in its middle, and behind the camera is another sky than ahead. A hole without spin looks the same from every side. A spinning hole's
+  `companionTilt`), its waves, and the sky. The sky stands still in the scene round the camera: the stars and the nebula on a sphere,
+  even in every direction, the Lensed Grid on a box, whose straight lines fold where two faces meet. They
+  cross the frame as a real sky does when a camera turns, faster at the frame's edges than in its middle,
+  and behind the camera is another sky than ahead. The flat mode's sky is a backdrop instead, and
+  switching `threeD` turns one into the other over `threeDEase`. A hole without spin looks the same from every side. A spinning hole's
   axis stands in the scene (`spinTilt` and `spinAxis` are as seen straight on), so as the camera circles
   it the flattened side of the shadow and the leaning rings turn with the view, and the particles are
   dragged round the axis in space. `gravityInertia` keeps their speed along all three axes.
@@ -972,9 +981,12 @@ The cost of a knob, in the last column:
 | The lattice's 13 lines each way along each of the three axes, in 48 pieces each: the top of `gridLatticeReach` | space_lattice.ts | machine |
 | A star's own twinkle, 2 to 5 radians a second, the brighter the faster, and its brightness, the square of an even draw | webgl_shaders.ts | has one: `starsTwinkleSpeed`, `starsFaintest` |
 | One star at most in a cell, placed in its middle 0.6 and drawn inside that cell alone, which cuts a large `starsSize` off at its edge | webgl_shaders.ts | pixel |
-| The sky is a cube round the middle of the screen (the field's vanishing point follows the hole): the Lensed Grid's lines turn a corner where two faces meet, and a strongly bent ray or a zoom below 1 shows that edge | webgl_shaders.ts | pixel: a sphere's grid would have poles instead |
-| No star within three of its radii of a face's edge, about 5 px of empty sky along each | webgl_shaders.ts | pixel: each pixel would read the next face's cells too |
-| The nebula's clouds blend between two faces over the last quarter of the way to their edge | webgl_shaders.ts | frame |
+| The Lensed Grid lies on a cube round the middle of the screen (the field's vanishing point follows the hole): its lines turn a corner where two faces meet, and a strongly bent ray or a zoom below 1 shows that edge in the flat mode too | webgl_shaders.ts | pixel: a sphere's grid would have poles instead |
+| The sky's centre is the middle of the screen, and the sphere of the 3D sky is as many CSS pixels round as the focal length, half the frame's long side: a larger frame has larger stars' cells and clouds in CSS pixels, as the flat backdrop has, and other clouds | webgl_shaders.ts | frame |
+| The 3D stars' cells: equal angles on the faces of a cube, a whole number of them across a face, the nearest to `starCell` straight ahead; a cell holds its star by the share of sky it covers, 1 in the middle of a face to 1 / sqrt(2) in the middle of an edge | webgl_shaders.ts | pixel |
+| The 3D nebula's noise is a noise of space, its layers turned by one fixed turn, its spread widened by 1.1602 so a level cuts as much sky as the flat noise's | webgl_shaders.ts | has one: `nebulaSparseness` |
+| The 3D nebula drifts through space along the scene's own right and up, the screen's way only straight on | webgl_shaders.ts | frame |
+| While 3D eases in or out, the flat sky and the sphere's are both drawn, each in its share, not one bent into the other | webgl_shaders.ts | frame: a path, not a number |
 | The Lensed Grid's lines keep their width across a face by the slant of the ray to the power 0.75 | webgl_shaders.ts | frame |
 | How the Lensed Grid's pull is found: 8 halvings of the span the node can lie in, then a straight line across the last | webgl_shaders.ts | machine |
 | The nebula's clouds: three layers of noise, each 2.1 times finer and turned, the slower noise that curls them at 0.8 of their size, the grain at 1.7 times the finest; a Detail knob for the layers would take a loop to a fixed most with a break | webgl_shaders.ts | pixel |

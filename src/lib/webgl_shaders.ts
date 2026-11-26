@@ -434,6 +434,7 @@ export const compositeFragmentShaderSource = `
   uniform vec3 u_turnRight;      // the 3D camera's turn, row by row: where its right,
   uniform vec3 u_turnDown;       // its down
   uniform vec3 u_turnAhead;      // and its line of sight point in the scene; the scene's own axes in the flat view
+  uniform float u_skySphere;     // how far the sky has turned from the flat mode's backdrop (0) to the sphere round the 3D camera (1)
   uniform float u_backgroundStars;
   uniform float u_starCell;        // CSS pixels per background-star cell
   uniform float u_starDensity;     // share of cells holding a star
@@ -592,11 +593,64 @@ ${DENT_GLSL}
     return away * away / (away + wish);
   }
 
+  // The value noise of a place in space, for the sky round the 3D camera
+  float hash13 (vec3 p) {
+    vec3 p3 = fract(p * 0.1031);
+    p3 += dot(p3, p3.zyx + 31.32);
+    return fract((p3.x + p3.y) * p3.z);
+  }
+
+  // Spread as widely about its middle as valueNoise is: each way the noise is blended across narrows it by
+  // the root of 52 / 70, so the third is undone by its inverse, 1.1602, and a level cuts the clouds of both
+  // at the same share of the sky
+  float valueNoise3 (vec3 p) {
+    vec3 i = floor(p);
+    vec3 f = fract(p);
+    vec3 u = f * f * (3.0 - 2.0 * f);
+    vec2 e = vec2(1.0, 0.0);
+    return 0.5 + 1.1602 * (mix(
+      mix(mix(hash13(i), hash13(i + e.xyy), u.x), mix(hash13(i + e.yxy), hash13(i + e.xxy), u.x), u.y),
+      mix(mix(hash13(i + e.yyx), hash13(i + e.xyx), u.x), mix(hash13(i + e.yxx), hash13(i + e.xxx), u.x), u.y),
+      u.z
+    ) - 0.5);
+  }
+
+  vec3 hash33 (vec3 p) {
+    vec3 p3 = fract(p * vec3(0.1031, 0.1030, 0.0973));
+    p3 += dot(p3, p3.yxz + 33.33);
+    return fract((p3.xxy + p3.yxx) * p3.zyx);
+  }
+
+  // Three value noises of a place in space at the cost of one: each corner of the cell draws three numbers.
+  // Spread as valueNoise3 is
+  vec3 valueNoise33 (vec3 p) {
+    vec3 i = floor(p);
+    vec3 f = fract(p);
+    vec3 u = f * f * (3.0 - 2.0 * f);
+    vec2 e = vec2(1.0, 0.0);
+    return 0.5 + 1.1602 * (mix(
+      mix(mix(hash33(i), hash33(i + e.xyy), u.x), mix(hash33(i + e.yxy), hash33(i + e.xxy), u.x), u.y),
+      mix(mix(hash33(i + e.yyx), hash33(i + e.xyx), u.x), mix(hash33(i + e.yxx), hash33(i + e.xxx), u.x), u.y),
+      u.z
+    ) - 0.5);
+  }
+
   // The nebula: clouds made as the opening's dust is, with every number its own. The noise is read
   // through a slower one that bends it into wisps (u_nebulaShape.w), sharpened into clouds from a level
   // (yz), made denser in the middle (u_nebulaLook.x) and grained (y). Its colour turns to the second one in
-  // patches (u_nebulaPatch) and to the core colour where the cloud is thickest (u_nebulaLook.zw)
-  vec3 nebulaLight (vec2 cssPx) {
+  // patches (u_nebulaPatch) and to the core colour where the cloud is thickest (u_nebulaLook.zw). This is
+  // that light, from the noise of the clouds, of their grain and of the patches
+  vec3 nebulaShade (float n, float grain, float tone) {
+    float cloud = smoothstep(u_nebulaShape.y, u_nebulaShape.y + u_nebulaShape.z, n);
+    float density = cloud * (1.0 - u_nebulaLook.x + u_nebulaLook.x * cloud) * (1.0 - u_nebulaLook.y + u_nebulaLook.y * grain);
+    float other = smoothstep(u_nebulaPatch.y, u_nebulaPatch.z, tone);
+    vec3 tint = mix(u_nebulaColor, u_nebulaColorDeep, other);
+    if (u_nebulaLook.z > 0.0) tint = mix(tint, u_nebulaColorCore, u_nebulaLook.z * smoothstep(u_nebulaLook.w, 1.0, cloud));
+    return tint * density;
+  }
+
+  // The flat mode's nebula, a backdrop: its noise is read at the CSS pixel
+  vec3 nebulaFlat (vec2 cssPx) {
     vec2 p = cssPx / u_nebulaShape.x;
     p += u_nebulaShape.w * (vec2(valueNoise(p * 0.8 + 3.1), valueNoise(p * 0.8 + 17.4)) - 0.5);
     mat2 turn = mat2(0.8, 0.6, -0.6, 0.8);
@@ -607,17 +661,31 @@ ${DENT_GLSL}
       p = turn * p * 2.1 + 11.7;
       amplitude *= 0.5;
     }
-    float cloud = smoothstep(u_nebulaShape.y, u_nebulaShape.y + u_nebulaShape.z, n);
-    float density = cloud * (1.0 - u_nebulaLook.x + u_nebulaLook.x * cloud) * (1.0 - u_nebulaLook.y + u_nebulaLook.y * valueNoise(p * 1.7));
-    float other = smoothstep(u_nebulaPatch.y, u_nebulaPatch.z, valueNoise(cssPx / u_nebulaPatch.x + 23.0));
-    vec3 tint = mix(u_nebulaColor, u_nebulaColorDeep, other);
-    if (u_nebulaLook.z > 0.0) tint = mix(tint, u_nebulaColorCore, u_nebulaLook.z * smoothstep(u_nebulaLook.w, 1.0, cloud));
-    return tint * density;
+    return nebulaShade(n, valueNoise(p * 1.7), valueNoise(cssPx / u_nebulaPatch.x + 23.0));
   }
 
-  // The sky is a box round the scene, infinitely far, and the camera turns inside it: the stars, the
-  // nebula and the Lensed Grid lie on its faces. Straight on the camera looks at the middle of face 0, which
-  // is the flat sky, CSS pixel for CSS pixel. The middle of the screen and the focal length, CSS pixels
+  // The 3D camera's nebula, on the sphere of the sky: the same clouds made of a noise of space, read where a
+  // direction meets a sphere as many CSS pixels round as the focal length, so straight ahead they are as
+  // large as the flat mode's and they are the same size and grain in every direction. Each layer is turned
+  // in space, so no axis of the noise's cells shows
+  vec3 nebulaSphere (vec3 onSphere) {
+    vec3 p = onSphere / u_nebulaShape.x;
+    p += u_nebulaShape.w * (valueNoise33(p * 0.8 + 3.1) - 0.5);
+    mat3 turn = mat3(0.0, 0.8, 0.6, -0.8, 0.36, -0.48, -0.6, -0.48, 0.64);
+    float n = 0.0;
+    float amplitude = 0.5;
+    for (int i = 0; i < 3; i++) {
+      n += amplitude * valueNoise3(p);
+      p = turn * p * 2.1 + 11.7;
+      amplitude *= 0.5;
+    }
+    return nebulaShade(n, clamp(valueNoise3(p * 1.7), 0.0, 1.0), valueNoise3(turn * onSphere / u_nebulaPatch.x + 23.0));
+  }
+
+  // The sky is infinitely far round the scene, and the 3D camera turns inside it: the stars and the nebula lie
+  // on a sphere, the Lensed Grid on the faces of a box, where its lines are straight. Straight on the camera
+  // looks at the middle of the box's face 0, which is the flat sky, CSS pixel for CSS pixel. The middle of
+  // the screen and the focal length, CSS pixels
   vec3 skyLens () {
     vec2 middle = 0.5 * u_resolution / u_pixelRatio;
     return vec3(middle, max(middle.x, middle.y));
@@ -647,32 +715,57 @@ ${DENT_GLSL}
     return vec3(onFace.x, side, onFace.y);
   }
 
-  // Static distant stars, one at most per cell of a face; they flare as the light front passes
-  vec3 backgroundStar (vec2 cssPx, float flare) {
-    vec3 lens = skyLens();
-    vec3 onFace = skyFace(skyRay(cssPx, lens), lens.z);
-    vec2 cell = floor((lens.xy + onFace.xy) / u_starCell);
-    // Each face has stars of its own; face 0 keeps the cells of the flat sky
-    vec2 key = cell + onFace.z * vec2(1543.0, 2741.0);
-    float presence = hash12(key);
-    if (presence > u_starDensity) return vec3(0.0);
-    vec2 position = (cell + 0.2 + 0.6 * vec2(hash12(key + 7.3), hash12(key + 13.1))) * u_starCell - lens.xy;
-    // The next face does not draw this face's stars, so a star whose light would reach over the edge is none.
-    // The star's angle from the edge is at least fromEdge / (sqrt(2) |star|), and the screen draws an angle
-    // at least the focal length wide, so three of its radii (3 sqrt(2) = 4.2426) stay on its face however
-    // the camera turns; a zoom below 1 shows the sky smaller and the star as large, so its radii are more
-    vec3 star = faceRay(position, onFace.z, lens.z);
-    vec2 fromEdge = lens.z - abs(position);
-    if (min(fromEdge.x, fromEdge.y) * lens.z * min(u_cameraZoom, 1.0) < 4.2426 * sqrt(u_starLook.x) * length(star)) return vec3(0.0);
-    // The star is set where the camera sees its direction, so it stays round however the face is turned
-    vec3 seen = vec3(dot(u_turnRight, star), dot(u_turnDown, star), dot(u_turnAhead, star));
-    if (seen.z <= 0.0) return vec3(0.0);
-    // A star is a point of light: the zoom moves the stars apart and leaves each the size it was
-    float d = length(cssPx - lens.xy - seen.xy * (lens.z / seen.z)) * u_cameraZoom;
+  // The light of a star, by the key of its cell, the draw that put it there, and its distance from the
+  // point, CSS pixels; it flares as the light front passes
+  vec3 starShade (vec2 key, float presence, float d, float flare) {
     float brightness = hash12(key + 3.7);
     float twinkle = u_starLook.y + u_starLook.z * sin(u_time * (u_starLook.w * (2.0 + 3.0 * brightness)) + presence * 400.0);
     vec3 tint = mix(u_starWarm.rgb, u_starCool.rgb, hash12(key + 29.0));
     return tint * exp(-d * d / u_starLook.x) * (u_starWarm.a + u_starCool.a * brightness * brightness) * twinkle * (1.0 + flare);
+  }
+
+  // The flat mode's stars, a backdrop: one at most per square cell of the screen
+  vec3 flatStar (vec2 cssPx, float flare) {
+    vec2 cell = floor(cssPx / u_starCell);
+    float presence = hash12(cell);
+    if (presence > u_starDensity) return vec3(0.0);
+    vec2 position = (cell + 0.2 + 0.6 * vec2(hash12(cell + 7.3), hash12(cell + 13.1))) * u_starCell;
+    // A star is a point of light: the zoom moves the stars apart and leaves each the size it was
+    return starShade(cell, presence, length(cssPx - position) * u_cameraZoom, flare);
+  }
+
+  // The 3D camera's stars, on the sphere of the sky. Its directions are cut by the faces of a cube, and each
+  // face into cells of equal angles both ways, a whole number of them across, so an edge of a face is an edge
+  // of cells on both sides and a cell covers much the same patch of sky everywhere: from 1 in the middle of
+  // a face to 1 / sqrt(2) in the middle of an edge. A cell holds its star by that share, so there are as
+  // many stars to a patch of sky in every direction, and as many straight ahead as in the flat mode
+  vec3 sphereStar (vec2 cssPx, float flare) {
+    vec3 lens = skyLens();
+    vec3 onFace = skyFace(skyRay(cssPx, lens), 1.0);
+    float quarter = 0.5 * PI;
+    float cells = max(floor(quarter * lens.z / u_starCell + 0.5), 1.0);
+    vec2 cell = min(floor((atan(onFace.xy) / quarter + 0.5) * cells), cells - 1.0);
+    vec2 key = cell + onFace.z * vec2(1543.0, 2741.0);
+    vec2 middle = tan(((cell + 0.5) / cells - 0.5) * quarter);
+    vec2 slope = 1.0 + middle * middle;
+    float area = slope.x * slope.y / pow(slope.x + slope.y - 1.0, 1.5);
+    float presence = hash12(key);
+    if (presence > u_starDensity * area) return vec3(0.0);
+    vec2 place = tan(((cell + 0.2 + 0.6 * vec2(hash12(key + 7.3), hash12(key + 13.1))) / cells - 0.5) * quarter);
+    // The star is set where the camera sees its direction, so it stays round wherever it is
+    vec3 star = faceRay(place, onFace.z, 1.0);
+    vec3 seen = vec3(dot(u_turnRight, star), dot(u_turnDown, star), dot(u_turnAhead, star));
+    if (seen.z <= 0.0) return vec3(0.0);
+    return starShade(key, presence, length(cssPx - lens.xy - seen.xy * (lens.z / seen.z)) * u_cameraZoom, flare);
+  }
+
+  // Static distant stars: the flat mode's backdrop, the 3D camera's sphere, and while the camera eases from
+  // one to the other both, in its share
+  vec3 backgroundStar (vec2 cssPx, float flare) {
+    vec3 light = vec3(0.0);
+    if (u_skySphere < 1.0) light = (1.0 - u_skySphere) * flatStar(cssPx, flare);
+    if (u_skySphere > 0.0) light += u_skySphere * sphereStar(cssPx, flare);
+    return light;
   }
 
   // The title mask at a point of the title's own box, -1..1 on both axes; empty outside it
@@ -1109,28 +1202,16 @@ ${DENT_GLSL}
       emitted += backgroundStar(cssPx, flare) * u_backgroundStars;
     }
     if (u_nebula > 0.0) {
-      // Behind the stars and read where the bent ray comes from, like them, and drifting on its own. Each
-      // face of the box has clouds of its own, and near an edge or a corner the faces that meet there blend:
-      // a face takes part once the ray is nearly as far across it as across the face it meets
-      vec3 lens = skyLens();
-      vec3 ray = skyRay(cssPx, lens);
-      vec3 size = abs(ray);
-      float most = max(size.x, max(size.y, size.z));
+      // Behind the stars and read where the bent ray comes from, like them, and drifting on its own: the flat
+      // mode's backdrop, the 3D camera's sphere, both while it eases in. The sphere's clouds drift through
+      // space the way the flat ones drift on the screen straight on
       vec3 nebula = vec3(0.0);
-      float shares = 0.0;
-      // One call of nebulaLight, in the loop: a card's compiler writes a function out again wherever it
-      // is called
-      for (int axis = 0; axis < 3; axis++) {
-        float across = axis == 0 ? ray.z : axis == 1 ? ray.x : ray.y;
-        float share = smoothstep(0.75, 1.0, abs(across) / most);
-        if (share > 0.0) {
-          vec2 along = axis == 0 ? ray.xy : axis == 1 ? ray.zy : ray.xz;
-          float face = 2.0 * float(axis) + (across < 0.0 ? 1.0 : 0.0);
-          nebula += share * nebulaLight(lens.xy + along * (lens.z / abs(across)) + face * vec2(7919.0, 3571.0) + u_nebulaDrift * u_time);
-          shares += share;
-        }
+      if (u_skySphere < 1.0) nebula = (1.0 - u_skySphere) * nebulaFlat(cssPx + u_nebulaDrift * u_time);
+      if (u_skySphere > 0.0) {
+        vec3 lens = skyLens();
+        nebula += u_skySphere * nebulaSphere(normalize(skyRay(cssPx, lens)) * lens.z + vec3(u_nebulaDrift * u_time, 0.0));
       }
-      emitted += nebula / shares * u_nebula;
+      emitted += nebula * u_nebula;
     }
     if (u_skyGrid > 0.0) {
       // A square grid on the sky, with a line through the middle of the screen. It is read where the

@@ -361,6 +361,7 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       pairNearer: 0,
       pairPlane: new Float32Array([1, 0, 0, 1]),
       turn: new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]),
+      skySphere: 0,
       gravityWaveX: 0,
       gravityWaveY: 0,
       companionX: 0,
@@ -1046,6 +1047,9 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     // where a swallowed star's light lands: the pose's own turn in 3D, none straight on
     const seenTurn = composite.turn
     for (let slot = 0; slot < 9; slot++) seenTurn[slot] = threeD ? pose[slot] : slot % 4 === 0 ? 1 : 0
+    // The flat mode's sky is a backdrop, the 3D camera's a sphere round it; one turns into the other as the
+    // camera eases in
+    composite.skySphere = threeD ? eased : 0
     // The particles' tint is measured from the line of flight: the scene's depth seen through that turn
     frame.flightX = seenTurn[2]
     frame.flightY = seenTurn[5]
