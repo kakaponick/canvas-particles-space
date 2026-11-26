@@ -347,6 +347,8 @@ that precess, faster the closer they come, as around a real black hole.
 | How long a trace stays lit, and its width | `orbitTrail`, `orbitStarSize` |
 | How much the orbits differ from the size and the stretch set | `orbitSizeSpread`, `orbitEccentricitySpread` |
 | The widest an orbit's plane is tipped out of the hole's equator, in degrees | `orbitInclination` |
+| How the tilts are drawn up to it, and the arc of the equator the orbits are tipped about | `orbitTiltSky`, `orbitNodeSpread` |
+| The share of stars born going round the other way | `orbitRetrograde` |
 | The closest a new orbit comes, and how far out a star counts as gone, in Schwarzschild radii | `orbitClosest`, `orbitEscape` |
 | How hard the spin swings the orbits, × what the spin itself gives | `orbitDrag` |
 | Seconds a new star takes to light up | `orbitFadeIn` |
@@ -360,6 +362,15 @@ that precess, faster the closer they come, as around a real black hole.
   flat disc of rosettes, seen edge-on from the side (`cameraYaw` 90 with a still hole); 90 a ball of
   orbits at every angle. The flat mode sees them straight on, so a tipped orbit there is only a narrower
   ellipse. The default, 20, was set with no picture to judge it by.
+- `orbitTiltSky` 0 draws the tilts evenly in angle, as many near the equator as steep; 1 draws them by the
+  sky's share at each tilt, as stars come from every direction, so steep orbits win (at `orbitInclination`
+  90 half are tipped past 60 degrees). It matters only above a small `orbitInclination`.
+- `orbitNodeSpread` is the arc, in degrees, of the equator each orbit is tipped about: 360 every way round;
+  low values tip them all about nearly one line, so their planes fan out like a book's pages and the disc
+  is warped to one side; with a large `orbitInclination` that is a fan, not a ball.
+- `orbitRetrograde` 0.5 sends half the stars each way, 1 all the other way. Against a spinning hole's turn
+  `orbitDrag` pulls a star in, so a retrograde share feeds the ring sooner. `orbitTiltSky`,
+  `orbitNodeSpread` and `orbitRetrograde` make every orbit anew, as `orbitInclination` does.
 - After its birth a star is moved by its motion alone: an equator that turns later moves no orbit, and a
   spin axis that turns later precesses the orbits about where it now stands.
 - Both spreads at 0 put every star on the same ellipse, turned differently: a clean rosette. `orbitSizeSpread`
@@ -819,15 +830,16 @@ them alone is drawn as it was; the intro debugger keeps them in the Fine Tuning 
 |---|---|
 | Progenitor star | `starChargeEase` |
 | Light front | `lightReach` |
-| Dust echo | `echoHoldThin`, `echoHoldThick`, `echoSwell`, `echoSwellMin`, `echoReach`, `dustBlowTime`, `dustDriftAngle`, `dustShockOffset`, `dustShockSharpness`, `dustShockTint` |
-| Background stars | `starFlareDecay` |
+| Dust echo | `echoHoldThin`, `echoHoldThick`, `echoSwell`, `echoSwellMin`, `echoReach`, `dustBlowTime`, `dustDriftAngle`, `dustShockOffset`, `dustShockSharpness`, `dustShockTint`, `dustLayers`, `dustFineness`, `dustRoughness`, `dustWarp`, `dustWarpScale`, `echoTintEase` |
+| Background stars | `starFlareDecay`, `starsFadeSmooth` |
 | Collapsing core | `remnantEmberAt`, `remnantWhiteness`, `remnantDeep`, `remnantDim` |
-| Shadow, lens, ring | `horizonEase` |
+| Shadow, lens, ring | `horizonEase`, `lensSmooth`, `ringSmooth` |
 | Title: type | `titleLineHeight`, `titleMaxWidth`, `titleMargin` |
 | Title: light | `titleDustSize`, `titleDustClumps`, `titleDustLow`, `titleDustHigh` |
 | Title: arriving | `titleInOversize`, `titleInEase`, `titleRiseEase`, `titlePushEase`, `titleRiseLitBy` |
-| Title: leaving | `titleFlyGrowth`, `titleFlyEase`, `titleOutGrowth`, `titleOutEase`, `titlePullLimit`, `titleSpeckSize`, `titleCurrentSize`, `titleBeyondSpeed`, `titleWink`, `titleSpiralRadius`, `titleSpiralMin`, `titleSpiralMax`, `titleBurnGrain`, `titleBurnFine`, `titleBurnEnds`, `titleBurnRim`, `titleBurnRimWidth`, `titleFallFadeAt`, `titleFlyFadeAt`, `titleCurrentContrast`, `titleOrderReach`, `titleCaptureEdge`, `titleReachFade`, `titleBurnMix`, `titleBurnEdge` |
-| Camera and film stock | `cameraCreep`, `cameraSettleEase`, `cameraKickDecay`, `shakeRate`, `vignetteStart`, `vignetteEnd`, `filmKnee` |
+| Title: leaving | `titleFlyGrowth`, `titleFlyEase`, `titleOutGrowth`, `titleOutEase`, `titlePullLimit`, `titleSpeckSize`, `titleCurrentSize`, `titleBeyondSpeed`, `titleWink`, `titleSpiralRadius`, `titleSpiralMin`, `titleSpiralMax`, `titleBurnGrain`, `titleBurnFine`, `titleBurnEnds`, `titleBurnRim`, `titleBurnRimWidth`, `titleFallFadeAt`, `titleFlyFadeAt`, `titleCurrentContrast`, `titleOrderReach`, `titleCaptureEdge`, `titleReachFade`, `titleBurnMix`, `titleBurnEdge`, `titleTrailCopies`, `titleTrailLag` |
+| Camera and film stock | `cameraCreep`, `cameraSettleEase`, `cameraKickDecay`, `shakeRate`, `shakeSecond`, `shakeSecondRate`, `shakeVertical`, `lensFringeEase`, `filmSmooth`, `vignetteStart`, `vignetteEnd`, `filmKnee` |
+| The hole's motion and the end | `turnSmooth` |
 
 - `lightReach` is how far past the farthest corner the fronts run in `lightCrossTime`, so it multiplies the
   on-screen speed of light: the matter front, the birth of the particles and the gravitational wave quicken
@@ -840,7 +852,21 @@ them alone is drawn as it was; the intro debugger keeps them in the Fine Tuning 
 - The flare of `dustShock` stands `dustShockOffset` widths of the matter front (`waveWidth`) outside its
   middle, is as thin as `dustShockSharpness` and is coloured `dustShockTint` of the way from `colorDust`
   to `colorLight`. Behind the front `dustSweep` has cleared the dust, so a negative offset shows little.
+- The dust's clouds are `dustLayers` layers of noise, each `dustFineness` times finer and `dustRoughness` as
+  strong as the one before (a share of a layer brings it in partly), read through a slower noise that curls
+  them by `dustWarp`, `dustWarpScale` times as fine as `dustScale`. Whatever the layers, the clouds keep
+  their coverage, so `dustThreshold` keeps its meaning. One layer and no curl is soft blotches; six layers
+  with a high roughness, grit; a high curl, streams.
+- Dust the light front has just struck shines with `colorLight` and turns to `colorDust` as its glow
+  fades: the light's share is the glow's freshness to the power `echoTintEase`. Low keeps the front's
+  colour while the dust glows, high gives the dust its own almost at once.
 - A star's `starFlare` lasts `starFlareDecay`.
+- A key that ends in Smooth shapes a fade between its two moments: `starsFadeSmooth` (the stars over
+  `starsFadeIn`), `lensSmooth` (over `lensDuration`), `ringSmooth` (over `ringFadeIn`), `filmSmooth` (the
+  film stock lifting from `releaseAt` to `introEnd`) and `turnSmooth` (the field turning from the
+  explosion to the screen's middle, from when the matter front fills the screen to `introEnd`). 0 is an
+  even pace, 1 the smooth step, and each whole number above takes the smooth step of the one below,
+  holding back longer and changing faster in the middle: 3 is close to a cut.
 - Over `redshiftDuration` the core cools from `colorFlash` to `colorEmber`, which it is at
   `remnantEmberAt` of the way with `remnantWhiteness` of the flash still in it, then sinks to that colour
   deepened, `remnantDeep` bright, having lost `remnantDim` of its glow.
@@ -877,7 +903,15 @@ them alone is drawn as it was; the intro debugger keeps them in the Fine Tuning 
   edge is (`titleBurnEdge`), how much it eats in from the ends (`titleBurnEnds`), and its glowing rim,
   `titleBurnRim` times `colorEmber` and `titleBurnRimWidth` wide.
 - `cameraZoom` creeps `cameraCreep` of its way before `collapseAt`; `cameraKick` drops over
-  `cameraKickDecay`; `shakeAmount` trembles at `shakeRate` times its own rate. `vignette` darkens from
+  `cameraKickDecay`; `shakeAmount` trembles at `shakeRate` times its own rate. Each side of the shake is a
+  fast tremor and a slower one, `shakeSecond` as strong, at `shakeSecondRate` times its own pace (a little
+  over half the fast one's, so about 1.8 runs them together); the up-down side is `shakeVertical` times the
+  sideways. `shakeSecond` 0 is a clean buzz, 2 a lurch with a buzz on it, `shakeVertical` 0 a sway.
+- `lensFringe` grows from the middle of the frame to its corners as the distance to the power
+  `lensFringeEase`: 1 evenly, higher keeps the middle clean and fringes only the edges.
+- The streak behind the falling letters is `titleTrailCopies` fainter copies, each `titleTrailLag` of the
+  fall behind the one before, fading evenly to none past the last; their whole brightness is `titleTrail`
+  at any count, so more copies smear it, fewer leave distinct echoes. `vignette` darkens from
   `vignetteStart` to `vignetteEnd`, in half sizes of the frame from its middle.
 - `filmKnee` is not the opening's alone: it rolls off the highlights of every frame, whatever `filmHold`
   is and in a film without the opening too.

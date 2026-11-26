@@ -279,6 +279,15 @@ export interface CompositeSettings {
   dustShockOffset: number
   dustShockSharpness: number
   dustShockTint: number
+  // The noise of the dust's clouds: its layers (a share brings the last in partly), how much finer and how
+  // much fainter each is than the one before, how far a slower noise curls them and how fine that one is
+  // next to the clouds; and the power of the freshness of struck dust's glow that is the light's colour in it
+  dustLayers: number
+  dustFineness: number
+  dustRoughness: number
+  dustWarp: number
+  dustWarpScale: number
+  echoTintEase: number
   // Brightness of the flat grid on the sky behind the black hole (0 turns it off) and its cell size
   skyGrid: number
   gridCell: number
@@ -305,6 +314,8 @@ export interface CompositeSettings {
   shakeX: number
   shakeY: number
   lensFringe: number
+  // How the fringe grows from the middle to the corners: the power of the distance, 1 evenly
+  lensFringeEase: number
   vignette: number
   filmGrain: number
   // Height of each black bar
@@ -355,6 +366,9 @@ export interface TitleSettings {
   stream: number
   order: number
   trail: number
+  // The streak's copies and how far each lags the one before, a share of the fall
+  trailCopies: number
+  trailLag: number
   heat: number
   // The specks: their size and the width of the currents they share, CSS pixels; the speed of dust beyond
   // gravity's reach as a share; the share of the fall a speck takes to wink out
@@ -611,12 +625,12 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     'starCell', 'starDensity', 'starFlare', 'starWarm', 'starCool', 'starLook', 'dustScale', 'dustThreshold', 'lightDustContrast',
     'titleCenter', 'titleHalfSize', 'titleAlpha', 'titleReveal', 'titleDissolve', 'titleDrift', 'titleGlow',
     'titleFlash', 'titleCooling', 'titleDust', 'titlePull', 'titleSwirl', 'titleReach', 'titleCapture', 'titleScale',
-    'titleFringe', 'titleHalo', 'titleRedshift', 'titleGrain', 'titleBurn', 'titleFall', 'titleTidal', 'titleSpiral', 'titleSpread', 'titleStream', 'titleOrder', 'titleTrail', 'titleHeat', 'dustSweep', 'echoFloor', 'dustShock', 'dustBlow', 'dustDrift',
+    'titleFringe', 'titleHalo', 'titleRedshift', 'titleGrain', 'titleBurn', 'titleFall', 'titleTidal', 'titleSpiral', 'titleSpread', 'titleStream', 'titleOrder', 'titleTrail', 'titleTrailShape', 'titleHeat', 'dustSweep', 'echoFloor', 'dustShock', 'dustBlow', 'dustDrift',
     'titleSpeck', 'titleWinkRest', 'titleWind', 'titleBurnShape', 'titleBurnRimWidth', 'titleFallShape', 'titleDustShape', 'titleDustCut', 'titleBurnEdge',
-    'echoShape', 'echoSwell', 'dustMotion', 'dustFlare', 'starFlareRate', 'remnantShape', 'vignetteSpan', 'knee',
+    'echoShape', 'echoSwell', 'dustMotion', 'dustFlare', 'dustNoise', 'dustWarp', 'echoTintEase', 'starFlareRate', 'remnantShape', 'vignetteSpan', 'knee',
     'skyGrid', 'gridCell', 'skyGridLine', 'orbits', 'front', 'nebula', 'nebulaColor', 'nebulaColorDeep', 'nebulaColorCore', 'nebulaShape', 'nebulaLook', 'nebulaPatch', 'nebulaDrift', 'gridPull', 'gridColor', 'gridHaze',
     'colorFlash', 'colorLight', 'colorDust', 'colorTitle', 'colorEmber',
-    'cameraZoom', 'zoomCenter', 'layerZoom', 'shake', 'lensFringe', 'vignette', 'filmGrain', 'letterbox'
+    'cameraZoom', 'zoomCenter', 'layerZoom', 'shake', 'lensFringe', 'lensFringeEase', 'vignette', 'filmGrain', 'letterbox'
   ] as const)
   const gridUniforms = getUniforms(gl, gridProgram, [
     'resolution', 'pixelRatio', 'sheetU', 'sheetV', 'sheetN', 'sheetO', 'sheetWell', 'sheetWell2', 'lines', 'wave', 'waveSpread', 'waveTurn', 'lens', 'jolt', 'color',
@@ -1141,6 +1155,9 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
       setUniform1f(gl, u.titleStream, title.stream)
       setUniform1f(gl, u.titleOrder, title.order)
       setUniform1f(gl, u.titleTrail, title.trail)
+      // The copies' brightness falls evenly to none past the last, the whole as Trail sets it at any count
+      const copies = Math.min(Math.max(Math.round(title.trailCopies), 0), 8)
+      setUniform3f(gl, u.titleTrailShape, copies, Math.max(title.trailLag, 0), copies > 0 ? 1.8 / (copies * (copies + 1)) : 0)
       setUniform1f(gl, u.titleHeat, title.heat)
       setUniform4f(gl, u.titleSpeck, 1 / Math.max(title.speckSize, 0.1), 1 / Math.max(title.currentSize, 0.1), title.beyondSpeed, Math.max(title.wink, 0.001))
       setUniform1f(gl, u.titleWinkRest, 1 - title.wink)
@@ -1162,6 +1179,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     setUniform4f(gl, u.layerZoom, layerZoomX * ratio, layerZoomY * ratio, layerZoom, 0)
     setUniform2f(gl, u.shake, settings.shakeX * ratio, settings.shakeY * ratio)
     setUniform1f(gl, u.lensFringe, settings.lensFringe * ratio)
+    setUniform1f(gl, u.lensFringeEase, Math.max(settings.lensFringeEase, 0.01))
     setUniform1f(gl, u.vignette, settings.vignette)
     setUniform1f(gl, u.filmGrain, settings.filmGrain)
     setUniform1f(gl, u.letterbox, settings.letterbox * ratio)
@@ -1297,6 +1315,9 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     setUniform1f(gl, u.dustDrift, settings.dustDrift)
     setUniform3f(gl, u.dustMotion, settings.dustDriftX, settings.dustDriftY, decayRate(Math.max(settings.dustBlowTime, 0.001)))
     setUniform3f(gl, u.dustFlare, settings.dustShockOffset, expRate(-settings.dustShockSharpness), settings.dustShockTint)
+    setUniform3f(gl, u.dustNoise, Math.min(Math.max(settings.dustLayers, 1), 6), Math.max(settings.dustFineness, 1), Math.max(settings.dustRoughness, 0.01))
+    setUniform2f(gl, u.dustWarp, settings.dustWarp, Math.max(settings.dustWarpScale, 0.01))
+    setUniform1f(gl, u.echoTintEase, Math.max(settings.echoTintEase, 0.01))
     setUniform1f(gl, u.orbits, orbitsShown ? 1 : 0)
     // The front layers are read only while the last stepped frame drew into them
     setUniform2f(gl, u.front, frontScene.lit ? 1 : 0, frontScene.lit && frontLinesShown ? 1 : 0)

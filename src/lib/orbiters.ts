@@ -48,6 +48,12 @@ export interface OrbitTuning {
   eccentricitySpread: number
   // The widest an orbit's plane is tipped out of the hole's equator, in degrees
   inclination: number
+  // How the tilts are drawn between 0 and that: 0 evenly in angle, 1 by the share of the sky at each tilt
+  tiltSky: number
+  // The arc of the equator the nodes are drawn from, in degrees from its first direction (360 all round)
+  nodeSpread: number
+  // The share of new stars that go round the other way
+  retrograde: number
   // Closest pericentre an orbit is given, in Schwarzschild radii; closer ones exist only as plunges
   closest: number
   // A star this far out, in Schwarzschild radii, has escaped and is replaced
@@ -65,7 +71,7 @@ export interface OrbitTuning {
 
 // The values the code had before they were settings
 export function createOrbitTuning (): OrbitTuning {
-  return { sizeSpread: 0.8, eccentricitySpread: 0.4, inclination: 20, closest: 1.3, escape: 400, fadeIn: 0.6, drag: 1, flare: 6, flareSpread: 0.2, flareSides: 0.5 }
+  return { sizeSpread: 0.8, eccentricitySpread: 0.4, inclination: 20, tiltSky: 0, nodeSpread: 360, retrograde: 0, closest: 1.3, escape: 400, fadeIn: 0.6, drag: 1, flare: 6, flareSpread: 0.2, flareSides: 0.5 }
 }
 
 export interface Orbiters {
@@ -107,6 +113,9 @@ export interface Orbiters {
   sizeSpread: number
   eccentricitySpread: number
   inclination: number
+  tiltSky: number
+  nodeSpread: number
+  retrograde: number
   closest: number
 }
 
@@ -140,6 +149,9 @@ export function createOrbiters (random: Random): Orbiters {
     sizeSpread: 0,
     eccentricitySpread: 0,
     inclination: 0,
+    tiltSky: 0,
+    nodeSpread: 0,
+    retrograde: 0,
     closest: 0
   }
 }
@@ -149,7 +161,10 @@ const potential = (r: number) => -0.5 / (r - 1)
 // Puts a star at a random point of a random orbit of about the size and eccentricity set. Energy and
 // angular momentum follow from the orbit's two turning points, which holds for any central force, so
 // the star is on that orbit wherever along it it starts. The orbit lies in the equator (its two
-// directions, then the one it faces) tipped by up to `inclination` radians about a node of its own
+// directions, then the one it faces) tipped by up to `inclination` radians about a node of its own, the
+// tilt drawn evenly in angle or, at `tiltSky` 1, by the share of the sky at each tilt (more orbits steep
+// than flat, as for stars come from every direction), the node within `nodeSpread` of the equator's
+// first direction; `retrograde` of the stars go round it the other way
 function spawnOrbiter (
   orbiters: Orbiters, i: number, size: number, eccentricity: number, inclination: number, equator: ArrayLike<number>, palette: PaletteSampler
 ) {
@@ -173,12 +188,20 @@ function spawnOrbiter (
     r = pericentre + (apocentre - pericentre) * nextRandom(random)
   }
 
-  const around = Math.sqrt(momentumSq) / r
+  // The way round: every star the same way, unless a share is sent the other. Drawn only then, so the
+  // orbits made without it keep their draws
+  const against = orbiters.retrograde > 0 && nextRandom(random) < orbiters.retrograde
+  const around = (against ? -1 : 1) * Math.sqrt(momentumSq) / r
   const outward = Math.sqrt(Math.max(2 * (energy - potential(r)) - around * around, 0)) * (nextRandom(random) < 0.5 ? -1 : 1)
   // The plane: the node is a direction in the equator, and the orbit's second direction is the equator's
   // one across the node, turned out of it toward the way the equator faces by the inclination
-  const node = nextRandom(random) * Math.PI * 2
-  const tip = nextRandom(random) * inclination
+  const node = nextRandom(random) * orbiters.nodeSpread * DEGREE
+  // The sky's share of a tilt i is its sin i: the cosine is drawn evenly between that of the widest tilt and 1
+  const tipDraw = nextRandom(random)
+  const evenTip = tipDraw * inclination
+  const tip = orbiters.tiltSky > 0
+    ? evenTip + (Math.acos(1 - tipDraw * (1 - Math.cos(inclination))) - evenTip) * orbiters.tiltSky
+    : evenTip
   const nodeCos = Math.cos(node)
   const nodeSin = Math.sin(node)
   const tipCos = Math.cos(tip)
@@ -295,13 +318,17 @@ export function stepOrbiters (
 
   // New settings make every orbit again; a higher count only adds stars
   const remade = size !== orbiters.size || eccentricity !== orbiters.eccentricity || tuning.sizeSpread !== orbiters.sizeSpread ||
-    tuning.eccentricitySpread !== orbiters.eccentricitySpread || tuning.inclination !== orbiters.inclination || tuning.closest !== orbiters.closest
+    tuning.eccentricitySpread !== orbiters.eccentricitySpread || tuning.inclination !== orbiters.inclination || tuning.closest !== orbiters.closest ||
+    tuning.tiltSky !== orbiters.tiltSky || tuning.nodeSpread !== orbiters.nodeSpread || tuning.retrograde !== orbiters.retrograde
   orbiters.size = size
   orbiters.eccentricity = eccentricity
   orbiters.sizeSpread = tuning.sizeSpread
   orbiters.eccentricitySpread = tuning.eccentricitySpread
   orbiters.inclination = tuning.inclination
   orbiters.closest = tuning.closest
+  orbiters.tiltSky = tuning.tiltSky
+  orbiters.nodeSpread = tuning.nodeSpread
+  orbiters.retrograde = tuning.retrograde
   const inclination = tuning.inclination * DEGREE
   for (let i = remade ? 0 : orbiters.count; i < count; i++) spawnOrbiter(orbiters, i, size, eccentricity, inclination, equator, palette)
   orbiters.count = count

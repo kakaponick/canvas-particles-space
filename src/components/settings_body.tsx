@@ -376,6 +376,9 @@ function SettingsBody () {
           <SettingSlider field="orbitSizeSpread" />
           <SettingSlider field="orbitEccentricitySpread" />
           <SettingSlider field="orbitInclination" />
+          <SettingSlider field="orbitTiltSky" />
+          <SettingSlider field="orbitNodeSpread" />
+          <SettingSlider field="orbitRetrograde" />
           <SettingSlider field="orbitClosest" />
           <SettingSlider field="orbitEscape" />
           <div className="mt-3 flex flex-col gap-1">

@@ -474,6 +474,9 @@ export const compositeFragmentShaderSource = `
   uniform float u_dustBlow;        // CSS pixels the blast pushes the dust outward
   uniform float u_dustDrift;       // CSS pixels per second the dust drifts on its own
   uniform vec3 u_dustMotion;       // the way the dust is read from as it drifts, how fast the blast's push eases off (a rate for exp2)
+  uniform vec3 u_dustNoise;        // the clouds' layers of noise (a share brings the last in partly), how much finer and how much fainter each is than the last
+  uniform vec2 u_dustWarp;         // how far the slower noise curls the clouds, and how fine it is as a multiple of their size
+  uniform float u_echoTintEase;    // the light's share of struck dust's colour is the freshness of its glow to this power
   uniform vec3 u_dustFlare;        // the flare at the matter front: widths of the front outside its middle, its thinness (a rate for exp2), the share of the light's colour in it
   uniform sampler2D u_orbitTrails; // the orbiting stars and the traces they leave
   uniform float u_orbits;          // 1 while there are orbiting stars; 0 leaves their layer unread
@@ -522,6 +525,7 @@ export const compositeFragmentShaderSource = `
   uniform float u_titleStream;   // share of its speed a speck takes from the current around it
   uniform float u_titleOrder;    // 0 specks wink out at random, 1 the ones nearest the hole first
   uniform float u_titleTrail;    // brightness of the streak behind the moving letters
+  uniform vec3 u_titleTrailShape; // its copies, how far each lags the one before as a share of the fall, the first copy's share of the streak's brightness over the count's
   uniform float u_titleHeat;     // how much the falling title brightens midway
   uniform vec4 u_titleSpeck;     // specks and currents the specks share per CSS pixel, the speed of dust beyond gravity's reach, the share of the fall a speck takes to wink out
   uniform float u_titleWinkRest; // the rest of the fall, 1 - that share
@@ -546,6 +550,7 @@ export const compositeFragmentShaderSource = `
   uniform vec4 u_layerZoom;      // the zoom the particles and the orbits were drawn at: its fixed point, pixels, and the zoom
   uniform vec2 u_shake;          // jolt of the camera, pixels
   uniform float u_lensFringe;    // colour fringing of the scene at the frame's corners, pixels
+  uniform float u_lensFringeEase; // the power of the distance from the middle the fringe grows by, 1 evenly
   uniform float u_vignette;      // darkening of the corners
   uniform float u_filmGrain;
   uniform float u_letterbox;     // height of each black bar, pixels
@@ -588,23 +593,35 @@ export const compositeFragmentShaderSource = `
 
   // Soft clouds with curled edges. The noise is read through a second, slower noise that bends its
   // coordinates, which hides the grid it is built on and pulls the clouds into wisps; a fine layer
-  // on top gives them grain
+  // on top gives them grain. Layers, fineness, roughness and the curl are u_dustNoise and u_dustWarp
   float dust (vec2 cssPx) {
     vec2 p = cssPx / u_dustScale;
-    p += 0.9 * (vec2(valueNoise(p * 0.8 + 3.1), valueNoise(p * 0.8 + 17.4)) - 0.5);
+    p += u_dustWarp.x * (vec2(valueNoise(p * u_dustWarp.y + 3.1), valueNoise(p * u_dustWarp.y + 17.4)) - 0.5);
     mat2 turn = mat2(0.8, 0.6, -0.6, 0.8);
     float n = 0.0;
     float amplitude = 0.5;
-    for (int i = 0; i < 3; i++) {
-      n += amplitude * valueNoise(p);
-      p = turn * p * 2.1 + 11.7;
-      amplitude *= 0.5;
+    float total = 0.0;
+    for (int i = 0; i < 6; i++) {
+      float share = clamp(u_dustNoise.x - float(i), 0.0, 1.0);
+      if (share <= 0.0) break;
+      n += share * amplitude * valueNoise(p);
+      total += share * amplitude;
+      p = turn * p * u_dustNoise.y + 11.7;
+      amplitude *= u_dustNoise.z;
     }
-    // n spans 0..0.875 around 0.44. The threshold slides the level the clouds start at, from haze
-    // everywhere to a few thin wisps
+    // Spread as three layers halving spread it, 0..0.875 around 0.44, whatever the layers. The threshold
+    // slides the level the clouds start at, from haze everywhere to a few thin wisps
+    n *= 0.875 / total;
     float edge = mix(0.2, 0.62, u_dustThreshold);
     float cloud = smoothstep(edge, edge + 0.22, n);
     return cloud * (0.45 + 0.55 * cloud) * (0.7 + 0.3 * valueNoise(p * 1.7));
+  }
+
+  // How far the camera's lens splits red from blue at a pixel: Lens Fringe at the corners, towards the
+  // middle as the distance from it to the power u_lensFringeEase (1 grows evenly)
+  vec2 fringeSplit (vec2 screen) {
+    vec2 away = (screen - 0.5 * u_resolution) / (0.5 * length(u_resolution));
+    return away * pow(max(length(away), 1e-4), u_lensFringeEase - 1.0) * u_lensFringe;
   }
 
 ${DENT_GLSL}
@@ -1153,7 +1170,7 @@ ${DENT_GLSL}
     if (u_lensFringe > 0.0) {
       // A simple lens bends red less and blue more, and more so away from the middle of the frame. Both
       // layers go through it: red and blue taken from the particles alone would leave the orbits green
-      vec2 split = (screen - 0.5 * u_resolution) / (0.5 * length(u_resolution)) * u_lensFringe;
+      vec2 split = fringeSplit(screen);
       color.r = drawn(layerPx - split).r;
       color.b = drawn(layerPx + split).b;
     }
@@ -1192,9 +1209,11 @@ ${DENT_GLSL}
         float fall = u_titleFall * max(1.0 + 2.0 * u_titleSpread * (speed - 0.5), 0.0) * mix(1.0, u_titleSpeck.z, beyondReach);
         local = (titleSource(fromHole, holeDist, fall) - u_titleCenter) / titleSpan;
         // Where the letters were a moment ago still shows, fainter, so their motion reads as a streak
-        for (int i = 1; i <= 3; i++) {
-          float lag = 1.0 - 0.13 * float(i);
-          trail += (0.6 - 0.15 * float(i)) * titleMask((titleSource(fromHole, holeDist, fall * lag) - u_titleCenter) / titleSpan);
+        // Each copy lags the one before by a share of the fall and is fainter, down to none past the last
+        for (int i = 1; i <= 8; i++) {
+          if (float(i) > u_titleTrailShape.x) break;
+          float lag = max(1.0 - u_titleTrailShape.y * float(i), 0.0);
+          trail += u_titleTrailShape.z * (u_titleTrailShape.x + 1.0 - float(i)) * titleMask((titleSource(fromHole, holeDist, fall * lag) - u_titleCenter) / titleSpan);
         }
         trail *= u_titleTrail * min(4.0 * u_titleFall, 1.0);
         // Each speck winks out at its own moment, the ones nearest the hole first; without grain the
@@ -1329,7 +1348,7 @@ ${DENT_GLSL}
         glow = mix(fresh, swell, u_echoFloor);
       }
       // Dust the front has just struck still shines with the front's colour and cools to its own
-      vec3 echoColor = mix(u_colorDust, u_colorLight, fresh * fresh);
+      vec3 echoColor = mix(u_colorDust, u_colorLight, pow(fresh, u_echoTintEase));
       emitted += echoColor * u_echoPower * glow * density / (1.0 + sourceDist / (u_echoShape.w * u_resolution.x));
       emitted += mix(u_colorDust, u_colorLight, u_dustFlare.z) * shock * cloud;
     }
@@ -1443,7 +1462,7 @@ ${DENT_GLSL}
       vec2 frontPx = layerPoint(frag);
       vec3 front = drawnInFront(frontPx);
       if (u_lensFringe > 0.0) {
-        vec2 split = (screen - 0.5 * u_resolution) / (0.5 * length(u_resolution)) * u_lensFringe;
+        vec2 split = fringeSplit(screen);
         front.r = drawnInFront(frontPx - split).r;
         front.b = drawnInFront(frontPx + split).b;
       }

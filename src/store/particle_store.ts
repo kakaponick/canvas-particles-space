@@ -277,6 +277,11 @@ export interface ParticleState extends FlowState {
   orbitEccentricitySpread: number
   // The widest an orbit's plane is tipped out of the hole's equator, in degrees
   orbitInclination: number
+  // How the tilts are drawn up to that, 0 evenly in angle and 1 by the sky's share at each; the arc of the
+  // equator the nodes are drawn from, in degrees; the share of stars born going round the other way
+  orbitTiltSky: number
+  orbitNodeSpread: number
+  orbitRetrograde: number
   orbitClosest: number
   orbitEscape: number
   orbitFadeIn: number
@@ -571,6 +576,9 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   orbitSizeSpread: 0.8,
   orbitEccentricitySpread: 0.4,
   orbitInclination: 20,
+  orbitTiltSky: 0,
+  orbitNodeSpread: 360,
+  orbitRetrograde: 0,
   orbitClosest: 1.3,
   orbitEscape: 400,
   orbitFadeIn: 0.6,

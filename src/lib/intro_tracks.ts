@@ -92,12 +92,15 @@ const REDUCED_FADE: IntroSpan = { start: 0.2, end: 1.4, holds: true }
 
 // The parameters each track keeps in its Fine Tuning group
 const FINE = {
-  stars: ['starFlareDecay'],
+  stars: ['starFlareDecay', 'starsFadeSmooth'],
   star: ['starChargeEase'],
   light: ['lightReach'],
-  echo: ['echoHoldThin', 'echoHoldThick', 'echoSwell', 'echoSwellMin', 'echoReach', 'dustBlowTime', 'dustDriftAngle', 'dustShockOffset', 'dustShockSharpness', 'dustShockTint'],
+  echo: ['echoHoldThin', 'echoHoldThick', 'echoSwell', 'echoSwellMin', 'echoReach', 'dustBlowTime', 'dustDriftAngle', 'dustShockOffset', 'dustShockSharpness', 'dustShockTint',
+    'dustLayers', 'dustFineness', 'dustRoughness', 'dustWarp', 'dustWarpScale', 'echoTintEase'],
   remnant: ['remnantEmberAt', 'remnantWhiteness', 'remnantDeep', 'remnantDim'],
   hole: ['horizonEase'],
+  lens: ['lensSmooth'],
+  ring: ['ringSmooth'],
   title: [
     'titleLineHeight', 'titleMaxWidth', 'titleMargin', 'titlePushEase',
     'titleInOversize', 'titleInEase', 'titleRiseEase', 'titleFlyGrowth', 'titleFlyEase', 'titleOutGrowth', 'titleOutEase',
@@ -105,9 +108,12 @@ const FINE = {
     'titleSpiralRadius', 'titleSpiralMin', 'titleSpiralMax',
     'titleBurnGrain', 'titleBurnFine', 'titleBurnEnds', 'titleBurnRim', 'titleBurnRimWidth',
     'titleFallFadeAt', 'titleFlyFadeAt', 'titleRiseLitBy', 'titleCurrentContrast', 'titleOrderReach', 'titleCaptureEdge', 'titleReachFade',
-    'titleDustSize', 'titleDustClumps', 'titleDustLow', 'titleDustHigh', 'titleBurnMix', 'titleBurnEdge'
+    'titleDustSize', 'titleDustClumps', 'titleDustLow', 'titleDustHigh', 'titleBurnMix', 'titleBurnEdge',
+    'titleTrailCopies', 'titleTrailLag'
   ],
-  camera: ['cameraCreep', 'cameraSettleEase', 'cameraKickDecay', 'shakeRate', 'vignetteStart', 'vignetteEnd', 'filmKnee']
+  camera: ['cameraCreep', 'cameraSettleEase', 'cameraKickDecay', 'shakeRate', 'shakeSecond', 'shakeSecondRate', 'shakeVertical', 'lensFringeEase', 'filmSmooth',
+    'vignetteStart', 'vignetteEnd', 'filmKnee'],
+  motion: ['turnSmooth']
 } satisfies Record<string, IntroParamKey[]>
 
 export const INTRO_TRACKS: IntroTrack[] = [
@@ -193,7 +199,8 @@ export const INTRO_TRACKS: IntroTrack[] = [
     key: 'lens',
     label: 'Lens',
     layer: 'lens',
-    params: ['lensDuration'],
+    params: ['lensDuration', ...FINE.lens],
+    fine: FINE.lens,
     spans: (p, reduced) => [reduced ? REDUCED_FADE : { start: p.remnantAt, end: p.remnantAt + p.lensDuration, holds: true }]
   },
   {
@@ -210,7 +217,8 @@ export const INTRO_TRACKS: IntroTrack[] = [
     key: 'ring',
     label: 'Photon Ring',
     layer: 'ring',
-    params: ['ringDelay', 'ringFadeIn'],
+    params: ['ringDelay', 'ringFadeIn', ...FINE.ring],
+    fine: FINE.ring,
     spans: (p, reduced) => [reduced ? REDUCED_FADE : { start: p.horizonAt + p.ringDelay, end: p.horizonAt + p.ringDelay + p.ringFadeIn, holds: true }]
   },
   {
@@ -264,7 +272,8 @@ export const INTRO_TRACKS: IntroTrack[] = [
   {
     key: 'motion',
     label: 'Black Hole Motion',
-    params: ['releaseAt', 'introEnd', 'centerHoldFrequency', 'originAtHole'],
+    params: ['releaseAt', 'introEnd', 'centerHoldFrequency', 'originAtHole', ...FINE.motion],
+    fine: FINE.motion,
     spans: (p, reduced) => [{ start: 0, end: reduced ? REDUCED_INTRO_END : p.releaseAt }],
     markers: (p, reduced) => reduced
       ? [{ time: REDUCED_INTRO_END, label: 'end' }]

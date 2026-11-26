@@ -104,6 +104,17 @@ function progress (t: number, start: number, duration: number) {
 
 const easeOutCubic = (x: number) => 1 - Math.pow(1 - x, 3)
 const smoothstep = (x: number) => x * x * (3 - 2 * x)
+// A fade between its two moments as smooth as `shape`: 0 an even pace, 1 the smooth step, each whole number
+// above it the smooth step of the one below, flatter at both ends and steeper in the middle, and a share
+// between two whole numbers a blend of their curves. 1 is the smooth step exactly
+function smoothFade (x: number, shape: number) {
+  const s = Math.min(Math.max(shape, 0), 3)
+  const whole = Math.floor(s)
+  let y = x
+  for (let i = 0; i < whole; i++) y = smoothstep(y)
+  const share = s - whole
+  return share > 0 ? y + (smoothstep(y) - y) * share : y
+}
 // x to a power that is a parameter. The whole powers the timeline was written with are still worked out as
 // the products they were, which differ from Math.pow in the last bit, so an opening that leaves the power
 // alone is drawn as it was
@@ -188,7 +199,7 @@ function sampleFullIntro (t: number, p: IntroParams, ring: RingdownTiming, frame
   frame.opacityScale = 1
 
   // Distant stars are there all along; the dark opening only lets the eye find them
-  frame.backgroundStars = p.starsInitial + (1 - p.starsInitial) * smoothstep(progress(t, 0, p.starsFadeIn))
+  frame.backgroundStars = p.starsInitial + (1 - p.starsInitial) * smoothFade(progress(t, 0, p.starsFadeIn), p.starsFadeSmooth)
 
   // The core: white-hot after the blast, then its light reddens and fades as it collapses
   frame.remnantGlow = progress(t, p.collapseAt, p.remnantAt - p.collapseAt) * Math.exp(-Math.max(t - p.remnantAt, 0) / p.remnantDecay)
@@ -200,8 +211,8 @@ function sampleFullIntro (t: number, p: IntroParams, ring: RingdownTiming, frame
   frame.holeScale = easeOut(progress(t, p.horizonAt, p.horizonGrowth), p.horizonEase)
   frame.ringdownTime = t - ringdownAt
   frame.ringdown = ringdownWobble(frame.ringdownTime, p.ringdownAmplitude, ring)
-  frame.ringFade = smoothstep(progress(t, p.horizonAt + p.ringDelay, p.ringFadeIn))
-  frame.lensScale = smoothstep(progress(t, p.remnantAt, p.lensDuration))
+  frame.ringFade = smoothFade(progress(t, p.horizonAt + p.ringDelay, p.ringFadeIn), p.ringSmooth)
+  frame.lensScale = smoothFade(progress(t, p.remnantAt, p.lensDuration), p.lensSmooth)
 
   // The title. By default it exists from the start as dark dust that the light front lights; the
   // other entrances bring it in on their own clock. Gathering from dust and coming out of the hole
@@ -266,12 +277,12 @@ function sampleFullIntro (t: number, p: IntroParams, ring: RingdownTiming, frame
   frame.cameraZoom = (1 + (p.cameraZoom - 1) * (1 - zoomDone)) * (1 + kick)
   frame.cameraKick = kick
   frame.shake = exploded ? p.shakeAmount * Math.exp(-sinceCollapse / p.shakeDecay) : 0
-  frame.film = 1 - smoothstep(progress(t, p.releaseAt, p.introEnd - p.releaseAt))
+  frame.film = 1 - smoothFade(progress(t, p.releaseAt, p.introEnd - p.releaseAt), p.filmSmooth)
 
   // The field flies out of the explosion while it is born, then turns smoothly to the screen centre,
   // where it is once the intro ends
   const turnAt = Math.min(matterOut(p), p.introEnd)
-  frame.vanishAtOrigin = 1 - smoothstep(progress(t, turnAt, p.introEnd - turnAt))
+  frame.vanishAtOrigin = 1 - smoothFade(progress(t, turnAt, p.introEnd - turnAt), p.turnSmooth)
 
   frame.holdAtCenter = t < p.releaseAt
   frame.done = t >= p.introEnd

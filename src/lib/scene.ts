@@ -29,10 +29,10 @@ import { createSceneColor, readSceneColor } from './scene_color'
 const TITLE_REFERENCE_GRAVITY = 2.5
 const TITLE_REFERENCE_ORBIT = 40
 const TITLE_SWIRL_RADIANS = 0.35
-// The camera's shake: two sines a side, the second weaker, at these radians a second at Shake Rate 1
+// The camera's shake: two sines a side, the second slower (its weight is Shake Undertone, its pace a multiple
+// of its own), at these radians a second at Shake Rate 1
 const SHAKE_X = [83.1, 47.3] as const
 const SHAKE_Y = [71.7, 39.9] as const
-const SHAKE_SECOND = 0.6
 // A ringdown wobble smaller than this share of the radius no longer shows, so the oval is switched off
 const MIN_HOLE_OVAL = 1e-4
 // The gravitational wave is switched off this many wobble decay times after its front left the screen
@@ -176,8 +176,9 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
   let originY = 0
 
   let fadeBacklog = 0
-  // Seconds the shake's clock is ahead of the scene's
+  // Seconds the shake's clock is ahead of the scene's, and its undertone's ahead of that
   let shakeLead = 0
+  let undertoneLead = 0
 
   const intro = createIntroFrame()
   const ringTiming: RingdownTiming = { frequency: 1, decay: 1 }
@@ -271,7 +272,7 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     title: {
       alpha: 0, x: 0, y: 0, reveal: 1, dissolve: 0, drift: 0, glow: 0, flash: 0, cooling: 1, dust: 0,
       pull: 0, swirl: 0, reach: 0, capture: 0, scale: 1, fringe: 0, halo: 0, redshift: 0, grain: 1, burn: 0, fall: 0,
-      tidal: 2, spiral: 1, spread: 0.75, stream: 0.5, order: 0.3, trail: 0.8, heat: 1.6,
+      tidal: 2, spiral: 1, spread: 0.75, stream: 0.5, order: 0.3, trail: 0.8, trailCopies: 3, trailLag: 0.13, heat: 1.6,
       speckSize: 2, currentSize: 11, beyondSpeed: 0.15, wink: 0.15, spiralRadius: 0.3, spiralMin: 0.4, spiralMax: 3,
       burnGrain: 18, burnFine: 5, burnEnds: 0.45, burnRim: 2.5, burnRimWidth: 0.1,
       currentContrast: 1.8, orderReach: 0.6, captureEdge: 0.25, reachFade: 1,
@@ -428,6 +429,12 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       dustShockOffset: 0.6,
       dustShockSharpness: 3,
       dustShockTint: 0.5,
+      dustLayers: 3,
+      dustFineness: 2.1,
+      dustRoughness: 0.5,
+      dustWarp: 0.9,
+      dustWarpScale: 0.8,
+      echoTintEase: 2,
       skyGrid: 0,
       gridCell: 64,
       gridPull: 0,
@@ -446,6 +453,7 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       shakeX: 0,
       shakeY: 0,
       lensFringe: 0,
+      lensFringeEase: 1,
       vignette: 0,
       filmGrain: 0,
       letterbox: 0,
@@ -546,6 +554,7 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     cue.title = false
     fadeBacklog = 0
     shakeLead = 0
+    undertoneLead = 0
     view.spin = 0
     field.count = 0
     frame.fieldBorn = 0
@@ -1335,6 +1344,9 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       orbitTuning.sizeSpread = state.orbitSizeSpread
       orbitTuning.eccentricitySpread = state.orbitEccentricitySpread
       orbitTuning.inclination = state.orbitInclination
+      orbitTuning.tiltSky = state.orbitTiltSky
+      orbitTuning.nodeSpread = state.orbitNodeSpread
+      orbitTuning.retrograde = state.orbitRetrograde
       orbitTuning.closest = state.orbitClosest
       orbitTuning.escape = state.orbitEscape
       orbitTuning.fadeIn = state.orbitFadeIn
@@ -1518,6 +1530,8 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     title.stream = params.titleStream
     title.order = params.titleOrder
     title.trail = params.titleTrail
+    title.trailCopies = params.titleTrailCopies
+    title.trailLag = params.titleTrailLag
     title.heat = params.titleHeat
     title.speckSize = params.titleSpeckSize
     title.currentSize = params.titleCurrentSize
@@ -1670,6 +1684,12 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     composite.dustShockOffset = params.dustShockOffset
     composite.dustShockSharpness = params.dustShockSharpness
     composite.dustShockTint = params.dustShockTint
+    composite.dustLayers = params.dustLayers
+    composite.dustFineness = params.dustFineness
+    composite.dustRoughness = params.dustRoughness
+    composite.dustWarp = params.dustWarp
+    composite.dustWarpScale = params.dustWarpScale
+    composite.echoTintEase = params.echoTintEase
     composite.waveRadius = intro.matterFront * explosionReach * frontScale
     composite.waveStrength = intro.waveStrength * params.waveRefraction
     composite.waveWidth = params.waveWidth * shortSide
@@ -1763,10 +1783,14 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     // The shake's own clock runs at Shake Rate; kept as its lead over the scene's, which is none at rate 1,
     // so the rate can move along a film without the tremor jumping
     shakeLead += dt * (params.shakeRate - 1)
+    undertoneLead += dt * params.shakeRate * (params.shakeSecondRate - 1)
     const shakeTime = animationTime + shakeLead
-    composite.shakeX = shake * (Math.sin(shakeTime * SHAKE_X[0]) + SHAKE_SECOND * Math.sin(shakeTime * SHAKE_X[1])) / (1 + SHAKE_SECOND)
-    composite.shakeY = shake * (Math.sin(shakeTime * SHAKE_Y[0] + 1.3) + SHAKE_SECOND * Math.sin(shakeTime * SHAKE_Y[1] + 0.4)) / (1 + SHAKE_SECOND)
+    const undertoneTime = shakeTime + undertoneLead
+    const second = Math.max(params.shakeSecond, 0)
+    composite.shakeX = shake * (Math.sin(shakeTime * SHAKE_X[0]) + second * Math.sin(undertoneTime * SHAKE_X[1])) / (1 + second)
+    composite.shakeY = shake * params.shakeVertical * (Math.sin(shakeTime * SHAKE_Y[0] + 1.3) + second * Math.sin(undertoneTime * SHAKE_Y[1] + 0.4)) / (1 + second)
     composite.lensFringe = params.lensFringe * film
+    composite.lensFringeEase = params.lensFringeEase
     composite.vignette = params.vignette * film
     composite.filmGrain = params.filmGrain * film
     composite.letterbox = params.letterbox * viewportHeight * film
