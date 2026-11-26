@@ -20,6 +20,33 @@ Identify:
 2. **Target keyword**: Primary and secondary
 3. **Audience**: Subscribers vs casual viewers
 
+## Finding the keywords: scripts/yt_keywords.mjs
+
+The target keyword is taken from what people actually type into YouTube, never guessed. This repository
+has a tool for it (no key, no dependencies; the usage is at the top of the script):
+
+1. **Seeds.** Write 8 to 12 short phrases for what the film shows, in the language of its voice:
+   the subject ("fourth dimension"), its synonyms ("4d space", "tesseract") and the questions it answers
+   ("what is gravity").
+2. **Suggest.** `node scripts/yt_keywords.mjs "seed,seed,..." --serp 0 --out yt-keywords/<film>`
+   types each seed into YouTube's search box followed by every letter and digit (37 asks a seed, about a
+   minute for ten seeds) and writes `suggest.csv`: every phrase offered, with `seeds` and `hits` (how often
+   it was offered) and `best` (its best place, 0 the top).
+3. **Pick.** The most offered phrases are often a song, a game, a person or a typo. Read `suggest.csv` and
+   write 30 to 40 phrases about the film itself, one a line, to `yt-keywords/<film>/picked.txt`.
+4. **Search.** `node scripts/yt_keywords.mjs --search yt-keywords/<film>/picked.txt --out yt-keywords/<film>`
+   reads the first 20 results of each (two seconds apart, as YouTube cuts off a faster run) and writes
+   `serp.csv`: `views_med` and `per_day_med` (demand) and `exact`, how many of the 20 titles carry the
+   whole phrase (competition), with `videos.csv` holding every video. A phrase with no results was not
+   read; search it again.
+5. **Choose.** The primary keyword is a phrase with high `per_day_med` and low `exact`: people watch it
+   and few titles answer it word for word. The secondary ones are the next phrases the film really covers.
+   Leave out what the film does not answer, however popular.
+
+`yt-keywords/` is kept out of git. Keep the decision instead: the phrases with their numbers, the title,
+the description and the tags go to `films/<film>_youtube.md` beside the film, and the poster is planned
+with the `space-scene` skill (`references/films.md`, section 17).
+
 ## Video Titles
 
 | Rule | Guideline |
