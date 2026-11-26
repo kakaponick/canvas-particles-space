@@ -484,8 +484,18 @@ export function sheetLayout (count: number, aspect: number, fullWidth: number) {
   return { columns, rows: Math.ceil(count / columns), tileWidth: Math.floor(Math.min(fullWidth, fit)) }
 }
 
-// One picture of frames side by side, each with its label in the corner, read back as a JPEG
-export function createSheet (tileWidth: number, tileHeight: number, columns: number, rows: number) {
+// A still is one frame as the render makes it, at the film's own size and with no label: a picture to use
+// (a poster, a thumbnail), where a sheet is a picture to look at. It draws the first second of `at`
+export function stillSecond (options: PreviewOptions) {
+  if (!options.still) return null
+  const second = Array.isArray(options.at) ? Number(options.at[0]) : NaN
+  if (!Number.isFinite(second)) fail('A still takes the second it draws, as "at": [second]')
+  return [second]
+}
+
+// One picture of frames side by side, each with its label in the corner unless it is a still, read back as
+// a JPEG
+export function createSheet (tileWidth: number, tileHeight: number, columns: number, rows: number, still = false) {
   const sheet = document.createElement('canvas')
   sheet.width = tileWidth * columns
   sheet.height = tileHeight * rows
@@ -499,13 +509,15 @@ export function createSheet (tileWidth: number, tileHeight: number, columns: num
       const x = (slot % columns) * tileWidth
       const y = Math.floor(slot / columns) * tileHeight
       ctx.drawImage(tile, x, y)
+      if (still) return
       ctx.fillStyle = 'rgba(0, 0, 0, 0.6)'
       ctx.fillRect(x, y, ctx.measureText(label).width + labelSize * 0.8, labelSize * 1.5)
       ctx.fillStyle = '#ffffff'
       ctx.fillText(label, x + labelSize * 0.4, y + labelSize * 0.3)
     },
     finish () {
-      const jpeg = sheet.toDataURL('image/jpeg', 0.86)
+      // A still is kept finer: it is shown to people, and a thumbnail of 1280x720 stays well under 2 MB
+      const jpeg = sheet.toDataURL('image/jpeg', still ? 0.92 : 0.86)
       // Base64 without the data URL's head
       return { image: jpeg.slice(jpeg.indexOf(',') + 1), mimeType: 'image/jpeg', width: sheet.width, height: sheet.height }
     }
@@ -517,17 +529,21 @@ export interface PreviewOptions {
   at?: number[]
   // How many frames to spread over the film when `at` is left out
   frames?: number
+  // One frame, the first second of `at`, at the film's own size and with no label (`stillSecond`)
+  still?: boolean
   // Where each picture of the film's graphics is read from, as in a render
   images?: Record<string, string>
 }
 
 // Draws frames of the film side by side on one picture, each with its second in the corner. Every frame
 // is the one the render will make: the film is played from its start up to the last frame asked for.
-// A film cut into shots is shown as its storyboard, a frame from the middle of each with the shot's name
+// A film cut into shots is shown as its storyboard, a frame from the middle of each with the shot's name.
+// A still is one frame with nothing on it (`stillSecond`)
 export async function previewFilm (source: unknown, options: PreviewOptions = {}) {
   const plan = planFilm(source)
   const count = clamp(Math.round(options.frames ?? DEFAULT_SHEET_FRAMES), 1, MAX_SHEET_FRAMES)
-  const at = Array.isArray(options.at) && options.at.length > 0 ? options.at : null
+  const still = stillSecond(options)
+  const at = still ?? (Array.isArray(options.at) && options.at.length > 0 ? options.at : null)
   const board = at === null && options.frames === undefined && plan.shots.length > 1
   const wanted = at
     ? at.slice(0, MAX_SHEET_FRAMES).map(Number)
@@ -535,14 +551,16 @@ export async function previewFilm (source: unknown, options: PreviewOptions = {}
       ? plan.shots.slice(0, MAX_SHEET_FRAMES).map(shot => (shot.from + shot.to) / 2)
       : Array.from({ length: count }, (_, index) => (index + 0.5) / count * plan.duration)
   const indices = framesAt(wanted, plan.fps, plan.frames)
-  const { columns, rows, tileWidth } = sheetLayout(indices.length, plan.width / plan.height, plan.width * plan.scale)
+  const { columns, rows, tileWidth } = still
+    ? { columns: 1, rows: 1, tileWidth: plan.width * plan.scale }
+    : sheetLayout(indices.length, plan.width / plan.height, plan.width * plan.scale)
   const last = indices[indices.length - 1]
 
   return exclusively(last + 1, async () => {
     const player = await createFilmPlayer(plan, tileWidth / plan.width, options.images)
     try {
       const tile = player.canvas
-      const sheet = createSheet(tile.width, tile.height, columns, rows)
+      const sheet = createSheet(tile.width, tile.height, columns, rows, still !== null)
 
       progress.phase = 'rendering'
       let slot = 0

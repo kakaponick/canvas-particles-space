@@ -2,7 +2,7 @@
 // MCP server that turns the scene into short videos. It serves the built page (dist/) from this machine,
 // keeps one headless Chrome on it and gives an agent five tools: space_guide (how to write a film),
 // space_describe (what can be set), space_check (what a film will be, without drawing it), space_preview
-// (a contact sheet of frames) and space_render (the mp4). A film comes as its JSON or as a script that
+// (a contact sheet of frames, or one clean frame as a still) and space_render (the mp4). A film comes as its JSON or as a script that
 // writes it. Four more do the same for a zoom into the Mandelbrot set (space_fractal_guide, _check,
 // _preview, _render). The page does the work through window.space.film and window.space.fractal; this
 // file only carries text in and files out.
@@ -23,6 +23,7 @@ import vm from 'node:vm'
 import crypto from 'node:crypto'
 import readline from 'node:readline'
 import { spawn } from 'node:child_process'
+import { Buffer } from 'node:buffer'
 import { fileURLToPath } from 'node:url'
 import { takeTurn } from '../scripts/turn.mjs'
 
@@ -96,13 +97,15 @@ const TOOLS = [
     name: 'space_preview',
     description: 'Draws frames of a film side by side in one picture, each with its second, exactly as the render will make them. ' +
       'A film cut into shots is shown as its storyboard: one frame from the middle of each shot, with its name. ' +
-      'Use it to check a film before rendering.',
+      'Use it to check a film before rendering. With "still" it draws one frame as it is, for a poster or a YouTube thumbnail.',
     inputSchema: {
       type: 'object',
       properties: {
         ...FILM_INPUT,
         at: { type: 'array', items: { type: 'number' }, description: 'Seconds to show; a frame of each shot, or evenly spread, when left out' },
         frames: { type: 'number', description: 'How many frames to spread evenly over the film when "at" is left out (default 9)' },
+        still: { type: 'boolean', description: 'One frame, the first second of "at", at the film\'s own size and with no label: a picture to use as it is' },
+        out: { type: 'string', description: 'Where to write the picture as a .jpg as well; relative paths start at the working directory' },
         oneScene: ONE_SCENE
       }
     }
@@ -607,6 +610,7 @@ async function runTool (name, args, report) {
     if (args.oneScene === true) options.oneScene = true
     if (Array.isArray(args.at)) options.at = args.at
     if (typeof args.frames === 'number') options.frames = args.frames
+    if (args.still === true) options.still = true
     if (args.input !== undefined) options.input = args.input
     const pictures = await filmPictures(page, film, args.input)
     if (pictures.missing.length > 0) throw new Error(pictures.missing.join('\n'))
@@ -615,12 +619,19 @@ async function runTool (name, args, report) {
     const note = sheet.notes.length > 0 ? `\nAdjusted: ${sheet.notes.join('; ')}` : ''
     // The film as it was understood, so what was meant can be checked against it before a render
     const timeline = `\nTimeline:\n${sheet.timeline.map(line => '  ' + line).join('\n')}`
+    let written = ''
+    if (typeof args.out === 'string' && args.out.trim() !== '') {
+      const out = path.resolve(process.cwd(), args.out)
+      fs.mkdirSync(path.dirname(out), { recursive: true })
+      fs.writeFileSync(out, Buffer.from(sheet.image, 'base64'))
+      written = ` Written to ${out}.`
+    }
     return {
       content: [
         { type: 'image', data: sheet.image, mimeType: sheet.mimeType },
         {
           type: 'text',
-          text: `Frames at ${sheet.times.join(', ')} s, left to right, top to bottom. ` +
+          text: (options.still ? `A still of ${sheet.width}x${sheet.height} at ${sheet.times[0]} s.${written} ` : `Frames at ${sheet.times.join(', ')} s, left to right, top to bottom.${written} `) +
             `The film: ${sheet.film.duration} s, ${sheet.film.fps} fps, ${sheet.film.width}x${sheet.film.height}.${note}${timeline}`
         }
       ]

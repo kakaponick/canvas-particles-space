@@ -7,6 +7,7 @@
 //   node space.mjs describe [word]
 //   node space.mjs check <film> [out.json]  |  check <film> <film> ...
 //   node space.mjs preview <film> <out.jpg> [seconds,seconds,...]
+//   node space.mjs still <film> <out.jpg> <second>       one frame as the render makes it, with no label
 //   node space.mjs render <film> <out.mp4> [medium|high|max] [audio file]
 //
 // A film is a .json file, or a script that plays it forward: a .js file. "--input <file.json>" anywhere on
@@ -31,6 +32,7 @@ const USAGE = [
   'node space.mjs describe [word]',
   'node space.mjs check <film.json|film.js> [out.json]  |  check <film> <film> ...',
   'node space.mjs preview <film.json|film.js> <out.jpg> [seconds,seconds,...]',
+  'node space.mjs still <film.json|film.js> <out.jpg> <second>',
   'node space.mjs render <film.json|film.js> <out.mp4> [medium|high|max] [audio file]',
   'and --input <file.json> for what a script reads as input',
   'node space.mjs fractal-guide | fractal-check <fractal> [out.json] | fractal-preview <fractal> <out.jpg> [seconds,...] |',
@@ -104,6 +106,12 @@ function readJobs (command, given) {
       if (isTimes && third !== '-') args.at = third.split(',').map(Number)
       jobs.push({ tool: 'space_preview', args, out: path.resolve(out), name: path.basename(film) })
       at += isTimes ? 3 : 2
+    }
+  } else if (command === 'still') {
+    for (let at = 0; at < words.length; at += 3) {
+      const [film, out, second] = words.slice(at, at + 3)
+      if (!film || !out || !/^\d+(\.\d+)?$/.test(second ?? '')) throw new Error('still takes <film> <out.jpg> <second>')
+      jobs.push({ tool: 'space_preview', args: { ...readFilm(film, input), at: [Number(second)], still: true }, out: path.resolve(out), name: path.basename(film) })
     }
   } else if (command === 'render') {
     const qualities = ['medium', 'high', 'max']

@@ -114,6 +114,7 @@ node .claude/skills/space-scene/scripts/space.mjs describe orbit
 node .claude/skills/space-scene/scripts/space.mjs check films/language.js
 node .claude/skills/space-scene/scripts/space.mjs preview films/language.js out/language.jpg
 node .claude/skills/space-scene/scripts/space.mjs preview films/waltz.json out/waltz.jpg 4,12,29.5,31
+node .claude/skills/space-scene/scripts/space.mjs still films/waltz.json out/waltz_12s.jpg 12
 node .claude/skills/space-scene/scripts/space.mjs render films/waltz.json films/waltz.mp4 high
 node .claude/skills/space-scene/scripts/space.mjs preview films/a.js out/a.jpg - films/b.js out/b.jpg -
 ```
@@ -124,7 +125,9 @@ and render all take a list.
 Both the server and the script serve `dist/`, so run `pnpm build` after any change to the page; without it
 they draw the old scene and reject keys the code already has.
 
-Read [references/films.md](references/films.md) before writing a film longer than a single shot.
+Read [references/films.md](references/films.md) before writing a film longer than a single shot. A film
+for YouTube starts from its poster, the thumbnail, planned before the timeline and drawn with `still`:
+its section 17.
 
 ### A zoom into the Mandelbrot set: a fractal film
 
@@ -192,7 +195,8 @@ lists every key by kind.
 
 ## What to report
 
-Say what was set and where the result is (the screenshot, the film's json and mp4 as paths), repeat
+Say what was set and where the result is (the screenshot, the film's json and mp4 as paths, and for a
+film for YouTube its poster's jpg with its words), repeat
 anything the scene adjusted, and name what was not looked at. If the picture did not show the effect and a
 gating knob had to be raised, say which one: that is what the next request will need. After a code change,
 name the numbers it left fixed (its new lines in section 16 of the map) and what a knob for each would take.

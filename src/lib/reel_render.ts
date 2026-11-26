@@ -5,7 +5,7 @@
 import { clamp, fail } from './agent_values'
 import {
   DEFAULT_SHEET_FRAMES, MAX_SHEET_FRAMES, breathe, checkCancelled, createFilmPlayer, createSheet, encodeVideo, exclusively,
-  framesAt, progress, readQuality, sheetLayout, type PreviewOptions, type RenderOptions
+  framesAt, progress, readQuality, sheetLayout, stillSecond, type PreviewOptions, type RenderOptions
 } from './film_render'
 import { createFractalPlayer, loadFonts } from './fractal_render'
 import { planReel, type ReelClip, type ReelPlan } from './reel'
@@ -207,11 +207,13 @@ export async function renderReel (source: unknown, options: RenderOptions & Reel
 }
 
 // Draws frames of the reel side by side on one picture. With no seconds asked for it is the reel's
-// storyboard, a frame from the middle of each clip with its name; every frame is the one the render makes
+// storyboard, a frame from the middle of each clip with its name; every frame is the one the render makes.
+// A still is one frame with nothing on it (`stillSecond`)
 export async function previewReel (source: unknown, options: PreviewOptions & ReelOptions = {}) {
   const plan = planReel(source)
   const count = clamp(Math.round(options.frames ?? DEFAULT_SHEET_FRAMES), 1, MAX_SHEET_FRAMES)
-  const at = Array.isArray(options.at) && options.at.length > 0 ? options.at : null
+  const still = stillSecond(options)
+  const at = still ?? (Array.isArray(options.at) && options.at.length > 0 ? options.at : null)
   const board = at === null && options.frames === undefined && plan.clips.length > 1
   const wanted = at
     ? at.slice(0, MAX_SHEET_FRAMES).map(Number)
@@ -219,13 +221,15 @@ export async function previewReel (source: unknown, options: PreviewOptions & Re
       ? plan.clips.slice(0, MAX_SHEET_FRAMES).map(clip => (clip.start + clip.count / 2) / plan.fps)
       : Array.from({ length: count }, (_, index) => (index + 0.5) / count * plan.duration)
   const indices = framesAt(wanted, plan.fps, plan.frames)
-  const { columns, rows, tileWidth } = sheetLayout(indices.length, plan.width / plan.height, plan.width * plan.scale)
+  const { columns, rows, tileWidth } = still
+    ? { columns: 1, rows: 1, tileWidth: plan.width * plan.scale }
+    : sheetLayout(indices.length, plan.width / plan.height, plan.width * plan.scale)
   const last = indices[indices.length - 1]
 
   return exclusively(last + 1, async () => {
     const player = await createReelPlayer(plan, tileWidth / plan.width, options, indices[0])
     try {
-      const sheet = createSheet(player.canvas.width, player.canvas.height, columns, rows)
+      const sheet = createSheet(player.canvas.width, player.canvas.height, columns, rows, still !== null)
       progress.phase = 'rendering'
       for (let slot = 0; slot < indices.length; slot++) {
         checkCancelled()

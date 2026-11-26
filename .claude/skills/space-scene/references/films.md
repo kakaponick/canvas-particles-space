@@ -21,6 +21,7 @@ that a viewer sees what was meant, and what has already gone wrong once.
 14. Shapes over the picture
 15. A reel: several films in one video
 16. The particle field: a look for every shot
+17. The poster: a YouTube thumbnail planned with the film
 
 ## 1. Start from the picture, not from the keys
 
@@ -29,6 +30,9 @@ make it, from knobs.md. A film that moves ten things at once shows none of them;
 ability of the scene, taken to its end, is the one people watch twice.
 
 The particles are in every one of those pictures, so each shot says what they do: section 16.
+
+A film made for YouTube starts one step earlier: with its thumbnail. Before the first second is written,
+say in a sentence what the poster shows and which moment of the film keeps its promise: section 17.
 
 Give every change time: a viewer needs about three seconds to take in a new picture, and a label needs to
 stay as long as it takes to read twice.
@@ -157,7 +161,7 @@ takes an audio file and lays it under the picture from the first second.
   version waits for the user to ask: each doubles the render, so a file that came out large is reported
   with its size, not rendered again smaller unasked. A render made stale by a new request is stopped at
   once, before the new work is thought through.
-- Rendered mp4 and audio files in `films/` are kept out of git; the json is the film. On Windows a render
+- Rendered mp4 and audio files and the posters' jpg in `films/` are kept out of git; the json is the film. On Windows a render
   fails to replace an mp4 that a player still has open.
 
 ## 8. High frame rates
@@ -450,3 +454,44 @@ What decides whether a look shows:
 - A hole given more mass along the film (`blackHoleSize` on a track) carries its ring with it.
 - A shape is laid where the particles already go: an arrow over a stream is a label, an arrow in place of
   one is a diagram of something the scene could have shown.
+
+## 17. The poster: a YouTube thumbnail planned with the film
+
+On YouTube the thumbnail is seen before anything of the film, and most often instead of it. So a film made
+to be published is planned from its poster: the picture first, then the film that keeps what it promises.
+The poster, the title and the first lines of the description say one thing three ways (the `youtube-seo`
+skill writes the title and the description; this section is the picture).
+
+1. **Say it before the timeline.** One sentence: what the poster shows and the moment of the film it comes
+   from, e.g. "the ring lit from below, the hole a third of the frame, words: ONE SECOND TO FALL". That
+   moment becomes a shot of the film, and the film reaches it in its first third, since a viewer who clicked
+   for the picture leaves when it does not come.
+2. **Make it read small.** A thumbnail is seen at about 170 px wide in a list of results and at 360 px on the
+   home page, where the particles' fine detail turns to grey. What carries at that size:
+   - one subject, the hole, the ring, the two holes of a merger, at least a third of the frame's height,
+     off the centre on a third of the frame;
+   - the scene's own contrast: a bright thing on black, one strong colour (`accent`, the ring, the
+     `gridSky`), the trails short enough not to fog the black;
+   - at most four words, which add to the title and do not repeat it, in the title's language, as one
+     caption of `size` 0.12 to 0.2 in `unbounded` or `orbitron`, with a `plate` where the picture behind
+     them is busy;
+   - the bottom right corner left empty: YouTube lays the film's length over it.
+3. **Make it a film of its own.** The poster is `films/<name>_poster.js` (or `.json`) beside the film:
+   `"size": "720p"` (1280x720, the size YouTube asks for), `"intro": false`, the film's `seed`, the settings
+   of the moment it shows (in a script, the same function that makes that shot), a `warmup` long enough for
+   the trails, a second or two of `duration`, and the words as its caption. When a frame of the film itself
+   already is the poster, a still of that second will do, captions and all.
+4. **Draw it as a still**, one frame as the render makes it, with no label:
+   `node .claude/skills/space-scene/scripts/space.mjs still films/<name>_poster.js films/<name>_poster.jpg 1.5`
+   (through the server: `space_preview` with `still` and `out`). Look at it, then judge it by step 2: the
+   subject and the words are measured on the full-size picture (at 720p a word of `size` 0.12 is 86 px
+   high), not guessed.
+5. **Report it** with the film: the path of the jpg, its words, the second of the film it promises, and the
+   titles it was made to stand beside.
+
+A vertical film published as a Short is shown in the Shorts feed by a frame of its own, picked in the
+YouTube app, so its poster is a moment of the film: name its second in the report instead.
+
+To publish, the jpg goes through `postiz upload` and its `id` and `path` become the post's `thumbnail`
+(the `postiz` skill). YouTube takes a custom thumbnail only from a verified channel, as a JPG or PNG under
+2 MB; a still of 1280x720 is well under that.
