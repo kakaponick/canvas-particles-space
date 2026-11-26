@@ -386,9 +386,6 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       nebulaPatchSoftness: 0,
       nebulaCore: 0,
       nebulaCoreFrom: 0,
-      nebulaShiftX: 0,
-      nebulaShiftY: 0,
-      nebulaWrap: 0,
       starWarm: createSceneColor(),
       starCool: createSceneColor(),
       starSpread: STAR_SPREAD,
@@ -417,11 +414,6 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       gridHazeSpan: 0.5,
       gridColor: createSceneColor(),
       skyGridLine: 1.5,
-      starShiftX: 0,
-      starShiftY: 0,
-      skyRoll: 0,
-      gridShiftX: 0,
-      gridShiftY: 0,
       colorFlash: 0xffffff,
       colorLight: 0xffffff,
       colorDust: 0xffffff,
@@ -1058,35 +1050,9 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       orbitTurn[5] = pose[7]
       frame.orbitFocal = focal
       frame.orbitDepth = holeBehind ? -1 : focal / holeScale
-      // The sky is infinitely far: it turns with the camera and does not move with its place. A full turn
-      // slides the stars and the lensed grid by whole cells, so a turn past 180 degrees does not jump
-      const starWrap = state.starCell * Math.max(1, Math.round(FULL_TURN * focal / state.starCell))
-      const gridCell = state.gridCell / 100 * shortSide
-      const gridWrap = gridCell * Math.max(1, Math.round(FULL_TURN * focal / gridCell))
-      // The head turns the view as the circle does, and looking up is the circle's elevation the other way
-      const skyYaw = lookYaw === 0 ? yaw : yaw + lookYaw
-      const skyPitch = lookPitch === 0 ? pitch : pitch - lookPitch
-      composite.starShiftX = skyYaw / FULL_TURN * starWrap
-      composite.starShiftY = skyPitch * focal
-      composite.gridShiftX = skyYaw / FULL_TURN * gridWrap
-      composite.gridShiftY = skyPitch * focal
-      composite.skyRoll = roll
-      // The nebula repeats in nothing, so it slides by the share of a full turn the camera has made and
-      // the composite pass blends it into itself as the turn comes round
-      composite.nebulaWrap = FULL_TURN * focal
-      composite.nebulaShiftX = ((skyYaw % FULL_TURN) + FULL_TURN) % FULL_TURN * focal
-      composite.nebulaShiftY = skyPitch * focal
     } else {
       settings.threeD = 0
       frame.orbitFocal = 0
-      composite.starShiftX = 0
-      composite.starShiftY = 0
-      composite.skyRoll = 0
-      composite.gridShiftX = 0
-      composite.gridShiftY = 0
-      composite.nebulaWrap = 0
-      composite.nebulaShiftX = 0
-      composite.nebulaShiftY = 0
     }
 
     // The space sheet is laid over the frame with its well under the black hole. It is laid out here, before

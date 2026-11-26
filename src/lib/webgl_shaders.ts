@@ -365,9 +365,7 @@ export const compositeFragmentShaderSource = `
   uniform float u_skyGrid;        // brightness of the flat grid on the sky behind the hole; 0 turns it off
   uniform float u_gridCell;        // CSS pixels per cell of that grid
   uniform float u_skyGridLine;     // half the width of a line of that grid, CSS pixels
-  uniform vec4 u_skyShift;         // CSS pixels the 3D camera's turn slides the stars (xy) and that grid (zw) by; zeros when flat
-  uniform vec3 u_skyRoll;          // the 3D camera's roll: its cosine and sine, 1 while it rolls
-  uniform vec4 u_nebula;           // the nebula's brightness (0 turns it off), CSS pixels the 3D camera's turn slides it by (yz), CSS pixels of a full turn (0 when flat)
+  uniform float u_nebula;          // the nebula's brightness; 0 turns it off
   uniform vec3 u_nebulaColor;
   uniform vec3 u_nebulaColorDeep;
   uniform vec3 u_nebulaColorCore;
@@ -522,25 +520,63 @@ ${DENT_GLSL}
     return tint * density;
   }
 
-  // Static distant stars, one at most per cell; they flare as the light front passes
-  // Where a point of the screen was before a rolling 3D camera turned the sky about the middle of the
-  // screen, in CSS pixels
-  vec2 unrolled (vec2 cssPx) {
-    if (u_skyRoll.z == 0.0) return cssPx;
-    vec2 fromMiddle = cssPx - 0.5 * u_resolution / u_pixelRatio;
-    return 0.5 * u_resolution / u_pixelRatio + vec2(u_skyRoll.x * fromMiddle.x - u_skyRoll.y * fromMiddle.y, u_skyRoll.y * fromMiddle.x + u_skyRoll.x * fromMiddle.y);
+  // The sky is a box round the scene, infinitely far, and the camera turns inside it: the stars, the
+  // nebula and the Lensed Grid lie on its faces. Straight on the camera looks at the middle of face 0, which
+  // is the flat sky, CSS pixel for CSS pixel. The middle of the screen and the focal length, CSS pixels
+  vec3 skyLens () {
+    vec2 middle = 0.5 * u_resolution / u_pixelRatio;
+    return vec3(middle, max(middle.x, middle.y));
   }
 
+  // The direction in the scene a point of the picture, CSS pixels, looks along
+  vec3 skyRay (vec2 cssPx, vec3 lens) {
+    vec3 ray = vec3(cssPx - lens.xy, lens.z);
+    return ray.x * u_turnRight + ray.y * u_turnDown + ray.z * u_turnAhead;
+  }
+
+  // The face of the box a direction meets and the place on it, CSS pixels from its middle: (x, y, face).
+  // Faces 0 and 1 lie across z, 2 and 3 across x, 4 and 5 across y, the odd one on the negative side. Two
+  // faces that meet share the coordinate along their edge, so a line of the grid runs on across it
+  vec3 skyFace (vec3 ray, float focal) {
+    vec3 size = abs(ray);
+    if (size.z >= size.x && size.z >= size.y) return vec3(ray.xy * (focal / size.z), ray.z < 0.0 ? 1.0 : 0.0);
+    if (size.x >= size.y) return vec3(ray.zy * (focal / size.x), ray.x < 0.0 ? 3.0 : 2.0);
+    return vec3(ray.xz * (focal / size.y), ray.y < 0.0 ? 5.0 : 4.0);
+  }
+
+  // The direction in the scene of a place on a face, skyFace the other way
+  vec3 faceRay (vec2 onFace, float face, float focal) {
+    float side = mod(face, 2.0) > 0.5 ? -focal : focal;
+    if (face < 1.5) return vec3(onFace, side);
+    if (face < 3.5) return vec3(side, onFace.y, onFace.x);
+    return vec3(onFace.x, side, onFace.y);
+  }
+
+  // Static distant stars, one at most per cell of a face; they flare as the light front passes
   vec3 backgroundStar (vec2 cssPx, float flare) {
-    vec2 cell = floor(cssPx / u_starCell);
-    float presence = hash12(cell);
+    vec3 lens = skyLens();
+    vec3 onFace = skyFace(skyRay(cssPx, lens), lens.z);
+    vec2 cell = floor((lens.xy + onFace.xy) / u_starCell);
+    // Each face has stars of its own; face 0 keeps the cells of the flat sky
+    vec2 key = cell + onFace.z * vec2(1543.0, 2741.0);
+    float presence = hash12(key);
     if (presence > u_starDensity) return vec3(0.0);
-    vec2 position = (cell + 0.2 + 0.6 * vec2(hash12(cell + 7.3), hash12(cell + 13.1))) * u_starCell;
+    vec2 position = (cell + 0.2 + 0.6 * vec2(hash12(key + 7.3), hash12(key + 13.1))) * u_starCell - lens.xy;
+    // The next face does not draw this face's stars, so a star whose light would reach over the edge is none.
+    // The star's angle from the edge is at least fromEdge / (sqrt(2) |star|), and the screen draws an angle
+    // at least the focal length wide, so three of its radii (3 sqrt(2) = 4.2426) stay on its face however
+    // the camera turns; a zoom below 1 shows the sky smaller and the star as large, so its radii are more
+    vec3 star = faceRay(position, onFace.z, lens.z);
+    vec2 fromEdge = lens.z - abs(position);
+    if (min(fromEdge.x, fromEdge.y) * lens.z * min(u_cameraZoom, 1.0) < 4.2426 * sqrt(u_starLook.x) * length(star)) return vec3(0.0);
+    // The star is set where the camera sees its direction, so it stays round however the face is turned
+    vec3 seen = vec3(dot(u_turnRight, star), dot(u_turnDown, star), dot(u_turnAhead, star));
+    if (seen.z <= 0.0) return vec3(0.0);
     // A star is a point of light: the zoom moves the stars apart and leaves each the size it was
-    float d = length(cssPx - position) * u_cameraZoom;
-    float brightness = hash12(cell + 3.7);
+    float d = length(cssPx - lens.xy - seen.xy * (lens.z / seen.z)) * u_cameraZoom;
+    float brightness = hash12(key + 3.7);
     float twinkle = u_starLook.y + u_starLook.z * sin(u_time * (u_starLook.w * (2.0 + 3.0 * brightness)) + presence * 400.0);
-    vec3 tint = mix(u_starWarm.rgb, u_starCool.rgb, hash12(cell + 29.0));
+    vec3 tint = mix(u_starWarm.rgb, u_starCool.rgb, hash12(key + 29.0));
     return tint * exp(-d * d / u_starLook.x) * (u_starWarm.a + u_starCool.a * brightness * brightness) * twinkle * (1.0 + flare);
   }
 
@@ -966,16 +1002,31 @@ ${DENT_GLSL}
     if (u_backgroundStars > 0.0) {
       // The flare belongs to the light front, not to the dust echo, so hiding the echo keeps it
       float flare = u_lightPower > 0.0 && lit >= 0.0 ? u_starFlare * exp2(lit * u_starFlareRate) : 0.0;
-      emitted += backgroundStar(unrolled(cssPx) + u_skyShift.xy, flare) * u_backgroundStars;
+      emitted += backgroundStar(cssPx, flare) * u_backgroundStars;
     }
-    if (u_nebula.x > 0.0) {
-      // Behind the stars and read where the bent ray comes from, like them, and drifting on its own
-      vec2 nebulaAt = unrolled(cssPx) + u_nebula.yz + u_nebulaDrift * u_time;
-      vec3 nebula = nebulaLight(nebulaAt);
-      // In 3D the turn slides it by up to a full turn's width, and the nebula a full turn on takes over as
-      // the turn comes round, so it never jumps
-      if (u_nebula.w > 0.0) nebula = mix(nebula, nebulaLight(nebulaAt - vec2(u_nebula.w, 0.0)), smoothstep(0.0, 1.0, u_nebula.y / u_nebula.w));
-      emitted += nebula * u_nebula.x;
+    if (u_nebula > 0.0) {
+      // Behind the stars and read where the bent ray comes from, like them, and drifting on its own. Each
+      // face of the box has clouds of its own, and near an edge or a corner the faces that meet there blend:
+      // a face takes part once the ray is nearly as far across it as across the face it meets
+      vec3 lens = skyLens();
+      vec3 ray = skyRay(cssPx, lens);
+      vec3 size = abs(ray);
+      float most = max(size.x, max(size.y, size.z));
+      vec3 nebula = vec3(0.0);
+      float shares = 0.0;
+      // One call of nebulaLight, in the loop: a card's compiler writes a function out again wherever it
+      // is called
+      for (int axis = 0; axis < 3; axis++) {
+        float across = axis == 0 ? ray.z : axis == 1 ? ray.x : ray.y;
+        float share = smoothstep(0.75, 1.0, abs(across) / most);
+        if (share > 0.0) {
+          vec2 along = axis == 0 ? ray.xy : axis == 1 ? ray.zy : ray.xz;
+          float face = 2.0 * float(axis) + (across < 0.0 ? 1.0 : 0.0);
+          nebula += share * nebulaLight(lens.xy + along * (lens.z / abs(across)) + face * vec2(7919.0, 3571.0) + u_nebulaDrift * u_time);
+          shares += share;
+        }
+      }
+      emitted += nebula / shares * u_nebula;
     }
     if (u_skyGrid > 0.0) {
       // A square grid on the sky, with a line through the middle of the screen. It is read where the
@@ -1005,11 +1056,20 @@ ${DENT_GLSL}
         // their width against the tighter one
         squeeze = max(slope, node / seen);
       }
-      vec2 fromLine = abs(fract((unrolled(gridAt) + u_skyShift.zw - 0.5 * u_resolution / u_pixelRatio) / u_gridCell - 0.5) - 0.5) * u_gridCell;
-      float line = clamp((u_skyGridLine - min(fromLine.x, fromLine.y) * u_cameraZoom / squeeze) * u_pixelRatio + 0.5, 0.0, 1.0);
+      // The grid lies on the faces of the sky's box, with a line through the middle of each
+      vec3 lens = skyLens();
+      vec3 onFace = skyFace(skyRay(gridAt, lens), lens.z);
+      vec2 fromLine = abs(fract(onFace.xy / u_gridCell - 0.5) - 0.5) * u_gridCell;
+      // A face seen at a slant is drawn smaller: CSS pixels of the screen per CSS pixel of the face, the
+      // geometric mean of its two ways, the screen's stretch over the face's (both gnomonic), so its lines
+      // keep their width; 1 straight on
+      vec2 fromMiddle = (gridAt - lens.xy) / lens.z;
+      vec2 faceShare = onFace.xy / lens.z;
+      float slant = pow((1.0 + dot(fromMiddle, fromMiddle)) / (1.0 + dot(faceShare, faceShare)), 0.75);
+      float line = clamp((u_skyGridLine - min(fromLine.x, fromLine.y) * slant * u_cameraZoom / squeeze) * u_pixelRatio + 0.5, 0.0, 1.0);
       if (squeeze > 1.0) {
         // Where the cells shrink to a few pixels their lines merge into a haze of the light they share
-        float cellPx = u_gridCell * u_cameraZoom * u_pixelRatio / squeeze;
+        float cellPx = u_gridCell * slant * u_cameraZoom * u_pixelRatio / squeeze;
         line = mix(line, min(4.0 * u_skyGridLine * u_pixelRatio / cellPx, 1.0), smoothstep(u_gridHaze.x, u_gridHaze.y, cellPx));
       }
       emitted += u_gridColor * u_skyGrid * line;

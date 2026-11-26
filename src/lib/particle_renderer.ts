@@ -202,8 +202,7 @@ export interface CompositeSettings {
   starCell: number
   starDensity: number
   starFlare: number
-  // The nebula's brightness (0 turns it off) and its two colours; CSS pixels the 3D camera's turn slides
-  // it by, and the CSS pixels of a full turn, over which it blends into itself (0 in the flat mode)
+  // The nebula's brightness (0 turns it off) and its colours
   nebula: number
   nebulaColor: SceneColor
   nebulaColorDeep: SceneColor
@@ -225,9 +224,6 @@ export interface CompositeSettings {
   nebulaPatchSoftness: number
   nebulaCore: number
   nebulaCoreFrom: number
-  nebulaShiftX: number
-  nebulaShiftY: number
-  nebulaWrap: number
   // A background star: the two colours its tint lies between, the spread of its bell of light (the square
   // of its radius, CSS pixels), the share of its light that twinkles and the rate of that as a multiple of
   // its own, and the brightness of the faintest star as a share of the brightest
@@ -269,15 +265,6 @@ export interface CompositeSettings {
   gridHazeSpan: number
   // The width of that grid's lines in CSS pixels
   skyGridLine: number
-  // CSS pixels the 3D camera's turn slides the sky by: the background stars, then the lensed grid; zeros
-  // in the flat mode
-  starShiftX: number
-  starShiftY: number
-  // A 3D camera's roll, in radians (positive: the picture turns anticlockwise); the sky turns with it
-  // about the middle of the screen
-  skyRoll: number
-  gridShiftX: number
-  gridShiftY: number
   // Colours of the intro, 0xRRGGBB
   colorFlash: number
   colorLight: number
@@ -591,7 +578,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     'titleFringe', 'titleHalo', 'titleRedshift', 'titleGrain', 'titleBurn', 'titleFall', 'titleTidal', 'titleSpiral', 'titleSpread', 'titleStream', 'titleOrder', 'titleTrail', 'titleHeat', 'dustSweep', 'echoFloor', 'dustShock', 'dustBlow', 'dustDrift',
     'titleSpeck', 'titleWinkRest', 'titleWind', 'titleBurnShape', 'titleBurnRimWidth', 'titleFallShape', 'titleDustShape', 'titleDustCut', 'titleBurnEdge',
     'echoShape', 'echoSwell', 'dustMotion', 'dustFlare', 'starFlareRate', 'remnantShape', 'vignetteSpan', 'knee',
-    'skyGrid', 'gridCell', 'skyGridLine', 'skyShift', 'skyRoll', 'orbits', 'nebula', 'nebulaColor', 'nebulaColorDeep', 'nebulaColorCore', 'nebulaShape', 'nebulaLook', 'nebulaPatch', 'nebulaDrift', 'gridPull', 'gridColor', 'gridHaze',
+    'skyGrid', 'gridCell', 'skyGridLine', 'orbits', 'nebula', 'nebulaColor', 'nebulaColorDeep', 'nebulaColorCore', 'nebulaShape', 'nebulaLook', 'nebulaPatch', 'nebulaDrift', 'gridPull', 'gridColor', 'gridHaze',
     'colorFlash', 'colorLight', 'colorDust', 'colorTitle', 'colorEmber',
     'cameraZoom', 'zoomCenter', 'layerZoom', 'shake', 'lensFringe', 'vignette', 'filmGrain', 'letterbox'
   ] as const)
@@ -1139,7 +1126,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     setUniform1f(gl, u.starCell, Math.max(settings.starCell, 1))
     setUniform1f(gl, u.starDensity, settings.starDensity)
     setUniform1f(gl, u.starFlare, settings.starFlare)
-    setUniform4f(gl, u.nebula, settings.nebula, settings.nebulaShiftX, settings.nebulaShiftY, settings.nebulaWrap)
+    setUniform1f(gl, u.nebula, settings.nebula)
     if (settings.nebula > 0) {
       setUniform3f(gl, u.nebulaColor, settings.nebulaColor.r, settings.nebulaColor.g, settings.nebulaColor.b)
       setUniform3f(gl, u.nebulaColorDeep, settings.nebulaColorDeep.r, settings.nebulaColorDeep.g, settings.nebulaColorDeep.b)
@@ -1185,8 +1172,6 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
       setUniform3f(gl, u.gridColor, settings.gridColor.r, settings.gridColor.g, settings.gridColor.b)
       setUniform1f(gl, u.skyGridLine, settings.skyGridLine * 0.5)
     }
-    setUniform4f(gl, u.skyShift, settings.starShiftX, settings.starShiftY, settings.gridShiftX, settings.gridShiftY)
-    setUniform3f(gl, u.skyRoll, Math.cos(settings.skyRoll), Math.sin(settings.skyRoll), settings.skyRoll !== 0 ? 1 : 0)
     gl.drawArrays(gl.TRIANGLES, 0, QUAD_VERTEX_COUNT)
   }
 
