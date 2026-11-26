@@ -5,7 +5,7 @@ import { BASE_SPEED_MAX, BASE_SPEED_MIN, BASE_SPEED_STEP } from './base_speed'
 import { HORIZON_SCALE_MAX } from './simulation_presets'
 import { GRID_LINES_PER_SIDE } from './space_grid'
 import { LATTICE_LINES_PER_SIDE } from './space_lattice'
-import { FLOW_CAPACITY, FLOW_KEYS, type FlowColorKey, type FlowSliderKey } from './flows'
+import { FLOW_CAPACITY, FLOW_KEYS, type FlowColorKey, type FlowSharedKey, type FlowSliderKey } from './flows'
 
 export interface SimulationSettingSpec {
   label: string
@@ -40,7 +40,7 @@ const FLOW_SPECS = Object.fromEntries(FLOW_KEYS.flatMap(keys => {
   const flow = `flow ${keys.slot}`
   return [
     [keys.brightness, spec(name, 0, 3, 0.01, fixed(2, '×'), 'Matter sent round the hole; 0 = off',
-      `Brightness of ${flow}, a band of particles that is told where to go round the black hole instead of being left to the particle field: its matter appears at From, leaves at To after Life seconds and turns by Swirl. From and To alike make a ring, To below From a fall into the hole, To above From an outflow. A flow needs no warm-up: it is whole in the first frame it is asked for, at any second of a film. It lies in the main hole's equator, tipped out of it by Tilt and as thick as Thickness: the flat mode sees the equator face on, and in 3D it faces the spin's axis as far as Swirl Follows Spin turns the swirl there (along the flight while the hole does not spin), seen turned by the camera. It is bent by the lens and covered by the shadow; with Particles on Sheet above 0 it lies on the sheet as the field does, and a flow round the main hole whose To is inside the Event Horizon lights the photon ring while Infall Light is on. Three flows, A, B and C, stand in a scene at once. 0 turns this one off.`)],
+      `Brightness of ${flow}, a band of particles that is told where to go round the black hole instead of being left to the particle field: its matter appears at From, leaves at To after Life seconds and turns by Swirl. From and To alike make a ring, To below From a fall into the hole, To above From an outflow. A flow needs no warm-up: it is whole in the first frame it is asked for, at any second of a film. It lies in the main hole's equator (or leans to the camera's plane by Face Camera), tipped out of it by Tilt and as thick as Thickness: the flat mode sees the equator face on, and in 3D it faces the spin's axis as far as Swirl Follows Spin turns the swirl there (along the flight while the hole does not spin), seen turned by the camera. It is bent by the lens and covered by the shadow; with Particles on Sheet above 0 it lies on the sheet as the field does, and a flow round the main hole whose To is inside the Event Horizon lights the photon ring while Infall Light is on. Three flows, A, B and C, stand in a scene at once. 0 turns this one off.`)],
     [keys.count, spoken(spec('Count', 0, FLOW_CAPACITY, 100, count, 'How many particles the flow holds',
       `How many particles ${flow} holds. They are placed and drawn by the graphics card alone, so they cost the processor nothing.`), `${name} Count`)],
     [keys.from, spoken(spec('From', 0.2, 60, 0.1, fixed(1, '×'), 'Radius matter appears at, in hole radii',
@@ -58,15 +58,55 @@ const FLOW_SPECS = Object.fromEntries(FLOW_KEYS.flatMap(keys => {
     [keys.size, spoken(spec('Size', 0.3, 20, 0.1, fixed(1, ' px'), 'Width of a stroke of the flow',
       `Stroke width of the particles of ${flow}, in CSS pixels, the same at any distance.`), `${name} Size`)],
     [keys.pair, spoken(spec('Around', -1, 1, 0.01, fixed(2), 'It circles: -1 main, 0 centre, 1 second',
-      `What ${flow} turns round while there is a second black hole: -1 the main hole, 0 the centre the two turn about, 1 the second hole, and the points between lie on the lines between them. Toward the second hole the flow's radii turn into that hole's radii, in the main hole's equator still. Without a second hole it circles the main one whatever this says.`), `${name} Around`)],
+      `What ${flow} turns round while there is a second black hole: -1 the main hole, 0 the centre the two turn about, 1 the second hole, and the points between lie on the lines between them. Toward the second hole the flow's radii turn into that hole's radii, in the main hole's equator still unless Pair Plane leans it into the pair's orbit. Without a second hole it circles the main one whatever this says.`), `${name} Around`)],
     [keys.tilt, spoken(spec('Tilt', 0, 180, 1, fixed(0, '°'), 'Tips it out of the equator; 90° = polar',
       `Degrees ${flow} is tipped out of the main hole's equator, the plane a real disc settles into, about a line through the hole: 0 lies in the equator, 90 stands across it, a stream over the poles, and 180 lies in it again turning the other way. Node says which side comes up. The radii stay as they are; only the plane turns.`), `${name} Tilt`)],
     [keys.node, spoken(spec('Node', -180, 180, 1, fixed(0, '°'), 'Side that tips up; 0° = right',
       `Which side of ${flow} Tilt brings up out of the equator, in degrees round the hole the way a positive Swirl turns: 0 the side to the right when the equator is seen straight on, 90 the side above. It rises against the way the equator faces, toward the camera of the flat mode. Does nothing at Tilt 0.`), `${name} Node`)],
     [keys.thick, spoken(spec('Thickness', 0, 0.5, 0.01, percentOfOne, 'Disc\'s half height, share of radius',
-      `Half the height of ${flow} as a share of its radius, the H/r of an accretion disc: a thin disc is a few percent. The disc is made of orbits each tipped a little, so a particle rises and sinks once a turn by its own share of this times its radius, and the disc is as many radii thick farther out as it is near. 0 lays every particle in one plane.`), `${name} Thickness`)]
+      `Half the height of ${flow} as a share of its radius, the H/r of an accretion disc: a thin disc is a few percent. The disc is made of orbits each tipped a little, so a particle rises and sinks once a turn by its own share of this times its radius, and at the default Flare the disc is as many radii thick farther out as it is near. 0 lays every particle in one plane.`), `${name} Thickness`)],
+    [keys.fall, spoken(spec('Fall Power', 0.25, 4, 0.05, fixed(2), 'Power of the radius that runs evenly',
+      `The path of ${flow} from From to To: the radius to this power runs evenly with time. 1.5 is the textbook's fall from rest, which starts slow and hurries at the end; 1 moves the radius itself evenly; higher hurries the end more, lower lingers near the hole and races through the outer part. Does nothing to a ring, whose radius stays.`), `${name} Fall Power`)],
+    [keys.falloff, spoken(spec('Turn Falloff', 0, 3, 0.05, fixed(2), 'Turn rate falls as radius to -this',
+      `How the turning of ${flow} falls with the radius: the rate is Swirl at one black hole radius times the radius to the power minus this. 1.5 is Kepler's law, the orbits of a point mass; 1 keeps the speed along the orbit the same at every radius, a flat rotation curve; 0 turns the whole flow at one rate, like a solid wheel; above 1.5 the inner part races ahead of the outer.`), `${name} Turn Falloff`)],
+    [keys.face, spoken(spec('Face Camera', 0, 1, 0.01, percentOfOne, 'Turns it to face the camera; 0 = equator',
+      `How far the plane of ${flow} is turned from the main hole's equator to the camera's own plane, by the shortest turn, before Tilt and Node tip it: 0 lies in the equator, 100% faces the camera whatever the camera does, as the flat mode sees it, so in 3D a ring stays a circle on the screen and turns as it does flat. The flat mode already sees the equator face on, so there it does nothing. Particles on Sheet still lays it on the sheet from where it then stands.`), `${name} Face Camera`)],
+    [keys.flare, spoken(spec('Flare', -1, 3, 0.05, fixed(2), 'Height grows as radius^this; 1 = even',
+      `How the thickness of ${flow} grows with the radius: the disc's half height is Thickness times the radius at From, and past there grows as the radius to this power. 1 keeps it the same share of the radius everywhere; above 1 flares outward, as a real disc lit by its centre does (about 1.1); 0 is a slab of one height; below 0 is thickest near the hole.`), `${name} Flare`)],
+    [keys.bell, spoken(spec('Bell', 0, 1, 0.01, percentOfOne, 'Heights crowd the middle; 0 = to the edge',
+      `How the heights of the particles of ${flow} are spread through its thickness. At 0 each orbit's tip is drawn evenly up to the full Thickness, so the disc has sharp faces and its particles crowd them. At 100% the tips follow a Rayleigh law, so at any moment the heights fall as a bell, a Gaussian about half Thickness wide whose tail reaches past it: the soft-faced disc of gas held up by its own heat. Between, the two blend.`), `${name} Bell`)]
   ]
 })) as Record<FlowSliderKey, SimulationSettingSpec>
+
+// The settings all three flows share (flows.ts)
+const FLOW_SHARED_SPECS: Record<FlowSharedKey, SimulationSettingSpec> = {
+  flowPairPlane: spoken(spec('Pair Plane', 0, 1, 0.01, percentOfOne, 'Round a pair: lie in its orbit\'s plane',
+    'How far a flow that turns round the second black hole or the pair\'s centre (Around above -1) turns from the main hole\'s equator into the plane the pair orbits in, which is the second hole\'s own equator when it turns with its orbit, and the plane a disc round both settles into. It grows with Around from -1 to 0 and holds beyond, so a flow round the main hole keeps the equator. 0 keeps every flow in the main hole\'s equator; 100% lays one round the centre or the second hole in the orbit\'s plane. Does nothing without a second hole.'), 'Flow Pair Plane'),
+  flowLiftPower: spoken(spec('Height Power', 0, 4, 0.05, fixed(2), 'Higher: more particles near the middle',
+    'How a particle of a flow draws its share of the disc\'s height: an even draw from 0 to 1 raised to this power. 1 draws it evenly; above 1 crowds the particles toward the disc\'s middle plane; below 1 toward its faces, and 0 tips every orbit the whole Thickness, a disc whose particles all swing to its faces. Bell blends this draw with a bell.'), 'Flow Height Power'),
+  flowPhaseSpread: spoken(spec('Phase Spread', 0, 1, 0.01, percentOfOne, 'Share of a turn orbit tips are spread on',
+    'The share of a full turn the phases of the flows\' tipped orbits are drawn over. 100% spreads them all the way round, so a thick disc is even all round; 0 tips every orbit about the same line, so the disc is a fan of planes crossing there, thin along that line and thickest across it; between, the thickness gathers round one side.'), 'Flow Phase Spread'),
+  flowLiftRenew: spoken(spec('Redraw Each Life', 0, 1, 1, value => value >= 0.5 ? 'on' : 'off', 'On: a new height and phase each life',
+    'On, a particle of a flow draws its share of the disc\'s height and its orbit\'s phase anew at every life, as it draws a new place in the band. Off, it keeps the ones it first drew for good, so a particle reborn rises to the same height and the disc\'s grain stays put.'), 'Flow Redraw Each Life'),
+  flowFadeIn: spoken(spec('Fade In', 0, 0.5, 0.01, percentOfOne, 'Share of a life a particle takes to appear',
+    'The share of its life a particle of a flow takes to appear, fading in from nothing where it is born. Small is a sharp edge at From; large is a band that brightens over its way in. 0 pops them in at once.'), 'Flow Fade In'),
+  flowFadeOut: spoken(spec('Fade Out', 0, 0.5, 0.01, percentOfOne, 'Share of a life it takes to leave',
+    'The share of its life a particle of a flow takes to leave, fading out toward To. Small keeps it bright to the end, so a fall reaches the hole lit; large lets it dim long before. 0 cuts it off.'), 'Flow Fade Out'),
+  flowDimmest: spoken(spec('Dimmest', 0, 1, 0.01, percentOfOne, 'Least brightness a particle has; 1 = even',
+    'The dimmest a particle of a flow is drawn, as a share of its flow\'s brightness: each draws its own between this and the whole. 100% draws them all alike, a flat band; low gives a grain of bright and faint particles.'), 'Flow Dimmest'),
+  flowTrailFade: spoken(spec('Trail Fade', 0, 6, 0.05, fixed(2), 'Higher: trails fade sooner behind',
+    'How a flow\'s trail dims toward its tail: as what is left of it to this power. 2 is the square, so the particle stands out at its head; 1 dims it evenly; 0 draws the trail as bright as the particle to its end; higher leaves a short bright head.'), 'Flow Trail Fade'),
+  flowNearFade: spoken(spec('Near Fade', 0.01, 2, 0.01, percentOfOne, '3D: fades nearer than this of hole\'s dist',
+    'In 3D, a stroke of a flow nearer the camera than this share of the black hole\'s distance starts to fade, and is gone at Near Gone, so a flow wider than the camera\'s distance from the hole passes the camera without a stroke across the whole frame. Kept above Near Gone.'), 'Flow Near Fade'),
+  flowNearGone: spoken(spec('Near Gone', 0.01, 1, 0.01, percentOfOne, '3D: gone nearer than this of hole\'s dist',
+    'In 3D, a stroke of a flow nearer the camera than this share of the black hole\'s distance is not drawn. Low lets the flow sweep close past the camera in long strokes; high clears a wide space round it.'), 'Flow Near Gone'),
+  flowSeed: spoken(spec('Seed', 0, 999, 1, fixed(0), 'Which set of particles; 0 = the usual one',
+    'Which set of numbers the flows\' particles start from: where each is in its life, round the hole and across the band, and how bright, at second 0. 0 is one set for every film whatever its seed; any other number is a set of its own, the same picture each time it is named. It changes where particles stand, never the shape of a flow.'), 'Flow Seed'),
+  flowRingFeed: spoken(spec('Ring Feed', 0, 5, 0.05, fixed(2, '×'), 'Light a flow falling in leaves in the ring',
+    'How much a flow round the main hole that ends inside the horizon lights the photon ring, as a multiple of a particle a life each leaving what a captured particle of the field leaves (Capture Light). 1 is as much as the field would; 0 lets the flows fall in without a glint. The ring needs Infall Light on.'), 'Flow Ring Feed'),
+  flowRingFlicker: spoken(spec('Ring Flicker', 0, 1, 0.01, percentOfOne, 'How unevenly that light is shared round',
+    'How unevenly the light a flow leaves in the photon ring is shared out round it: each direction gets its even share, more or less by up to this share of it, drawn anew each frame. 50% is a half to one and a half times, which flickers as the field does; 0 is an even glow all round; 100% flickers from nothing to twice.'), 'Flow Ring Flicker')
+}
 
 export const SIMULATION_SETTING_SPECS = {
   numParticles: spoken(spec('Count', 500, 200000, 500, count, 'How many particles fly at once',
@@ -433,7 +473,8 @@ export const SIMULATION_SETTING_SPECS = {
     'The distance from the black hole, in Schwarzschild radii, at which a star flung out counts as gone and a new one takes its place. 400 is far outside the frame; low values replace a star while it is still in sight.'), 'Orbit Escape Radius'),
   orbitFadeIn: spoken(spec('Fade In', 0, 10, 0.05, fixed(2, ' s'), 'Seconds a new star takes to light up',
     'Seconds a new star and the start of its trace take to reach full brightness. 0 makes a star appear at once.'), 'Orbit Fade In'),
-  ...FLOW_SPECS
+  ...FLOW_SPECS,
+  ...FLOW_SHARED_SPECS
 } satisfies Record<string, SimulationSettingSpec>
 
 export type SimulationSliderKey = keyof typeof SIMULATION_SETTING_SPECS

@@ -470,6 +470,8 @@ export interface FrameInput extends FieldInput {
   // The flows (flows.ts), drawn into that layer too: one record for each slot, each with its own plane as
   // the camera sees it, set at the black hole's distance with orbitFocal
   flows: FlowSettings[]
+  // Which set of numbers the flows' particles start from (Flow Seed, a whole number; 0 the set in the code)
+  flowSeed: number
 }
 
 export interface ParticleRenderer {
@@ -642,7 +644,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   ] as const)
 
   const flowUniforms = getUniforms(gl, flowProgram, [
-    'resolution', 'zoom', 'place', 'turnX', 'turnY', 'turnZ', 'thick', 'path', 'age', 'light', 'ride', 'sheetU', 'sheetV', 'sheetN', 'sheetO', 'sheetWell', 'sheetWell2', 'inPlaneU', 'inPlaneV', 'inPlaneH', 'side', 'sideMain', 'sideSecond'
+    'resolution', 'zoom', 'place', 'turnX', 'turnY', 'turnZ', 'law', 'shape', 'draw', 'style', 'path', 'age', 'light', 'ride', 'sheetU', 'sheetV', 'sheetN', 'sheetO', 'sheetWell', 'sheetWell2', 'inPlaneU', 'inPlaneV', 'inPlaneH', 'side', 'sideMain', 'sideSecond'
   ] as const)
   // The sheet's surface and pose go to the grid and flow programs through the same setter
   const setSheetUniform = (uniform: CachedUniform, x: number, y: number, z: number, w: number) => setUniform4f(gl, uniform, x, y, z, w)
@@ -686,11 +688,12 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   const latticeBuffer = gl.createBuffer()
   let latticeFilled = false
 
-  // The flows' particles and the pieces of a trail never change; they get their buffers the first time a
-  // flow is shown
+  // The pieces of a trail never change, and the particles' numbers only with Flow Seed; they get their
+  // buffers the first time a flow is shown, the numbers again when the seed changes
   const flowSeedBuffer = gl.createBuffer()
   const flowCornerBuffer = gl.createBuffer()
   let flowFilled = false
+  let flowSeeded = Number.NaN
   // Whether the layer of lines holds the flows as they now stand. A step that is not shown leaves them
   // out: they have no past to keep, so only a frame that is seen pays for them
   let flowsLaid = false
@@ -1069,9 +1072,12 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
       gl.bindBuffer(gl.ARRAY_BUFFER, flowCornerBuffer)
       gl.bufferData(gl.ARRAY_BUFFER, createFlowCorners(), gl.STATIC_DRAW)
       gl.vertexAttribPointer(ATTRIBUTE_LOCATIONS.flowCorner, FLOW_CORNER_FLOATS, gl.FLOAT, false, 0, 0)
-      gl.bindBuffer(gl.ARRAY_BUFFER, flowSeedBuffer)
-      gl.bufferData(gl.ARRAY_BUFFER, createFlowSeeds(), gl.STATIC_DRAW)
       gl.vertexAttribDivisor(ATTRIBUTE_LOCATIONS.flowSeed, 1)
+    }
+    if (frame.flowSeed !== flowSeeded) {
+      flowSeeded = frame.flowSeed
+      gl.bindBuffer(gl.ARRAY_BUFFER, flowSeedBuffer)
+      gl.bufferData(gl.ARRAY_BUFFER, createFlowSeeds(flowSeeded), gl.STATIC_DRAW)
     }
     const u = flowUniforms
     gl.useProgram(flowProgram)
@@ -1111,7 +1117,14 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
         setUniform4f(gl, u.inPlaneV, plane[4] / ratio, plane[5] / ratio, plane[6] / ratio, plane[7])
         setUniform4f(gl, u.inPlaneH, plane[8] / ratio, plane[9] / ratio, plane[10] / ratio, plane[11])
       }
-      setUniform1f(gl, u.thick, flow.thick)
+      const law = flow.law
+      setUniform4f(gl, u.law, law[0], law[1], law[2], law[3])
+      const shape = flow.shape
+      setUniform4f(gl, u.shape, shape[0], shape[1], shape[2], shape[3])
+      const draw = flow.draw
+      setUniform4f(gl, u.draw, draw[0], draw[1], draw[2], draw[3])
+      const style = flow.style
+      setUniform4f(gl, u.style, style[0], style[1], style[2], style[3])
       setUniform4f(gl, u.path, flow.from, flow.to, flow.spread, flow.wound)
       setUniform3f(gl, u.age, flow.phase, flow.lives, flow.piece)
       setUniform4f(gl, u.light, flow.color.r, flow.color.g, flow.color.b, flow.brightness)

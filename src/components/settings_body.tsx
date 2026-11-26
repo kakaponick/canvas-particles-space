@@ -403,7 +403,7 @@ function SettingsBody () {
           </div>
         ))}
         <SettingsFine id="flows">
-          {/* The band's width, the trail and the stroke of each flow, which hole it turns round, the side its tilt brings up and its thickness */}
+          {/* The band's width, the trail and the stroke of each flow, which hole it turns round, the side its tilt brings up and how far it faces the camera, its path's law, and its thickness and the disc's shape */}
           {FLOW_KEYS.map((keys, index) => (
             <div key={keys.slot} className={index > 0 ? 'mt-3 flex flex-col gap-1' : 'flex flex-col gap-1'}>
               <SettingSlider field={keys.spread} />
@@ -411,9 +411,34 @@ function SettingsBody () {
               <SettingSlider field={keys.size} />
               <SettingSlider field={keys.pair} />
               <SettingSlider field={keys.node} />
+              <SettingSlider field={keys.face} />
+              <SettingSlider field={keys.fall} />
+              <SettingSlider field={keys.falloff} />
               <SettingSlider field={keys.thick} />
+              <SettingSlider field={keys.flare} />
+              <SettingSlider field={keys.bell} />
             </div>
           ))}
+          {/* What every flow shares: the plane round a pair, the draws of a disc's heights, the fades, brightness and trail, the 3D near fade, the seed and the ring */}
+          <div className="mt-3 flex flex-col gap-1">
+            <SettingSlider field="flowPairPlane" />
+            <SettingSlider field="flowLiftPower" />
+            <SettingSlider field="flowPhaseSpread" />
+            <SettingSlider field="flowLiftRenew" />
+          </div>
+          <div className="mt-3 flex flex-col gap-1">
+            <SettingSlider field="flowFadeIn" />
+            <SettingSlider field="flowFadeOut" />
+            <SettingSlider field="flowDimmest" />
+            <SettingSlider field="flowTrailFade" />
+            <SettingSlider field="flowNearFade" />
+            <SettingSlider field="flowNearGone" />
+          </div>
+          <div className="mt-3 flex flex-col gap-1">
+            <SettingSlider field="flowSeed" />
+            <SettingSlider field="flowRingFeed" />
+            <SettingSlider field="flowRingFlicker" />
+          </div>
         </SettingsFine>
       </SettingsSection>
 

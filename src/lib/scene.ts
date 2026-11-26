@@ -16,7 +16,7 @@ export type { TitleSprite } from './title_sprite'
 import { clearRingEnergy, createRingEnergy, feedRing, stepRingEnergy } from './ring_energy'
 import { layFlatSheet, laySpaceSheet, placeSheet } from './space_grid'
 import { LATTICE_LINES_PER_SIDE, createLatticeSettings, latticeAnchor } from './space_lattice'
-import { FLOW_KEYS, createFlowSettings, resetFlow, stepFlow, turnFlow } from './flows'
+import { FLOW_KEYS, createFlowSettings, leanPlane, resetFlow, shareFlow, stepFlow, turnFlow } from './flows'
 import { LIGHT_SPEED, SHADOW_RADII, clearOrbiters, createOrbitTuning, createOrbiters, stepOrbiters } from './orbiters'
 import { createPair, stepPair } from './companion'
 import { CLOSEST_CAMERA, CRITICAL_IMPACT, cameraFor, einsteinRatioAt, shadowAngle } from './lens_trace'
@@ -222,6 +222,9 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
   // The plane a pair of black holes circles in, the same way: the two directions their own motion is
   // counted along, then the one it faces, which their orbit turns about
   const pairPlane = new Float64Array([1, 0, 0, 0, 1, 0, 0, 0, 1])
+  // A flow's own plane before its tilt: the equator leaned toward the pair's orbit, then toward the camera
+  const flowLeaned = new Float64Array(9)
+  const flowBase = new Float64Array(9)
   // A point of the scene as the camera sees it: CSS pixels and its distance in front of the camera
   const seen = { x: 0, y: 0, depth: 1 }
 
@@ -464,6 +467,7 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     grid: settings.sheet,
     lattice: createLatticeSettings(),
     flows: FLOW_KEYS.map(() => createFlowSettings()),
+    flowSeed: 0,
     step: settings
   }
 
@@ -1372,19 +1376,29 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     // The flows turn round the main hole in its equator, each tipped out of it by its own Tilt and seen
     // through the camera's turn (none straight on), at the size the hole has now; without a hole they keep
     // the lattice's stand-in for its radius. Around moves a flow to the centre a pair turns about and on to
-    // the second hole, whose radii it then takes, in the same plane. Their clocks run with the scene
+    // the second hole, whose radii it then takes, its plane leaning toward the pair's orbit by Pair Plane as
+    // it goes; Face Camera leans it toward the camera's own plane. Their clocks run with the scene
     const flowUnit = shadowRadius > 0 ? horizon : state.gridLatticeUnit * shortSide
+    frame.flowSeed = Math.max(Math.round(state.flowSeed), 0)
     for (let slot = 0; slot < FLOW_KEYS.length; slot++) {
       const keys = FLOW_KEYS[slot]
       const flow = frame.flows[slot]
       const life = state[keys.life]
       stepFlow(
         flow, frame.updateScene ? dt : 0, flowUnit > 0 ? state[keys.brightness] : 0, state[keys.count], state[keys.from], state[keys.to],
-        state[keys.spread], state[keys.swirl], life, state[keys.trail], state[keys.size], state[keys.thick]
+        state[keys.spread], state[keys.swirl], life, state[keys.trail], state[keys.size], state[keys.thick],
+        state[keys.fall], state[keys.falloff], state[keys.flare], state[keys.bell]
       )
-      turnFlow(flow, equator, seenTurn, state[keys.tilt] * DEGREE, state[keys.node] * DEGREE)
-      readSceneColor(flow.color, state[keys.color])
+      shareFlow(
+        flow, state.flowLiftPower, state.flowPhaseSpread, state.flowLiftRenew, state.flowFadeIn, state.flowFadeOut,
+        state.flowDimmest, state.flowTrailFade, state.flowNearFade, state.flowNearGone
+      )
       const around = companionRadius > 0 ? state[keys.pair] : -1
+      const towardPair = around <= -1 ? 0 : Math.min(around + 1, 1)
+      leanPlane(flowLeaned, equator, pairPlane[6], pairPlane[7], pairPlane[8], state.flowPairPlane * towardPair)
+      leanPlane(flowBase, flowLeaned, seenTurn[6], seenTurn[7], seenTurn[8], state[keys.face])
+      turnFlow(flow, flowBase, equator, seenTurn, state[keys.tilt] * DEGREE, state[keys.node] * DEGREE)
+      readSceneColor(flow.color, state[keys.color])
       let seenScale = holeScale
       flow.unit = flowUnit
       if (around <= -1) {
@@ -1428,10 +1442,13 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
         flow.plane[7] = equator[3] * offX + equator[4] * offY + equator[5] * offZ
         flow.plane[11] = equator[6] * offX + equator[7] * offY + equator[8] * offZ
       }
-      // Matter that ends inside the main hole's horizon lights its ring, as much as the field's would:
-      // a particle a life, each leaving what a captured particle leaves
+      // Matter that ends inside the main hole's horizon lights its ring, by Ring Feed as much as the field's
+      // would: a particle a life, each leaving what a captured particle leaves, unevenly by Ring Flicker
       if (ringFed && frame.updateScene && around <= -1 && flow.brightness > 0 && state[keys.to] < state.horizonScale) {
-        feedRing(ringEnergy, flow.count / Math.max(life, 0.01) * dt * state.ringFeedCapture * Math.min(flow.brightness, 1))
+        feedRing(
+          ringEnergy, flow.count / Math.max(life, 0.01) * dt * state.ringFeedCapture * Math.min(flow.brightness, 1) * Math.max(state.flowRingFeed, 0),
+          state.flowRingFlicker
+        )
       }
     }
     // A fast flight tints the particles: from Flight Tint From, growing evenly to its fullest at Flight Tint Full

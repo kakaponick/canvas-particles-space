@@ -103,14 +103,30 @@ once, A, B and C, beside the field or without it.
 | Which hole of a pair it turns round | `flowAPair` |
 | How far it tips out of the hole's equator, in degrees, and which side comes up | `flowATilt`, `flowANode` |
 | How thick the disc is: half its height as a share of the radius | `flowAThick` |
-| The second flow, the same | `flowB`, `flowBCount`, `flowBFrom`, `flowBTo`, `flowBSpread`, `flowBSwirl`, `flowBLife`, `flowBTrail`, `flowBSize`, `flowBPair`, `flowBTilt`, `flowBNode`, `flowBThick`, `flowBColor` |
-| The third | `flowC`, `flowCCount`, `flowCFrom`, `flowCTo`, `flowCSpread`, `flowCSwirl`, `flowCLife`, `flowCTrail`, `flowCSize`, `flowCPair`, `flowCTilt`, `flowCNode`, `flowCThick`, `flowCColor` |
+| The path's law: the power of the radius that runs evenly, the power the turn falls with | `flowAFall`, `flowAFalloff` |
+| How far its plane turns from the equator to face the camera | `flowAFace` |
+| The disc's shape: how its height grows with the radius, how far its heights are a bell | `flowAFlare`, `flowABell` |
+| The second flow, the same | `flowB`, `flowBCount`, `flowBFrom`, `flowBTo`, `flowBSpread`, `flowBSwirl`, `flowBLife`, `flowBTrail`, `flowBSize`, `flowBPair`, `flowBTilt`, `flowBNode`, `flowBThick`, `flowBFall`, `flowBFalloff`, `flowBFace`, `flowBFlare`, `flowBBell`, `flowBColor` |
+| The third | `flowC`, `flowCCount`, `flowCFrom`, `flowCTo`, `flowCSpread`, `flowCSwirl`, `flowCLife`, `flowCTrail`, `flowCSize`, `flowCPair`, `flowCTilt`, `flowCNode`, `flowCThick`, `flowCFall`, `flowCFalloff`, `flowCFace`, `flowCFlare`, `flowCBell`, `flowCColor` |
+| Shared by all three: round a pair, how far a flow lies in the pair's orbit | `flowPairPlane` |
+| Shared: how a particle draws its share of the height and its orbit's phase, and whether anew each life | `flowLiftPower`, `flowPhaseSpread`, `flowLiftRenew` |
+| Shared: the shares of a life to appear and to leave, the dimmest particle, the trail's dimming | `flowFadeIn`, `flowFadeOut`, `flowDimmest`, `flowTrailFade` |
+| Shared: in 3D, the shares of the hole's distance a stroke fades from and is gone at | `flowNearFade`, `flowNearGone` |
+| Shared: which set of numbers the particles start from | `flowSeed` |
+| Shared: the light a flow falling in leaves in the ring, and how unevenly round | `flowRingFeed`, `flowRingFlicker` |
 
 - The two radii are the shape. `flowATo` the same as `flowAFrom` keeps every particle on its circle: a ring,
   a disc with a wide `flowASpread`. Below it the matter closes in, as in a fall from rest, and below 1 it
   ends inside the shadow. Above it the matter flows outward.
 - `flowASwirl` is turns a second at one radius, and falls outward by Kepler's law. 0 is a straight fall or
   a straight outflow; with a fall it winds the matter into a spiral that tightens toward the hole.
+- The path's two laws are knobs. `flowAFall` is the power of the radius that runs evenly with time: 1.5
+  is a fall from rest, slow at first and hurried at the end; 1 moves the radius evenly; higher hurries the
+  end more, lower lingers near the hole. `flowAFalloff` is the power the turn falls with: 1.5 is Kepler,
+  1 a flat rotation curve (the same speed along the orbit everywhere, a galaxy's look), 0 a wheel that
+  turns whole, so a spiral's arms stop winding up. `flowASwirl` stays the rate at one radius under any
+  falloff, so a falloff below 1.5 speeds up a flow that lies far out; lower `flowASwirl` with it. A ring
+  ignores `flowAFall`.
 - A flow has no warm-up and no history. It is whole in the first frame it is asked for, so a film of flows
   starts with a warm-up of 0, and a flow that comes in the middle of a film is its brightness on a track.
 - A particle lives `flowALife` seconds and appears again elsewhere in the band, fading in and out at the
@@ -131,12 +147,36 @@ once, A, B and C, beside the field or without it.
   0 lays every particle in one plane, 0.3 and above is a thick torus. Each particle's orbit is tipped a
   little, so it rises and sinks once a turn, by its own share of that height, and a thick disc seen edge-on
   is a band as many radii high farther out as near. Face on it changes nothing.
+- `flowAFlare` bends that: the half height is `flowAThick` of the radius at `flowAFrom` and grows past
+  there as the radius to this power. 1 holds H/r; about 1.1 is a real disc's flare, 2 a bowl opening
+  outward, 0 a slab of one height, below 0 a disc thickest at the hole. A flare far from 1 on a wide band
+  makes the far edge tall fast: lower `flowAThick` with it.
+- `flowABell` gives the heights a bell: at 0 each orbit's tip is drawn evenly up to the full thickness, so
+  the disc has sharp faces and its particles crowd them; at 1 the tips follow a Rayleigh law and the
+  heights fall as a Gaussian about half `flowAThick` wide, a soft disc with a tail past its faces.
+  `flowLiftPower` bends the even draw for every flow (above 1 toward the middle plane, 0 every orbit tipped
+  the whole thickness), `flowPhaseSpread` is the share of a turn the tips' phases are spread over (0 tips
+  every orbit about one line: a fan of planes, thin along it), and `flowLiftRenew` 0 keeps a particle's
+  height and phase through its lives instead of drawing them anew.
+- `flowAFace` turns a flow's plane from the equator to face the camera, by the shortest turn, before
+  `flowATilt` and `flowANode` tip it: 1 keeps a ring a circle on the screen whatever the 3D camera does,
+  turning as it turns flat. The flat mode already sees the equator face on; there it does nothing.
 - The lens bends a flow as it bends everything behind the hole: a ring shows farther out than its radius
   says and again, mirrored, inside the Einstein ring. `lensingEnabled` false draws it where it was set.
 - A flow's light is said, not earned by speed: `speedGlow`, `baseBrightness` and `trailIntensity` do
   nothing to it. Strokes keep the brighter of two, so many particles in a narrow band are one flat band:
-  for streaks, fewer and thinner.
+  for streaks, fewer and thinner. Each particle draws its brightness between `flowDimmest` (0.4) and the
+  whole: 1 is a flat band, low a grain of bright and faint.
+- A particle fades in over `flowFadeIn` of its life and out over `flowFadeOut` (6% each): a long fade
+  out lets a fall dim before the hole, 0 cuts it off sharp at `flowATo`.
 - Its trail is a line in the scene, not a fade of the picture, so a camera that moves does not smear it.
+  It dims toward its tail as what is left of it to `flowTrailFade` (2): 0 is a trail as bright as its head
+  to the end, higher a short bright head.
+- In 3D a stroke nearer the camera than `flowNearFade` of the hole's distance (half) fades, and nearer
+  than `flowNearGone` (a fifth) is gone. Lower both to let a flow sweep close past the camera in long
+  strokes; a near gone far below 0.1 lets one stroke cross the whole frame.
+- Where the particles stand at second 0 is one set of numbers whatever the film's seed; `flowSeed` above 0
+  picks another set, the same each time it is named, and changes no flow's shape.
 - `gridRide` lays the flows on the sheet as it lays the field, from their places in the scene: a particle is
   dropped onto the equator, the sheet's plane, and rides as far as it lies within `gridRideDepth` of it. A
   flow in the equator lies on the sheet whole, so a ring lies round the mouth of the well and a fall runs
@@ -144,11 +184,16 @@ once, A, B and C, beside the field or without it.
   tilted past the slab keeps its own place where it leaves it. The sheet's setup is the field's (films.md,
   section 16), `lensingEnabled` false with it.
 - A flow round the main hole whose `flowATo` is below `horizonScale` lights the photon ring while
-  `ringFeedEnabled` is on: a particle a life, each leaving `ringFeedCapture`, shared out all the way
-  round. A dense fast flow fills the ring; `ringFeed` and `ringFeedCapture` say how far.
+  `ringFeedEnabled` is on: a particle a life, each leaving `ringFeedCapture`, times `flowRingFeed` (1),
+  shared out all the way round, each direction its even share more or less by up to `flowRingFlicker` of
+  it (a half). A dense fast flow fills the ring; `ringFeed` and `ringFeedCapture` say how far, and
+  `flowRingFeed` 0 lets the flows fall in without lighting it while the field still does.
+  `flowRingFlicker` 0 is an even glow.
 - With a second black hole `flowAPair` says what the flow turns round: -1 the main hole, 0 the centre
   the two turn about (a ring wider than `companionDistance` there is a disc round both), 1 the second
-  hole, in whose radii the flow is then measured, lying in the main hole's equator still. The second
+  hole, in whose radii the flow is then measured, lying in the main hole's equator still unless
+  `flowPairPlane` leans it, as Around goes from -1 to 0, into the plane the pair orbits in (the second
+  hole's equator when it turns with its orbit, and where a disc round both settles). The second
   hole does not pull a flow off its path: matter torn from one hole to the other is two flows, or the
   field.
 - Without a black hole (`blackHoleSize` 0) a flow keeps `gridLatticeUnit` for its radius.

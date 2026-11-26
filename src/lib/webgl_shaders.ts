@@ -7,7 +7,7 @@ import { SHADOW_SAMPLES } from './kerr_shadow'
 import { RING_BINS } from './ring_energy'
 import { KERR_GLSL } from './kerr_glsl'
 import { LATTICE_SEGMENTS } from './space_lattice'
-import { FLOW_EDGE, FLOW_NEAR_FADE, FLOW_NEAR_GONE, FLOW_SEGMENTS } from './flows'
+import { FLOW_SEGMENTS } from './flows'
 
 // Attribute locations shared by every program; location 0 is always the full-screen quad
 export const ATTRIBUTE_LOCATIONS = {
@@ -1923,8 +1923,11 @@ export const flowVertexShaderSource = MODERN_VERTEX + `
   uniform vec4 u_inPlaneU;      // Particles on Sheet: how far along the equator's first direction a step along each of the flow's own three goes, per device pixel; where its centre stands from the main hole that way, CSS pixels
   uniform vec4 u_inPlaneV;      // the same along the equator's second direction
   uniform vec4 u_inPlaneH;      // the same along the way the equator faces, its height off it
-  uniform float u_thick;      // the disc's half height as a share of the radius
-  uniform vec4 u_path;          // the radii matter appears and leaves at, each to the power 1.5; the band's width as a share of the first; radians turned at one radius in a life
+  uniform vec4 u_law;           // the path's law: one over the fall's power, the turn's falloff, one less their ratio, one over the first radius
+  uniform vec4 u_shape;         // the disc: half height as a share of the radius at the first radius, the power it grows with past there, the share of a bell in the heights, the power the height draw is bent by
+  uniform vec4 u_draw;          // the share of a full turn an orbit's phase is drawn over, 1 to draw anew each life (0 keeps the draws), the shares of a life to appear and to leave
+  uniform vec4 u_style;         // the dimmest a particle is among its flow's, the power its trail dims by, the shares of the hole's distance a 3D stroke starts to fade at and is gone at
+  uniform vec4 u_path;          // the radii matter appears and leaves at, each to the fall's power; the band's width as a share of the first; radians turned at the first radius in a life
   uniform vec3 u_age;           // the flow's clock in lives: the share of the life now running, the whole lives before; the share of a life one piece of trail spans
   uniform vec4 u_light;         // colour, brightness
 ${RIDE_GLSL}${SIDE_GLSL}
@@ -1935,11 +1938,6 @@ ${RIDE_GLSL}${SIDE_GLSL}
 
   const float PI = 3.14159265359;
   const float PIECES = ${FLOW_SEGMENTS}.0;
-  const float EDGE = ${FLOW_EDGE};
-  // The distance from the 3D camera, as a share of the black hole's, under which a stroke begins to fade,
-  // and the one it is gone at
-  const float NEAR_FADE = ${FLOW_NEAR_FADE};
-  const float NEAR_GONE = ${FLOW_NEAR_GONE};
 
   // A point of the flow, in device pixels from the black hole along its own three directions, where the
   // camera draws it, and how far from the camera it lies as a share of the black hole's distance (1 in the
@@ -1959,23 +1957,30 @@ ${RIDE_GLSL}${SIDE_GLSL}
   // Where a particle stands at an age of 0 to 1 of its life, in device pixels from the black hole: in its
   // flow's plane, then above it. "band" is its place across the band, as a multiple of the band's middle,
   // "turn" the angle it appeared at, "lift" its own share of the disc's height and the phase of its orbit's tip.
-  // Its radius to the power 1.5 runs evenly from the first radius to the last, as in a fall from rest, and
-  // it turns at Kepler's rate, radius^-1.5, whose sum along that fall is a logarithm. A thick disc is made of
-  // orbits each tipped a little, so the height swings with the turn and never passes the thickness's share
-  // of the radius
+  // Its radius to the fall's power p runs evenly from the first radius to the last (1.5 is a fall from rest),
+  // and it turns at a rate of radius^-q (1.5 is Kepler's), whose sum along that fall is a power of the fall's
+  // own steps, ((1 + x)^k - 1) / k with k = 1 - q / p, and a logarithm where k is 0. A thick disc is made of
+  // orbits each tipped a little, so the height swings with the turn; it is the thickness's share of the radius
+  // at the first radius and grows past there as the radius to the flare's power
   vec3 placeAt (float age, float band, float turn, vec2 lift) {
     float fallen = mix(u_path.x, u_path.y, age);
     float x = (u_path.y - u_path.x) * age / u_path.x;
-    float mean = abs(x) < 0.001 ? 1.0 - 0.5 * x : log(1.0 + x) / x;
-    float angle = turn + u_path.w * age / u_path.x * mean * pow(band, -1.5);
-    float radius = band * pow(fallen, 2.0 / 3.0) * u_place.z;
+    float k = u_law.z;
+    float mean = abs(x) < 0.001 ? 1.0 + 0.5 * (k - 1.0) * x
+      : abs(k) < 0.001 ? log(1.0 + x) / x
+      : (pow(1.0 + x, k) - 1.0) / (k * x);
+    float angle = turn + u_path.w * age * mean * pow(band, -u_law.y);
+    float share = band * pow(fallen, u_law.x);
+    float radius = share * u_place.z;
+    float height = u_shape.x * lift.x * radius;
+    if (u_shape.y != 1.0) height *= pow(share * u_law.w, u_shape.y - 1.0);
     // The screen's y runs down, so a positive swirl turns anticlockwise to the eye
-    return vec3(radius * cos(angle), -radius * sin(angle), u_thick * lift.x * radius * sin(angle + lift.y));
+    return vec3(radius * cos(angle), -radius * sin(angle), height * sin(angle + lift.y));
   }
 
   // A particle appears over the first share of its life and leaves over the last
   float present (float age) {
-    return smoothstep(0.0, EDGE, age) * (1.0 - smoothstep(1.0 - EDGE, 1.0, age));
+    return smoothstep(0.0, u_draw.z, age) * (1.0 - smoothstep(1.0 - u_draw.w, 1.0, age));
   }
 
   void main () {
@@ -1991,19 +1996,26 @@ ${RIDE_GLSL}${SIDE_GLSL}
     float lives = u_age.y + life;
     float turn = 2.0 * PI * fract(a_flowSeed.y + lives * 0.6180340);
     float band = max(1.0 + (fract(a_flowSeed.z + lives * 0.7548777) - 0.5) * u_path.z, 0.05);
-    // Its share of the disc's height and its orbit's phase, drawn anew every life from its own numbers
+    // Its share of the disc's height and its orbit's phase, drawn from its own numbers anew every life, or
+    // once for good: the share evenly from 0 to the whole, bent by the draw's power and blended toward a
+    // bell (the heights of orbits whose tips follow a Rayleigh law fall as a Gaussian, about half the
+    // thickness wide), the phase over the share of a turn Phase Spread gives
+    float drawn = lives * u_draw.y;
     vec2 lift = vec2(
-      fract(a_flowSeed.w * 13.0 + a_flowSeed.z * 7.0 + lives * 0.4142136),
-      2.0 * PI * fract(a_flowSeed.y * 11.0 + a_flowSeed.w * 5.0 + lives * 0.2360680));
+      fract(a_flowSeed.w * 13.0 + a_flowSeed.z * 7.0 + drawn * 0.4142136),
+      2.0 * PI * u_draw.x * fract(a_flowSeed.y * 11.0 + a_flowSeed.w * 5.0 + drawn * 0.2360680));
+    float even = pow(max(lift.x, 0.000001), u_shape.w);
+    lift.x = u_shape.z > 0.0 ? mix(even, 0.5 * sqrt(-2.0 * log(max(1.0 - lift.x, 0.0001))), u_shape.z) : even;
 
     // The piece runs from where the particle was to where it was a little later; before its birth it was nowhere
     float newer = max(age - a_flowCorner.z * u_age.z, 0.0);
     float older = max(age - (a_flowCorner.z + 1.0) * u_age.z, 0.0);
-    // The trail dims toward its tail as the square of what is left of it, so the particle itself stands out
+    // The trail dims toward its tail as a power of what is left of it (the square by default), so the
+    // particle itself stands out
     float leftNewer = 1.0 - a_flowCorner.z / PIECES;
     float leftOlder = 1.0 - (a_flowCorner.z + 1.0) / PIECES;
-    float lightNewer = present(newer) * leftNewer * leftNewer;
-    float lightOlder = present(older) * leftOlder * leftOlder;
+    float lightNewer = present(newer) * pow(max(leftNewer, 0.000001), u_style.y);
+    float lightOlder = present(older) * pow(max(leftOlder, 0.000001), u_style.y);
     if (lightNewer <= 0.0 || u_turnY.w < 0.0) {
       gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
       return;
@@ -2045,7 +2057,7 @@ ${RIDE_GLSL}${SIDE_GLSL}
         middle = 0.5 * (laidOlder + laidNewer);
       }
     }
-    if (nearest <= NEAR_GONE) {
+    if (nearest <= u_style.w) {
       gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
       return;
     }
@@ -2070,7 +2082,7 @@ ${RIDE_GLSL}${SIDE_GLSL}
     float targetArea = len * width + PI * width * width * 0.25;
     float drawnArea = len * drawWidth + PI * (halfWidth * halfWidth + 1.0 / 12.0);
 
-    float light = u_light.a * (0.4 + 0.6 * a_flowSeed.w) * mix(lightOlder, lightNewer, toNewer) * smoothstep(NEAR_GONE, NEAR_FADE, nearest);
+    float light = u_light.a * mix(u_style.x, 1.0, a_flowSeed.w) * mix(lightOlder, lightNewer, toNewer) * smoothstep(u_style.w, u_style.z, nearest);
     v_ends = vec2(along, len - along);
     v_across = across;
     v_halfWidth = halfWidth;

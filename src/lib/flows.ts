@@ -7,15 +7,19 @@
 // just come along, drawn anew every frame. So a flow is whole in the first frame it is asked for, with
 // nothing to gather and no history to play through, and it costs the main thread a few numbers a frame
 // while it is on and nothing while it is off.
-// The path is the textbook's: matter falling from rest far away keeps r^1.5 falling evenly with time, and
-// matter in orbit turns at a rate that falls as r^-1.5, Kepler's law.
+// The path is the textbook's by default: matter falling from rest far away keeps r^1.5 falling evenly with
+// time, and matter in orbit turns at a rate that falls as r^-1.5, Kepler's law; Fall Power and Turn Falloff
+// set the two powers of each flow.
 // The particles' own numbers are a static buffer, made the first time a flow is shown; the pieces of a
 // trail are a second one, shared by every particle. They are drawn into the layer the orbits' traces live
 // in, which the composite pass reads through the lens, so a flow behind the hole is bent by it and the
 // shadow covers it.
-// A flow lies in the main hole's equator, the plane a real disc settles into, tipped out of it by its Tilt
-// toward its Node, and is a disc of its Thickness: orbits each tipped a little, a particle's height its own
-// share of that thickness times its radius times the sine of its turn round the hole plus a phase of its own.
+// A flow lies in the main hole's equator, the plane a real disc settles into, turned from it toward the
+// camera's plane by Face Camera and, round a pair, toward the pair's orbit by Pair Plane, tipped out of it by
+// its Tilt toward its Node, and is a disc of its Thickness: orbits each tipped a little, a particle's height its
+// own share of that thickness times its radius times the sine of its turn round the hole plus a phase of its
+// own; Bell and Flare reshape it, and the shared Height Power, Phase Spread and Redraw Each Life say how those
+// shares are drawn.
 // With Particles on Sheet a flow lies on the sheet as the field does (RIDE_GLSL in webgl_shaders.ts), a flow
 // that ends inside the horizon lights the photon ring, and Around sets a flow round the second black hole
 // or the centre the two turn about.
@@ -31,28 +35,52 @@ export const FLOW_SEGMENTS = 12
 export const FLOW_SEED_FLOATS = 4
 export const FLOW_CORNER_FLOATS = 3
 export const FLOW_VERTEX_COUNT = FLOW_SEGMENTS * 6
-// The share of its life a particle takes to appear, and to leave
-export const FLOW_EDGE = 0.06
-// In 3D a stroke nearer the camera than this share of the black hole's distance fades, and is gone at the second
-export const FLOW_NEAR_FADE = 0.5
-export const FLOW_NEAR_GONE = 0.2
 // The nearest the hole's centre a flow is followed to, in black hole radii: an orbit's rate has no end there
 const FLOW_NEAREST = 0.05
-// What sets the particles' own numbers; the same in every scene, so a flow is the same picture in every film
+// The least fall power, share of a life to appear or leave in, and share of the hole's distance a near fade
+// spans: below them the shader's powers and smoothsteps have no answer
+const MIN_FALL = 0.05
+const MIN_EDGE = 0.001
+const MIN_NEAR = 0.001
+// What sets the particles' own numbers at Flow Seed 0, whatever the film's seed, so a flow is the same
+// picture in every film until Flow Seed picks another set
 const FLOW_SEED = 0x5f10e5
 
 // The numeric settings of one flow, by the end of their keys: `flowA` is its brightness, `flowACount` how
 // many particles it holds, and so on
-const FLOW_PARTS = ['', 'Count', 'From', 'To', 'Spread', 'Swirl', 'Life', 'Trail', 'Size', 'Pair', 'Tilt', 'Node', 'Thick'] as const
+const FLOW_PARTS = [
+  '', 'Count', 'From', 'To', 'Spread', 'Swirl', 'Life', 'Trail', 'Size', 'Pair', 'Tilt', 'Node', 'Thick',
+  'Fall', 'Falloff', 'Face', 'Flare', 'Bell'
+] as const
 type FlowPart = typeof FLOW_PARTS[number]
 export type FlowSliderKey = `flow${FlowSlot}${FlowPart}`
 export type FlowColorKey = `flow${FlowSlot}Color`
-export type FlowState = Record<FlowSliderKey, number> & Record<FlowColorKey, string>
+// The settings every flow shares: how a flow round a pair turns toward the pair's orbit, how a particle's
+// share of the disc's height and its orbit's phase are drawn, how it fades in and out, how its brightness
+// spreads, how its trail dims, how near the 3D camera it fades, which set of numbers its particles start
+// from, and what it leaves in the photon ring
+export const FLOW_SHARED_KEYS = [
+  'flowPairPlane', 'flowLiftPower', 'flowPhaseSpread', 'flowLiftRenew', 'flowFadeIn', 'flowFadeOut', 'flowDimmest',
+  'flowTrailFade', 'flowNearFade', 'flowNearGone', 'flowSeed', 'flowRingFeed', 'flowRingFlicker'
+] as const
+export type FlowSharedKey = typeof FLOW_SHARED_KEYS[number]
+export type FlowState = Record<FlowSliderKey, number> & Record<FlowColorKey, string> & Record<FlowSharedKey, number>
 
 // A new flow, until it is told otherwise, is off, and once lit a fall into the hole from twelve radii in
-// the hole's equator, a disc whose half height is 6% of its radius, as a thin disc's is
+// the hole's equator, a disc whose half height is 6% of its radius, as a thin disc's is, on the textbook's
+// path: r^1.5 falling evenly, turning at Kepler's r^-1.5
 const FLOW_DEFAULTS: Record<FlowPart, number> = {
-  '': 0, Count: 6000, From: 12, To: 1, Spread: 4, Swirl: 0.3, Life: 6, Trail: 0.4, Size: 1.5, Pair: -1, Tilt: 0, Node: 0, Thick: 0.06
+  '': 0, Count: 6000, From: 12, To: 1, Spread: 4, Swirl: 0.3, Life: 6, Trail: 0.4, Size: 1.5, Pair: -1, Tilt: 0, Node: 0, Thick: 0.06,
+  Fall: 1.5, Falloff: 1.5, Face: 0, Flare: 1, Bell: 0
+}
+// The shared settings: in the main hole's equator round a pair too; a height share drawn evenly from 0 to the
+// whole, a phase all the way round, both anew each life; 6% of a life to appear and to leave; 40% to 100% of
+// the flow's brightness; a trail dimming as the square of what is left of it; fading in 3D from half the
+// hole's distance, gone at a fifth; the one set of numbers; a particle a life to the ring, each direction a
+// half to one and a half times its even share
+const FLOW_SHARED_DEFAULTS: Record<FlowSharedKey, number> = {
+  flowPairPlane: 0, flowLiftPower: 1, flowPhaseSpread: 1, flowLiftRenew: 1, flowFadeIn: 0.06, flowFadeOut: 0.06, flowDimmest: 0.4,
+  flowTrailFade: 2, flowNearFade: 0.5, flowNearGone: 0.2, flowSeed: 0, flowRingFeed: 1, flowRingFlicker: 0.5
 }
 export const FLOW_DEFAULT_COLORS: Record<FlowSlot, string> = { A: '#ffd9a8', B: '#a8d4ff', C: '#ff8fb8' }
 
@@ -72,6 +100,11 @@ export interface FlowKeys {
   tilt: FlowSliderKey
   node: FlowSliderKey
   thick: FlowSliderKey
+  fall: FlowSliderKey
+  falloff: FlowSliderKey
+  face: FlowSliderKey
+  flare: FlowSliderKey
+  bell: FlowSliderKey
   color: FlowColorKey
 }
 
@@ -90,12 +123,17 @@ export const FLOW_KEYS: readonly FlowKeys[] = FLOW_SLOTS.map(slot => ({
   tilt: `flow${slot}Tilt`,
   node: `flow${slot}Node`,
   thick: `flow${slot}Thick`,
+  fall: `flow${slot}Fall`,
+  falloff: `flow${slot}Falloff`,
+  face: `flow${slot}Face`,
+  flare: `flow${slot}Flare`,
+  bell: `flow${slot}Bell`,
   color: `flow${slot}Color`
 }))
 
 export const FLOW_SLIDER_KEYS: readonly FlowSliderKey[] = FLOW_SLOTS.flatMap(slot => FLOW_PARTS.map((part): FlowSliderKey => `flow${slot}${part}`))
 export const FLOW_COLOR_KEYS: readonly FlowColorKey[] = FLOW_SLOTS.map((slot): FlowColorKey => `flow${slot}Color`)
-export const FLOW_SETTING_KEYS: readonly (FlowSliderKey | FlowColorKey)[] = [...FLOW_SLIDER_KEYS, ...FLOW_COLOR_KEYS]
+export const FLOW_SETTING_KEYS: readonly (FlowSliderKey | FlowColorKey | FlowSharedKey)[] = [...FLOW_SLIDER_KEYS, ...FLOW_COLOR_KEYS, ...FLOW_SHARED_KEYS]
 
 // The flows' settings as the store first holds them
 export function createFlowState (): FlowState {
@@ -104,6 +142,7 @@ export function createFlowState (): FlowState {
     for (const part of FLOW_PARTS) state[`flow${slot}${part}`] = FLOW_DEFAULTS[part]
     state[`flow${slot}Color`] = FLOW_DEFAULT_COLORS[slot]
   }
+  for (const key of FLOW_SHARED_KEYS) state[key] = FLOW_SHARED_DEFAULTS[key]
   return state
 }
 
@@ -113,13 +152,16 @@ export interface FlowSettings {
   brightness: number
   // How many particles it draws, FLOW_CAPACITY at most
   count: number
-  // The radius its matter appears at and the one it leaves at, each to the power 1.5, which is what falls
-  // evenly with time; and the width of the band it appears in, as a share of the first radius
+  // The radius its matter appears at and the one it leaves at, each to the power Fall Power, which is what
+  // falls evenly with time; and the width of the band it appears in, as a share of the first radius
   from: number
   to: number
   spread: number
-  // Radians a particle at one radius turns in the seconds of a life
+  // Radians a particle at the first radius turns in the seconds of a life
   wound: number
+  // The path's law: one over the fall's power, the turn's falloff, one less their ratio (the power the
+  // turn's rate is summed along the fall with), and one over the first radius, which the disc flares from
+  law: Float32Array
   // How far the flow's clock has run, in lives: the share of the life now running and the whole lives before
   phase: number
   lives: number
@@ -127,8 +169,16 @@ export interface FlowSettings {
   piece: number
   // Width of a stroke, in CSS pixels
   size: number
-  // The disc's half height as a share of the radius
-  thick: number
+  // The disc's half height as a share of the radius at the first radius, the power of the radius it grows
+  // with past there (1 holds it a share of the radius), the share of a bell in the draw of its heights, and
+  // the power the even draw of a particle's share of the height is bent by
+  shape: Float32Array
+  // The draws the flows share: the share of a full turn an orbit's phase is drawn over, whether a life
+  // draws anew (1) or a particle keeps its draws (0), the shares of a life to appear and to leave
+  draw: Float32Array
+  // The light the flows share: the dimmest a particle is drawn among its flow's, the power its trail dims
+  // by, and in 3D the shares of the hole's distance a stroke starts to fade at and is gone at
+  style: Float32Array
   // Where the camera sends the flow's own three directions, three numbers each: the two that span its
   // plane (its x and y, y down the screen as the scene's is) and the one the plane faces. Straight on, in
   // the flat mode, they are the directions themselves
@@ -148,7 +198,8 @@ export interface FlowSettings {
 
 export function createFlowSettings (): FlowSettings {
   return {
-    brightness: 0, count: 0, from: 1, to: 1, spread: 0, wound: 0, phase: 0, lives: 0, piece: 0, size: 1, thick: 0,
+    brightness: 0, count: 0, from: 1, to: 1, spread: 0, wound: 0, law: new Float32Array([2 / 3, 1.5, 0, 1]), phase: 0, lives: 0, piece: 0, size: 1,
+    shape: new Float32Array([0, 1, 0, 1]), draw: new Float32Array([1, 1, 0.06, 0.06]), style: new Float32Array([0.4, 2, 0.5, 0.2]),
     turn: new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]), plane: new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0]),
     color: createSceneColor(), x: 0, y: 0, unit: 1, depth: 1
   }
@@ -161,18 +212,29 @@ export function createFlowSettings (): FlowSettings {
  */
 export function stepFlow (
   flow: FlowSettings, dt: number, brightness: number, count: number, from: number, to: number, spread: number,
-  swirl: number, life: number, trail: number, size: number, thick: number
+  swirl: number, life: number, trail: number, size: number, thick: number, fall: number, falloff: number, flare: number, bell: number
 ) {
   flow.brightness = brightness
-  flow.thick = Math.max(thick, 0)
   flow.count = Math.min(Math.max(Math.floor(count), 0), FLOW_CAPACITY)
+  const power = Math.max(fall, MIN_FALL)
+  const turnPower = Math.max(falloff, 0)
   const first = Math.max(from, FLOW_NEAREST)
-  flow.from = first * Math.sqrt(first)
+  flow.from = Math.pow(first, power)
   const last = Math.max(to, FLOW_NEAREST)
-  flow.to = last * Math.sqrt(last)
+  flow.to = Math.pow(last, power)
   flow.spread = spread / first
   const seconds = Math.max(life, 0.01)
-  flow.wound = swirl * seconds * Math.PI * 2
+  // Swirl is turns a second at one radius; the falloff carries it to the first radius
+  flow.wound = swirl * seconds * Math.PI * 2 * Math.pow(first, -turnPower)
+  const law = flow.law
+  law[0] = 1 / power
+  law[1] = turnPower
+  law[2] = 1 - turnPower / power
+  law[3] = 1 / first
+  const shape = flow.shape
+  shape[0] = Math.max(thick, 0)
+  shape[1] = flare
+  shape[2] = Math.min(Math.max(bell, 0), 1)
   flow.piece = trail / seconds / FLOW_SEGMENTS
   flow.size = size
   const turn = flow.phase + dt / seconds
@@ -182,14 +244,58 @@ export function stepFlow (
 }
 
 /**
- * Lays a flow's plane for this frame: the equator (nine numbers, row by row: two directions of the scene
- * that span it, then the one it faces) tipped by `tilt` radians, the side at `node` radians round it (from
- * its x the way a positive Swirl turns) rising against the way it faces, which is toward the camera seen
- * straight on; then seen through `camera` (nine numbers,
- * row by row: the scene's direction j lands on the camera's axis i at [3i + j]). The flow's directions in
- * the equator's own go to `plane`; where its centre stands there is the caller's.
+ * Turns the plane `from` (nine numbers, row by row: two directions of the scene that span it, then the one
+ * it faces) by `share` of the shortest turn that makes it face `face` (a unit direction of the scene), into
+ * `out`. Facing straight away from it, it turns over about its own first direction.
  */
-export function turnFlow (flow: FlowSettings, equator: ArrayLike<number>, camera: ArrayLike<number>, tilt: number, node: number) {
+export function leanPlane (out: Float64Array, from: ArrayLike<number>, faceX: number, faceY: number, faceZ: number, share: number) {
+  for (let slot = 0; slot < 9; slot++) out[slot] = from[slot]
+  if (!(share > 0)) return
+  const nowX = from[6]
+  const nowY = from[7]
+  const nowZ = from[8]
+  let axisX = nowY * faceZ - nowZ * faceY
+  let axisY = nowZ * faceX - nowX * faceZ
+  let axisZ = nowX * faceY - nowY * faceX
+  const sine = Math.hypot(axisX, axisY, axisZ)
+  const cosine = nowX * faceX + nowY * faceY + nowZ * faceZ
+  if (sine > 1e-9) {
+    axisX /= sine
+    axisY /= sine
+    axisZ /= sine
+  } else if (cosine > 0) {
+    return
+  } else {
+    axisX = from[0]
+    axisY = from[1]
+    axisZ = from[2]
+  }
+  const angle = Math.atan2(sine, cosine) * Math.min(share, 1)
+  const c = Math.cos(angle)
+  const s = Math.sin(angle)
+  // Each direction turned about the axis (Rodrigues)
+  for (let row = 0; row < 3; row++) {
+    const x = from[row * 3]
+    const y = from[row * 3 + 1]
+    const z = from[row * 3 + 2]
+    const along = (axisX * x + axisY * y + axisZ * z) * (1 - c)
+    out[row * 3] = x * c + (axisY * z - axisZ * y) * s + axisX * along
+    out[row * 3 + 1] = y * c + (axisZ * x - axisX * z) * s + axisY * along
+    out[row * 3 + 2] = z * c + (axisX * y - axisY * x) * s + axisZ * along
+  }
+}
+
+/**
+ * Lays a flow's plane for this frame: `base` (nine numbers, row by row: two directions of the scene that
+ * span it, then the one it faces; the equator, or the plane the equator leans to) tipped by `tilt` radians,
+ * the side at `node` radians round it (from its x the way a positive Swirl turns) rising against the way it
+ * faces, which is toward the camera seen straight on; then seen through `camera` (nine numbers, row by row:
+ * the scene's direction j lands on the camera's axis i at [3i + j]). The flow's directions in the
+ * `equator`'s own go to `plane`; where its centre stands there is the caller's.
+ */
+export function turnFlow (
+  flow: FlowSettings, base: ArrayLike<number>, equator: ArrayLike<number>, camera: ArrayLike<number>, tilt: number, node: number
+) {
   // The axis it tips about lies in the equator, a quarter turn behind the side that rises: that side,
   // (cos, -sin) in the equator's own x and y, goes to cos(tilt) of itself less sin(tilt) of the face
   const ax = Math.sin(node)
@@ -217,17 +323,39 @@ export function turnFlow (flow: FlowSettings, equator: ArrayLike<number>, camera
       q = -s * ax
       r = c
     }
-    plane[column] = p
-    plane[4 + column] = q
-    plane[8 + column] = r
-    // That direction in the scene, then where the camera sends it
-    const x = p * equator[0] + q * equator[3] + r * equator[6]
-    const y = p * equator[1] + q * equator[4] + r * equator[7]
-    const z = p * equator[2] + q * equator[5] + r * equator[8]
+    // That direction in the scene, where it falls in the equator, then where the camera sends it
+    const x = p * base[0] + q * base[3] + r * base[6]
+    const y = p * base[1] + q * base[4] + r * base[7]
+    const z = p * base[2] + q * base[5] + r * base[8]
+    plane[column] = x * equator[0] + y * equator[1] + z * equator[2]
+    plane[4 + column] = x * equator[3] + y * equator[4] + z * equator[5]
+    plane[8 + column] = x * equator[6] + y * equator[7] + z * equator[8]
     turn[column * 3] = camera[0] * x + camera[1] * y + camera[2] * z
     turn[column * 3 + 1] = camera[3] * x + camera[4] * y + camera[5] * z
     turn[column * 3 + 2] = camera[6] * x + camera[7] * y + camera[8] * z
   }
+}
+
+/**
+ * Sets what every flow shares for this frame: the draws of a particle's height and phase, its fade in and
+ * out, the spread of its brightness, its trail's dimming and the 3D camera's near fade.
+ */
+export function shareFlow (
+  flow: FlowSettings, liftPower: number, phaseSpread: number, liftRenew: number, fadeIn: number, fadeOut: number,
+  dimmest: number, trailFade: number, nearFade: number, nearGone: number
+) {
+  flow.shape[3] = Math.max(liftPower, 0)
+  const draw = flow.draw
+  draw[0] = phaseSpread
+  draw[1] = liftRenew >= 0.5 ? 1 : 0
+  draw[2] = Math.max(fadeIn, MIN_EDGE)
+  draw[3] = Math.max(fadeOut, MIN_EDGE)
+  const style = flow.style
+  style[0] = Math.min(Math.max(dimmest, 0), 1)
+  style[1] = Math.max(trailFade, 0)
+  const gone = Math.max(nearGone, MIN_NEAR)
+  style[3] = gone
+  style[2] = Math.max(nearFade, gone + MIN_NEAR)
 }
 
 // Starts a flow's clock again
@@ -238,8 +366,9 @@ export function resetFlow (flow: FlowSettings) {
 
 // Four numbers from 0 to 1 for every particle of every flow: when in a life it is, where round the hole it
 // appears, where across the band, and how bright it is among the others. A flow reads its own stretch of them
-export function createFlowSeeds (): Float32Array {
-  const random = createRandom(FLOW_SEED)
+// `seed` picks the set: 0 the one set in the code, any other a set of its own
+export function createFlowSeeds (seed = 0): Float32Array {
+  const random = createRandom(seed === 0 ? FLOW_SEED : FLOW_SEED ^ Math.imul(Math.round(seed), 0x9e3779b1))
   const seeds = new Float32Array(FLOW_SLOTS.length * FLOW_CAPACITY * FLOW_SEED_FLOATS)
   for (let i = 0; i < seeds.length; i++) seeds[i] = nextRandom(random)
   return seeds
