@@ -440,9 +440,11 @@ that precess, faster the closer they come, as around a real black hole.
 - The sheet is a surface of the scene: a piece of the main hole's equator (the plane matter, the flows and
   the orbiting stars follow; across the line of flight while the hole does not spin), dented where the hole
   sits, the well going down along the way the plane faces, away from a camera that looks down the flight,
-  and rippled by gravitational waves. Its lines stay put while the hole moves across it. In the flat mode
-  a camera of its own sees it, tipped by `gridTilt` and set so that the well's bottom lands on the hole:
-  at 60 and above the well's depth shows. In 3D the scene's camera sees it (section 11).
+  and rippled by gravitational waves. The well's bottom is the hole, as a textbook draws it: the plane is
+  lifted toward that camera by the well's depth, `gridDepth` radii, and the funnel runs down to the
+  shadow, its throat the shadow's edge. Nothing of the sheet is drawn inside a throat, from any side. Its
+  lines stay put while the hole moves across it. In the flat mode a camera of its own sees it, tipped by
+  `gridTilt`: at 60 and above the well's depth shows. In 3D the scene's camera sees it (section 11).
 - The dent is gravitational time dilation, and can be said so in a caption: a place is lowered by how much
   time is slowed where the light seen at that distance passed closest to the hole. Far away the sheet is
   flat; at the shadow's edge, where that light skims the photon sphere, it is `gridDepth` deep and ends.
@@ -464,14 +466,21 @@ that precess, faster the closer they come, as around a real black hole.
   the far end of the field as a hairline and the well looks empty. The whole setup, and the motion for
   each thing a shot may say, are in the film guide, section 16. In the flat mode `gridTilt` is the
   camera: tilting it streaks the trails as a camera move does. In 3D the particles on the sheet stand on it
-  where it lies in the scene, and every move of the camera sees the two together.
+  where it lies in the scene, and every move of the camera sees the two together. In 3D the field does
+  not line the well's wall: gravity there ends at a sphere, at `baseSpeed` 0 nothing refills it once the
+  warm-up has drained it, and with the flight on only a band round the mouth is lit. A flow does: films.md,
+  section 16.
 - Only what flies near the equator rides: a particle is dropped onto the plane along the way it faces, and
   rides the whole of `gridRide` in the plane, none of it `gridRideDepth` radii off it, smoothly between;
   the rest is drawn where it flies. While the hole does not spin the plane lies across the line of flight,
   so the slab is a stretch of the column round the hole's depth: at 1080p and the defaults a radius is
-  135 scene units of a column 5000 deep, and the default 2 holds 11% of the field (2600 of 24 000
-  particles, half of that ridden on average for the smooth edge), 5 holds 27%, 10 over half, and 26
-  reaches both ends of the column. A flat field (`threeD` off) is measured the same way, by its depth.
+  135 scene units of a column 5000 deep, so 2 holds 11% of the field (2600 of 24 000 particles, half of
+  that ridden on average for the smooth edge), 5 holds 27%, 10 over half, and 26 reaches both ends of the
+  column. The default 40 reaches them from 720p up: in 3D the column lies on the sheet as a dusting whose
+  streaks point into the well, the rings read through it, and what the hole's pull moves runs on the
+  surface. At 2 the flight streams across the sheet and hides it, and the tenth that rides cannot be told
+  from the rest; lower it only for a shot about a thin disc. A flat field (`threeD` off) is measured the
+  same way, by its depth.
 - The lensed grid is a measuring tool: it shows the Einstein ring, the mirrored image, the twist and the
   waves. Lower `baseBrightness` when it should be read clearly.
 - `gridSkyPull` draws the lensed grid in towards the hole: the classic picture of space pulled in by a
@@ -632,13 +641,30 @@ that precess, faster the closer they come, as around a real black hole.
   it the flattened side of the shadow and the leaning rings turn with the view, and the particles are
   dragged round the axis in space. `gravityInertia` keeps their speed along all three axes.
 - The sheet of section 9 is a surface of the scene in 3D, seen by this camera as the particles are: it
-  lies in the main hole's equator, across the line of flight while the hole does not spin, so straight on
-  it is seen face on with the hole in its middle and the well going away from the camera; circled to 90°
-  it is seen edge on, past that from the side the well hangs down to, and the circle, the head, the moves
-  and the roll all act on it, with the parallax of its near and far parts. `gridTilt` does nothing here:
-  switching `threeD` on turns the sheet over `threeDEase` from the flat mode's tilted view to where it
-  lies. The second hole's well stands where that hole's place falls on the plane, so a pair tilted out of
-  the equator (`companionTilt`) dents it under where each hole is, not where it is seen.
+  lies across the line of flight while the hole does not spin, `gridDepth` radii nearer a camera looking
+  down the flight than the hole, and its well runs from there down to the hole. The circle, the head, the
+  moves and the roll all act on it, with the parallax of its near and far parts. `gridTilt` does nothing
+  here: switching `threeD` on turns the sheet over `threeDEase` from the flat mode's tilted view to where
+  it lies, the hole at the well's bottom all the way. What each place of the camera shows:
+  - Straight on (`cameraYaw` 0, `cameraPitch` 0): the sheet face on, rings round the shadow, the well
+    going straight away; the flat mode's `gridTilt` 0.
+  - The familiar view, the well hanging down the screen into the shadow, seen into its mouth: a negative
+    pitch, -20 to -50, at `cameraYaw` 0. The camera rising (a positive pitch) sees the same well upside
+    down, rising up the screen to the hole, because the sheet is a wall across the flight and the well
+    runs away from the camera; a viewer reads that as a mound with the hole on top. A yaw turns the well
+    sideways the same way.
+  - The camera stands about 11 radii from the hole (section 11, `cameraMoveIn`), so once it is less than
+    `gridDepth` radii back along the flight (a pitch past about 57° at `gridDepth` 6, 74° at 3, and a yaw
+    past the same, the two together sooner) it has passed through the sheet to the hole's side and sees the well
+    from outside. At `cameraPitch` -89 that is the textbook's cut: the sheet edge on, a line across the
+    frame, and the funnel hanging from it down to the hole; at 89 the same, upside down.
+  - From behind (`cameraYaw` 180) the far side: the funnel's outside, its tip toward the camera with the
+    hole on it and the flat sheet beyond.
+  - The throat's rim is the shadow's edge, so where the camera looks into the funnel its near wall passes
+    in front of the lower part of the shadow (the next bullet); the flat mode clears it.
+  The second hole's well stands where that hole's place falls on the plane, so a pair tilted out of the
+  equator (`companionTilt`) dents it under where each hole is, not where it is seen; its bottom stays off
+  that hole.
 - In 3D what lies between the camera and the hole is in front of it: a particle, a star's trace, a flow, a
   line of the lattice or of the sheet nearer the camera than the hole is drawn over the shadow, the lens
   and the ring, where it is, neither bent nor hidden; what lies beyond it is seen through the lens as
@@ -931,8 +957,9 @@ The cost of a knob, in the last column:
 | A line of the sheet behind the holes is not bent by the lens: the sheet is drawn over the finished frame and only cleared round each shadow (`gridClearing`); a piece nearer the camera than the holes is left whole | particle_renderer.ts, webgl_shaders.ts | pixel: the sheet behind the holes drawn into the layer the lens reads |
 | How a particle's ride falls across the slab: a smooth step from the plane to `gridRideDepth`, alike on both sides | webgl_shaders.ts | frame: a curve, not a number |
 | A ridden stroke with an end whose point of the surface lies nearer than the sheet camera's nearest is dropped whole, not cut there | field_step.ts, webgl_shaders.ts | particle |
-| The second hole's well dents the sheet at its full depth however far that hole stands off the plane | space_grid.ts | frame |
-| While 3D eases in, the sheet's pose, wells and lines go straight from the flat camera's numbers to the 3D camera's, each on its own, not turned: the lines, counted from the middle of the screen flat and from the point the camera circles in 3D, slide | space_grid.ts | frame: a path, not a number |
+| The second hole's well dents the sheet at its full depth however far that hole stands off the plane, measured from the sheet the main well lifts, so its bottom is not at that hole even in the plane | space_grid.ts | frame |
+| The sheet is lifted by the main well's whole depth, so a camera nearer the hole than `gridDepth` radii along the flight stands on the hole's side of it | space_grid.ts | frame: a share of the lift |
+| While 3D eases in, the sheet's pose, wells and lines go straight from the flat camera's numbers to the 3D camera's, each on its own, not turned (only the well's bottom is kept on the hole): the lines, counted from the middle of the screen flat and from the point the camera circles in 3D, slide | space_grid.ts | frame: a path, not a number |
 | The lattice's 13 lines each way along each of the three axes, in 48 pieces each: the top of `gridLatticeReach` | space_lattice.ts | machine |
 | A star's own twinkle, 2 to 5 radians a second, the brighter the faster, and its brightness, the square of an even draw | webgl_shaders.ts | has one: `starsTwinkleSpeed`, `starsFaintest` |
 | One star at most in a cell, placed in its middle 0.6 and drawn inside that cell alone, which cuts a large `starsSize` off at its edge | webgl_shaders.ts | pixel |

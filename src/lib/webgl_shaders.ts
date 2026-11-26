@@ -53,7 +53,7 @@ const DENT_GLSL = `  // How deep the sheet lies at a distance from a black hole 
 const SHEET_GLSL = `  uniform vec4 u_sheetU;      // the sheet's pose: where its camera sends the plane's first direction, its focal length
   uniform vec4 u_sheetV;      // where it sends the second, the nearest it draws
   uniform vec4 u_sheetN;      // where it sends the way the wells go down, the x of its picture's centre
-  uniform vec4 u_sheetO;      // where the main hole stands, the y of its picture's centre
+  uniform vec4 u_sheetO;      // where the plane's place over the main hole stands, the y of its picture's centre; the hole is at its well's bottom
   uniform vec4 u_sheetWell;   // the main hole's well: the radius it ends at, its depth there; unused
   uniform vec4 u_sheetWell2;  // a second hole's well: where it falls on the plane from the main hole, its radius and depth (0 = none)
 
@@ -1321,7 +1321,7 @@ export const gridVertexShaderSource = `
   uniform vec2 u_resolution;  // drawing buffer size in device pixels
   uniform float u_pixelRatio;
   uniform vec4 u_lines;       // cell size, how far from the black hole the lines reach, the place the lines are counted from
-  uniform vec4 u_sheet;       // line width where the focal length is the distance, the most a line widens near the camera, the distance from the black hole the lines begin to fade out at, unused
+  uniform vec4 u_sheet;       // line width where the focal length is the distance, the most a line widens near the camera, the distance from the black hole the lines begin to fade out at, how far the scene's own camera sees the sheet (0 = the flat camera alone)
   uniform vec4 u_pairWave;    // the pair's spiral wave: height (0 = off), the pair's angle on the sheet, turn of its arms per unit of distance, radius beyond which it weakens
   uniform vec2 u_pairAt;      // the centre the two turn around, from the main hole
   uniform vec4 u_wave;        // gravitational wave: height, seconds since it left the hole, angular frequency, 1 / decay time
@@ -1382,7 +1382,10 @@ ${SHEET_GLSL}
         depth += u_wave.x * exp(-max(emitted, 0.0) * u_wave.w) * waveReach(r, u_waveSpread.x) * along;
       }
     }
-    return vec4(sheetSeen(fromHole, depth), 1.0 - smoothstep(u_sheet.z, u_lines.y, r));
+    // Inside a throat the sheet lies below the horizon. The flat mode's shadow covers it; seen by the scene's
+    // own camera, from any side, it is not drawn
+    float shown = u_sheet.w > 0.0 && (r < u_sheetWell.x || length(fromHole - u_sheetWell2.xy) < u_sheetWell2.z) ? 0.0 : 1.0;
+    return vec4(sheetSeen(fromHole, depth), shown * (1.0 - smoothstep(u_sheet.z, u_lines.y, r)));
   }
 
   // Where a point of the camera's space is drawn on the frame, the scene camera's zoom and shake with the
@@ -1447,8 +1450,8 @@ ${SHEET_GLSL}
       else last = cut;
     }
     // A piece whose middle is nearer the camera than the nearer hole passes in front of the holes, and no
-    // shadow clears it. The main hole stands u_sheetO.z away in the sheet camera's space
-    if (u_front > 0.0 && first.z + last.z < 2.0 * u_front * u_sheetO.z) v_front = 1.0;
+    // shadow clears it. The main hole stands at the bottom of its well in the sheet camera's space
+    if (u_front > 0.0 && first.z + last.z < 2.0 * u_front * (u_sheetO.z + u_sheetN.z * u_sheetWell.y)) v_front = 1.0;
     vec3 from = onFrame(first.xyz);
     vec3 to = onFrame(last.xyz);
 

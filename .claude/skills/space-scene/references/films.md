@@ -531,9 +531,9 @@ One setup carries every such shot. It was seen at `gridTilt` 66 with `gridDepth`
 - The surface: `gridSheet` 0.85, `gridRings` 40 with `gridSpokes` 24, the textbook's drawing, whose spokes
   are the lines a straight fall follows; `gridSpan` 0.6 with `gridFade` 0.3 ends the sheet before its near
   side runs under the hole.
-- The particles on it: `gridRide` 1, `gridRideDepth` 40, `fieldAtHole` 1, `lensingEnabled` false,
-  `baseSpeed` 0. Ride Depth that deep lays the whole column on the sheet; at its default 2 only the matter
-  near the hole's depth rides and the rest is drawn where it flies (knobs.md, section 9).
+- The particles on it: `gridRide` 1, `fieldAtHole` 1, `lensingEnabled` false, `baseSpeed` 0. The default
+  `gridRideDepth` of 40 lays the whole column on the sheet; at 2 only the matter near the hole's depth
+  rides and the rest is drawn where it flies (knobs.md, section 9).
 - Every particle alike, so the well fills and stays full: `gravityDepth` 100, `depthFade` 0, `minOpacity`
   0.1, `particleSize` and `particleSizeMin` 2, `speedGlowKnee` 0.03, `trailIntensity` 0.5, `baseBrightness`
   0.6. A `warmup` of 10, the most there is, fills the well before the first frame.
@@ -547,6 +547,23 @@ The motion is the sentence of the shot:
 | Matter circles and stays | `gravityInertia` 0.82, `orbitalStrength` 100 | One band circling the wall part of the way down | A thin ring close round the shadow |
 | Matter orbits the well | `gravityInertia` 0.9, `orbitalStrength` 90 | A ring lying on the sheet round the mouth of the well | A ring two radii out |
 | More mass, a deeper well | `gridDepth` up along a track, with `gravityStrength` 6 and `baseBrightness` 0.8 | The wall grows longer and the matter runs faster down it | |
+
+In 3D the scene's camera sees the sheet where it lies, the well's bottom on the hole (knobs.md, section 11):
+
+- The familiar view, the well hanging down the screen into the shadow, is a negative `cameraPitch`, -20 to
+  -50, at `cameraYaw` 0: from -40 the picture is near the flat mode's at `gridTilt` 66. A positive pitch shows the
+  same well upside down, rising to the hole like a mound. Straight on is the view from above, `gridTilt` 0.
+- `cameraPitch` -89 is the textbook's cut, the sheet a line across the frame and the funnel hanging from it
+  to the hole: past about 57° at `gridDepth` 6 the camera has gone through the sheet and sees the well from
+  outside, from the hole's side. `cameraYaw` 180 sees that side too: the funnel's tip toward the camera with
+  the hole on it.
+- The looks of the table were made in the flat mode. In 3D the field's gravity ends at a sphere and the
+  field does not line the wall: at `baseSpeed` 0 the warm-up drains the sphere and nothing refills it, and
+  with the flight on only a band round the mouth and streaks over the flat part are lit. So "Matter drains
+  down the well" is a flow there, with the field off (`fieldEnabled` false) or dim: `flowA` 1.5, `flowACount` 20000, `flowAFrom` 8, `flowATo` 1,
+  `flowASpread` 6, `flowALife` 8, `flowASwirl` 0.4, `flowATrail` 0.6, `flowASize` 1.2 lines the well from
+  its mouth to the hole, all the way round and turning, from the first frame and from every side. A ring
+  (`flowBFrom` and `flowBTo` 4, `flowBSpread` 1) lies round the mouth.
 
 What goes wrong on the sheet:
 

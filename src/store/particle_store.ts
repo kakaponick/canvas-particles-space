@@ -469,7 +469,7 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   gridRings: 0,
   gridSpokes: 24,
   gridRide: 0,
-  gridRideDepth: 2,
+  gridRideDepth: 40,
   gridSky: 0,
   gridSkyPull: 0,
   gridColor: '#80bdff',

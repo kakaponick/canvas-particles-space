@@ -1184,9 +1184,9 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
 
     // The space sheet is a piece of the main hole's equator. It is laid out here, before the particles are
     // stepped, because Particles on Sheet draws them on it. In 3D it is seen by the scene's own camera, as
-    // the particles are; the flat mode sees it through a camera of its own, tipped by Sheet Tilt, with its
-    // well's bottom on the hole as the screen shows it. While the 3D camera eases in, the sheet's pose turns
-    // from the one to the other with it
+    // the particles are; the flat mode sees it through a camera of its own, tipped by Sheet Tilt. Either way
+    // its well's bottom is on the hole. While the 3D camera eases in, the sheet's pose turns from the one to
+    // the other with it, the bottom kept on the hole
     const grid = frame.grid
     const onSheet = state.gridRide > 0 && horizon > 0
     if (state.gridSheet > 0 || onSheet) {
@@ -1212,7 +1212,10 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
           pairPlane[2] * ringCos + pairPlane[5] * ringSin
         )
       }
-      placeSheet(grid, shared, equator, state.gridCell / 100 * shortSide, viewportWidth, viewportHeight, state.gridSpan, state.gridFade)
+      placeSheet(
+        grid, shared, equator, state.gridCell / 100 * shortSide, viewportWidth, viewportHeight, state.gridSpan, state.gridFade,
+        holeX, holeY
+      )
     }
     // Particles on Sheet: what flies within Ride Depth of the equator is laid on the sheet as it lies now.
     // Seen through the sheet of the frame before, as a stroke of the 3D camera is, every slow particle would

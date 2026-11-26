@@ -1,9 +1,11 @@
 // The space sheet: a square grid drawn as a surface of the scene, dented where the black hole sits. The
-// sheet is a piece of the main hole's equator (the plane matter and the flows follow): a point of it is the
-// hole's place, plus its two coordinates in that plane, plus its depth in the well along the way the plane
-// faces, away from a camera that looks down the flight. The dent is drawn in the picture's own measure: a
-// point of the sheet stands where light passing the hole at that distance is seen, and lies as deep as time
-// is slowed at the nearest that light comes to the hole. Far away that is the Newtonian well. At the
+// sheet is a piece of the main hole's equator (the plane matter and the flows follow), lifted so that the
+// bottom of the hole's well is the hole, as a textbook draws it: a point of it is the hole's place, plus its
+// two coordinates in that plane, plus its depth in the well less the depth at the bottom, along the way the
+// plane faces, away from a camera that looks down the flight. Inside the throat, below the horizon, nothing
+// of it is drawn. The dent is drawn in the picture's own measure: a point of the sheet stands where light
+// passing the hole at that distance is seen, and lies as deep as time is slowed at the nearest that light
+// comes to the hole. Far away that is the Newtonian well. At the
 // shadow's edge the light skims the photon sphere, where a clock runs at 58% of its rate, and the sheet
 // stands vertical, because light seen any closer never came back (dent() in webgl_shaders.ts).
 // The sheet is seen through a pose, as a particle is: in 3D the scene's own camera, so it moves, turns and
@@ -23,9 +25,9 @@ export const GRID_INSTANCE_COUNT = 2 * (2 * GRID_LINES_PER_SIDE + 1) * GRID_SEGM
 // The well's bottom is never closer to the flat camera than this share of the camera's distance
 const MIN_CAMERA_SHARE = 0.05
 // Slots of a pose: where its camera sends the plane's first direction, its focal length; the second
-// direction, its near plane; the way the well goes down, the x of the picture's centre; the main hole's
-// place, the y of the picture's centre. Directions and places are in the camera's space (right, down,
-// ahead), in units of the plane
+// direction, its near plane; the way the well goes down, the x of the picture's centre; the plane's place
+// over the main hole, whose well's bottom is the hole, the y of the picture's centre. Directions and places
+// are in the camera's space (right, down, ahead), in units of the plane
 export const SHEET_POSE_SLOTS = 16
 
 // Lengths on the plane are its units: CSS pixels seen straight on at the black hole's distance in 3D, the
@@ -327,6 +329,9 @@ export function laySpaceSheet (
   space.unit = 1
   space.throat = horizon
   space.depth = depthInRadii * horizon
+  // The well's bottom stands at the hole, as the flat camera sets it: the plane is lifted along the way it
+  // faces by the depth there, so its flat part lies that much nearer a camera looking down the flight
+  for (let row = 0; row < 3; row++) out[12 + row] -= out[8 + row] * space.depth
   // The lines are counted from the point the camera circles
   const scale = 1 / worldPerPixel
   space.anchorX = onPlane(equator, 0, -holeX, -holeY, pivot - holeZ) * scale
@@ -360,7 +365,8 @@ function onPlane (equator: ArrayLike<number>, row: number, x: number, y: number,
  * Sets the sheet for this frame from the two layouts: `shared` of the way from the flat camera's (0) to the
  * 3D camera's (1), so switching 3D on turns the sheet from its diagram view to where it lies in the scene.
  * A layout not taken part in is not read. The lines are `cell` apart and reach `spanSides` long screen sides
- * from the hole, fading out over the share `fade` of that.
+ * from the hole, fading out over the share `fade` of that. `holeX`, `holeY` is where the main hole is drawn
+ * (CSS pixels), which the well's bottom stays on as the one pose turns into the other.
  */
 export function placeSheet (
   grid: GridSettings,
@@ -370,14 +376,30 @@ export function placeSheet (
   width: number,
   height: number,
   spanSides: number,
-  fade: number
+  fade: number,
+  holeX: number,
+  holeY: number
 ) {
   const from = shared >= 1 ? space : flat
   const to = shared <= 0 ? flat : space
   const share = shared <= 0 ? 0 : Math.min(shared, 1)
-  for (let slot = 0; slot < SHEET_POSE_SLOTS; slot++) grid.pose[slot] = mix(from.pose[slot], to.pose[slot], share)
+  const pose = grid.pose
+  for (let slot = 0; slot < SHEET_POSE_SLOTS; slot++) pose[slot] = mix(from.pose[slot], to.pose[slot], share)
   grid.throat = mix(from.throat, to.throat, share)
   grid.depth = mix(from.depth, to.depth, share)
+  if (share > 0 && share < 1) {
+    // Both layouts put the well's bottom on the hole, but a blend of their places is seen off it through the
+    // blended pose: the bottom takes the blended distance and the hole's place on the screen, and the plane
+    // hangs from it
+    const away = mix(from.pose[14] + from.pose[10] * from.depth, to.pose[14] + to.pose[10] * to.depth, share)
+    if (away > 0 && pose[3] > 0) {
+      const bottomX = (holeX - pose[11]) * away / pose[3]
+      const bottomY = (holeY - pose[15]) * away / pose[3]
+      pose[12] = bottomX - pose[8] * grid.depth
+      pose[13] = bottomY - pose[9] * grid.depth
+      pose[14] = away - pose[10] * grid.depth
+    }
+  }
   grid.well2X = mix(from.well2X, to.well2X, share)
   grid.well2Y = mix(from.well2Y, to.well2Y, share)
   // A well that is there in only one of the two grows in place

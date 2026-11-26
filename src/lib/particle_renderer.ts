@@ -1270,7 +1270,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     sendSheet(setSheetUniform, u, grid)
     setUniform1f(gl, u.front, front)
     setUniform4f(gl, u.lines, Math.max(grid.cell, 1), Math.max(grid.span, 1), grid.anchorX, grid.anchorY)
-    setUniform4f(gl, u.sheet, grid.lineWidth, grid.lineScale, grid.fadeFrom, 0)
+    setUniform4f(gl, u.sheet, grid.lineWidth, grid.lineScale, grid.fadeFrom, grid.shared)
     // A spoke is half of a line through the hole
     setUniform2f(gl, u.rings, Math.min(Math.floor(grid.rings), GRID_LINES_PER_SIDE), Math.min(Math.floor(grid.spokes / 2), GRID_LINES_PER_SIDE))
     // Whole no nearer than gone
