@@ -17,11 +17,12 @@ A change owes the checks of its kind, each run once, on the finished change. Wha
 | Any | `pnpm build` and `pnpm lint`, both clean |
 | Adds, renames or removes a setting, an intro parameter, a layer or a preset | the audit (Driving the scene), printing no problem |
 | Adds work to the per-frame path: per particle, per pixel, a loop, an allocation | Measuring. A knob read once a frame and a uniform in place of a constant add none |
+| Touches only `films/` or docs: a film, a reel, a script, a voice-over, a rule | nothing more, since no code a bench measures has changed |
 
 - **The verdict closes the measurement.** `bench.mjs` ends in a line that begins `VERDICT`. On `within noise` it is done: the script has already repeated the runs whose ranges were apart, so the same call again brings no new fact. `apart` with the change slower is a finding, and Measuring says what to do with it.
-- **The films' bytes are a tool, not a check.** A change is merged without comparing films. `node scripts/bench.mjs films --against <commit>` tells whether the previews of `films/` moved between two builds: it is for the user's asking, and for finding which change moved a picture that looks wrong.
+- **The films' bytes are compared at the user's word.** `node scripts/bench.mjs films --against <commit>` tells whether the previews of `films/` moved between two builds. It runs when the user asks for it, to find which change moved a picture, and as the check `docs/films.md` gives a change to the particle step; every other change is merged without it.
 - **After a rebase on a master that moved**: build, lint and the audit again, then fast-forward at once. The frame time was measured against the change's own parent and still holds.
-- **Checks take turns across the machine.** The commands of `bench.mjs` and the film server's previews and renders wait for one another (`scripts/turn.mjs`), since a build measured beside another agent's Chrome measures that agent. `waiting for ...` is that turn. A new script that drives Chrome takes it too.
+- **Checks take turns across the machine.** The commands of `bench.mjs` and the film server's previews and renders wait for one another (`scripts/turn.mjs`), since a build measured beside another agent's Chrome measures that agent. `waiting for ...` is that turn. A new script that drives Chrome takes it too. A bench holds the turn for its whole run, minutes long, so it starts once the task's previews are done, and a preview's output is read unfiltered, so its `waiting for ...` is seen.
 
 ## Devices
 
