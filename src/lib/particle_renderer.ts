@@ -89,6 +89,21 @@ export interface CompositeSettings {
   spinTilt: number
   spinAxis: number
   shadowShape: ShadowShape
+  // The grid on the horizon: its brightness (0 turns it off); the camera it is seen from and the scale of the
+  // picture, as traceU and traceScale but for either lens; the axis it is drawn about, as spinTilt and
+  // spinAxis but kept while the hole does not spin; the longitude of the camera's meridian less the turn the
+  // horizon has made, radians, and the horizon's rate of turn, radians per M; its cells from pole to pole;
+  // the width of its lines in CSS pixels and the most light lines too dense to draw give
+  horizonGrid: number
+  horizonGridU: number
+  horizonGridScale: number
+  horizonTilt: number
+  horizonAxis: number
+  horizonTurn: number
+  horizonRate: number
+  horizonCells: number
+  horizonLine: number
+  horizonHaze: number
   ring: number
   // In black hole radii
   ringWidth: number
@@ -585,7 +600,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   const particleUniforms = getUniforms(gl, particleProgram, ['resolution', 'pixelRatio', 'center', 'flight', 'doppler', 'tintAhead', 'tintEdge', 'tint', 'zoom', 'zoomFrom'] as const)
   const orbitUniforms = getUniforms(gl, orbitProgram, ['resolution', 'zoom', 'orbit', 'dimmed', 'turnX', 'turnY', 'turnZ', 'side', 'sideMain', 'sideSecond'] as const)
   const compositeUniforms = getUniforms(gl, compositeProgram, [
-    'resolution', 'pixelRatio', 'time', 'hole', 'horizon', 'einstein', 'falloff', 'falloffPivot', 'lensCore', 'maxBend', 'lensReach', 'twistLimit', 'swirl', 'absorption', 'trace', 'spin', 'ring',
+    'resolution', 'pixelRatio', 'time', 'hole', 'horizon', 'einstein', 'falloff', 'falloffPivot', 'lensCore', 'maxBend', 'lensReach', 'twistLimit', 'swirl', 'absorption', 'trace', 'spin', 'horizonGrid', 'horizonAxis', 'horizonTurn', 'ring',
     'ringWidth', 'ringGlow', 'ringDoppler', 'ringSide', 'ringPhase', 'ringField', 'ringBase', 'ringFeed', 'ringLine', 'ringGlowShape', 'ringColor', 'ringApproaching', 'ringReceding',
     'center', 'starGlow', 'starRadius', 'sourcePower', 'glareRadius', 'exposure',
     'lightRadius', 'lightWidth', 'lightPower', 'lightSpeed', 'echoPower', 'echoDecay',
@@ -1166,6 +1181,12 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     setUniform1f(gl, u.absorption, settings.absorption)
     setUniform4f(gl, u.trace, settings.traceU, settings.traceScale * ratio, settings.traceShare, 0)
     setUniform4f(gl, u.spin, settings.spin, Math.cos(settings.spinTilt), Math.sin(settings.spinTilt), settings.spinAxis)
+    setUniform4f(gl, u.horizonGrid, settings.horizonGrid, settings.horizonGridU, settings.horizonGridScale * ratio, 0.5 * settings.horizonLine * ratio)
+    if (settings.horizonGrid > 0) {
+      const cellsPerRadian = settings.horizonCells / Math.PI
+      setUniform4f(gl, u.horizonAxis, Math.cos(settings.horizonTilt), Math.sin(settings.horizonTilt), settings.horizonAxis, settings.horizonHaze)
+      setUniform4f(gl, u.horizonTurn, settings.horizonTurn, settings.horizonRate, cellsPerRadian, 2 * settings.horizonCells)
+    }
     if (settings.shadowShape.version !== shadowVersion) {
       shadowVersion = settings.shadowShape.version
       gl.activeTexture(gl.TEXTURE0 + SHADOW_TEXTURE_UNIT)
@@ -1277,6 +1298,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     // The front layers are read only while the last stepped frame drew into them
     setUniform2f(gl, u.front, frontScene.lit ? 1 : 0, frontScene.lit && frontLinesShown ? 1 : 0)
     setUniform1f(gl, u.skyGrid, settings.skyGrid)
+    if (settings.skyGrid > 0 || settings.horizonGrid > 0) setUniform3f(gl, u.gridColor, settings.gridColor.r, settings.gridColor.g, settings.gridColor.b)
     if (settings.skyGrid > 0) {
       setUniform1f(gl, u.gridCell, Math.max(settings.gridCell, 1))
       setUniform1f(gl, u.gridPull, settings.gridPull)
@@ -1284,7 +1306,6 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
         const haze = Math.max(settings.gridHaze, 0.1) * ratio
         setUniform2f(gl, u.gridHaze, haze, haze * (1 - Math.min(Math.max(settings.gridHazeSpan, 0.05), 0.95)))
       }
-      setUniform3f(gl, u.gridColor, settings.gridColor.r, settings.gridColor.g, settings.gridColor.b)
       setUniform1f(gl, u.skyGridLine, settings.skyGridLine * 0.5)
     }
     gl.drawArrays(gl.TRIANGLES, 0, QUAD_VERTEX_COUNT)

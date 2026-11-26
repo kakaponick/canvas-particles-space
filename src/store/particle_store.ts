@@ -222,6 +222,14 @@ export interface ParticleState extends FlowState {
   gridSkyLine: number
   gridSkyHaze: number
   gridSkyHazeSpan: number
+  // The grid on the horizon, seen through the shadow: brightness (0 = off), its cells from pole to pole, the
+  // hole's own time that passes in a second, in M (0 holds it still), the width of its lines in CSS pixels
+  // and the most light lines too dense to draw give
+  gridHorizon: number
+  gridHorizonCells: number
+  gridHorizonPace: number
+  gridHorizonLine: number
+  gridHorizonHaze: number
   // The space lattice (space_lattice.ts): brightness (0 = off), its cell in black hole radii, and how
   // strongly its nodes are pulled in, in shadow radii of the slowing of time
   gridLattice: number
@@ -491,6 +499,11 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   gridSkyLine: 1.5,
   gridSkyHaze: 6,
   gridSkyHazeSpan: 0.5,
+  gridHorizon: 0,
+  gridHorizonCells: 6,
+  gridHorizonPace: 1,
+  gridHorizonLine: 1.5,
+  gridHorizonHaze: 0.3,
   gridLatticeLine: 1.5,
   gridLatticeGain: 1.6,
   gridLatticeReach: 6,

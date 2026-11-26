@@ -394,6 +394,9 @@ export const compositeFragmentShaderSource = `
   uniform vec4 u_trace;          // Ray Traced lens: 1 / the camera's distance in Schwarzschild radii (0 = the stylized lens), pixels of 2 tan(angle / 2) from the hole, share of the bend shown, unused
   uniform vec4 u_spin;           // the hole's spin a/M (0 = none), cosine and sine of its axis's angle to the line to the camera, turn of the axis on screen from up toward the left
   uniform sampler2D u_shadowShape; // a spinning hole's shadow: its radius all the way round, in round-shadow radii, from the axis's right toward its up
+  uniform vec4 u_horizonGrid;    // the grid on the horizon: its brightness (0 turns it off), 1 / the camera's distance in Schwarzschild radii, pixels of tan(angle / 2) from the hole, half the width of a line in pixels of the screen
+  uniform vec4 u_horizonAxis;    // the axis it is drawn about: cosine and sine of its angle to the line to the camera, its turn on screen from up toward the left; and the most light lines too dense to draw give
+  uniform vec4 u_horizonTurn;    // the longitude of the camera's meridian less the turn the horizon has made, the horizon's rate of turn per M, cells per radian, cells round the equator
   uniform float u_ring;          // photon ring brightness
   uniform float u_ringWidth;     // thickness of the line beyond its floor, in black hole radii
   uniform vec4 u_ringLine;       // the line: its floor in screen pixels, how far outside the shadow's edge it stands in its own widths, how far from the hole the ring is drawn in shadow radii, the width of its bell of light as a share of its own
@@ -910,6 +913,23 @@ ${DENT_GLSL}
   // The ray past a spinning hole (kerr_glsl.ts): kerrRay(psi, chi, hole, out dir)
   ${KERR_GLSL}
 
+  // The grid on the horizon seen through a point of the shadow, offset from the hole and dist from it in
+  // the shadow's own measure: the ray through it is followed back to where it left the horizon
+  // (kerrHorizonFrom), and the latitude and longitude there are returned in cells. The longitude is the
+  // horizon's own: the camera's meridian's, plus how far round the ray took it, less how far the horizon
+  // has turned by the time the light left it, Omega_H times the camera's time less the light's delay
+  vec2 horizonCells (vec2 offset, float dist) {
+    float slope = dist / u_horizonGrid.z;
+    vec2 psi = vec2(2.0 * slope, 1.0 - slope * slope) / (1.0 + slope * slope);
+    vec2 across = vec2(offset.x, -offset.y) / max(length(offset), 0.0001);
+    vec2 axis = vec2(cos(u_horizonAxis.z), sin(u_horizonAxis.z));
+    vec2 chi = vec2(across.y * axis.x - across.x * axis.y, across.x * axis.x + across.y * axis.y);
+    vec4 left = kerrHorizonFrom(psi, chi, vec4(u_spin.x, u_horizonAxis.xy, u_horizonGrid.y));
+    float latitude = atan(length(left.xy), left.z);
+    float longitude = atan(left.y, left.x) + u_horizonTurn.x + u_horizonTurn.y * left.w;
+    return vec2(latitude, longitude) * u_horizonTurn.z;
+  }
+
   // How strong a gravitational wave is at a distance from where it left: its strain falls as 1 / r, since
   // the same energy crosses an ever larger sphere. Closer than the edge there is no wave yet, only the
   // field of the source itself, which fades to nothing at the centre
@@ -1333,6 +1353,27 @@ ${DENT_GLSL}
       float besideHole = smoothstep(shadowEdge - px, shadowEdge + px, dist);
       if (u_spin.x > 0.0) besideHole *= 1.0 - fallen * u_trace.z;
       color *= besideHole;
+
+      // The grid on the horizon, in the shadow it fills. Its lines keep a width in pixels of the screen: how
+      // many cells a pixel spans is read from two more rays a pixel to the right and a pixel down. Where the
+      // cells shrink to a few pixels, toward the shadow's edge where the rays wind round the hole ever more
+      // times and toward the poles, the lines give way to the light they would share, up to a ceiling
+      if (u_horizonGrid.x > 0.0 && (dist < shadowEdge + px || fallen > 0.0)) {
+        float oval = dist / max(length(offset), 0.0001);
+        vec2 toRight = offset + vec2(px, 0.0);
+        vec2 toBelow = offset + vec2(0.0, px);
+        vec2 here = horizonCells(offset, dist);
+        vec2 alongX = horizonCells(toRight, length(toRight) * oval) - here;
+        vec2 alongY = horizonCells(toBelow, length(toBelow) * oval) - here;
+        alongX.y -= u_horizonTurn.w * floor(alongX.y / u_horizonTurn.w + 0.5);
+        alongY.y -= u_horizonTurn.w * floor(alongY.y / u_horizonTurn.w + 0.5);
+        vec2 perPixel = max(vec2(length(vec2(alongX.x, alongY.x)), length(vec2(alongX.y, alongY.y))), 0.000001);
+        vec2 fromLine = abs(fract(here + 0.5) - 0.5) / perPixel;
+        vec2 line = clamp(u_horizonGrid.w - fromLine + 0.5, 0.0, 1.0);
+        vec2 haze = min(2.0 * u_horizonGrid.w * perPixel, u_horizonAxis.w);
+        line = mix(haze, line, smoothstep(1.5, 4.0, 1.0 / perPixel));
+        color += u_gridColor * u_horizonGrid.x * max(line.x, line.y) * (1.0 - besideHole) * besideCompanion;
+      }
 
       // The second black hole's ring is a plain line: no matter is tracked falling into it
       if (u_companion.z > 0.0 && u_ring > 0.0 && companionDist < u_companion.z * u_ringLine.z) {

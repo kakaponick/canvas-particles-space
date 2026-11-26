@@ -190,6 +190,8 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
   const random = createRandom(seed)
   const ringEnergy = createRingEnergy()
   let ringWasFed = true
+  // Radians the horizon has turned, Omega_H times the hole's own time (Horizon Pace M a second)
+  let horizonTurned = 0
   // The particles as they are born; once sent to the graphics card they are stepped there
   const field = createParticleField()
   const orbiters = createOrbiters(random)
@@ -295,6 +297,16 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       spinTilt: 0,
       spinAxis: 0,
       shadowShape,
+      horizonGrid: 0,
+      horizonGridU: FAR_CAMERA,
+      horizonGridScale: 1,
+      horizonTilt: 0,
+      horizonAxis: 0,
+      horizonTurn: 0,
+      horizonRate: 0,
+      horizonCells: 6,
+      horizonLine: 1.5,
+      horizonHaze: 0.3,
       ring: 0,
       ringWidth: 0,
       ringGlow: 0,
@@ -885,6 +897,61 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     const spin = horizon > 0 ? Math.min(Math.sqrt(across * across + spinToward * spinToward), SPIN_MAX) : 0
     const spinTilt = Math.atan2(across, spinToward)
     const spinAxis = across > 0 ? Math.atan2(-spinRight, spinUp) : ownAxis
+    // The grid on the horizon is drawn about the spin's axis, and about Spin Tilt and Spin Axis while the hole
+    // does not spin, seen as the spin is. Its longitudes are counted from a meridian that stands in the
+    // scene (the one toward the scene's right, or its up while the axis lies along the right), so the
+    // camera's own meridian, the one the ray tracer starts from, is that far round
+    let axisRight = spinRight
+    let axisUp = spinUp
+    let axisToward = spinToward
+    if (across === 0 && spinToward === 0) {
+      const ownRight = -Math.sin(ownTilt) * Math.sin(ownAxis)
+      const ownUp = Math.sin(ownTilt) * Math.cos(ownAxis)
+      const ownToward = Math.cos(ownTilt)
+      axisRight = ownRight
+      axisUp = ownUp
+      axisToward = ownToward
+      if (threeD) {
+        axisRight = pose[0] * ownRight - pose[1] * ownUp - pose[2] * ownToward
+        axisUp = -(pose[3] * ownRight - pose[4] * ownUp - pose[5] * ownToward)
+        axisToward = -(pose[6] * ownRight - pose[7] * ownUp - pose[8] * ownToward)
+      }
+    }
+    const axisLength = Math.sqrt(axisRight * axisRight + axisUp * axisUp + axisToward * axisToward)
+    axisRight /= axisLength
+    axisUp /= axisLength
+    axisToward /= axisLength
+    // The scene's right, and its up, as the camera sees them
+    let refRight = threeD ? pose[0] : 1
+    let refUp = threeD ? -pose[3] : 0
+    let refToward = threeD ? -pose[6] : 0
+    let along = refRight * axisRight + refUp * axisUp + refToward * axisToward
+    if (Math.abs(along) > 0.999) {
+      refRight = threeD ? -pose[1] : 0
+      refUp = threeD ? pose[4] : 1
+      refToward = threeD ? pose[7] : 0
+      along = refRight * axisRight + refUp * axisUp + refToward * axisToward
+    }
+    // The camera's meridian runs toward it from the axis: the line to the camera, (0, 0, 1), less its part
+    // along the axis. Looking straight down the axis the ray tracer takes it opposite the way the axis
+    // points on the screen, and so does this
+    const horizonAxis = axisRight !== 0 || axisUp !== 0 ? Math.atan2(-axisRight, axisUp) : ownAxis
+    let meridianRight = -axisToward * axisRight
+    let meridianUp = -axisToward * axisUp
+    let meridianToward = 1 - axisToward * axisToward
+    if (meridianToward < 1e-9) {
+      meridianRight = Math.sin(horizonAxis)
+      meridianUp = -Math.cos(horizonAxis)
+      meridianToward = 0
+    }
+    // Its longitude: along the reference's part across the axis, and along the axis times that
+    const firstRight = refRight - along * axisRight
+    const firstUp = refUp - along * axisUp
+    const firstToward = refToward - along * axisToward
+    const cameraLongitude = Math.atan2(
+      meridianRight * (axisUp * firstToward - axisToward * firstUp) + meridianUp * (axisToward * firstRight - axisRight * firstToward) + meridianToward * (axisRight * firstUp - axisUp * firstRight),
+      meridianRight * firstRight + meridianUp * firstUp + meridianToward * firstToward
+    )
     // Where the camera stands: the Ray Traced lens and the shadow's outline see the hole from there. A hole
     // still growing, or grown by a merger, is a lighter or heavier one seen from the same place, and a 3D
     // camera that moves nearer sees it from nearer
@@ -1490,6 +1557,22 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     composite.spinTilt = spinTilt
     composite.spinAxis = spinAxis
     composite.shadowShape = shadowShape
+    // The grid on the horizon: the same camera and scale as the Ray Traced lens, for either lens. The
+    // horizon's generators turn at Omega_H = a / (2 r+) per M (radii in M), Horizon Pace M a second
+    composite.horizonGrid = horizon > 0 ? state.gridHorizon : 0
+    const horizonRate = spin / (2 * (1 + Math.sqrt(1 - spin * spin)))
+    horizonTurned = (horizonTurned + horizonRate * (reducedMotion ? 0 : state.gridHorizonPace) * dt) % (2 * Math.PI)
+    if (composite.horizonGrid > 0) {
+      composite.horizonGridU = cameraU
+      composite.horizonGridScale = horizon * holeScale / Math.tan(0.5 * shadowAngle(cameraU))
+      composite.horizonTilt = Math.atan2(Math.sqrt(axisRight * axisRight + axisUp * axisUp), axisToward)
+      composite.horizonAxis = horizonAxis
+      composite.horizonTurn = cameraLongitude - horizonTurned
+      composite.horizonRate = horizonRate
+      composite.horizonCells = state.gridHorizonCells
+      composite.horizonLine = state.gridHorizonLine
+      composite.horizonHaze = state.gridHorizonHaze
+    }
     composite.falloff = state.lensingFalloff
     composite.falloffPivot = state.lensingPivot / 100 * shortSide
     composite.lensCore = state.lensingCore

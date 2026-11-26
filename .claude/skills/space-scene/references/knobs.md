@@ -429,7 +429,9 @@ that precess, faster the closer they come, as around a real black hole.
 | The particles drawn on the sheet's surface: the share of the way they are moved onto it (0 leaves them where they fly), and the half thickness in radii of the slab round the equator whose particles are | `gridRide`, `gridRideDepth` |
 | The lattice in three dimensions: brightness (0 is off), its cell in radii, how hard it is drawn in | `gridLattice`, `gridLatticeCell`, `gridLatticeWarp` |
 | A flat grid on the sky read through the lens (0 is off), how far it is drawn in towards the hole (0 is flat), and the width of its lines | `gridSky`, `gridSkyPull`, `gridSkyLine` |
-| The colour of all three, and how many times brighter the lattice draws it | `gridColor`, `gridLatticeGain` |
+| A grid of latitudes and longitudes on the event horizon, seen through the shadow (0 is off), and its cells from pole to pole | `gridHorizon`, `gridHorizonCells` |
+| The horizon grid's turn, its lines and where crowded lines turn to haze: how much of the hole's own time passes in a second, in M (0 holds it still), the width of its lines, the most light the haze gives | `gridHorizonPace`, `gridHorizonLine`, `gridHorizonHaze` |
+| The colour of all four, and how many times brighter the lattice draws it | `gridColor`, `gridLatticeGain` |
 | The sheet's lines: their width, the most they widen near its camera, and where they stop round a hole | `gridLine`, `gridLineNear`, `gridClearing`, `gridClearingEdge` |
 | The flat mode's sheet camera: its distance, and how near it the sheet is cut off; how far the sheet reaches and the share of that it fades over | `gridDistance`, `gridNear`, `gridSpan`, `gridFade` |
 | How high a gravitational wave lifts the sheet | `gridWaveLift` |
@@ -514,7 +516,26 @@ that precess, faster the closer they come, as around a real black hole.
   `gridLatticeNear` above 1 leaves only the far side.
 - With `blackHoleSize` 0 the lattice is a plain cage of space: its cells are then multiples of
   `gridLatticeUnit` of the short side, 8%, the default hole's shadow.
-- `gridColor` is one colour for all three grids. The lattice draws it `gridLatticeGain` times brighter,
+- `gridHorizon` paints the event horizon itself with latitudes and longitudes and shows it as a camera would
+  see it: every ray that falls into the shadow is followed back to where it left the horizon, so the whole
+  horizon fills the shadow. Its near side lies in the middle, its far side wrapped round toward the edge,
+  where the rays wind round the hole ever more times and the cells crowd into a haze (`gridHorizonHaze`).
+  At `blackHoleSpin` 0 it is a globe seen through its own lens, the far pole a thin oval near the edge; a
+  spinning hole drags the rays round with it and twists the grid into spirals round the pole that faces
+  the camera, the more the nearer the edge. It is drawn about the spin's axis, and about `spinTilt` and
+  `spinAxis` while the hole does not spin; its longitudes stand in the scene, so a 3D camera that circles
+  the hole sees it from all sides. It is seen from the Ray Traced lens's camera (`lensingRadius`,
+  `lensingFromCamera`) under either lens, and only the main hole carries it.
+- A spinning horizon turns, at a / (2 r+) radians in a unit of the hole's own time: at Spin 0.998 about
+  0.47. `gridHorizonPace` is how many such units pass in a second, so at the default 1 a turn takes 13
+  seconds; it turns the way the particles are dragged, and a hole that does not spin does not turn. Light
+  from the far side left earlier, when the horizon stood further back, which twists the grid as well; that
+  twist does not depend on the pace. The coordinates are the outgoing Kerr ones, the ones that stay regular
+  where light leaves the horizon; caption it as the horizon's own map, not as something the eye would see,
+  since no light leaves a real horizon.
+- The horizon grid costs the composite pass three traced rays a pixel of the shadow, a pixel's worth of
+  frame time only while it is on and a hole is shown.
+- `gridColor` is one colour for all four grids. The lattice draws it `gridLatticeGain` times brighter,
   each channel stopping at full, so a high gain turns the lattice white while the sheet keeps the colour.
 - In the flat mode the sheet has a camera of its own, apart from the scene's: `gridDistance` long screen
   sides from the middle of the screen. Nearer, the perspective steepens and the horizon of a tilted sheet
@@ -990,6 +1011,10 @@ The cost of a knob, in the last column:
 | While 3D eases in or out, the flat sky and the sphere's are both drawn, each in its share, not one bent into the other | webgl_shaders.ts | frame: a path, not a number |
 | The Lensed Grid's lines keep their width across a face by the slant of the ray to the power 0.75 | webgl_shaders.ts | frame |
 | How the Lensed Grid's pull is found: 8 halvings of the span the node can lie in, then a straight line across the last | webgl_shaders.ts | machine |
+| The horizon grid's rays: Mino time and the radius's two integrals by Gauss-Legendre, four points on each of 8 stretches of 1 / r, and the polar motion in 24 Runge-Kutta steps; within the last few hundredths of the shadow's edge, where the rays wind round the photon orbits, they lose their digits, and the haze covers it | kerr_glsl.ts, kerr_trace.ts | machine |
+| The horizon grid's lines keep their width from two more rays a pixel to the right and a pixel down, and turn to haze as a cell shrinks from 4 to 1.5 screen pixels | webgl_shaders.ts | frame: the two sizes as a uniform |
+| The horizon grid is drawn at equal steps of Boyer-Lindquist's polar angle and of the outgoing longitude, the same cell along both | webgl_shaders.ts | frame: a cell of each its own |
+| The horizon grid's lines shine in Grid Color however red- or blueshifted the light from the horizon would be, and only the main hole has one | webgl_shaders.ts | pixel |
 | The nebula's clouds: three layers of noise, each 2.1 times finer and turned, the slower noise that curls them at 0.8 of their size, the grain at 1.7 times the finest; a Detail knob for the layers would take a loop to a fixed most with a break | webgl_shaders.ts | pixel |
 
 ### The opening

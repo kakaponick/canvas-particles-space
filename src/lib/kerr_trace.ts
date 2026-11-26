@@ -233,15 +233,15 @@ export function kerrRay (psi: number, chi: number, spin: number, incl: number, u
   return kerrRayFrom(Math.sin(psi), Math.cos(psi), Math.sin(chi), Math.cos(chi), spin, Math.cos(incl), Math.sin(incl), u, out)
 }
 
-// The same from the sines and cosines, which is what a pixel has at hand
-export function kerrRayFrom (
-  sinPsi: number, cosPsi: number, sinChi: number, cosChi: number,
-  spin: number, cosIncl: number, sinIncl: number, u: number, out: Float64Array | number[]
-) {
-  const a = spin
+// The numbers a ray keeps, from the pixel it is seen in: lambda, Carter's eta, and on the way lambda /
+// sin(incl), p_theta and R at the camera. Left in aimLambda, aimEta, aimEll, aimPolar and aimRadial
+let aimLambda = 0
+let aimEta = 0
+let aimEll = 0
+let aimPolar = 0
+let aimRadial = 0
+function kerrAim (sinPsi: number, cosPsi: number, sinChi: number, cosChi: number, a: number, ci: number, si: number, u: number) {
   const a2 = a * a
-  const ci = cosIncl
-  const si = Math.max(sinIncl, SIN_FLOOR)
   const rr = 2 / u
   // The camera's frame: Sigma, Delta, A of the metric and the rate omega at which space turns there
   const sigma = rr * rr + a2 * ci * ci
@@ -252,14 +252,33 @@ export function kerrRayFrom (
   const side = -sinPsi * cosChi * big / (sigma * Math.sqrt(delta))
   let ell = side / (1 + omega * si * side)
   if (Math.abs(ell) < ELL_FLOOR) ell = ell < 0 ? -ELL_FLOOR : ELL_FLOOR
-  const lambda = si * ell
+  aimEll = ell
+  aimLambda = si * ell
   // The ray's energy at the camera over its energy at infinity is boost / lapse; p_theta and R at the
   // camera follow from the part of the ray's direction along up and along forward. R at the camera is
   // kept in this form, a square, and never worked out again from lambda and eta
-  const boost = 1 - omega * lambda
-  const polar = boost * Math.sqrt(big / delta) * sinPsi * sinChi
-  const radial = boost * boost * big * cosPsi * cosPsi
-  const eta = polar * polar + ci * ci * (ell * ell - a2)
+  const boost = 1 - omega * aimLambda
+  aimPolar = boost * Math.sqrt(big / delta) * sinPsi * sinChi
+  aimRadial = boost * boost * big * cosPsi * cosPsi
+  aimEta = aimPolar * aimPolar + ci * ci * (ell * ell - a2)
+}
+
+// The same from the sines and cosines, which is what a pixel has at hand
+export function kerrRayFrom (
+  sinPsi: number, cosPsi: number, sinChi: number, cosChi: number,
+  spin: number, cosIncl: number, sinIncl: number, u: number, out: Float64Array | number[]
+) {
+  const a = spin
+  const a2 = a * a
+  const ci = cosIncl
+  const si = Math.max(sinIncl, SIN_FLOOR)
+  const rr = 2 / u
+  kerrAim(sinPsi, cosPsi, sinChi, cosChi, a, ci, si, u)
+  const lambda = aimLambda
+  const ell = aimEll
+  const polar = aimPolar
+  const radial = aimRadial
+  const eta = aimEta
 
   // R(r) = r^4 + square r^2 + cube r + fourth
   const square = a2 - lambda * lambda - eta
@@ -466,6 +485,122 @@ export function kerrRayFrom (
   out[1] = si * nz - ci * dx
   out[2] = -(si * dx + ci * nz)
   return true
+}
+
+// Gauss-Legendre's four points and weights on [0, 1]; the stretches of 1 / r the fall to the horizon is cut
+// into, the integrand being steepest where the ray passes the photon orbits just inside the shadow's edge;
+// and the Runge-Kutta steps of Mino time its polar motion is followed in
+const GAUSS_AT = [0.0694318442, 0.3300094782, 0.6699905218, 0.9305681558]
+const GAUSS_WEIGHT = [0.1739274226, 0.3260725774, 0.3260725774, 0.1739274226]
+const HORIZON_PANELS = 8
+const ROLL_STEPS = 24
+
+// The point of the unit sphere a ray is over and its velocity, per unit of Mino time, as kerrClimb has it
+// with the radius taken out, and cos^2 of the polar angle. Reads a y of seven, writes rollRate
+const rollTrial = new Float64Array(7)
+const rollRate = new Float64Array(7)
+const rollSum = new Float64Array(7)
+function kerrRoll (total: number, a2: number, y: Float64Array) {
+  const pull = a2 * y[2]
+  const inward = total + 2 * pull * y[2]
+  rollRate[0] = y[3]
+  rollRate[1] = y[4]
+  rollRate[2] = y[5]
+  rollRate[3] = -inward * y[0]
+  rollRate[4] = -inward * y[1]
+  rollRate[5] = -inward * y[2] + pull
+  rollRate[6] = y[2] * y[2]
+}
+
+// Where a ray seen inside the shadow left the horizon, for the pixel (psi, chi) of the same camera as
+// kerrRayFrom. `out` gets the point of the unit sphere over which it left, along the camera's meridian
+// (toward the camera), along the way the hole turns there and along the spin axis, and in out[3] how much
+// longer than the camera's own time the light took, in M; all in outgoing Kerr coordinates.
+//
+// Followed backwards, such a ray falls from the camera to the horizon with no turning point, so Mino time
+// and the radius's two integrals are smooth integrals over 1 / r, taken by Gauss-Legendre. The polar motion
+// is not taken in closed form: seen from near a pole the middle of the shadow is made of rays with eta < 0,
+// which never cross the equator and which kerrRayFrom's Jacobi swing has no form for, so it is followed as
+// kerrClimb follows it, a point rolling on the unit sphere, here in even steps of Mino time.
+//
+// Boyer-Lindquist's phi and t run off to infinity at the horizon, a ray winding round it for ever as it
+// falls. The light that comes out of it left the horizon's past sheet, where the outgoing coordinates are
+// regular: phi less the integral of a / Delta dr, t less that of (r^2 + a^2) / Delta dr. In them the radial
+// part of the turn, a P / Delta - a - a sqrt(R) / Delta, is a K / (P + sqrt(R)) - a, with P = r^2 + a^2 -
+// a lambda and K = eta + (lambda - a)^2, finite at the horizon (as (P^2 - R) / Delta is K); the time's is the
+// same with r^2 + a^2 in place of a, plus a lambda - a^2 sin^2(theta). The horizon's generators turn at
+// Omega_H = a / (2 r+) in these coordinates
+const rollState = new Float64Array(7)
+export function kerrHorizonFrom (
+  sinPsi: number, cosPsi: number, sinChi: number, cosChi: number,
+  spin: number, cosIncl: number, sinIncl: number, u: number, out: Float64Array | number[]
+) {
+  const a = spin
+  const a2 = a * a
+  const ci = cosIncl
+  const si = Math.max(sinIncl, SIN_FLOOR)
+  kerrAim(sinPsi, cosPsi, sinChi, cosChi, a, ci, si, u)
+  const lambda = aimLambda
+  const eta = aimEta
+  const square = a2 - lambda * lambda - eta
+  const cube = 2 * (eta + (lambda - a) * (lambda - a))
+  const fourth = -a2 * eta
+  const reach = 0.5 * cube
+  // 1 / r from the camera to the horizon. In it dr / sqrt(R) is dv / s, s^2 = R / r^4
+  const near = 0.5 * u
+  const span = (1 / (1 + Math.sqrt(1 - a2)) - near) / HORIZON_PANELS
+  let mino = 0
+  let drag = 0
+  let lag = 0
+  for (let p = 0; p < HORIZON_PANELS; p++) {
+    for (let k = 0; k < 4; k++) {
+      const v = near + span * (p + GAUSS_AT[k])
+      const weight = span * GAUSS_WEIGHT[k]
+      const s = Math.sqrt(Math.max(1 + v * v * (square + v * (cube + v * fourth)), 1e-12))
+      // (P + sqrt(R)) / r^2
+      const both = Math.max(1 + (a2 - a * lambda) * v * v + s, 1e-9)
+      mino += weight / s
+      drag += weight * (a * reach * v * v / both - a) / s
+      lag += weight * ((1 + a2 * v * v) * reach / both + a * lambda - a2) / s
+    }
+  }
+  const total = eta + lambda * lambda
+  rollState[0] = si
+  rollState[1] = 0
+  rollState[2] = ci
+  rollState[3] = -aimPolar * ci
+  rollState[4] = -aimEll
+  rollState[5] = aimPolar * si
+  rollState[6] = 0
+  const h = mino / ROLL_STEPS
+  for (let i = 0; i < ROLL_STEPS; i++) {
+    kerrRoll(total, a2, rollState)
+    for (let j = 0; j < 7; j++) {
+      rollSum[j] = rollRate[j]
+      rollTrial[j] = rollState[j] + 0.5 * h * rollRate[j]
+    }
+    kerrRoll(total, a2, rollTrial)
+    for (let j = 0; j < 7; j++) {
+      rollSum[j] += 2 * rollRate[j]
+      rollTrial[j] = rollState[j] + 0.5 * h * rollRate[j]
+    }
+    kerrRoll(total, a2, rollTrial)
+    for (let j = 0; j < 7; j++) {
+      rollSum[j] += 2 * rollRate[j]
+      rollTrial[j] = rollState[j] + h * rollRate[j]
+    }
+    kerrRoll(total, a2, rollTrial)
+    for (let j = 0; j < 7; j++) rollState[j] += h / 6 * (rollSum[j] + rollRate[j])
+  }
+  const length = Math.sqrt(rollState[0] * rollState[0] + rollState[1] * rollState[1] + rollState[2] * rollState[2])
+  // The sphere carries the turn the polar motion makes; the radius's part turns the point after it, the
+  // opposite way to phi's own sweep, since the ray is followed backwards
+  const sinTurn = Math.sin(-drag)
+  const cosTurn = Math.cos(-drag)
+  out[0] = (rollState[0] * cosTurn - rollState[1] * sinTurn) / length
+  out[1] = (rollState[0] * sinTurn + rollState[1] * cosTurn) / length
+  out[2] = rollState[2] / length
+  out[3] = lag + a2 * rollState[6]
 }
 
 // The two numbers a ray circling the hole at radius r keeps, the spherical photon orbits: every ray on the

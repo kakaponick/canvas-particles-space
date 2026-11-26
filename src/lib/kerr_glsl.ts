@@ -4,7 +4,8 @@
 //
 // It is pasted into the composite fragment shader, which already has PI and carlsonRF. Every loop has a
 // fixed count: seven duplications for each pair of Carlson integrals, four means for Jacobi's functions,
-// 24 Runge-Kutta steps for a ray with no turning point.
+// 24 Runge-Kutta steps for a ray with no turning point; for a ray followed back to the horizon, four
+// Gauss-Legendre points on each of eight stretches and 24 Runge-Kutta steps of its polar motion.
 //
 // Float32 and the GPU's own asin, acos and atan (short polynomials, four digits) are what this guards against:
 // - no inverse trigonometric function of the GPU is used: kerrAtan halves its argument twice and sums a
@@ -142,30 +143,40 @@ export const KERR_GLSL = `
     dturn = -pace * ray.y * v * (2.0 - ray.y * ray.z * v) / (1.0 - 2.0 * v + a2 * v * v);
   }
 
+  // kerrAim of kerr_trace.ts: returns (lambda, eta, lambda / sin(incl), p_theta), and R at the camera
+  vec4 kerrAim (vec2 psi, vec2 chi, float a, float ci, float si, float u, out float radial) {
+    float a2 = a * a;
+    float rr = 2.0 / u;
+    float sigma = rr * rr + a2 * ci * ci;
+    float delta = rr * rr - 2.0 * rr + a2;
+    float big = (rr * rr + a2) * (rr * rr + a2) - a2 * delta * si * si;
+    float omega = 2.0 * a * rr / big;
+    float side = -psi.x * chi.y * big / (sigma * sqrt(delta));
+    float ell = side / (1.0 + omega * si * side);
+    if (abs(ell) < 1e-6) ell = ell < 0.0 ? -1e-6 : 1e-6;
+    float lambda = si * ell;
+    float boost = 1.0 - omega * lambda;
+    float polar = boost * sqrt(big / delta) * psi.x * chi.x;
+    radial = boost * boost * big * psi.y * psi.y;
+    return vec4(lambda, polar * polar + ci * ci * (ell * ell - a2), ell, polar);
+  }
+
   // kerrRayFrom of kerr_trace.ts: psi and chi as (sine, cosine), hole = (spin, cos(incl), sin(incl), u)
   bool kerrRayFrom (vec2 psi, vec2 chi, vec4 hole, out vec3 dir) {
     dir = vec3(0.0, 0.0, 1.0);
-    float sinPsi = psi.x;
     float cosPsi = psi.y;
     float sinChi = chi.x;
-    float cosChi = chi.y;
     float a = hole.x;
     float a2 = a * a;
     float ci = hole.y;
     float si = max(hole.z, 1e-5);
     float rr = 2.0 / hole.w;
-    float sigma = rr * rr + a2 * ci * ci;
-    float delta = rr * rr - 2.0 * rr + a2;
-    float big = (rr * rr + a2) * (rr * rr + a2) - a2 * delta * si * si;
-    float omega = 2.0 * a * rr / big;
-    float side = -sinPsi * cosChi * big / (sigma * sqrt(delta));
-    float ell = side / (1.0 + omega * si * side);
-    if (abs(ell) < 1e-6) ell = ell < 0.0 ? -1e-6 : 1e-6;
-    float lambda = si * ell;
-    float boost = 1.0 - omega * lambda;
-    float polar = boost * sqrt(big / delta) * sinPsi * sinChi;
-    float radial = boost * boost * big * cosPsi * cosPsi;
-    float eta = polar * polar + ci * ci * (ell * ell - a2);
+    float radial;
+    vec4 aim = kerrAim(psi, chi, a, ci, si, hole.w, radial);
+    float lambda = aim.x;
+    float eta = aim.y;
+    float ell = aim.z;
+    float polar = aim.w;
 
     float square = a2 - lambda * lambda - eta;
     float cube = 2.0 * (eta + (lambda - a) * (lambda - a));
@@ -323,6 +334,82 @@ export const KERR_GLSL = `
     float dy = n.x * sinTurn + n.y * cosTurn;
     dir = vec3(dy, si * n.z - ci * dx, -(si * dx + ci * n.z));
     return true;
+  }
+
+  // kerrRoll of kerr_trace.ts: the rates of the point of the unit sphere (n), its velocity (w) and the
+  // integral of cos^2, per unit of Mino time
+  void kerrRoll (float total, float a2, vec3 n, vec3 w, out vec3 dn, out vec3 dw, out float dcos2) {
+    float pull = a2 * n.z;
+    dn = w;
+    dw = -(total + 2.0 * pull * n.z) * n + vec3(0.0, 0.0, pull);
+    dcos2 = n.z * n.z;
+  }
+
+  // kerrHorizonFrom of kerr_trace.ts: where a ray seen inside the shadow left the horizon, as the point of
+  // the unit sphere (toward the camera's meridian, along the hole's turn there, along the axis) in xyz, and
+  // in w how much longer than the camera's own time its light took, in M. The radius's integrals by
+  // Gauss-Legendre, four points on each of eight stretches of 1 / r; the polar motion in 24 Runge-Kutta steps
+  vec4 kerrHorizonFrom (vec2 psi, vec2 chi, vec4 hole) {
+    float a = hole.x;
+    float a2 = a * a;
+    float ci = hole.y;
+    float si = max(hole.z, 1e-5);
+    float radial;
+    vec4 aim = kerrAim(psi, chi, a, ci, si, hole.w, radial);
+    float lambda = aim.x;
+    float eta = aim.y;
+    float square = a2 - lambda * lambda - eta;
+    float cube = 2.0 * (eta + (lambda - a) * (lambda - a));
+    float fourth = -a2 * eta;
+    float reach = 0.5 * cube;
+    float near = 0.5 * hole.w;
+    float span = (1.0 / (1.0 + sqrt(1.0 - a2)) - near) / 8.0;
+    vec4 at = vec4(0.0694318442, 0.3300094782, 0.6699905218, 0.9305681558);
+    vec4 weight = span * vec4(0.1739274226, 0.3260725774, 0.3260725774, 0.1739274226);
+    float mino = 0.0;
+    float drag = 0.0;
+    float lag = 0.0;
+    for (int p = 0; p < 8; p++) {
+      vec4 v = near + span * (float(p) + at);
+      vec4 v2 = v * v;
+      vec4 s = sqrt(max(1.0 + v2 * (square + v * (cube + v * fourth)), 1e-12));
+      vec4 both = max(1.0 + (a2 - a * lambda) * v2 + s, 1e-9);
+      vec4 dl = weight / s;
+      mino += dot(dl, vec4(1.0));
+      drag += dot(dl, a * reach * v2 / both - a);
+      lag += dot(dl, (1.0 + a2 * v2) * reach / both + a * lambda - a2);
+    }
+    float total = eta + lambda * lambda;
+    vec3 n = vec3(si, 0.0, ci);
+    vec3 w = vec3(-aim.w * ci, -aim.z, aim.w * si);
+    float cos2 = 0.0;
+    float h = mino / 24.0;
+    for (int i = 0; i < 24; i++) {
+      vec3 dn;
+      vec3 dw;
+      float dc;
+      kerrRoll(total, a2, n, w, dn, dw, dc);
+      vec3 sumN = dn;
+      vec3 sumW = dw;
+      float sumC = dc;
+      kerrRoll(total, a2, n + 0.5 * h * dn, w + 0.5 * h * dw, dn, dw, dc);
+      sumN += 2.0 * dn;
+      sumW += 2.0 * dw;
+      sumC += 2.0 * dc;
+      kerrRoll(total, a2, n + 0.5 * h * dn, w + 0.5 * h * dw, dn, dw, dc);
+      sumN += 2.0 * dn;
+      sumW += 2.0 * dw;
+      sumC += 2.0 * dc;
+      kerrRoll(total, a2, n + h * dn, w + h * dw, dn, dw, dc);
+      n += h / 6.0 * (sumN + dn);
+      w += h / 6.0 * (sumW + dw);
+      cos2 += h / 6.0 * (sumC + dc);
+    }
+    n = normalize(n);
+    float turn = -mod(drag, 2.0 * PI);
+    float sinTurn = sin(turn);
+    float cosTurn = cos(turn);
+    return vec4(n.x * cosTurn - n.y * sinTurn, n.x * sinTurn + n.y * cosTurn, n.z, lag + a2 * cos2);
   }
 
   // The direction a ray came from, in the camera's (right, up, forward), for the pixel psi from forward and

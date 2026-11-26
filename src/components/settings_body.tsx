@@ -406,7 +406,7 @@ function SettingsBody () {
       </SettingsSection>
 
       <SettingsSection id="space-grid" title="Space Grid">
-        {/* The sheet and its shape, the lattice and its shape, the grid behind the lens and its pull, then the cell the sheet and that grid share, then the colour of all three */}
+        {/* The sheet and its shape, the lattice and its shape, the grid behind the lens and its pull, then the cell the sheet and that grid share, the grid on the horizon and its cells, then the colour of all four */}
         <SettingSlider field="gridSheet" />
         <SettingSlider field="gridTilt" />
         <SettingSlider field="gridDepth" />
@@ -423,10 +423,14 @@ function SettingsBody () {
           <SettingSlider field="gridCell" />
         </div>
         <div className="mt-3 flex flex-col gap-1">
+          <SettingSlider field="gridHorizon" />
+          <SettingSlider field="gridHorizonCells" />
+        </div>
+        <div className="mt-3 flex flex-col gap-1">
           <SettingColor field="gridColor" />
         </div>
         <SettingsFine id="space-grid">
-          {/* The sheet (its lines, its flat camera, its edges, the wave, the slab its particles ride in), the lattice and the grid behind the lens */}
+          {/* The sheet (its lines, its flat camera, its edges, the wave, the slab its particles ride in), the lattice, the grid behind the lens and the grid on the horizon */}
           <div className="flex flex-col gap-1">
             <SettingSlider field="gridSpokes" />
             <SettingSlider field="gridLine" />
@@ -454,6 +458,11 @@ function SettingsBody () {
             <SettingSlider field="gridSkyLine" />
             <SettingSlider field="gridSkyHaze" />
             <SettingSlider field="gridSkyHazeSpan" />
+          </div>
+          <div className="mt-3 flex flex-col gap-1">
+            <SettingSlider field="gridHorizonPace" />
+            <SettingSlider field="gridHorizonLine" />
+            <SettingSlider field="gridHorizonHaze" />
           </div>
         </SettingsFine>
       </SettingsSection>
