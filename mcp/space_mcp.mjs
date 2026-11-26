@@ -13,6 +13,12 @@
 //   node mcp/space_mcp.mjs          after `pnpm build`; .mcp.json starts it for Claude Code
 //   SPACE_DIST=path                 another build of the page
 //   CHROME_PATH=path                another Chrome, Chromium or Edge
+//
+// On a machine with Electron and an ffmpeg that has h264_nvenc, a render is encoded outside the browser,
+// which is what makes 4K fast (findLocalEncoder; docs/films.md says where the two are looked for):
+//   SPACE_ELECTRON=path             Electron's program
+//   SPACE_FFMPEG=path               ffmpeg
+//   SPACE_BROWSER_ENCODER=1         Chrome and its own encoder, as on a machine without them
 import http from 'node:http'
 import fs from 'node:fs'
 import os from 'node:os'
@@ -20,7 +26,7 @@ import path from 'node:path'
 import vm from 'node:vm'
 import crypto from 'node:crypto'
 import readline from 'node:readline'
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { Buffer } from 'node:buffer'
 import { fileURLToPath } from 'node:url'
 import { takeTurn } from '../scripts/turn.mjs'
@@ -197,6 +203,27 @@ function findChrome () {
   return found
 }
 
+// A machine that encodes outside the browser: Electron as the page's browser (local_host.cjs), which lets
+// the page write frames into ffmpeg, and an ffmpeg that reaches the graphics card's H.264 encoder. Each is
+// named by its variable or stands in ~/.space-film (electron/, ffmpeg); ffmpeg may also be on the PATH.
+// Null without either, and where the card's encoder does not answer: the film is then Chrome's to encode
+function findLocalEncoder () {
+  if (process.env.SPACE_BROWSER_ENCODER === '1') return null
+  const home = path.join(os.homedir(), '.space-film')
+  const exe = process.platform === 'win32' ? '.exe' : ''
+  const electron = process.env.SPACE_ELECTRON ??
+    path.join(home, 'electron', process.platform === 'darwin' ? 'Electron.app/Contents/MacOS/Electron' : `electron${exe}`)
+  const ffmpeg = process.env.SPACE_FFMPEG ?? [home, ...(process.env.PATH ?? '').split(path.delimiter)]
+    .map(dir => path.join(dir, `ffmpeg${exe}`)).find(file => fs.existsSync(file))
+  if (!ffmpeg || !fs.existsSync(electron) || !fs.existsSync(ffmpeg)) return null
+  // One black frame through the card's encoder: ffmpeg may be built without it, the machine may have no such card
+  const tried = spawnSync(ffmpeg, [
+    '-hide_banner', '-loglevel', 'error', '-f', 'lavfi', '-i', 'color=black:s=256x256:r=30', '-frames:v', '1',
+    '-c:v', 'h264_nvenc', '-f', 'null', '-'
+  ], { stdio: 'ignore', timeout: 15_000, windowsHide: true })
+  return tried.status === 0 ? { electron, ffmpeg } : null
+}
+
 let studio = null
 
 async function openStudio () {
@@ -257,15 +284,23 @@ async function openStudio () {
   const origin = `http://127.0.0.1:${server.address().port}`
 
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'space-film-'))
-  const chrome = spawn(findChrome(), [
-    '--headless=new', '--remote-debugging-port=0', `--user-data-dir=${profile}`,
-    '--no-first-run', '--no-default-browser-check', '--window-size=1280,720',
+  const flags = [
+    '--remote-debugging-port=0', `--user-data-dir=${profile}`,
     // The film is drawn with the graphics card, and nothing may slow the page while no one looks at it
     '--ignore-gpu-blocklist', '--enable-gpu', ...(process.platform === 'win32' ? ['--use-angle=d3d11'] : []),
     '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows',
-    '--autoplay-policy=no-user-gesture-required',
-    'about:blank'
-  ], { stdio: ['ignore', 'ignore', 'pipe'] })
+    '--autoplay-policy=no-user-gesture-required'
+  ]
+  const local = findLocalEncoder()
+  // Electron started from a program that is itself Electron run as Node would run as Node too
+  const { ELECTRON_RUN_AS_NODE: _asNode, ...env } = process.env
+  const chrome = local
+    ? spawn(local.electron, [path.join(ROOT, 'mcp', 'local_host.cjs'), ...flags], {
+        stdio: ['ignore', 'ignore', 'pipe'], env: { ...env, SPACE_FFMPEG: local.ffmpeg }
+      })
+    : spawn(findChrome(), [
+        '--headless=new', ...flags, '--no-first-run', '--no-default-browser-check', '--window-size=1280,720', 'about:blank'
+      ], { stdio: ['ignore', 'ignore', 'pipe'] })
 
   // The profile goes with the browser. The browser lets go of its files a moment after it is killed, so
   // the removal retries, and it is done before this returns: the server exits right after closing, and a
@@ -289,8 +324,14 @@ async function openStudio () {
       chrome.once('exit', code => reject(new Error(`The browser closed while starting (code ${code})`)))
       setTimeout(() => reject(new Error('The browser did not start in 20 s')), 20_000).unref()
     })
-    const targets = await (await fetch(`http://127.0.0.1:${new URL(socketUrl).port}/json`)).json()
-    const socket = new WebSocket(targets.find(target => target.type === 'page').webSocketDebuggerUrl)
+    // Electron opens its window a moment after its socket
+    let target
+    for (const deadline = Date.now() + 20_000; !target; await new Promise(resolve => setTimeout(resolve, 100))) {
+      const targets = await (await fetch(`http://127.0.0.1:${new URL(socketUrl).port}/json`)).json()
+      target = targets.find(entry => entry.type === 'page')
+      if (!target && Date.now() > deadline) throw new Error('The browser opened no page in 20 s')
+    }
+    const socket = new WebSocket(target.webSocketDebuggerUrl)
     await new Promise((resolve, reject) => {
       socket.addEventListener('open', resolve, { once: true })
       socket.addEventListener('error', () => reject(new Error('Could not reach the browser')), { once: true })
@@ -343,7 +384,7 @@ async function openStudio () {
     // The page's own scene is not watched by anyone: it rests, so the machine draws only films
     await evaluate('window.space.pause()')
 
-    studio = { origin, uploads, downloads, evaluate, close }
+    studio = { origin, uploads, downloads, evaluate, close, local: local !== null }
     return studio
   } catch (error) {
     close()
@@ -714,14 +755,28 @@ async function runTool (name, args, report) {
     page.uploads.set(token, target)
     tokens.push(() => page.uploads.delete(token))
     options.upload = `${page.origin}/__film/upload/${token}`
+    // Where this machine encodes outside the browser, the page's encoder writes the file itself; a frame
+    // that encoder cannot take is still sent the other way
+    if (page.local) options.local = target.path
 
     try {
-      const summary = await withProgress(page, report, () => page.evaluate(inPage(fractal ? 'fractal.render' : 'film.render', film, options)))
-      if (target.error || !target.written) throw target.error ?? new Error('The file did not arrive from the page')
+      const draw = () => withProgress(page, report, () => page.evaluate(inPage(fractal ? 'fractal.render' : 'film.render', film, options)))
+      // An encoder outside the browser is another program, and it may be stopped under the film. The film
+      // is then drawn again for the browser's own encoder, and the answer says so
+      let stopped = ''
+      const summary = await draw().catch(error => {
+        if (!options.local || !String(error.message).startsWith('ffmpeg stopped')) throw error
+        stopped = `\nThe encoder outside the browser failed (${error.message}); the browser encoded this film.`
+        delete options.local
+        fs.rmSync(target.path, { force: true })
+        return draw()
+      })
+      const arrived = target.written || (summary.encoder !== 'browser' && fs.existsSync(target.path))
+      if (target.error || !arrived) throw target.error ?? new Error('The file did not arrive from the page')
       closeFile()
       fs.renameSync(target.path, out)
       const { notes, ...facts } = summary
-      const note = notes.length > 0 ? `\nAdjusted: ${notes.join('; ')}` : ''
+      const note = (notes.length > 0 ? `\nAdjusted: ${notes.join('; ')}` : '') + stopped
       return text(`Wrote ${out}\n${Object.entries(facts).filter(([, value]) => value !== null).map(([key, value]) => `${key}: ${value}`).join(', ')}${note}`)
     } finally {
       for (const release of tokens) release()

@@ -150,9 +150,9 @@ takes an audio file and lays it under the picture from the first second.
   stars), a ring with nothing falling in, a `baseSpeed` of 0 without gravity, orbit traces with `orbitTrail`
   at 0, a sheet seen from straight above (`gridTilt` 0).
 - A preview plays the film from its start to the last second asked for and encodes nothing: about a
-  second and a half for 40 seconds of film, so look often. A render is held by the video encoder at about
-  200 frames a second at 1080p: a 30 fps film takes a sixth of its length, a 60 fps one a third, 4K
-  proportionally longer. Up to 60 000 particles cost a render nothing.
+  second and a half for 40 seconds of film, so look often. A render is held by the video encoder: on a machine
+  set up to encode outside the browser (`docs/films.md`) about 285 frames a second at 1080p and 70 at 4K,
+  through the browser's own encoder about 200 and 30. The answer of a render names which made the file. Up to 60 000 particles cost a render nothing.
 - The script starts a browser of its own, about three seconds a call; several jobs on one line share it.
   Five checks one call each took 16 s, the same five on one line 3 s. So a set of films goes through each
   step in one call: `check a.js b.js c.js`, `preview a.js a.jpg - b.js b.jpg -`, `render a.js a.mp4 high
@@ -173,8 +173,9 @@ motion: a 120 fps film played at 30 is the whole scene four times slower.
 
 - The scene is stepped once a frame there. It is the same motion as the 60 fps film, not the same
   frames: stars and particles are born at other moments.
-- 4K and anything above 120 fps is encoded by the browser's software encoder, which is slow and gives
-  every frame the bits of a 60 fps frame. Measured on this machine at the default quality: 4K at 120 fps
+- Through the browser's own encoder (a machine not set up to encode outside it), 4K and anything above
+  120 fps is encoded in software, which is slow and gives every frame the bits of a 60 fps frame. Measured
+  on this machine at the default quality: 4K at 120 fps
   is about 240 Mbit/s, 4K at 180 fps 320 to 365 Mbit/s. It renders 4K at 22 to 24 frames a second at
   60 fps and 32 to 40 above it: a minute in 4K at 180 fps is 10 800 frames, took 337 s and came to 2.4 GB.
 - A render through the tools goes to the disk as it is encoded, so its size is bound by the disk, not by

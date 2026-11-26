@@ -1,7 +1,7 @@
 // Plays a film (film.ts) off the page: a scene of its own on a canvas of the film's size, advanced by a
 // fixed step with no clock, so a slow machine draws the same frames as a fast one, only later. The frames
-// go to an mp4 (WebCodecs through mediabunny, loaded only when a film is rendered) or onto one contact
-// sheet an agent can look at before it renders.
+// go to an mp4 (WebCodecs through mediabunny, loaded only when a film is rendered, or the encoder the
+// film server's browser brings) or onto one contact sheet an agent can look at before it renders.
 import { useParticleStore } from '../store/particle_store'
 import { REFERENCE_FPS } from './particle_simulation'
 import { getRenderingContext } from './particle_renderer'
@@ -13,6 +13,7 @@ import { applyTracks, filmFade, filmSpeed, planFilm, type FilmPlan } from './fil
 import { drawCaptions, loadCaptionFonts } from './film_captions'
 import { drawGraphics, loadGraphicImages, type FilmImages } from './film_graphics'
 import { clamp, fail } from './agent_values'
+import { createFramePacker, packable, type FramePacker } from './frame_pack'
 
 // A film waits for its faces: a title in a fallback face would be a different video
 const FONT_WAIT_MS = 8000
@@ -251,6 +252,9 @@ export interface RenderOptions {
   // Where each picture of the film's graphics is read from, by the "src" it was written with; a "src" not
   // named here is its own address. The film server gives the addresses of files on its machine
   images?: Record<string, string>
+  // From the film server on a machine that encodes outside the browser: the path the mp4 is written at.
+  // The frames then go to that encoder (`encodeLocally`) and nothing is uploaded
+  local?: string
 }
 
 // The lowest H.264 level a stream of this frame, rate and bitrate fits in
@@ -315,7 +319,8 @@ export function readQuality (options: RenderOptions): FilmQuality {
 // a second at 1080p on an RTX 3070, the main thread busy a third of that time). Measured and of no use:
 // encoding from the WebGL canvas without the 2D copy, `prefer-hardware`, `realtime`, reading the pixels
 // back by hand, other H.264 profiles. Two hardware encoders side by side reach about 300 frames a second
-// at the price of a second of frames held in video memory; that is not built
+// at the price of a second of frames held in video memory; that is not built. What is faster is an
+// encoder outside the browser, where the film server has one: `encodeLocally` below
 export async function encodeVideo (job: EncodeJob, options: RenderOptions, started: number) {
   const quality = readQuality(options)
   const media = await import('mediabunny')
@@ -325,6 +330,12 @@ export async function encodeVideo (job: EncodeJob, options: RenderOptions, start
   // rate, so the file grows with the rate by itself, and it refuses a budget above about 300 Mbit/s;
   // a hardware encoder spreads the same budget over the faster frames
   const bitrate = Math.round(canvas.width * canvas.height * Math.min(job.fps, BITRATE_FPS) * QUALITY_BITS[quality])
+
+  // The film server's browser on a machine with an encoder of its own takes the frames there
+  if (options.local && window.spaceEncoder && packable(canvas.width, canvas.height)) {
+    const packer = createFramePacker(canvas)
+    if (packer) return encodeLocally(job, options.local, options.audio, bitrate, window.spaceEncoder.open, packer, started)
+  }
 
   // Either way the index of the file is at its start, so it plays before it is all there. A file
   // sent in pieces keeps room for the index and fills it in at the end; one held in the page is
@@ -420,6 +431,91 @@ export async function encodeVideo (job: EncodeJob, options: RenderOptions, start
       height: canvas.height,
       codec,
       audio: audioCodec,
+      encoder: 'browser',
+      megabytes: Number((bytes / 1e6).toFixed(2)),
+      megabitsPerSecond: Number((bytes * 8 / 1e6 / (job.frames / job.fps)).toFixed(1)),
+      renderSeconds: Number(((performance.now() - started) / 1000).toFixed(1))
+    }
+  }
+}
+
+// Frames handed to the encoder and not yet taken by it: each holds a buffer of a whole frame
+const FRAMES_AHEAD = 4
+
+// The same film through the encoder the film server's browser brings (mcp/local_encoder.cjs: ffmpeg on the
+// graphics card's own H.264 encoder). The browser's encoder takes 4K in software, about 20 frames a
+// second; this one is held only by how fast a frame is read back and passed on, about 65 at 4K on an RTX
+// 3070. A frame is packed and read back by `packer` a few frames behind the drawing, and written into
+// ffmpeg's input as it arrives; the sound is ffmpeg's to read and lay under the picture
+async function encodeLocally (
+  job: EncodeJob, path: string, audio: string | undefined, bitrate: number,
+  open: NonNullable<Window['spaceEncoder']>['open'], packer: FramePacker, started: number
+) {
+  const { canvas } = job
+  const encoder = open({
+    path, width: canvas.width, height: canvas.height, fps: job.fps, bitrate, keyFrameSeconds: KEY_FRAME_SECONDS,
+    duration: job.frames / job.fps, audio, audioBitrate: AUDIO_BITRATE
+  })
+  // A buffer is the encoder's from the write until it has taken the frame
+  const free: Uint8Array[] = []
+  const taking = new Set<Promise<void>>()
+  let made = 0
+  let broken: unknown = null
+  const send = async (slot: number) => {
+    while (free.length === 0 && made >= FRAMES_AHEAD && !broken) await Promise.race(taking)
+    if (broken) throw broken
+    let bytes = free.pop()
+    if (!bytes) {
+      bytes = new Uint8Array(packer.bytes)
+      made++
+    }
+    const frame = bytes
+    await packer.finish(slot, frame)
+    const taken: Promise<void> = encoder.write(frame)
+      .catch((error: unknown) => { broken ??= error })
+      .then(() => {
+        free.push(frame)
+        taking.delete(taken)
+      })
+    taking.add(taken)
+  }
+
+  progress.phase = 'rendering'
+  let bytes = 0
+  try {
+    for (let index = 0; index < job.frames; index++) {
+      checkCancelled()
+      await job.draw(index)
+      // The slot's earlier frame is collected before the slot reads this one
+      const slot = index % packer.slots
+      if (index >= packer.slots) await send(slot)
+      packer.start(slot)
+      progress.frame = index + 1
+      if (index % FRAMES_PER_BREATH === 0) await breathe()
+    }
+    progress.phase = 'finishing'
+    for (let index = Math.max(job.frames - packer.slots, 0); index < job.frames; index++) await send(index % packer.slots)
+    await Promise.all(taking)
+    if (broken) throw broken
+    bytes = await encoder.close()
+  } catch (error) {
+    encoder.cancel()
+    throw error
+  } finally {
+    packer.dispose()
+  }
+
+  return {
+    blob: null,
+    facts: {
+      frames: job.frames,
+      duration: job.frames / job.fps,
+      fps: job.fps,
+      width: canvas.width,
+      height: canvas.height,
+      codec: 'avc',
+      audio: audio ? 'aac' : null,
+      encoder: 'nvenc',
       megabytes: Number((bytes / 1e6).toFixed(2)),
       megabitsPerSecond: Number((bytes * 8 / 1e6 / (job.frames / job.fps)).toFixed(1)),
       renderSeconds: Number(((performance.now() - started) / 1000).toFixed(1))

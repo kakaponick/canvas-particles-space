@@ -16,7 +16,7 @@ to an mp4 film from a JSON description or a script (see [Films](#films)).
 - **Zustand** 4 - state; the animation loop reads the stores directly, so React never renders per frame
 - **WebGL2** - instanced particle strokes and one full-screen composite pass for the lens, the ring, the opening
   and the grids. There is no fallback: a browser without WebGL2 gets a message instead of the scene
-- **mediabunny** - encodes films to H.264 mp4 through WebCodecs; loaded only when a film is rendered
+- **mediabunny** - encodes films to H.264 mp4 through WebCodecs; loaded only when a film is rendered. The film server uses the graphics card's encoder through ffmpeg instead on a machine set up for it (`docs/films.md`)
 - **Vercel** - hosting (`vercel.json`) and Vercel Analytics
 
 ## Getting Started
