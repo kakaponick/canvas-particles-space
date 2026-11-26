@@ -61,7 +61,7 @@ stand-in shows is a picture of the idea. Know which of the two a shot is made of
 | The swirl | none: `orbitalStrength` 0 | Orbital Force, for the angular momentum infalling gas brings with it |
 | Frame dragging | `frameDrag` 1, `frameDragFalloff` 1, `frameDragSight` 1; orbits' planes `orbitDrag` 1 | |
 | Capture | `horizonScale` 1, the shadow's edge, where every ray the camera sees ends in the hole | |
-| The lens | `lensingTraced` on, `lensingAbsorption` 0 | the stylized lens and its keys |
+| The lens | `lensingTraced` on, `lensingAbsorption` 0 | the stylized lens and its keys; and in the flat mode the particles, seen through the lens as if they lay behind the hole (section 5) |
 | The photon ring | its outline, and its bright side from the spin (`ringSpinFollow` 1) | its light from infall (`ringFeed`): a real ring is hot matter's light squeezed by the lens |
 | A pair | `companionSpin` 1, `companionPrecession` 1, `companionLensDepth` 1, `companionWaveLens` 1; the waves' shape | the waves' size (`companionWaves`) |
 | Curved space | the shape of the sheet's well and the grid's pull: the slowing of time | their size (`gridDepth`, `gridSkyPull`), a diagram's |
@@ -408,6 +408,12 @@ Gate: `lensingEnabled` on and `lensingRadius` above 0, with something behind the
 the stars, the nebula, the field. The stylized keys act only with `lensingTraced` false.
 
 The lens bends the finished picture (particles, stars, grids), not the particles' paths.
+
+So the particles are seen as if they lay behind the hole. Matter that falls to the shadow is drawn where
+the lens shows light from just behind it: pushed out to the Einstein ring and mirrored inside it, with a
+dark band between the ring and the shadow where the rays come from far behind. A fall or a ring that
+should reach the shadow's edge is drawn with `lensingEnabled` false (or under the 3D front layers, section
+11, for what stands in front). With the lens on, the band is the lens's own picture and reads as one.
 
 | What | Keys |
 |---|---|

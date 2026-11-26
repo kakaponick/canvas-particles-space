@@ -74,7 +74,9 @@ shadow, with the streaks farther out swinging into it:
   other layer off, `fieldEnabled` on. A particle look keeps the particles moving (a flight, or gravity
   that moves them), since what stands still draws nothing.
 - Draw it as one still at second 1: `space_preview` with `"at": [1], "still": true`, or
-  `space.mjs still tracer.json out/tracer.jpg 1`.
+  `space.mjs still tracer.json out/tracer.jpg 1`. 720p judges the shape; a dim look (a slow fall, the far
+  field) is judged for brightness in a still at the film's own size, since thin strokes thin further in a
+  contact sheet.
 
 ### The sweep
 
