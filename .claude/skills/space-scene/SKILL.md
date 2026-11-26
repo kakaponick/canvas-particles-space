@@ -30,7 +30,8 @@ These words carry the rest of this skill, of `references/` and of the guides.
   still draws nothing, and a camera that moves streaks the trails without lighting them.
 - **radii**: every length round the hole is in black hole radii, so `blackHoleSize` alone scales the hole;
   knobs.md, "The unit everything is measured in", converts them to Schwarzschild radii.
-- **the real thing** (**1×**): a knob whose 1 is nature's value; its description says so.
+- **the real thing** (**1×**): a knob whose 1 is nature's value; its description says so. knobs.md,
+  "Nature and its stand-ins", tells the laws at nature's values from the ones a stand-in draws.
 
 ## The loop
 
@@ -101,7 +102,7 @@ shot's sentence.
 A film is one description: frame and length, a seed, starting settings and a timeline on which any number,
 switch or colour moves along keyframes, layers switch, the opening's events fire again, the scene's time
 slows or stops, and shapes and captions lie over the picture. It plays in a scene of its own from the
-page's defaults, and the same film is the same video on any machine. A film of a few things is a JSON
+page's defaults, and the same film draws the same frames every time it is rendered on this machine. A film of a few things is a JSON
 object; anything longer is a script that plays it forward. Several films joined into one video are a reel
 (`clips`).
 

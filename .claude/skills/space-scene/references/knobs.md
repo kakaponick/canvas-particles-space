@@ -48,6 +48,33 @@ A real shadow is 2.6 Schwarzschild radii, so n radii are 2.6 n Schwarzschild rad
 conversion a caption or a description needs. The orbiting stars' own distances (`orbitClosest`,
 `orbitEscape`) are counted in Schwarzschild radii, the unit of their physics, and still follow the size.
 
+### Nature and its stand-ins
+
+Most laws have a value nature gives, and their knob says so ("1 = real", "2 = Newton"); a few laws the scene
+does not simulate are drawn by a stand-in. A caption may claim what a knob at nature's value shows; what a
+stand-in shows is a picture of the idea. Know which of the two a shot is made of.
+
+| Law | Nature's value | Stand-in, and what it replaces |
+|---|---|---|
+| The pull | `gravityFalloff` 2 (Newton), `threeD` for the true distance | `gravityReach` ends gravity, which has no edge (40, its most, comes nearest); the flat mode's layer (`gravityDepth`) stands in for distance along the line of sight |
+| Keeping speed | `gravityInertia` 1 (Newton's first law) | below 1 a share of the speed is lost every 60th of a second; 0 moves a particle only while it is pushed |
+| The swirl | none: `orbitalStrength` 0 | Orbital Force, for the angular momentum infalling gas brings with it |
+| Frame dragging | `frameDrag` 1, `frameDragFalloff` 1, `frameDragSight` 1; orbits' planes `orbitDrag` 1 | |
+| Capture | `horizonScale` 1, the shadow's edge, where every ray the camera sees ends in the hole | |
+| The lens | `lensingTraced` on, `lensingAbsorption` 0 | the stylized lens and its keys |
+| The photon ring | its outline, and its bright side from the spin (`ringSpinFollow` 1) | its light from infall (`ringFeed`): a real ring is hot matter's light squeezed by the lens |
+| A pair | `companionSpin` 1, `companionPrecession` 1, `companionLensDepth` 1, `companionWaveLens` 1; the waves' shape | the waves' size (`companionWaves`) |
+| Curved space | the shape of the sheet's well and the grid's pull: the slowing of time | their size (`gridDepth`, `gridSkyPull`), a diagram's |
+| A particle's light | | its speed on the screen: a drawing rule, so the eye reads motion |
+
+The field on nature's values alone, `threeD`, `gravityInertia` 1, `gravityFalloff` 2, `orbitalStrength` 0,
+`gravityReach` 40 and a flight, shows what gravity does to a stream of matter flying past a hole: the
+streams bend toward it, the near ones swing round it, and behind it they cross into a narrow wake,
+gravitational focusing (seen in a tracer at `gravityStrength` 6, 8 s of warm-up). No disc forms, as none
+would in nature: a disc needs angular momentum, and a straight flight brings none. A disc in this scene is
+Orbital Force (the stand-in), a flow (matter told where to go) or the orbiting stars, which keep their own
+speed and angular momentum as bodies do.
+
 ## 2. The flight: the particle field
 
 Gate: `fieldEnabled` on, and particles that move on the screen: `baseSpeed` above 0, or gravity moving
