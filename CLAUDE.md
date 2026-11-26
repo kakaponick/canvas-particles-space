@@ -30,7 +30,7 @@ Write for current browsers with WebGL2 on desktop-class hardware: one code path,
 
 ## Earlier films
 
-The scene is built for the film made next: a change takes the laws, the defaults and the look that are right today, and the films in `films/` are drawn by them from then on. The picture a film had before is not kept, and that is a hard rule: no flag, preset, mode or default holds an earlier look, and no change is held back or reshaped by the films it redraws, or counts them as its cost in a plan or a report.
+The scene is built for the film made next: a change takes the laws, the defaults and the look that are right today, and the films in `films/` are drawn by them from then on. The picture a film had before is not kept, and that is a hard rule: no flag, preset, mode or default holds an earlier look, and no change is held back or reshaped by the films it redraws, or counts them as its cost in a plan or a report. A hook holds it (`.claude/hooks/earlier_films.mjs`, whose header says what it reads): an answer, a file's text or a commit message that keeps or prices an earlier look is sent back.
 
 ## UX
 
