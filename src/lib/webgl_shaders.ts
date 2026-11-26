@@ -602,6 +602,13 @@ ${DENT_GLSL}
     return color;
   }
 
+  // Where the second black hole moves the ray seen at a point this far from it: in towards it by E^2 / r,
+  // as a point mass does, held in at half its shadow's radius
+  vec2 companionBend (vec2 fromCompanion) {
+    float closest = 0.5 * u_companion.z;
+    return -fromCompanion * (u_companion.w * u_companion.w / max(dot(fromCompanion, fromCompanion), closest * closest));
+  }
+
   // Carlson's symmetric elliptic integral R_F(x, y, z), by duplication: seven steps hold to float precision
   // even beside the photon sphere, where it runs off to infinity
   float carlsonRF (vec3 v) {
@@ -680,7 +687,11 @@ ${DENT_GLSL}
     // Pixels of the scene under one pixel of the screen: edges and hairlines are measured in it, so the
     // zoom leaves them as sharp and as thin as they were
     float px = 1.0 / u_cameraZoom;
-    vec2 offset = frag - u_hole;
+    // A second black hole nearer the camera bends the ray before it reaches the first: the first, its
+    // shadow, its lens and its ring are seen where that share of the bend takes the ray
+    vec2 companionShift = vec2(0.0);
+    if (u_companion.z > 0.0 && u_companion.w > 0.0 && u_pairDepth.x > 0.0) companionShift = companionBend(frag - u_companion.xy);
+    vec2 offset = frag + companionShift * u_pairDepth.x - u_hole;
     float dist = length(offset);
     // A ringing horizon is an oval: longer along one axis by the share it is shorter along the other, so
     // it keeps its area, as a quadrupole does. The shadow, the lens and the photon ring all measure their
@@ -763,6 +774,10 @@ ${DENT_GLSL}
       samplePx += t * strength * across;
     }
 
+    // The ray reaches the first black hole where the nearer second one has bent it to
+    samplePx += companionShift * u_pairDepth.x;
+    vec2 beforeLens = samplePx;
+
     // The lens maps the background behind the hole into a ring of radius E, where the pull (E / r)^2
     // is 1. Falloff pivots around
     // u_falloffPivot: closer than that a higher power pulls harder. With the pivot a screen away the
@@ -834,14 +849,16 @@ ${DENT_GLSL}
       }
     }
 
-    // The second black hole bends the ray as a point mass does, on top of the first
+    // The second black hole bends the ray as a point mass does, on top of the first. Farther than the first,
+    // it is seen where the first one's lens shows it, moved by the share of that lens's bend it lies behind;
+    // nearer, its bend was worked out first and what the first was not seen through is added here
     float companionDist = 0.0;
     if (u_companion.z > 0.0) {
-      vec2 fromCompanion = frag - u_companion.xy;
+      vec2 fromCompanion = frag + (samplePx - beforeLens) * u_pairDepth.y - u_companion.xy;
       companionDist = length(fromCompanion);
       if (u_companion.w > 0.0) {
-        float closest = 0.5 * u_companion.z;
-        samplePx -= fromCompanion * (u_companion.w * u_companion.w / max(companionDist * companionDist, closest * closest));
+        if (u_pairDepth.x <= 0.0) companionShift = companionBend(fromCompanion);
+        samplePx += companionShift * (1.0 - u_pairDepth.x);
       }
     }
 
@@ -1044,7 +1061,8 @@ ${DENT_GLSL}
     // zone opens around the shadow and grows with absorption, lens radius and falloff
     if (bend > 0.0 && u_absorption > 0.0) color = max(color - 0.5 * bend * u_absorption, 0.0);
 
-    // Each black hole's shadow also hides the part of the other's ring that lies behind it
+    // Each black hole's shadow also hides the part of the other's ring that lies behind it: the nearer one's
+    // hides the farther one's ring, and side by side each hides the other's
     float besideCompanion = 1.0;
     if (u_companion.z > 0.0) {
       besideCompanion = smoothstep(u_companion.z - px, u_companion.z + px, companionDist);
@@ -1066,7 +1084,7 @@ ${DENT_GLSL}
           vec2 spread = fromLine / (u_companion.z * u_ringGlowShape.xy);
           line += u_ringGlow * dot(u_ringGlowShape.zw, exp(-spread * spread));
         }
-        color += u_ringColor * u_ring * u_ringBase * line * besideHole;
+        color += u_ringColor * u_ring * u_ringBase * line * mix(besideHole, 1.0, clamp(u_pairDepth.z, 0.0, 1.0));
       }
 
       // Photon ring: light that circled the hole before escaping, a hair-thin line hugging the shadow, along
@@ -1106,7 +1124,7 @@ ${DENT_GLSL}
         // The colour follows the square of the contrast: a mild one only brightens and dims the sides of
         // a white ring, a strong one also turns them blue and red
         vec3 tint = mix(u_ringColor, side > 0.0 ? u_ringApproaching : u_ringReceding, abs(side) * u_ringDoppler * u_ringDoppler);
-        color += tint * u_ring * boost * boost * boost * line * besideCompanion;
+        color += tint * u_ring * boost * boost * boost * line * mix(besideCompanion, 1.0, clamp(-u_pairDepth.z, 0.0, 1.0));
       }
     }
 
