@@ -452,7 +452,12 @@ should reach the shadow's edge is drawn with `lensingEnabled` false (or under th
   capture at the shadow's edge, no swirl of the particles, and a point mass for its stylized keys.
   `Default` traces the lens too and tunes the rest for the look.
 - For a real hole `lensingRadius` says how far away the camera is (describe gives the conversion): a near
-  camera sees a small ring and a very wide field around the hole.
+  camera sees a small ring and a very wide field around the hole, a far one a wide ring. Its top, 30, is
+  about 3 000 Schwarzschild radii, the farthest the traced lens of a hole that does not spin draws cleanly;
+  farther, the graphics card's precision breaks the sky's lines far from the hole into dots.
+- A ring wider than the frame puts the whole frame inside it, where the sky is seen shrunk and mirrored:
+  with a large `lensingRadius` keep `blackHoleSize` small (the ring is `lensingRadius` times it), or the
+  lensed grid and the stars go dark across the frame. The stylized lens has no top and does the same.
 - `lensingRadius` 0 turns the lens off as `lensingEnabled` false does, so a film fades the lens in with
   the number and cuts it with the switch.
 - `lensingRadius` and the camera of the particles are two cameras. `lensingFromCamera` 1 makes them one:
@@ -709,8 +714,9 @@ straight-on (section 11).
   parallel, as on a map. With a near camera lower `gridNear` too, or the foreground is cut off. In 3D both
   give way to the scene's camera.
 - `gridSpan` is how far the sheet reaches, fading over `gridFade`; a small `gridCell` ends it sooner,
-  since the sheet has a fixed number of lines. A small span with a short fade is a disc of sheet round the
-  hole.
+  since the sheet has 112 lines each side of the hole: below `gridCell` 3.5 the default span is cut short,
+  and at the default `gridCell` 4 a span above about 2.5 adds nothing. A small span with a short fade is a
+  disc of sheet round the hole.
 - `gridLine` is the width where the camera looks; nearer lines widen up to `gridLineNear` times. The lines
   clear round each hole between `gridClearing` and `gridClearingEdge`; both at 0 let the sheet cross the
   shadow. In 3D a piece nearer the camera than the holes passes in front of them, uncleared.
@@ -797,7 +803,10 @@ line of flight).
 - The lattice is the sheet's law in three dimensions: lines along the scene's three axes, each node drawn
   in towards the hole by the slowing of time, never folding over. It stands still while the hole moves
   through it, and a second hole pulls it too. At the default cell the whole ball fits the default camera's
-  frame; a larger cell reaches farther and passes the camera.
+  frame; a larger cell reaches farther and passes the camera, and toward the top of `gridLatticeCell` (20)
+  only a few lines cross the frame. To fill the frame with fine cells, raise `gridLatticeReach` (up to 12
+  cells) rather than the cell: 12 at the default cell fills the default 3D frame, 12 at 0.5 is a fine ball
+  as wide as the default one. Below a cell of 0.5 the ball shrinks into the photon ring.
 - It is read through the lens: the lines behind the hole bend into its Einstein ring even at
   `gridLatticeWarp` 0, and the shadow covers them. Among a bright field lower `baseBrightness` or raise
   `gridLattice`.

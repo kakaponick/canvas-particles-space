@@ -1,4 +1,4 @@
-import { useEffect, useRef, type PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import { Slider } from '@/components/ui/slider'
 import { cn } from '@/lib/utils'
 
@@ -20,6 +20,9 @@ interface SliderControlProps {
   // The value a double-click returns to, marked on the track. A slider whose range crosses zero
   // returns to zero without it
   resetValue?: number
+  // How the range spreads along the track: the value at a share p of it is min + (max - min) * p^curve
+  // (SimulationSettingSpec.curve); absent or 1, evenly
+  curve?: number
 }
 
 // A slider whose range crosses zero holds on to zero: a drag this close to it, as a share of the
@@ -33,6 +36,12 @@ const TOUCH_SLOP = 6
 // 2.5.7); a tap that lands while the panel is still scrolling only stops the scroll
 const TAP_MS = 250
 const SCROLL_SETTLE_MS = 150
+// A curved slider is driven along its track rather than by its step: the track in this many positions, an
+// arrow key or a wheel notch moving one hundredth of it and Page Up, Page Down or Shift with an arrow one
+// tenth, at least one step of the value each time
+const TRACK_POSITIONS = 1000
+const KEY_SHARE = 0.01
+const PAGE_SHARE = 0.1
 
 // When anything on the page last scrolled, read by the tap above
 let lastScrollAt = -Infinity
@@ -53,6 +62,28 @@ function isDark (hex: string) {
 
 const decimalsOf = (step: number) => Math.max(0, Math.min(6, Math.ceil(-Math.log10(step) - 1e-9)))
 
+// Where a value sits along the track, as a share of it, and the value at a share; both even at curve 1
+function shareOf (value: number, min: number, max: number, curve: number) {
+  const even = Math.min(Math.max((value - min) / (max - min), 0), 1)
+  return curve === 1 ? even : even ** (1 / curve)
+}
+function valueAtShare (share: number, min: number, max: number, curve: number) {
+  return min + (max - min) * Math.min(Math.max(share, 0), 1) ** curve
+}
+
+// A value moved onto the slider's step, counted from its minimum, and into its range
+function onStep (raw: number, min: number, max: number, step: number) {
+  const stepped = Math.min(max, Math.max(min, min + Math.round((raw - min) / step) * step))
+  return Number(stepped.toFixed(decimalsOf(step)))
+}
+
+// A curved slider moved by a key or a wheel notch: the share of the track along it, and never less than one
+// step of the value, so its low end, where a share holds less than a step, is still crossed step by step
+function movedAlong (value: number, direction: number, share: number, min: number, max: number, step: number, curve: number) {
+  const next = onStep(valueAtShare(shareOf(value, min, max, curve) + direction * share, min, max, curve), min, max, step)
+  return next !== value ? next : onStep(value + direction * step, min, max, step)
+}
+
 // One row: the name on the left and the value on the right, over a quiet fill that shows where the value
 // sits in its range. The text never crosses a strong colour, so it reads the same at any value
 function SliderControl ({
@@ -67,19 +98,22 @@ function SliderControl ({
   onChange,
   description,
   fillColor,
-  resetValue
+  resetValue,
+  curve = 1
 }: SliderControlProps) {
   const descriptionId = description ? `${id}-description` : undefined
   const containerRef = useRef<HTMLDivElement>(null)
   const crossesZero = min < 0 && max > 0
   const markValue = resetValue ?? (crossesZero ? 0 : undefined)
-  const markPosition = markValue === undefined ? 0 : Math.min(Math.max((markValue - min) / (max - min), 0), 1) * 100
+  const markPosition = markValue === undefined ? 0 : shareOf(markValue, min, max, curve) * 100
+  // Measured along the track, so a curved range holds on to zero over the same width of it as an even one
   const snapToZero = (next: number) =>
-    crossesZero && Math.abs(next) <= (max - min) * ZERO_SNAP_SHARE ? 0 : next
+    crossesZero && Math.abs(shareOf(next, min, max, curve) - shareOf(0, min, max, curve)) <= ZERO_SNAP_SHARE ? 0 : next
+  const curved = curve !== 1
 
   // The listeners are attached once and read the current props from here
-  const live = useRef({ value, min, max, step, onChange, crossesZero, markValue })
-  live.current = { value, min, max, step, onChange, crossesZero, markValue }
+  const live = useRef({ value, min, max, step, onChange, crossesZero, markValue, curve })
+  live.current = { value, min, max, step, onChange, crossesZero, markValue, curve }
   // A finger on the slider: where and when it landed, whether it drags, and the slider's box for the drag
   const touch = useRef<{ id: number, x: number, y: number, at: number, dragging: boolean, rect: DOMRect | null } | null>(null)
 
@@ -104,8 +138,14 @@ function SliderControl ({
         if (Math.abs(travel) < WHEEL_STEP_PX) return
       }
       travel = 0
-      const { value: current, min: low, max: high, step: size, onChange: change, crossesZero: zero } = live.current
-      const stepped = Math.min(high, Math.max(low, current + (delta < 0 ? size : -size)))
+      const { value: current, min: low, max: high, step: size, onChange: change, crossesZero: zero, curve: bend } = live.current
+      const direction = delta < 0 ? 1 : -1
+      if (bend !== 1) {
+        const next = movedAlong(current, direction, KEY_SHARE, low, high, size, bend)
+        if (next !== current) change(next)
+        return
+      }
+      const stepped = Math.min(high, Math.max(low, current + direction * size))
       // Steps added one by one drift off the grid; the step that should land on zero does land on it
       const next = zero && Math.abs(stepped) < size / 2 ? 0 : Number(stepped.toFixed(decimalsOf(size)))
       if (next !== current) change(next)
@@ -142,9 +182,7 @@ function SliderControl ({
   const valueAt = (clientX: number, measured?: DOMRect | null) => {
     const rect = measured ?? containerRef.current!.getBoundingClientRect()
     const share = Math.min(Math.max((clientX - rect.left) / Math.max(rect.width, 1), 0), 1)
-    const raw = min + share * (max - min)
-    const stepped = Math.min(max, Math.max(min, min + Math.round((raw - min) / step) * step))
-    return snapToZero(Number(stepped.toFixed(decimalsOf(step))))
+    return snapToZero(onStep(valueAtShare(share, min, max, curve), min, max, step))
   }
   const touchTo = (clientX: number, rect?: DOMRect | null) => {
     const next = valueAt(clientX, rect)
@@ -194,6 +232,24 @@ function SliderControl ({
     }
   }
 
+  // A curved slider's keys move it along the track (movedAlong), ahead of the slider's own, which would move
+  // it by one of its positions
+  const handleCurvedKeys = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Home' || event.key === 'End') {
+      event.preventDefault()
+      const next = event.key === 'Home' ? min : max
+      if (next !== value) onChange(next)
+      return
+    }
+    const ahead = ['ArrowRight', 'ArrowUp', 'PageUp'].includes(event.key)
+    const back = ['ArrowLeft', 'ArrowDown', 'PageDown'].includes(event.key)
+    if (!ahead && !back) return
+    event.preventDefault()
+    const share = event.key.startsWith('Page') || event.shiftKey ? PAGE_SHARE : KEY_SHARE
+    const next = movedAlong(value, ahead ? 1 : -1, share, min, max, step, curve)
+    if (next !== value) onChange(next)
+  }
+
   // A dark color's own edge would vanish on the dark track, so its position edge is drawn in cyan
   const rangeStyle = fillColor
     ? { backgroundColor: `color-mix(in srgb, ${fillColor} 14%, transparent)`, borderColor: isDark(fillColor) ? '#00ffff' : fillColor }
@@ -221,15 +277,22 @@ function SliderControl ({
         data-hint-label={description ? (ariaLabel ?? label) : undefined}
         data-hint-reset={description && markValue !== undefined ? formatValue(markValue) : undefined}
         style={{ cursor: CURSOR }}
+        onKeyDownCapture={curved ? handleCurvedKeys : undefined}
         {...touchHandlers}
       >
         <Slider
           id={id}
-          min={min}
-          max={max}
-          step={step}
-          value={[value]}
-          onValueChange={(values) => onChange(snapToZero(values[0]))}
+          // A curved slider hands the slider its place along the track, and takes the value back from it
+          min={curved ? 0 : min}
+          max={curved ? TRACK_POSITIONS : max}
+          step={curved ? 1 : step}
+          value={[curved ? shareOf(value, min, max, curve) * TRACK_POSITIONS : value]}
+          onValueChange={(values) => {
+            const next = curved
+              ? snapToZero(onStep(valueAtShare(values[0] / TRACK_POSITIONS, min, max, curve), min, max, step))
+              : snapToZero(values[0])
+            if (next !== value) onChange(next)
+          }}
           trackHeight="h-7 rounded-none bg-text-light/[0.06]"
           // The fill shows the value; the thumb stays invisible but takes the focus and the arrow keys
           thumbSize="h-7 w-px opacity-0"

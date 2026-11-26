@@ -27,7 +27,7 @@ import type { TitleSprite } from './title_sprite'
 import { RING_BINS } from './ring_energy'
 import { SHADOW_SAMPLES, type ShadowShape } from './kerr_shadow'
 import { GRID_INSTANCE_COUNT, GRID_INSTANCE_FLOATS, GRID_LINES_PER_SIDE, createGridInstances, sendSheet, SHEET_UNIFORMS, type GridSettings } from './space_grid'
-import { LATTICE_INSTANCE_COUNT, LATTICE_INSTANCE_FLOATS, createLatticeInstances, type LatticeSettings } from './space_lattice'
+import { LATTICE_INSTANCE_FLOATS, createLatticeInstances, latticeInstancesWithin, type LatticeSettings } from './space_lattice'
 import { FLOW_CAPACITY, FLOW_CORNER_FLOATS, FLOW_SEED_FLOATS, FLOW_VERTEX_COUNT, createFlowCorners, createFlowSeeds, type FlowSettings } from './flows'
 import { DISC_MAP_SIZE } from './disc_trace'
 import { CRITICAL_IMPACT } from './lens_trace'
@@ -1219,7 +1219,8 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     setUniform4f(gl, u.color, Math.min(color.r * light, 1), Math.min(color.g * light, 1), Math.min(color.b * light, 1), 1)
     gl.enableVertexAttribArray(ATTRIBUTE_LOCATIONS.latticeLine)
     gl.blendEquationSeparate(gl.MAX, gl.FUNC_ADD)
-    gl.drawArraysInstanced(gl.TRIANGLES, 0, QUAD_VERTEX_COUNT, LATTICE_INSTANCE_COUNT)
+    // Only the lines the reach lights, which the buffer holds first
+    gl.drawArraysInstanced(gl.TRIANGLES, 0, QUAD_VERTEX_COUNT, latticeInstancesWithin(lattice.lines))
     gl.blendEquation(gl.FUNC_ADD)
     gl.disableVertexAttribArray(ATTRIBUTE_LOCATIONS.latticeLine)
     gl.bindBuffer(gl.ARRAY_BUFFER, null)

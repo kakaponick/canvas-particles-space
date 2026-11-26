@@ -27,7 +27,7 @@ const SettingSlider = memo(function SettingSlider ({ field, setter }: SettingSli
   const ownSetter = useParticleStore(state => (setter ? state[setter] : null))
   const setField = useCallback((next: number) => useParticleStore.setState({ [field]: next } as Partial<ParticleState>), [field])
   const onChange = ownSetter ?? setField
-  const { label, min, max, step, format, hint, spokenName } = SIMULATION_SETTING_SPECS[field] as SimulationSettingSpec
+  const { label, min, max, step, format, hint, spokenName, curve } = SIMULATION_SETTING_SPECS[field] as SimulationSettingSpec
 
   return (
     <SliderControl
@@ -37,6 +37,7 @@ const SettingSlider = memo(function SettingSlider ({ field, setter }: SettingSli
       min={min}
       max={max}
       step={step}
+      curve={curve}
       formatValue={format}
       description={hint}
       resetValue={defaults[field]}

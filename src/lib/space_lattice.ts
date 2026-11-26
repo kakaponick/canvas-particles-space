@@ -11,11 +11,17 @@
 import { POSE_SLOTS } from './camera_pose'
 
 // Lines on each side of the black hole across each axis, and the pieces each line is drawn in
-export const LATTICE_LINES_PER_SIDE = 6
+export const LATTICE_LINES_PER_SIDE = 12
 export const LATTICE_SEGMENTS = 48
 export const LATTICE_INSTANCE_FLOATS = 4
-const LINES_ACROSS = 2 * LATTICE_LINES_PER_SIDE + 1
-export const LATTICE_INSTANCE_COUNT = 3 * LINES_ACROSS * LINES_ACROSS * LATTICE_SEGMENTS
+
+// The pieces of the lines that lie no more than this many lines from the black hole across, on all three
+// axes: the buffer holds them first, so a lattice that reaches less far draws only the start of it
+export function latticeInstancesWithin (lines: number) {
+  const across = 2 * lines + 1
+  return 3 * across * across * LATTICE_SEGMENTS
+}
+export const LATTICE_INSTANCE_COUNT = latticeInstancesWithin(LATTICE_LINES_PER_SIDE)
 
 // Lengths in scene units unless said otherwise
 export interface LatticeSettings {
@@ -25,6 +31,9 @@ export interface LatticeSettings {
   // How far from the black hole the lines reach, and the distance from it they begin to fade out at
   reach: number
   fadeFrom: number
+  // The lines on each side of the hole the reach needs, the most a cell's lines lie off it included; the
+  // renderer draws the pieces of these alone (latticeInstancesWithin)
+  lines: number
   // How strongly the nodes are pulled in: the slowing of time in shadow radii, times this; 0 leaves the
   // lines straight
   warp: number
@@ -72,6 +81,7 @@ export function createLatticeSettings (): LatticeSettings {
     cell: 1,
     reach: 1,
     fadeFrom: 0.5,
+    lines: LATTICE_LINES_PER_SIDE,
     warp: 0,
     anchorX: 0,
     anchorY: 0,
@@ -98,19 +108,24 @@ export function createLatticeSettings (): LatticeSettings {
 }
 
 // One record per piece of a line: its two line numbers across the line, counted from the black hole, the
-// piece's number along it, and the axis the line runs along (0 = x, 1 = y, 2 = z)
+// piece's number along it, and the axis the line runs along (0 = x, 1 = y, 2 = z). The lines come in shells
+// round the hole, the nearer first: shell k holds those whose farther line number is k, so the first
+// latticeInstancesWithin(k) records are the lines within k of it
 export function createLatticeInstances (): Float32Array {
   const instances = new Float32Array(LATTICE_INSTANCE_COUNT * LATTICE_INSTANCE_FLOATS)
   let offset = 0
-  for (let axis = 0; axis < 3; axis++) {
-    for (let first = -LATTICE_LINES_PER_SIDE; first <= LATTICE_LINES_PER_SIDE; first++) {
-      for (let second = -LATTICE_LINES_PER_SIDE; second <= LATTICE_LINES_PER_SIDE; second++) {
-        for (let piece = 0; piece < LATTICE_SEGMENTS; piece++) {
-          instances[offset] = first
-          instances[offset + 1] = second
-          instances[offset + 2] = piece
-          instances[offset + 3] = axis
-          offset += LATTICE_INSTANCE_FLOATS
+  for (let shell = 0; shell <= LATTICE_LINES_PER_SIDE; shell++) {
+    for (let axis = 0; axis < 3; axis++) {
+      for (let first = -shell; first <= shell; first++) {
+        for (let second = -shell; second <= shell; second++) {
+          if (Math.max(Math.abs(first), Math.abs(second)) !== shell) continue
+          for (let piece = 0; piece < LATTICE_SEGMENTS; piece++) {
+            instances[offset] = first
+            instances[offset + 1] = second
+            instances[offset + 2] = piece
+            instances[offset + 3] = axis
+            offset += LATTICE_INSTANCE_FLOATS
+          }
         }
       }
     }

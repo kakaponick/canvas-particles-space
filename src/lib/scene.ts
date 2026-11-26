@@ -2207,6 +2207,9 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       lattice.anchorX = latticeAnchor(lattice.holeX, lattice.cell)
       lattice.anchorY = latticeAnchor(lattice.holeY, lattice.cell)
       lattice.anchorZ = latticeAnchor(lattice.holeZ - pivot, lattice.cell)
+      // Line n across lies n less its anchor cells from the hole, and one past the reach is not lit
+      const reachCells = Math.min(state.gridLatticeReach, LATTICE_LINES_PER_SIDE)
+      lattice.lines = Math.min(LATTICE_LINES_PER_SIDE, Math.floor(reachCells + Math.max(lattice.anchorX, lattice.anchorY, lattice.anchorZ)))
       lattice.pivot = pivot
       lattice.focal = settings.focal
       lattice.vanishX = settings.vanishX
