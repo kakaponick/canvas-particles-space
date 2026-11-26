@@ -194,6 +194,9 @@ export interface FlowSettings {
   y: number
   unit: number
   depth: number
+  // The share of it the traced disc draws (0 = none): its light goes to the disc's map at full brightness and
+  // that share of it is read along the paths of light, the rest is drawn as strokes as before
+  traced: number
 }
 
 export function createFlowSettings (): FlowSettings {
@@ -201,7 +204,7 @@ export function createFlowSettings (): FlowSettings {
     brightness: 0, count: 0, from: 1, to: 1, spread: 0, wound: 0, law: new Float32Array([2 / 3, 1.5, 0, 1]), phase: 0, lives: 0, piece: 0, size: 1,
     shape: new Float32Array([0, 1, 0, 1]), draw: new Float32Array([1, 1, 0.06, 0.06]), style: new Float32Array([0.4, 2, 0.5, 0.2]),
     turn: new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]), plane: new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0]),
-    color: createSceneColor(), x: 0, y: 0, unit: 1, depth: 1
+    color: createSceneColor(), x: 0, y: 0, unit: 1, depth: 1, traced: 0
   }
 }
 

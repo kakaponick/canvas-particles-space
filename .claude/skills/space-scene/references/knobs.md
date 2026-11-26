@@ -158,6 +158,7 @@ same path behind it (`flowATrail`), lit by the flow's brightness rather than by 
 | Shared: in 3D, the shares of the hole's distance a stroke fades from and is gone at | `flowNearFade`, `flowNearGone` |
 | Shared: which set of numbers the particles start from | `flowSeed` |
 | Shared: the light a flow falling in leaves in the ring, and how unevenly round | `flowRingFeed`, `flowRingFlicker` |
+| The flows in the equator as an accretion disc seen along the paths of light: how much of them, how much it hides, its Doppler shift as a multiple of nature's, the power of the shift its brightness goes as, how far a doubling of the shift turns its colour | `flowTrace`, `flowTraceHide`, `flowTraceDoppler`, `flowTraceBeam`, `flowTraceTint` |
 
 - The two radii are the shape: `flowATo` equal to `flowAFrom` is a ring (a disc with a wide
   `flowASpread`), below it a fall, below 1 a fall into the shadow, above it an outflow. `flowASwirl` with
@@ -207,6 +208,29 @@ same path behind it (`flowATrail`), lit by the flow's brightness rather than by 
   A flow follows its own path past the second hole: matter torn from one hole to the other is two flows,
   or the field.
 - Without a black hole a flow takes `gridLatticeUnit` for its radius.
+- `flowTrace` turns the flows of the equator into a traced disc: each flow round the main hole with Tilt 0
+  and not on the sheet (`gridRide` 0) is drawn into a map of the equator instead of onto the screen, and
+  the Ray Traced lens reads it where each pixel's ray crosses the equator, up to three times, nearest
+  first. So the disc behind the hole is lifted into an arch over the shadow, the near side crosses in
+  front of the shadow (a ray that falls in still meets it on its way), the underside shows as a smaller
+  arc under the shadow, and the next picture hugs the shadow as a thin ring. Every flow key keeps its
+  meaning; between 0 and 1 the strokes fade as the traced disc comes in. `flowTraceHide` is how much of
+  what lies behind a stroke the disc hides, times the stroke's own coverage: 1 an opaque disc, 0 light
+  added, as strokes do. `flowTraceDoppler` raises the shift g of a circular orbit at nature's speed (and
+  the climb out of the well) to its power, and the side turning toward the camera is the bright one.
+  `flowTraceBeam` is the power of g the brightness goes as: 4 is nature's for the whole light of a
+  surface, 0 leaves both sides equally bright. `flowTraceTint` is how far each doubling of g turns the
+  colour toward `ringColorApproaching` and `ringColorReceding`: 1 turns it wholly at twice or half, 0
+  keeps a flow its own colour. The disc turns the way its brightest flow does, and flows that turn the
+  other way are shifted as if they turned with it. It needs `lensingTraced` and the lens on; without
+  them, and for a tilted flow (`flowATilt` or `flowAFace` above 0), a flow round the second hole
+  (`flowAPair` above -1 with a second hole) or one on the sheet, the flows are drawn as strokes. The
+  disc lies over everything the lens shows, the photon ring's line too; the 3D layer in front of the
+  holes is laid over it. A second hole's lens does not bend it. A spinning hole's disc is traced as if the hole did not
+  spin (its shadow's outline does not match it exactly), and with spin and `orbitalSpinFollow` the
+  equator itself turns to face the spin's axis. Flat, the equator faces the camera and the disc is a
+  face-on ring with the lens's mirrored copy. `flowAThick` does not reach the map: a traced disc is flat.
+  A disc of the recipe in films.md, section 16, is NASA's picture.
 
 ## 3. Gravity on the particles
 
@@ -389,6 +413,8 @@ The lens bends the finished picture (particles, stars, grids), not the particles
 - `lensingBubble` shapes the bubble that `lensingReach` 0 shows: higher keeps the warp close round the ring
   and folds more rings inside it, which `lensingMaxBend` still caps; lower spreads it over the sky. The
   ring stays where it is. The second hole's lens takes the stylized shape at `companionLensStyle` above 0.
+- Under `lensingTraced` the flows of the equator can be traced too (`flowTrace`, section 2): the lens then
+  reads them where each ray crosses the equator instead of as a picture behind the hole.
 - `lensingAbsorption` takes light away around the shadow. When the particles next to the hole look dim,
   lower it first, before any brightness of the particles themselves.
 

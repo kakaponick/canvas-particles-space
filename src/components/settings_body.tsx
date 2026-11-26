@@ -439,6 +439,9 @@ function SettingsBody () {
             <SettingColor field={keys.color} />
           </div>
         ))}
+        <div className="mt-3 flex flex-col gap-1">
+          <SettingSlider field="flowTrace" />
+        </div>
         <SettingsFine id="flows">
           {/* The band's width, the trail and the stroke of each flow, which hole it turns round, the side its tilt brings up and how far it faces the camera, its path's law, and its thickness and the disc's shape */}
           {FLOW_KEYS.map((keys, index) => (
@@ -456,7 +459,7 @@ function SettingsBody () {
               <SettingSlider field={keys.bell} />
             </div>
           ))}
-          {/* What every flow shares: the plane round a pair, the draws of a disc's heights, the fades, brightness and trail, the 3D near fade, the seed and the ring */}
+          {/* What every flow shares: the plane round a pair, the draws of a disc's heights, the fades, brightness and trail, the 3D near fade, the seed and the ring; then how the traced disc hides and shifts */}
           <div className="mt-3 flex flex-col gap-1">
             <SettingSlider field="flowPairPlane" />
             <SettingSlider field="flowLiftPower" />
@@ -475,6 +478,12 @@ function SettingsBody () {
             <SettingSlider field="flowSeed" />
             <SettingSlider field="flowRingFeed" />
             <SettingSlider field="flowRingFlicker" />
+          </div>
+          <div className="mt-3 flex flex-col gap-1">
+            <SettingSlider field="flowTraceHide" />
+            <SettingSlider field="flowTraceDoppler" />
+            <SettingSlider field="flowTraceBeam" />
+            <SettingSlider field="flowTraceTint" />
           </div>
         </SettingsFine>
       </SettingsSection>

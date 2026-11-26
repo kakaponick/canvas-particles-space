@@ -10,6 +10,7 @@ import {
   orbitVertexShaderSource,
   compositeVertexShaderSource,
   compositeFragmentShaderSource,
+  compositeDiscFragmentShaderSource,
   gridVertexShaderSource,
   gridFragmentShaderSource,
   latticeVertexShaderSource,
@@ -28,6 +29,8 @@ import { SHADOW_SAMPLES, type ShadowShape } from './kerr_shadow'
 import { GRID_INSTANCE_COUNT, GRID_INSTANCE_FLOATS, GRID_LINES_PER_SIDE, createGridInstances, sendSheet, SHEET_UNIFORMS, type GridSettings } from './space_grid'
 import { LATTICE_INSTANCE_COUNT, LATTICE_INSTANCE_FLOATS, createLatticeInstances, type LatticeSettings } from './space_lattice'
 import { FLOW_CAPACITY, FLOW_CORNER_FLOATS, FLOW_SEED_FLOATS, FLOW_VERTEX_COUNT, createFlowCorners, createFlowSeeds, type FlowSettings } from './flows'
+import { DISC_MAP_SIZE } from './disc_trace'
+import { CRITICAL_IMPACT } from './lens_trace'
 
 const STRETCH_STRIDE = STRETCH_FLOATS * 4
 const INSTANCED_ATTRIBUTES = [ATTRIBUTE_LOCATIONS.segment, ATTRIBUTE_LOCATIONS.style, ATTRIBUTE_LOCATIONS.color]
@@ -40,6 +43,12 @@ const ORBIT_TEXTURE_UNIT = 3
 // layer of its own that the composite pass lays over the holes unbent
 const FRONT_TEXTURE_UNIT = 6
 const FRONT_LINES_TEXTURE_UNIT = 7
+// The traced disc's map of the equator, which the flows that lie in it are drawn into
+const DISC_TEXTURE_UNIT = 8
+// The widest a stroke is drawn into the traced disc's map, texels for each CSS pixel of a flow's Size
+const DISC_STROKE_MOST = 4
+// Samples the traced disc's map is read with along the way it is squeezed
+const DISC_ANISOTROPY = 4
 
 // What is left of the brightest trail in front of the holes, a share of full, once the front has ended,
 // when that layer is let go: below half a step of its 8 bits
@@ -98,6 +107,18 @@ export interface CompositeSettings {
   traceU: number
   traceScale: number
   traceShare: number
+  // The traced disc (disc_trace.ts): its share (0 = off, and the flows are drawn as strokes), how much of what
+  // is behind it a stroke hides, the Doppler shift as a multiple of nature's, the power of the shift its
+  // brightness goes as and the share of its colour a doubling of the shift turns, its map's reach in black
+  // hole radii, and the equator's two directions and the axis the disc turns about (anticlockwise seen from
+  // its tip) as the camera sees them, row by row
+  discShare: number
+  discHide: number
+  discDoppler: number
+  discBeam: number
+  discTint: number
+  discReach: number
+  discTurn: Float32Array
   // The hole's spin (a/M, 0 = none), the angle between its axis and the line to the camera and the turn
   // of the axis on the screen from up, radians; the outline of its shadow (kerr_shadow.ts)
   spin: number
@@ -700,8 +721,8 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   const fadeUniforms = getUniforms(gl, fadeProgram, ['fade'] as const)
   const particleUniforms = getUniforms(gl, particleProgram, ['floor', 'resolution', 'pixelRatio', 'center', 'flight', 'doppler', 'tintAhead', 'tintEdge', 'tintBehind', 'tint', 'zoom', 'zoomFrom'] as const)
   const orbitUniforms = getUniforms(gl, orbitProgram, ['resolution', 'zoom', 'orbit', 'dimmed', 'turnX', 'turnY', 'turnZ', 'orbitFrom', 'side', 'sideMain', 'sideSecond', 'sideBend', 'sideShape'] as const)
-  const compositeUniforms = getUniforms(gl, compositeProgram, [
-    'background', 'resolution', 'pixelRatio', 'time', 'hole', 'horizon', 'einstein', 'falloff', 'falloffPivot', 'lensCore', 'maxBend', 'lensReach', 'lensBubble', 'twistLimit', 'swirl', 'absorption', 'trace', 'spin', 'horizonGrid', 'horizonAxis', 'horizonTurn', 'horizonLook', 'companionGrid', 'companionHole', 'ring',
+  const COMPOSITE_UNIFORMS = [
+    'background', 'resolution', 'pixelRatio', 'time', 'hole', 'horizon', 'einstein', 'falloff', 'falloffPivot', 'lensCore', 'maxBend', 'lensReach', 'lensBubble', 'twistLimit', 'swirl', 'absorption', 'trace', 'spin', 'disc', 'discLook', 'discX', 'discY', 'discAxis', 'horizonGrid', 'horizonAxis', 'horizonTurn', 'horizonLook', 'companionGrid', 'companionHole', 'ring',
     'ringWidth', 'ringGlow', 'ringDoppler', 'ringSide', 'ringPhase', 'ringField', 'ringBase', 'ringFeed', 'ringLine', 'ringGlowShape', 'ringColor', 'ringApproaching', 'ringReceding',
     'center', 'starGlow', 'starRadius', 'sourcePower', 'glareRadius', 'exposure',
     'lightRadius', 'lightWidth', 'lightPower', 'lightSpeed', 'echoPower', 'echoDecay',
@@ -716,7 +737,8 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     'skyGrid', 'gridCell', 'skyGridLine', 'orbits', 'front', 'nebula', 'nebulaColor', 'nebulaColorDeep', 'nebulaColorCore', 'nebulaShape', 'nebulaLook', 'nebulaPatch', 'nebulaDrift', 'nebulaSpace', 'nebulaNoise', 'nebulaNorm', 'gridPull', 'gridColor', 'gridHaze', 'gridShape',
     'colorFlash', 'colorLight', 'colorDust', 'colorTitle', 'colorEmber',
     'cameraZoom', 'zoomCenter', 'layerZoom', 'shake', 'lensFringe', 'lensFringeEase', 'vignette', 'filmGrain', 'letterbox'
-  ] as const)
+  ] as const
+  const compositeUniforms = getUniforms(gl, compositeProgram, COMPOSITE_UNIFORMS)
   const gridUniforms = getUniforms(gl, gridProgram, [
     'resolution', 'pixelRatio', ...SHEET_UNIFORMS, 'lines', 'lens', 'jolt', 'color',
     'shadow', 'frame', 'shadow2', 'sheet', 'clearing', 'rings', 'front', 'kept'
@@ -732,15 +754,38 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   // The sheet's surface and pose go to the grid and flow programs through the same setter
   const setSheetUniform = (uniform: CachedUniform, x: number, y: number, z: number, w: number) => setUniform4f(gl, uniform, x, y, z, w)
 
-  gl.useProgram(compositeProgram)
-  gl.uniform1i(gl.getUniformLocation(compositeProgram, 'u_image'), SCENE_TEXTURE_UNIT)
-  gl.uniform1i(gl.getUniformLocation(compositeProgram, 'u_title'), TITLE_TEXTURE_UNIT)
-  gl.uniform1i(gl.getUniformLocation(compositeProgram, 'u_ringEnergy'), RING_TEXTURE_UNIT)
-  gl.uniform1i(gl.getUniformLocation(compositeProgram, 'u_orbitTrails'), ORBIT_TEXTURE_UNIT)
-  gl.uniform1i(gl.getUniformLocation(compositeProgram, 'u_shadowShape'), SHADOW_TEXTURE_UNIT)
-  gl.uniform1i(gl.getUniformLocation(compositeProgram, 'u_ringLight'), RING_LIGHT_TEXTURE_UNIT)
-  gl.uniform1i(gl.getUniformLocation(compositeProgram, 'u_frontImage'), FRONT_TEXTURE_UNIT)
-  gl.uniform1i(gl.getUniformLocation(compositeProgram, 'u_frontLines'), FRONT_LINES_TEXTURE_UNIT)
+  // Each texture of the composite pass on its fixed unit
+  function bindCompositeTextures (program: WebGLProgram) {
+    gl.useProgram(program)
+    gl.uniform1i(gl.getUniformLocation(program, 'u_image'), SCENE_TEXTURE_UNIT)
+    gl.uniform1i(gl.getUniformLocation(program, 'u_title'), TITLE_TEXTURE_UNIT)
+    gl.uniform1i(gl.getUniformLocation(program, 'u_ringEnergy'), RING_TEXTURE_UNIT)
+    gl.uniform1i(gl.getUniformLocation(program, 'u_orbitTrails'), ORBIT_TEXTURE_UNIT)
+    gl.uniform1i(gl.getUniformLocation(program, 'u_shadowShape'), SHADOW_TEXTURE_UNIT)
+    gl.uniform1i(gl.getUniformLocation(program, 'u_ringLight'), RING_LIGHT_TEXTURE_UNIT)
+    gl.uniform1i(gl.getUniformLocation(program, 'u_frontImage'), FRONT_TEXTURE_UNIT)
+    gl.uniform1i(gl.getUniformLocation(program, 'u_frontLines'), FRONT_LINES_TEXTURE_UNIT)
+    gl.uniform1i(gl.getUniformLocation(program, 'u_discMap'), DISC_TEXTURE_UNIT)
+  }
+  bindCompositeTextures(compositeProgram)
+
+  // The composite pass with the traced disc, a program of its own so that every other frame runs the pass
+  // without it. It is built the first time the disc is traced, and its uniforms keep their own last values
+  let discProgram: WebGLProgram | null = null
+  let discUniforms: typeof compositeUniforms | null = null
+  let discFailed = false
+  function discComposite () {
+    if (!discProgram && !discFailed) {
+      discProgram = createProgram(gl, compositeVertexShaderSource, compositeDiscFragmentShaderSource, position)
+      if (discProgram) {
+        discUniforms = getUniforms(gl, discProgram, COMPOSITE_UNIFORMS)
+        bindCompositeTextures(discProgram)
+      } else {
+        discFailed = true
+      }
+    }
+    return discProgram
+  }
   // The line programs read a spinning hole's outline in the band behind it
   for (const program of [orbitProgram, latticeProgram, flowProgram]) {
     gl.useProgram(program)
@@ -920,6 +965,17 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   }
   const sceneBoth = createBoth(sceneTexture, frontScene.texture)
   const linesBoth = createBoth(lines.texture, frontLines.texture)
+
+  // The traced disc's map: the equator seen from straight above it, the flows that lie in it drawn anew
+  // whenever the flows are, its light in colour and its coverage in alpha. It gets its size the first time
+  // the disc is traced, and is read by the composite pass only while it is
+  const discMap = createLinearTexture(DISC_TEXTURE_UNIT)
+  const discFramebuffer = gl.createFramebuffer()
+  gl.bindFramebuffer(gl.FRAMEBUFFER, discFramebuffer)
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, discMap, 0)
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+  gl.activeTexture(gl.TEXTURE0 + SCENE_TEXTURE_UNIT)
+  let discSized = false
 
   // Canvas 2D source-over: color blends by its alpha, the scene alpha stays opaque
   gl.disable(gl.DEPTH_TEST)
@@ -1171,8 +1227,9 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
 
   // The flows are drawn anew every frame into the layer of lines: every particle and its trail are placed by
   // the vertex shader from the flow's clock, the brighter of a stroke and what is there; `front` as for the
-  // orbits
-  function drawFlows (frame: FrameInput, front: number) {
+  // orbits. A flow the traced disc takes is drawn here only by the share it leaves, and `onMap` draws the
+  // flows it takes into its map instead (drawDiscMap)
+  function drawFlows (frame: FrameInput, front: number, onMap = false) {
     if (!flowFilled) {
       flowFilled = true
       gl.bindBuffer(gl.ARRAY_BUFFER, flowCornerBuffer)
@@ -1187,10 +1244,28 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     }
     const u = flowUniforms
     gl.useProgram(flowProgram)
-    setUniform4f(gl, u.zoom, layerZoomX * ratio, layerZoomY * ratio, layerZoom, 0)
-    // Particles on Sheet lays the flows on the sheet the particles were stepped with
+    // The map: the equator straight on, its centre the hole, DISC_MAP_SIZE texels across twice its reach; a
+    // stroke as wide in black hole radii as it is drawn on the screen at the hole's distance
+    const composite = frame.composite
+    const mapUnit = DISC_MAP_SIZE / (2 * Math.max(composite.discReach, 0.01))
+    // A hole that is still growing has few pixels to a radius; its strokes are held to DISC_STROKE_MOST
+    // texels a pixel of Size, or each would cover the map
+    const mapWidth = Math.min(mapUnit / Math.max(composite.horizon, 0.0001), DISC_STROKE_MOST)
+    if (onMap) {
+      setUniform2f(gl, u.resolution, DISC_MAP_SIZE, DISC_MAP_SIZE)
+      setUniform4f(gl, u.zoom, 0, 0, 1, 0)
+      setUniform4f(gl, u.turnX, 1, 0, 0, 0)
+      setUniform4f(gl, u.turnY, 0, 1, 0, 1)
+      setUniform4f(gl, u.turnZ, 0, 0, 1, 1)
+      setUniform4f(gl, u.side, 0, 0, 0, 0)
+    } else {
+      setUniform2f(gl, u.resolution, width, height)
+      setUniform4f(gl, u.zoom, layerZoomX * ratio, layerZoomY * ratio, layerZoom, 0)
+    }
+    // Particles on Sheet lays the flows on the sheet the particles were stepped with; the disc takes no flow
+    // that lies on it
     const step = frame.step
-    const riding = step.ride > 0
+    const riding = step.ride > 0 && !onMap
     if (riding) {
       setUniform4f(gl, u.ride, step.ride, Math.max(step.rideDepth, 0.001), step.sheet.unit, step.sheet.shared)
       setUniform4f(gl, u.rideShape, step.sheet.rideSoft, step.sheet.rideFar, step.sheet.rideWave, step.sheet.rideCut)
@@ -1204,19 +1279,24 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     gl.blendEquationSeparate(gl.MAX, gl.FUNC_ADD)
     for (let slot = 0; slot < frame.flows.length; slot++) {
       const flow = frame.flows[slot]
-      if (!(flow.brightness > 0) || flow.count === 0) continue
+      const brightness = onMap ? flow.traced > 0 ? flow.brightness : 0 : flow.brightness * (1 - flow.traced)
+      if (!(brightness > 0) || flow.count === 0) continue
       // Each flow reads its own stretch of the particles' numbers
       gl.vertexAttribPointer(ATTRIBUTE_LOCATIONS.flowSeed, FLOW_SEED_FLOATS, gl.FLOAT, false, 0, slot * FLOW_CAPACITY * FLOW_SEED_FLOATS * 4)
-      setUniform4f(gl, u.place, flow.x * ratio, flow.y * ratio, flow.unit * ratio, flow.size * ratio)
-      // Its own plane as the camera sees it, and the disc's thickness
-      const turn = flow.turn
-      setUniform4f(gl, u.turnX, turn[0], turn[1], turn[2], frame.orbitFocal * ratio)
-      setUniform4f(gl, u.turnY, turn[3], turn[4], turn[5], frame.orbitFocal > 0 ? flow.depth * ratio : 1)
-      setUniform4f(gl, u.turnZ, turn[6], turn[7], turn[8], ratio)
-      // A flow's depth is a share of its centre's distance from the camera
-      const share = flow.depth > 0 ? 1 / flow.depth : 0
-      sendSides(u, front, step, share)
-      setUniform2f(gl, u.flowFrom, (flow.x - frame.vanishX) * ratio, (flow.y - frame.vanishY) * ratio)
+      if (onMap) {
+        setUniform4f(gl, u.place, DISC_MAP_SIZE / 2, DISC_MAP_SIZE / 2, mapUnit, flow.size * mapWidth)
+      } else {
+        setUniform4f(gl, u.place, flow.x * ratio, flow.y * ratio, flow.unit * ratio, flow.size * ratio)
+        // Its own plane as the camera sees it, and the disc's thickness
+        const turn = flow.turn
+        setUniform4f(gl, u.turnX, turn[0], turn[1], turn[2], frame.orbitFocal * ratio)
+        setUniform4f(gl, u.turnY, turn[3], turn[4], turn[5], frame.orbitFocal > 0 ? flow.depth * ratio : 1)
+        setUniform4f(gl, u.turnZ, turn[6], turn[7], turn[8], ratio)
+        // A flow's depth is a share of its centre's distance from the camera
+        const share = flow.depth > 0 ? 1 / flow.depth : 0
+        sendSides(u, front, step, share)
+        setUniform2f(gl, u.flowFrom, (flow.x - frame.vanishX) * ratio, (flow.y - frame.vanishY) * ratio)
+      }
       if (riding) {
         // Where its own places fall in the equator: a device pixel of the flow is a CSS pixel over the ratio;
         // its height is measured the way the well goes down
@@ -1236,7 +1316,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
       setUniform4f(gl, u.style, style[0], style[1], style[2], style[3])
       setUniform4f(gl, u.path, flow.from, flow.to, flow.spread, flow.wound)
       setUniform3f(gl, u.age, flow.phase, flow.lives, flow.piece)
-      setUniform4f(gl, u.light, flow.color.r, flow.color.g, flow.color.b, flow.brightness)
+      setUniform4f(gl, u.light, flow.color.r, flow.color.g, flow.color.b, brightness)
       gl.drawArraysInstanced(gl.TRIANGLES, 0, FLOW_VERTEX_COUNT, flow.count)
     }
     gl.blendEquation(gl.FUNC_ADD)
@@ -1245,9 +1325,42 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     gl.bindBuffer(gl.ARRAY_BUFFER, null)
   }
 
+  // The traced disc's map, drawn anew with the flows: it starts empty, without coverage, and the flows the
+  // disc takes are drawn into it, the brighter of a stroke and what is there and the coverage of both.
+  // Leaves the screen bound
+  function drawDiscMap (frame: FrameInput) {
+    gl.activeTexture(gl.TEXTURE0 + DISC_TEXTURE_UNIT)
+    if (!discSized) {
+      discSized = true
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, DISC_MAP_SIZE, DISC_MAP_SIZE, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
+      // Seen nearly edge on, the disc is squeezed across its orbits many times more than along them: the map
+      // is read from its levels of detail, DISC_ANISOTROPY samples along the squeeze (16 cost the traced
+      // disc a third of its frame rate)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR)
+      const anisotropic = gl.getExtension('EXT_texture_filter_anisotropic')
+      if (anisotropic) {
+        gl.texParameterf(gl.TEXTURE_2D, anisotropic.TEXTURE_MAX_ANISOTROPY_EXT, Math.min(DISC_ANISOTROPY, gl.getParameter(anisotropic.MAX_TEXTURE_MAX_ANISOTROPY_EXT) as number))
+      }
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, discFramebuffer)
+    gl.viewport(0, 0, DISC_MAP_SIZE, DISC_MAP_SIZE)
+    gl.clearColor(0, 0, 0, 0)
+    gl.clear(gl.COLOR_BUFFER_BIT)
+    drawFlows(frame, 0, true)
+    gl.viewport(0, 0, width, height)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+    gl.generateMipmap(gl.TEXTURE_2D)
+    gl.activeTexture(gl.TEXTURE0 + SCENE_TEXTURE_UNIT)
+  }
+
   function composite (settings: CompositeSettings, title: TitleSettings, background: readonly [number, number, number]) {
-    const u = compositeUniforms
-    gl.useProgram(compositeProgram)
+    // The traced disc's program while the disc is traced; the size of the frame is set here for it, and
+    // skipped for the other, which resize has told
+    const traced = settings.discShare > 0 && discComposite() !== null && discUniforms !== null
+    const u = traced && discUniforms ? discUniforms : compositeUniforms
+    gl.useProgram(traced && discProgram ? discProgram : compositeProgram)
+    setUniform2f(gl, u.resolution, width, height)
+    setUniform1f(gl, u.pixelRatio, ratio)
     setUniform3f(gl, u.background, background[0] / 255, background[1] / 255, background[2] / 255)
     const titleVisible = title.alpha > 0 && titleWidth > 0
     setUniform1f(gl, u.titleAlpha, titleVisible ? title.alpha : 0)
@@ -1325,6 +1438,14 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     setUniform1f(gl, u.swirl, settings.swirl)
     setUniform1f(gl, u.absorption, settings.absorption)
     setUniform4f(gl, u.trace, settings.traceU, settings.traceScale * ratio, settings.traceShare, 0)
+    setUniform4f(gl, u.disc, settings.discShare, settings.discHide, settings.discDoppler, 0.5 / (Math.max(settings.discReach, 0.01) * CRITICAL_IMPACT))
+    if (settings.discShare > 0) {
+      setUniform2f(gl, u.discLook, settings.discBeam, settings.discTint)
+      const turn = settings.discTurn
+      setUniform3f(gl, u.discX, turn[0], turn[1], turn[2])
+      setUniform3f(gl, u.discY, turn[3], turn[4], turn[5])
+      setUniform3f(gl, u.discAxis, turn[6], turn[7], turn[8])
+    }
     setUniform4f(gl, u.spin, settings.spin, Math.cos(settings.spinTilt), Math.sin(settings.spinTilt), settings.spinAxis)
     setUniform4f(gl, u.horizonGrid, settings.horizonGrid, settings.horizonGridU, settings.horizonGridScale * ratio, 0.5 * settings.horizonLine * ratio)
     if (settings.horizonGrid > 0) {
@@ -1642,6 +1763,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
       }
       sheetLaid = sheetLensed
       gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+      if (flowsLaid && frame.composite.discShare > 0) drawDiscMap(frame)
       // The last star gone, its traces go with it
       if (frame.orbitCount === 0) {
         if (!linesShown) clearLayer(lines)
@@ -1676,6 +1798,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
         if (fresh && frame.lattice.brightness > 0) drawLattice(frame.lattice, frame.composite.gridColor, front, frame.step)
         drawFlows(frame, front)
         gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+        if (frame.composite.discShare > 0) drawDiscMap(frame)
         flowsLaid = true
         orbitsShown = true
         frontLinesShown = inFront
@@ -1713,6 +1836,8 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     gl.deleteFramebuffer(sceneFramebuffer)
     gl.deleteFramebuffer(sceneBoth)
     gl.deleteFramebuffer(linesBoth)
+    gl.deleteFramebuffer(discFramebuffer)
+    gl.deleteTexture(discMap)
     gl.deleteTexture(sceneTexture)
     for (const layer of [lines, frontScene, frontLines]) {
       gl.deleteFramebuffer(layer.framebuffer)
@@ -1729,6 +1854,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     gl.deleteBuffer(flowSeedBuffer)
     gl.deleteBuffer(flowCornerBuffer)
     for (const program of programs) gl.deleteProgram(program)
+    if (discProgram) gl.deleteProgram(discProgram)
   }
 
   return { resize, setTitle, clearScene, render, dispose }

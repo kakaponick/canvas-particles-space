@@ -325,6 +325,15 @@ export interface ParticleState extends FlowState {
   orbitClosest: number
   orbitEscape: number
   orbitFadeIn: number
+  // The traced disc (disc_trace.ts): the share of the flows in the main hole's equator seen along the Ray
+  // Traced lens's paths of light (0 = none, all of them strokes), how much of what is behind it a stroke
+  // hides, the Doppler and gravitational shift of its light as a multiple of nature's, the power of the
+  // shift its brightness goes as (4 is a surface's light) and the share of its colour a doubling turns
+  flowTrace: number
+  flowTraceHide: number
+  flowTraceDoppler: number
+  flowTraceBeam: number
+  flowTraceTint: number
   // A second black hole (companion.ts): its radius in main hole radii (0 = none), the gap between the
   // two centres in main hole radii, the rate of the pair's time (its sign is its direction) and the
   // strength of the gravitational waves the pair sends out
@@ -713,6 +722,11 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   orbitClosest: 1.3,
   orbitEscape: 400,
   orbitFadeIn: 0.6,
+  flowTrace: 0,
+  flowTraceHide: 1,
+  flowTraceDoppler: 1,
+  flowTraceBeam: 4,
+  flowTraceTint: 1,
   ...createFlowState(),
   frameRateCap: 0,
   measuredFps: 0,

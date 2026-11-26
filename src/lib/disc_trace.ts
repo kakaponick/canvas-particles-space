@@ -31,9 +31,12 @@ export const DISC_CROSSINGS = 3
 // ray about a millionth of the shadow's radius off its edge
 export const DISC_MEANS = 6
 // Texels along each side of the map of the equator the flows are drawn into, which spans the traced flows'
-// outer edge each way: 2048 holds a flow out to 8 black hole radii at 128 texels to a radius, as fine as
-// the stroke of a hole drawn 64 CSS pixels wide at a pixel ratio of 2
-export const DISC_MAP_SIZE = 2048
+// outer edge each way. 1024 holds a disc out to 5.6 black hole radii at 90 texels to a radius, about a
+// texel to a pixel of the screen for a hole 10% of a 1080p frame high, which is what the far side's arch
+// magnifies little more than that. The flows are drawn into the map face on, several times the area they
+// cover on the screen seen nearly edge on, so its fill is the disc's price: 2048 was four times it, 2.2 ms
+// a frame more at 1920x1080 for a disc of 30 000 particles, for streaks a little sharper
+export const DISC_MAP_SIZE = 1024
 // The nearest a disc's matter has a circular orbit for its colour and its shift, Schwarzschild radii: just
 // outside the photon sphere, where the orbit's speed reaches that of light
 export const DISC_CLOSEST_ORBIT = 1.55

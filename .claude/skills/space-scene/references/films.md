@@ -479,7 +479,18 @@ with the field off, as `films/flows.json` films them:
 | circles the hole | To equal to From keeps every particle on its circle, and Swirl turns it by Kepler's law -> strokes along the circle | the guide's recipe "Matter told where to go", with `flowASize` 1.3 | said, 0 | A ring of streaks round the shadow and its mirrored copy inside the lens. At 8000 particles in a band 0.8 wide it is one flat band |
 | falls in and winds as it goes | To below From is a fall from rest, slow far out and hurried at the end; the swirl's rate grows inward -> strokes that lean into a spiral and tighten toward the hole | `flowB` 1.6, `flowBCount` 9000, `flowBFrom` 11, `flowBTo` 0.6, `flowBSpread` 8, `flowBSwirl` 0.8, `flowBLife` 6, `flowBTrail` 0.6, `flowBSize` 1.2 | said, 0 | Streaks over the whole frame wound into a spiral round the shadow. `flowBSwirl` 0 is the straight fall |
 | is thrown out | To above From is an outflow, and a short life keeps each ray short -> radial strokes leaving the hole | `flowC` 2, `flowCCount` 1500, `flowCFrom` 1.2, `flowCTo` 16, `flowCSpread` 0.6, `flowCSwirl` 0, `flowCLife` 2.5, `flowCTrail` 0.25, `flowCSize` 1.6 | said, 0 | Short bright rays leaving the shadow's edge in every direction |
+| is an accretion disc as light sees it, NASA's picture (Schnittman, 2019) | Traced Disc reads the flows of the equator where each ray of the Ray Traced lens crosses it, nearest first, and shifts their light by the orbit's speed -> the far side arched over the shadow, the near side before it, the underside's arc under it | the guide's recipe "A disc as light sees it" | said, 0 | A thin streaked disc seen 10 degrees off its plane: its far side lifted into an arch over the shadow, its near side across the lower half of the shadow, under it the smaller arc of the disc's underside, a thin ring on the shadow's edge, the side turning toward the camera (the left) bright and the other dim |
 
+- The traced disc (`flowTrace`, knobs.md section 2) is the one look here that the lens draws from the
+  matter's place, not from strokes on the screen: every flow round the main hole with `flowATilt` 0 is read
+  where the light crosses the equator. The equator faces the line of flight while the hole does not spin,
+  so the camera is 10 degrees above it at `cameraPitch` -80 (80 puts it below, the arch under the shadow)
+  and `cameraYaw` 0 lays it level. `lensingFromCamera` 0 with `lensingRadius` 6 sees it from far, as the
+  picture does; from the scene's own camera (about 29 Schwarzschild radii) the near side spreads over the
+  whole lower half and hides the underside's arc. A fall to `flowATo` 1.2 (just outside the innermost stable
+  orbit, 1.15 radii) gathers the matter inward. `flowTraceHide` 0 lets the near side through, which shows
+  the underside's whole picture and the photon ring behind it; `flowTraceDoppler` 0 makes the two sides
+  alike.
 - A flow comes and goes by its brightness on a track, over the seconds the shot wants, and the field can
   be switched (`fieldEnabled` on a track) at a cut.
 - A flow that ends inside the horizon lights the photon ring (`ringFeedEnabled`), evenly all the way round.

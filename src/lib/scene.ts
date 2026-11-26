@@ -370,6 +370,13 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       traceU: 0,
       traceScale: 1,
       traceShare: 1,
+      discShare: 0,
+      discHide: 1,
+      discDoppler: 1,
+      discBeam: 4,
+      discTint: 1,
+      discReach: 1,
+      discTurn: new Float32Array(9),
       spin: 0,
       spinTilt: 0,
       spinAxis: 0,
@@ -1786,6 +1793,41 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     } else {
       composite.traceU = 0
     }
+    // The traced disc takes the flows that lie in the main hole's equator: round the main hole, with no Tilt
+    // of their own, not turned to face the camera and not laid on the sheet. It is seen along the Ray Traced lens's paths of light, so it
+    // needs that lens and a hole in front of the camera; without them every flow is drawn as strokes. Its
+    // map reaches the farthest edge of the flows it takes, and it turns the way the brightest of them does
+    const traceShare = composite.traceU > 0 && composite.horizon > 0 ? Math.min(Math.max(state.flowTrace, 0), 1) : 0
+    let discReach = 0
+    let discBrightest = 0
+    let discSense = 1
+    for (let slot = 0; slot < FLOW_KEYS.length; slot++) {
+      const keys = FLOW_KEYS[slot]
+      const flow = frame.flows[slot]
+      const around = companionRadius > 0 ? state[keys.pair] : -1
+      const traced = traceShare > 0 && flow.brightness > 0 && flow.count > 0 && around <= -1 && state[keys.tilt] === 0 && state[keys.face] === 0 && !(settings.ride > 0)
+      flow.traced = traced ? traceShare : 0
+      if (!traced) continue
+      const from = Math.max(state[keys.from], 0.05)
+      discReach = Math.max(discReach, Math.max(from, state[keys.to]) * (1 + 0.5 * state[keys.spread] / from))
+      if (flow.brightness > discBrightest) {
+        discBrightest = flow.brightness
+        discSense = state[keys.swirl] < 0 ? -1 : 1
+        // The equator as the camera sees it is the turn of a flow that does not tilt; the axis the matter
+        // turns about anticlockwise is against the way the equator faces for a positive Swirl
+        const turn = flow.turn
+        const discTurn = composite.discTurn
+        for (let i = 0; i < 6; i++) discTurn[i] = turn[i]
+        for (let i = 6; i < 9; i++) discTurn[i] = -discSense * turn[i]
+      }
+    }
+    composite.discShare = discReach > 0 ? traceShare : 0
+    // A stroke's width of room past the farthest edge
+    composite.discReach = discReach * 1.02
+    composite.discHide = Math.min(Math.max(state.flowTraceHide, 0), 1)
+    composite.discDoppler = Math.max(state.flowTraceDoppler, 0)
+    composite.discBeam = Math.max(state.flowTraceBeam, 0)
+    composite.discTint = Math.max(state.flowTraceTint, 0)
     // Spin bends the outline of the shadow and the photon ring in either lens, and the light itself under
     // Ray Traced
     composite.spin = spin

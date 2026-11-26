@@ -582,7 +582,17 @@ export const SIMULATION_SETTING_SPECS = {
   orbitFadeIn: spoken(spec('Fade In', 0, 10, 0.05, fixed(2, ' s'), 'Seconds a new star takes to light up',
     'Seconds a new star and the start of its trace take to reach full brightness. 0 makes a star appear at once.'), 'Orbit Fade In'),
   ...FLOW_SPECS,
-  ...FLOW_SHARED_SPECS
+  ...FLOW_SHARED_SPECS,
+  flowTrace: spec('Traced Disc', 0, 1, 0.01, percentOfOne, 'Equator flows seen along light paths',
+    'The share of the flows that lie in the main hole\'s equator (round the main hole, Tilt 0, not on the sheet) that is drawn as an accretion disc seen along the true paths of light, the rest staying strokes. Each pixel\'s ray of the Ray Traced lens is followed round the hole to where it crosses the equator, up to three times nearest first: the disc\'s near side, its far side lifted over the shadow, the picture of its underside under the shadow and the first thin ring. There the flows are read from a map of the equator they are drawn into, so every flow setting keeps its meaning and a dense flow with long trails is a streaked disc. Each crossing hides what lies behind it by Disc Hides, and its light is shifted by the matter\'s orbit and the well by Disc Doppler. Needs lensingTraced and the lens on, and draws a spinning hole\'s disc as if it did not spin; without them, a tilted flow, one round the second hole and one on the sheet are strokes as before. 0 is off and costs nothing.'),
+  flowTraceHide: spec('Disc Hides', 0, 1, 0.01, percentOfOne, 'How much the disc hides behind it',
+    'How much of what lies behind it a stroke of the traced disc hides, times its own coverage: 1 is an opaque disc, so the near side covers the shadow and the far side covers the sky; 0 lets everything through and adds the disc\'s light, as strokes do.'),
+  flowTraceDoppler: spec('Disc Doppler', 0, 2, 0.01, fixed(2, '×'), 'Beaming and redshift; 1 = nature',
+    'The shift of the traced disc\'s light as a multiple of nature\'s: its matter turns on circular orbits at the speed gravity gives it there, so the side coming toward the camera is brighter and bluer and the side going away dimmer and redder, and all of it redder for climbing out of the well. The factor g is raised to this power; Disc Beaming and Disc Tint say what the shift then does to the brightness and the colour. 0 is none, 1 the real thing.'),
+  flowTraceBeam: spec('Disc Beaming', 0, 6, 0.05, fixed(2), 'Brightness as this power of the shift',
+    'The power of the shift g the traced disc\'s brightness goes as. 4 is nature\'s for the whole light of a glowing surface, 3 that of one colour of it; 0 leaves both sides of the disc equally bright and keeps the shift in the colour alone, higher darkens the side going away and the inner edge further.'),
+  flowTraceTint: spec('Disc Tint', 0, 4, 0.05, fixed(2, '×'), 'Colour turned per doubling of the shift',
+    'How far the traced disc\'s colour turns toward Ring Approaching (bluer) and Ring Receding (redder) for each doubling or halving of the shift g. At 1 a shift of twice or half turns the colour wholly; 0 keeps every flow its own colour and leaves the shift to the brightness; higher turns the colour at a smaller shift.')
 } satisfies Record<string, SimulationSettingSpec>
 
 export type SimulationSliderKey = keyof typeof SIMULATION_SETTING_SPECS

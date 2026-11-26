@@ -6,6 +6,7 @@
 import { SHADOW_SAMPLES } from './kerr_shadow'
 import { RING_BINS } from './ring_energy'
 import { KERR_GLSL } from './kerr_glsl'
+import { DISC_GLSL } from './disc_glsl'
 import { LATTICE_SEGMENTS } from './space_lattice'
 import { FLOW_SEGMENTS } from './flows'
 
@@ -550,6 +551,14 @@ export const compositeFragmentShaderSource = `
   uniform vec4 u_trace;          // Ray Traced lens: 1 / the camera's distance in Schwarzschild radii (0 = the stylized lens), pixels of 2 tan(angle / 2) from the hole, share of the bend shown, unused
   uniform vec4 u_spin;           // the hole's spin a/M (0 = none), cosine and sine of its axis's angle to the line to the camera, turn of the axis on screen from up toward the left
   uniform sampler2D u_shadowShape; // a spinning hole's shadow: its radius all the way round, in round-shadow radii, from the axis's right toward its up; the main hole's in the first row, the second hole's in the second
+#ifdef TRACED_DISC
+  uniform vec4 u_disc;           // the traced disc: its share (0 = off), how much of what is behind it a stroke hides, the Doppler shift as a multiple of nature's, 1 / twice its map's reach in Schwarzschild radii
+  uniform vec2 u_discLook;       // the power of the shift its brightness goes as, the share of its colour a doubling of the shift turns
+  uniform vec3 u_discX;          // the equator's two directions and the axis the disc turns about (anticlockwise seen from its tip), in the camera's right, down and ahead
+  uniform vec3 u_discY;
+  uniform vec3 u_discAxis;
+  uniform sampler2D u_discMap;   // the flows of the equator seen from straight above it, out to the map's reach each way
+#endif
   uniform vec4 u_horizonGrid;    // the grid on the horizon: its brightness (0 turns it off), 1 / the camera's distance in Schwarzschild radii, pixels of tan(angle / 2) from the hole, half the width of a line in pixels of the screen
   uniform vec4 u_horizonAxis;    // the axis it is drawn about: cosine and sine of its angle to the line to the camera, its turn on screen from up toward the left; and the most light lines too dense to draw give
   uniform vec4 u_horizonTurn;    // the longitude of the camera's meridian less the turn the horizon has made, the horizon's rate of turn per M, cells per radian of latitude, cells round the equator
@@ -1252,6 +1261,65 @@ ${DENT_GLSL}
   // The ray past a spinning hole (kerr_glsl.ts): kerrRay(psi, chi, hole, out dir)
   ${KERR_GLSL}
 
+#ifdef TRACED_DISC
+  // Where the ray crosses the equator (disc_glsl.ts): discRadii(slope, u, phi0, out b, out there)
+  ${DISC_GLSL}
+
+  // The traced disc seen through a pixel "offset" from the hole, "dist" from it in the lens's measure: the
+  // ray the Ray Traced lens follows for the pixel crosses the equator at most DISC_CROSSINGS times, and at
+  // each the map of the flows that lie there (u_discMap) is read, nearest the camera first, each crossing
+  // hiding what lies behind it by its own coverage times u_disc.y. Returns the light the disc sends, to be
+  // added, and in w the share of what lies behind it that comes through.
+  // The lens's camera looks at the hole: hole to camera is -ahead, and the ray's plane is spanned by that and
+  // the pixel's direction on the screen. The matter turns on a circular orbit at nature's speed about
+  // u_discAxis, and its light is shifted by g (discShift) raised to the Doppler multiple, brighter as g to
+  // the power u_discLook.x (4 is a surface's light) and turned toward the ring's approaching and receding
+  // colours by u_discLook.y for each doubling of g
+  vec4 discLight (vec2 offset, float dist) {
+    float slope = dist / u_trace.y;
+    // A ray never comes nearer the hole than its impact parameter less one Schwarzschild radius, so one that
+    // passes the map's reach by more than that crosses nothing on it. Its neighbours that do read the map
+    // read it at its edge, where nothing is
+    float aim = 2.0 * slope / ((1.0 + slope * slope) * u_trace.x * sqrt(1.0 - u_trace.x));
+    if (aim > 0.5 / u_disc.w + 1.0) return vec4(0.0, 0.0, 0.0, 1.0);
+    vec2 across = offset / max(length(offset), 0.0001);
+    // Where the plane is crossed: cos(phi) toward + sin(phi) side = 0, first in (0, pi]
+    vec2 first = vec2(dot(across, u_discAxis.xy), u_discAxis.z);
+    first = vec2(-first.x, -first.y);
+    if (first.y < 0.0) first = -first;
+    float phi0 = atan(first.y, first.x);
+    if (phi0 <= 0.0) {
+      phi0 += PI;
+      first = -first;
+    }
+    first /= max(length(first), 0.000001);
+    float b;
+    vec3 there;
+    vec3 radii = discRadii(slope, u_trace.x, phi0, b, there);
+    // The photon's angular momentum about the axis the matter turns about
+    float spin = -b * (across.y * u_discAxis.x - across.x * u_discAxis.y);
+    vec3 light = vec3(0.0);
+    float through = 1.0;
+    for (int i = 0; i < DISC_CROSSINGS; i++) {
+      float r = radii[i];
+      float side = mod(float(i), 2.0) < 0.5 ? 1.0 : -1.0;
+      // The crossing in the camera's right, down and ahead, and in the equator's own two directions. The map
+      // is read by every pixel, where the ray is no longer there too, and what it holds counts only where
+      // it is and inside the map
+      vec3 at = r * side * vec3(first.y * across, -first.x);
+      vec2 onMap = 0.5 + vec2(dot(at, u_discX), dot(at, u_discY)) * u_disc.w;
+      vec4 matter = texture2D(u_discMap, onMap);
+      if (there[i] > 0.0 && abs(onMap.x - 0.5) < 0.5 && abs(onMap.y - 0.5) < 0.5 && matter.a > 0.0) {
+        float shift = pow(discShift(r, spin), u_disc.z);
+        vec3 toward = (shift > 1.0 ? u_ringApproaching : u_ringReceding) * max(matter.r, max(matter.g, matter.b));
+        light += through * mix(matter.rgb, toward, min(abs(log2(shift)) * u_discLook.y, 1.0)) * pow(shift, u_discLook.x) * u_disc.x;
+        through *= 1.0 - matter.a * u_disc.y * u_disc.x;
+      }
+    }
+    return vec4(light, through);
+  }
+#endif
+
   // The ray through a point of a shadow, offset from its hole and dist from it in the shadow's own measure,
   // seen at scale pixels of tan(angle / 2) from the hole about an axis turned axisTurn on the screen: psi
   // from the line to the hole and chi round it from the axis, each as (sine, cosine)
@@ -1856,6 +1924,16 @@ ${DENT_GLSL}
       }
     }
 
+    // The traced disc lies over all that is behind it, the shadow and the rings too: a ray that falls in still
+    // crosses the near side of the disc on its way. It needs the Ray Traced lens, which the scene sees to.
+    // Only the program built for it has it (compositeDiscFragmentShaderSource)
+#ifdef TRACED_DISC
+    if (u_disc.x > 0.0) {
+      vec4 disc = discLight(offset, dist);
+      color = color * disc.w + disc.rgb * u_exposure;
+    }
+#endif
+
     // What stands between the camera and the black holes (3D): its light comes straight to the camera, so
     // it is read where the pixel is, through the camera's zoom and jolt and not along the bent ray, and is
     // laid over the shadows, the lenses and the rings, the brighter of it and what is there, as the layers
@@ -1900,6 +1978,10 @@ ${DENT_GLSL}
     gl_FragColor = vec4(color, 1.0);
   }
 `
+
+// The composite pass with the traced disc (disc_glsl.ts, discLight): a program of its own, used only while
+// the disc is traced, so the pass every other scene runs carries none of its code and none of its registers
+export const compositeDiscFragmentShaderSource = '#define TRACED_DISC\n' + compositeFragmentShaderSource
 
 // The space sheet (space_grid.ts), drawn over the finished frame: the surface of SHEET_GLSL seen through its
 // pose. Lengths on the sheet are in the plane's units, places on the screen in CSS pixels

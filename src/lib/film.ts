@@ -1293,5 +1293,12 @@ Recipes
                              "flowATrail": 0.9, "flowASize": 1.3 }
                            (a flow, a said look: a ring round the shadow and its mirrored copy inside the lens; flowB and flowC are two more at once, a fall or an outflow by their From and To:
                            describe "flow")
+  A disc as light sees it: "intro": false, "warmup": 0, "settings": { "fieldEnabled": false, "starsBrightness": 0, "nebula": 0,
+                             "blackHoleSize": 10, "threeD": true, "threeDEase": 0, "cameraYaw": 0, "cameraPitch": -80,
+                             "lensingFromCamera": 0, "lensingRadius": 6, "flowA": 1, "flowACount": 30000,
+                             "flowAFrom": 4.5, "flowATo": 1.2, "flowASpread": 2, "flowASwirl": 0.6, "flowALife": 40,
+                             "flowATrail": 3, "flowASize": 1, "flowAThick": 0, "flowTrace": 1 }
+                           the accretion disc of NASA's picture, 10 degrees above its plane: the far side arched over
+                           the shadow, the near side across it, the underside's arc below, the approaching side bright
 
 Check with preview (a contact sheet of frames) before render; both take the same film.`
