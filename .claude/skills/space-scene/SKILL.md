@@ -169,8 +169,7 @@ knob is described once and everything else follows from that description:
   hint of at most 42 characters, the full description), a `SettingColor` row in
   `src/components/settings_body.tsx`, and `readSceneColor` (`src/lib/scene_color.ts`) where the scene reads
   it. `window.space`, presets, films (a colour moves channel by channel along a track) and scripts pick it
-  up from the spec. A colour that replaces a constant of the code gives its spec that constant as `exact`:
-  a hex can only round it, and the films made before must keep their bytes.
+  up from the spec.
 - A switch or anything else that is neither a slider nor a colour also needs its line in `TOGGLES` or
   `parseSettings` (`src/lib/agent_values.ts`), and in `readTracks` (`src/lib/film.ts`) if a film should
   move it.

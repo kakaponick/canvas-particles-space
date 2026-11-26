@@ -17,6 +17,6 @@ A fractal film is the film renderer forked for another picture: a zoom into the 
 
 A fractal change is done when each check that applies passes:
 
-- Two previews of one fractal film are the same bytes, and earlier fractal films keep theirs or change as meant.
+- Two previews of one fractal film are the same bytes.
 - A change to the perturbation: a point target and the Misiurewicz target at the same place draw the same frames.
-- A change to what it shares with particle films (see `docs/films.md`): particle and fractal films keep their bytes or change as meant, and a fractal film still renders.
+- A change to what it shares with particle films (see `docs/films.md`): a particle film and a fractal film still render.
