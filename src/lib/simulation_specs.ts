@@ -86,7 +86,7 @@ export const SIMULATION_SETTING_SPECS = {
   baseBrightness: spec('Base Brightness', 0, 10, 0.1, fixed(1, '×'), 'Multiplies every particle\'s brightness',
     'Global brightness multiplier for all particles. Values above 1.0 increase luminosity, below 1.0 create dimmer effects.'),
   speedGlow: spec('Speed Glow', 0, 5, 0.05, fixed(2), 'Higher: only fast particles glow',
-    'How strongly brightness follows a particle\'s speed. 0 = every moving particle is fully lit, 1 = slow particles are dimmer and fast ones brighter, higher values leave only the fast ones glowing. A particle that stands still is always dark.'),
+    'How strongly brightness follows a particle\'s speed. 0 = every moving particle is fully lit, 1 = slow particles are dimmer and fast ones brighter, higher values leave only the fast ones glowing. A particle that stands still is always dark. The speed is the particle\'s own, as seen on the screen: a 3D camera that turns or moves streaks the trails and lights nothing.'),
   speedGlowKnee: spoken(spec('Glow Knee', 0.01, 5, 0.01, fixed(2, ' px'), 'Speed that lights a particle half way',
     'The speed at which a particle reaches half its brightness, in screen pixels per 60th of a second. Speed Glow bends the curve round this point: lower lights slow particles sooner, so the far field and a slow flight show; higher leaves only the fast streaks near the camera lit.'), 'Speed Glow Knee'),
   depthFade: spec('Depth Fade', -1, 3, 0.05, fixed(2), 'Higher: far particles fade more',

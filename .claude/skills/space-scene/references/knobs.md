@@ -53,8 +53,9 @@ The particles fly towards the camera through a field `farZ` deep, born in a disc
 
 What follows from how it is drawn:
 
-- A particle's brightness is its speed. A particle that did not move draws nothing, so `baseSpeed` 0 leaves
-  the field dark except where gravity moves it. `speedGlow` bends that link: 0 lights every moving
+- A particle's brightness is its own speed on the screen, whatever the camera does: a 3D camera that turns
+  or moves streaks the trails and lights nothing. A particle that did not move draws nothing, so
+  `baseSpeed` 0 leaves the field dark except where gravity moves it. `speedGlow` bends that link: 0 lights every moving
   particle in full, high values leave only the fast ones. `speedGlowKnee` is the speed that lights a
   particle half way, the point the curve bends round: lower it and a slow flight and the far field show,
   raise it and only the streaks near the camera stay.
@@ -71,7 +72,9 @@ What follows from how it is drawn:
   palette arrives as particles are recycled. It is set, never keyframed. The background channels can be
   keyframed.
 - A fast flight tints the particles over their own colours (the `doppler` layer): `flightTintAhead`
-  round the point the field flies out of, `flightTintEdge` toward the edges. It begins at a flight speed
+  round the point the field flies out of, `flightTintEdge` toward the edges. In 3D that point is where
+  the line of flight is seen: it leaves the frame as the camera turns, and from the side the whole
+  column takes the edge colour. It begins at a flight speed
   of `flightTintFrom` and is whole at `flightTintFull`, so at the default `baseSpeed` there is none: lower
   `flightTintFrom` to 0 to tint a slow flight. `flightTintGradient` is how fast one colour gives way to
   the other outward (the turn lies 1 / it of the way to the corner; at 1 and below the frame is all
@@ -354,6 +357,13 @@ come, as around a real black hole.
   `gravityWaveGain` shapes only the opening's wave and a fired one.
 - A wave stretches the sky across its path, never along it, and weakens as 1 over the distance. At
   `companionWaves` 1 the sheet sways through a merger; at 3 it folds into steep spiral arms.
+- In 3D the waves and the merged hole's oval lie in the plane the pair circles in, and the camera sees
+  the slice through the pair that faces it: from above the orbit a two-armed spiral, from its side
+  rings, twice as strong along the orbit's axis as in its plane, round a shadow that swells and shrinks
+  along that plane.
+- In 3D the two holes stand at their own depths, so from the side of the orbit one passes in front of
+  the other: the nearer one's lens bends the light of the farther, which is seen pushed out round it,
+  and its shadow hides what of the farther ring lies behind it.
 - At `companionSpeed` 1 a turn at 8 radii takes about 15 s. A short film wants 2 to show the pair circling.
 - Two horizons take more of the flight than one: over a long approach the field can thin out. Lower
   `gravityStrength`, or `horizonScale`, when the picture needs the particles.
@@ -496,8 +506,9 @@ come, as around a real black hole.
   thick, so raise `nebulaCoreFrom` (0.9) or the core colour washes over everything.
 - It shows as the opening lets the stars show, and hiding the `stars` layer hides it. It adds light, so a
   dark background colour under it (`backgroundR`..`backgroundB`) deepens the gaps between the clouds.
-- In 3D it turns with the camera and, having no cells to repeat by, blends into itself over a full turn, so
-  its contrast is lowest when the camera looks back along the flight.
+- In 3D it is painted on the box of the sky (section 11) and turns rigidly with the camera: a cloud keeps
+  its shape and its place among the stars at any turn. Near an edge of the box the clouds of the two
+  faces blend.
 
 ## 11. Where the black hole is, and the camera
 
@@ -543,7 +554,8 @@ come, as around a real black hole.
 - `threeD` is another law of gravity, not only another view. The flat mode pulls a particle where it lands
   on the screen, in a layer of depth (`gravityDepth`), and the horizon takes whatever covers the hole at
   any depth. In 3D the hole is a point in space: gravity follows the true distance and ends at the sphere
-  of `gravityReach`, the swirl turns around the line of flight, the horizon is a sphere, and
+  of `gravityReach`, the swirl turns around the line of flight or the spin's axis (`orbitalSpinFollow`),
+  the horizon is a sphere, the opening reveals the field in a sphere that grows from the blast, and
   `gravityDepth` does nothing. Fewer particles fall in, so the ring's infall light is fainter.
 - The 3D camera circles the point at `blackHoleDepth` on the line of flight: `cameraYaw` 0 looks along
   the flight and draws what the flat mode draws, 90 sees the column of particles flow past the hole from
@@ -557,8 +569,10 @@ come, as around a real black hole.
   `threeDEndFade` fades both over that share of `farZ`: 0 cuts them hard, 0.5 fades the whole column
   toward its middle. Straight on it does nothing.
 - What turns with the camera is the field, the orbits (they lie across the line of flight, so they are
-  seen as ellipses from above), the second black hole (it circles in that plane too) and the sky, which
-  slides with the camera's turn. A hole without spin looks the same from every side. A spinning hole's
+  seen as ellipses from above), the second black hole (it circles in that plane too), its waves, and
+  the sky. The sky is a box round the camera that stands still in the scene: the stars, the nebula and
+  the Lensed Grid cross the frame as a real sky does when a camera turns, faster at the frame's edges
+  than in its middle, and behind the camera is another sky than ahead. A hole without spin looks the same from every side. A spinning hole's
   axis stands in the scene (`spinTilt` and `spinAxis` are as seen straight on), so as the camera circles
   it the flattened side of the shadow and the leaning rings turn with the view, and the particles are
   dragged round the axis in space. `gravityInertia` keeps their speed along all three axes.
@@ -573,7 +587,7 @@ come, as around a real black hole.
   screen (positive anticlockwise), the sky, the sheet and the ring's bright side (`ringSide`) with it;
   the circle and the head leave `ringSide` and `ringDoppler` where they are unless `ringSpinFollow` is
   up. `cameraLookYaw` and `cameraLookPitch` turn the camera's head without moving it: the hole slides off centre (to the edge at about 45°), so a
-  shot can open on empty space and swing onto the hole, or let the hole cross the frame. The sky slides
+  shot can open on empty space and swing onto the hole, or let the hole cross the frame. The sky turns
   with the head as it does with the circle. `cameraMoveRight`, `cameraMoveUp` and `cameraMoveIn` move the
   camera itself along its own axes, in radii of the hole at its full size: near particles slide past
   faster than far ones (parallax, which no pan or zoom gives), and a move in is a real approach, so the
@@ -770,6 +784,9 @@ The cost of a knob, in the last column:
 | The spin's drag, spin / 2 at one radius | field_step.ts | has one: `frameDrag` |
 | How the drag falls: one power of the distance faster than the pull, so `frameDrag` makes the vortex stronger and never wider | field_step.ts | particle |
 | What spin lying in the screen does along the line of sight: nothing, so both sides of a tilted hole fall alike | field_step.ts | particle |
+| How the swirl's axis turns to the spin's in 3D: by `orbitalSpinFollow` times the spin itself, a straight line | scene.ts | frame: a curve, not a number |
+| The flight's tint a quarter turn or more off the line of flight: the edge colour in full | webgl_shaders.ts | frame |
+| A particle nearer than the 3D camera's near plane is lit by the length of its stroke, the camera's move with it | field_step.ts | machine |
 | A captured particle is reborn in four tries, else on the rim, up to half a capture radius outside it | field_step.ts | machine |
 | Motion capped at six reference frames a step; a stall treated as one frame | particle_simulation.ts, frame_pacing.ts | machine |
 
@@ -823,6 +840,9 @@ The cost of a knob, in the last column:
 | A real hole's ringdown tone, and how spin raises it | intro_params.ts, companion.ts | has one: `ringdownPitch`, `ringdownLength` |
 | The spin a merger leaves, 0.69 for two equal holes, held under 0.95, where the fit of its tone still holds | companion.ts | has one: `companionSpin` |
 | The second hole has no spin of its own | companion.ts, particle_simulation.ts | particle and pixel: a new effect |
+| How much of the nearer hole's bend the farther one is seen through in 3D: its depth behind it over its distance from the camera, a thin lens | scene.ts | frame: a law, not a number |
+| The depth between two holes at which the nearer one's shadow hides the farther one's ring in full: the sum of their radii | scene.ts | frame |
+| A wave is drawn where the pixel is, not where the nearer hole's lens takes its ray | webgl_shaders.ts | pixel |
 
 ### The grids and the sky
 
@@ -835,6 +855,10 @@ The cost of a knob, in the last column:
 | The lattice's 13 lines each way along each of the three axes, in 48 pieces each: the top of `gridLatticeReach` | space_lattice.ts | machine |
 | A star's own twinkle, 2 to 5 radians a second, the brighter the faster, and its brightness, the square of an even draw | webgl_shaders.ts | has one: `starsTwinkleSpeed`, `starsFaintest` |
 | One star at most in a cell, placed in its middle 0.6 and drawn inside that cell alone, which cuts a large `starsSize` off at its edge | webgl_shaders.ts | pixel |
+| The sky is a cube round the middle of the screen (the field's vanishing point follows the hole): the Lensed Grid's lines turn a corner where two faces meet, and a strongly bent ray or a zoom below 1 shows that edge | webgl_shaders.ts | pixel: a sphere's grid would have poles instead |
+| No star within three of its radii of a face's edge, about 5 px of empty sky along each | webgl_shaders.ts | pixel: each pixel would read the next face's cells too |
+| The nebula's clouds blend between two faces over the last quarter of the way to their edge | webgl_shaders.ts | frame |
+| The Lensed Grid's lines keep their width across a face by the slant of the ray to the power 0.75 | webgl_shaders.ts | frame |
 | How the Lensed Grid's pull is found: 8 halvings of the span the node can lie in, then a straight line across the last | webgl_shaders.ts | machine |
 | The nebula's clouds: three layers of noise, each 2.1 times finer and turned, the slower noise that curls them at 0.8 of their size, the grain at 1.7 times the finest; a Detail knob for the layers would take a loop to a fixed most with a break | webgl_shaders.ts | pixel |
 
