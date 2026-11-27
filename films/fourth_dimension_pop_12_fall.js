@@ -85,7 +85,8 @@ film({
     trailIntensity: 0.2,
     depthFade: 0,
     minOpacity: 0.2,
-    baseBrightness: 0.5,
+    // dark while the camera is close to the Earth: a planet draws no infall; space lights as the well comes up
+    baseBrightness: 0,
     // Stars on black, no nebula: its dust muddied the frame round the Earth, as in chapter 01
     starsBrightness: 1.6,
     starDensity: 0.22,
@@ -104,7 +105,7 @@ film({
     cameraMoveIn: NEAR,
     // In 3D the field's gravity ends at a sphere and the warm-up drains it, so the space falling into the
     // Earth's well down every spoke is a flow laid on the sheet, in the field's colour
-    flowA: 1.1,
+    flowA: 0,
     flowACount: 9000,
     flowAFrom: 8,
     flowATo: 1,
@@ -202,7 +203,7 @@ shot('edge', () => {
   // The Earth's well: the sheet comes up and the camera backs off and turns down to look into it, the Earth
   // at its bottom
   at(tTurn, () => {
-    to({ gridSheet: 0.8, flowA: 1.6, cameraMoveIn: 0, cameraPitch: -62 }, TURN, 'ease')
+    to({ gridSheet: 0.8, flowA: 1.6, baseBrightness: 0.5, cameraMoveIn: 0, cameraPitch: -62 }, TURN, 'ease')
   })
   // and goes down into it, while space falls in past the camera
   at(tWell - 0.4, () => {

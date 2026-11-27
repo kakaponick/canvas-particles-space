@@ -63,9 +63,10 @@ film({
     blackHoleY: 0.78,
     flowA: 1.8,
     flowACount: 3000,
-    flowAFrom: 7,
+    // born past the frame's edge, so the swirl thins outward with no rim where it starts
+    flowAFrom: 14,
     flowATo: 0.8,
-    flowASpread: 4,
+    flowASpread: 8,
     flowASwirl: 0.8,
     flowALife: 6,
     flowATrail: 0.6,
