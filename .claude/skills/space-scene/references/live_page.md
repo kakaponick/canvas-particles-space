@@ -29,23 +29,28 @@ What the page needs:
 
 The operator sees every simulation first (CLAUDE.md, "Working here"): before an agent draws a still, a
 preview, a sheet or a render of a film or of a new look, it puts it on the operator's screen. The screen is
-one page, `http://127.0.0.1:5199/`, that the operator keeps open in T3 Code's own browser; it shows what an
-agent last put on it, with a bar naming what it shows, the worktree and when, and a list to go back to the
-last few. A shell is all an agent needs; no browser tool of its own.
+one page, `http://127.0.0.1:5199/`, that the operator keeps open in T3 Code's own browser. It shows what an
+agent last put on it under one line that says who shows what and when; a click on that line lists the last
+few things shown to go back to. A shell is all an agent needs; no browser tool of its own.
 
 1. A film not yet in `films/` goes there as `films/_lab_<name>.js`; `films/_lab_*` is in the repository's
    `.git/info/exclude`, so it never joins a commit.
 2. From the worktree, rebased on master (the operator sees the worktree's whole page, toolbar and all, and
-   the script refuses a branch behind master): `node scripts/screen.mjs live <film> "<what it shows>"`. It starts that worktree's
-   dev server once (a port from 5200 up, detached; later calls reuse it), starts the screen if it is not
-   up, and shows `?live=<film>` there. `?live=` plays that film of `films/` inside the page's own scene,
-   looping: its tracks are written into the settings every frame, the operator can still turn the camera,
-   and a save of the code or the film reloads the page and starts it again, so a change to the same film
-   needs no second call. Only settings move: captions, graphics and cues show in the film mode; to show
-   that, `node scripts/screen.mjs show http://127.0.0.1:<port>/?film=<film> "<what>"`.
+   the script refuses a branch behind master):
+   `node scripts/screen.mjs live <film> "<who>: <what it shows>"`, the label in the operator's language and
+   naming the agent by its job, not its folder ("фиксер клипов 5–8: клип 6, лампа и стена"). It starts
+   that worktree's dev server once (a port from 5200 up, detached; later calls reuse it), starts the screen
+   if it is not up, and shows `?live=<film>` there.
 3. Then the agent's own stills. The report says what it put on the screen.
 4. The dev server runs until the worktree goes: `node scripts/screen.mjs stop` from the worktree before it
    is removed. `node scripts/screen.mjs status` lists what the screen shows and the servers it knows.
+
+`?live=` plays that film of `films/` inside the page's own scene, looping: each frame its tracks move the
+settings and layers, and its graphics, captions and fade are drawn over the frame, so the operator sees what
+the film shows and can still turn the camera. A save of the code or the film reloads the page and starts it
+again, so a change to the same film needs no second call. Not live: the film's own frame (captions stand in
+shares of the page, so a page of another shape than the film's places them a little differently), its pace
+and its cues; the film mode (`/?film=<film>`, through `screen.mjs show`) plays those as the render will.
 
 The page drives its film by the browser's frames, so a hidden tab holds it still; it runs on as soon as the
 operator looks.

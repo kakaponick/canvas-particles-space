@@ -56,8 +56,8 @@ const HELP = `window.space: the scene for agents. Every call returns plain JSON-
   film.progress() / film.cancel()
   film.live(film, { from?, loop?, input? }) / film.liveStop({ keep? }) / film.liveTime()
                            plays a film inside this page's own scene, its tracks written into the settings each
-                           frame, looping; the film, its script, or the name of a film in films/. Only settings
-                           move (no captions, graphics or cues). ?live=<film> in the address plays it on load and
+                           frame and its graphics and captions drawn over it, looping; the film, its script, or
+                           the name of a film in films/ (no cues, no pace). ?live=<film> in the address plays it on load and
                            again after every reload. Stop puts back the settings from before unless keep
   fractal.guide() / fractal.check(film) / fractal.preview(film, { at?, frames? }) / fractal.render(film, { quality?, audio?, download? })
                            a zoom into the Mandelbrot set as a video, as deep as asked, on a timeline of its own

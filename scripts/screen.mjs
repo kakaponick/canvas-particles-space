@@ -1,7 +1,7 @@
 // The operator's screen: one page the operator keeps open (in T3 Code's own browser), which shows whatever
 // simulation an agent or a subagent last put on it. Agents need only a shell: no browser tool of their own.
 //
-//   node scripts/screen.mjs live <film> ["what it shows"]   from a worktree: its dev server (started once,
+//   node scripts/screen.mjs live <film> ["who: what it shows"] from a worktree: its dev server (started once,
 //                                                          then reused) plays films/<film> at ?live=, and
 //                                                          the screen shows it
 //   node scripts/screen.mjs show <address> ["what it shows"] the screen shows any address
@@ -11,7 +11,7 @@
 //
 // The screen itself is http://127.0.0.1:5199/, a small server this script starts the first time it is
 // needed and leaves running. Its page asks every second what to show and puts it in a frame that fills it,
-// with a bar above: what it shows, which worktree, when, and the last few things shown to go back to. The
+// with one line above: who shows what and when; a click on it lists the last few things shown to go back to. The
 // state lives in the temporary folder, so a screen started again shows what it showed.
 import fs from 'node:fs'
 import os from 'node:os'
@@ -140,64 +140,85 @@ function stop () {
 }
 
 const PAGE = `<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><title>Operator's screen</title>
+<html lang="ru"><head><meta charset="utf-8"><title>Экран</title>
 <style>
   html, body { margin: 0; height: 100%; background: #000; color: #cfd8dc; font: 11px/20px ui-monospace, Consolas, monospace }
   body { display: flex; flex-direction: column }
-  /* One line, always: the label gives way with an ellipsis, the rest keeps its width */
-  header { flex: none; display: flex; gap: 8px; align-items: center; height: 20px; padding: 0 6px; background: #0b0f12; border-bottom: 1px solid #1d2a30; white-space: nowrap; overflow: hidden }
-  #label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: #fff }
-  #from, #at { flex: none; color: #7f9aa3 }
-  select { flex: none; width: 22px; height: 16px; padding: 0; background: #0b0f12; color: #7f9aa3; border: 1px solid #1d2a30; font: inherit; cursor: pointer }
+  /* One line, always: the label gives way with an ellipsis, the time keeps its width */
+  header { position: relative; flex: none; display: flex; align-items: center; height: 20px; background: #0b0f12; border-bottom: 1px solid #1d2a30 }
+  #label { flex: 1 1 auto; min-width: 0; height: 20px; padding: 0 8px; border: 0; background: none; color: #fff; font: inherit; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer }
+  #label:hover, #label[aria-expanded="true"] { background: #142026 }
+  #label::after { content: ' ▾'; color: #7f9aa3 }
+  #at { flex: none; padding: 0 8px; color: #7f9aa3 }
+  /* The list of what was shown, opened from the label it belongs to, under it on the left */
+  #history { position: absolute; top: 21px; left: 0; z-index: 2; min-width: 320px; max-width: 100%; margin: 0; padding: 2px 0; list-style: none; background: #0b0f12; border: 1px solid #1d2a30; border-top: 0 }
+  #history[hidden] { display: none }
+  #history button { display: block; width: 100%; padding: 0 8px; border: 0; background: none; color: #cfd8dc; font: inherit; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer }
+  #history button:hover, #history button:focus-visible { background: #142026; outline: none }
+  #history button[aria-current="true"] { color: #fff }
+  #history time { color: #7f9aa3; margin-right: 8px }
   iframe { flex: 1; width: 100%; border: 0; background: #000 }
   #empty { flex: 1; display: grid; place-items: center; color: #7f9aa3 }
 </style></head>
 <body>
-<header><span id="label">Nothing shown yet</span><span id="from"></span><span id="at"></span><select id="history" title="Shown before"></select></header>
-<div id="empty">Waiting for an agent: node scripts/screen.mjs live &lt;film&gt;</div>
+<header>
+  <button id="label" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="history">Пока ничего не показано</button>
+  <span id="at"></span>
+  <ul id="history" hidden></ul>
+</header>
+<div id="empty">Ждёт агента: node scripts/screen.mjs live &lt;фильм&gt; "кто: что показывает"</div>
 <script>
   let current = null
   let pinned = null
+  let history = []
   const clock = at => new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
-  const frame = () => document.querySelector('iframe')
+  const label = document.getElementById('label')
+  const list = document.getElementById('history')
   function put (entry) {
     if (!entry || entry.url === current) return
     current = entry.url
-    let element = frame()
-    if (!element) {
+    let frame = document.querySelector('iframe')
+    if (!frame) {
       document.getElementById('empty').remove()
-      element = document.createElement('iframe')
-      element.allow = 'fullscreen; autoplay'
-      document.body.append(element)
+      frame = document.createElement('iframe')
+      frame.allow = 'fullscreen; autoplay'
+      document.body.append(frame)
     }
-    element.src = entry.url
-    const label = document.getElementById('label')
+    frame.src = entry.url
     label.textContent = entry.label || entry.url
     label.title = entry.label || entry.url
-    document.getElementById('from').textContent = entry.from ? entry.from.split(/[\\\\/]/).pop().replace(/^canvas-particles-space-?/, '') || 'main' : ''
     document.getElementById('at').textContent = clock(entry.at)
   }
+  function fill () {
+    list.replaceChildren(...history.map(entry => {
+      const item = document.createElement('li')
+      const button = document.createElement('button')
+      button.type = 'button'
+      button.setAttribute('aria-current', String(entry.url === current))
+      const time = document.createElement('time')
+      time.textContent = clock(entry.at)
+      button.append(time, entry.label || entry.url)
+      button.title = entry.label || entry.url
+      button.addEventListener('click', () => { pinned = entry; put(entry); close() })
+      item.append(button)
+      return item
+    }))
+  }
+  function open () { fill(); list.hidden = false; label.setAttribute('aria-expanded', 'true'); list.querySelector('button')?.focus() }
+  function close () { list.hidden = true; label.setAttribute('aria-expanded', 'false') }
+  label.addEventListener('click', () => { list.hidden ? open() : close() })
+  document.addEventListener('keydown', event => { if (event.key === 'Escape' && !list.hidden) { close(); label.focus() } })
+  document.addEventListener('pointerdown', event => { if (!list.hidden && !event.target.closest('header')) close() })
   async function poll () {
     try {
       const state = await (await fetch('/state')).json()
-      const select = document.getElementById('history')
-      const options = state.history.map((entry, index) => '<option value="' + index + '">' + clock(entry.at) + ' · ' + (entry.label || entry.url).replace(/</g, '&lt;') + '</option>')
-      if (select.dataset.count !== String(state.history.length) || select.dataset.top !== String(state.history[0] && state.history[0].at)) {
-        select.innerHTML = options.join('')
-        select.dataset.count = String(state.history.length)
-        select.dataset.top = String(state.history[0] && state.history[0].at)
-        pinned = null
-        select.value = '0'
-      }
+      // Something new shown lets go of an older one picked from the list
+      if (state.shown && (!history[0] || state.shown.at !== history[0].at)) pinned = null
+      history = state.history
       put(pinned ?? state.shown)
     } catch {}
     setTimeout(poll, 1000)
   }
-  document.getElementById('history').addEventListener('change', async event => {
-    const state = await (await fetch('/state')).json()
-    pinned = state.history[Number(event.target.value)]
-    put(pinned)
-  })
   poll()
 </script>
 </body></html>`

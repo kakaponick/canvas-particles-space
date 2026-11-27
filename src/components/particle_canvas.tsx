@@ -3,6 +3,7 @@ import { useParticleStore } from '../store/particle_store'
 import { toFrameScale, REFERENCE_FPS } from '../lib/particle_simulation'
 import { getRenderingContext } from '../lib/particle_renderer'
 import { createScene, type Scene, type SceneInput } from '../lib/scene'
+import { sceneHooks } from '../lib/scene_hooks'
 import { getIntroDuration } from '../lib/intro_timeline'
 import { getIntroPhase } from '../lib/intro_tracks'
 import { useIntroDebugStore } from '../store/intro_debug_store'
@@ -253,7 +254,9 @@ function ParticleCanvas () {
       const dt = frameScale / REFERENCE_FPS
       if (debugging && debug.loop && scene.introTime + dt >= introDuration + LOOP_HOLD_SECONDS) restartIntro()
 
+      sceneHooks.before?.()
       scene.advance(frameScale, dt, readInput())
+      sceneHooks.after?.(scene)
 
       const intro = scene.intro
       if (intro.done && !state.introComplete) state.setIntroComplete(true)
