@@ -43,33 +43,23 @@ for (const clip of JSON.parse(fs.readFileSync(new URL('./fourth_dimension_pop.js
 }
 // The Russian delivery, in Drama 3's bracketed tags: each line read the way its label reads (measured physics
 // plainly, geometry patiently, the hypothesis leaning in, the open question quietly), as the benchmark's
-// "tag by status" did. The 4D explanation of clips 02–03 is built towards a "wow" on the red lines pointing
-// inward instead: WOW picks the build (a: hushed wonder, b: open delight, c: only the status tags and
+// "tag by status" did. The 4D explanation of clips 02–03 is built towards a "wow" on the last word of 03,
+// "inward", instead: WOW picks the build (a: hushed wonder, b: open delight, c: only the status tags and
 // pauses written as punctuation); every build's takes stay in films/voice/, so trying another needs no machine
 // for the lines already spoken
 const STATUS_TAG = { known: '[plain and matter-of-fact]', math: '[clear and patient]', idea: '[leaning in, a little excited]', open: '[quieter, thoughtful, leaving it open]' }
 const WOW = {
   a: {
-    fourth: 'Значит, четвёртому измерению нужно четвёртое направление. [lowering the voice, intrigued] И вот тут начинается странное.',
-    taken: '[playful, slowly building tension] Попробуйте. Вверх и вниз: занято. Влево и вправо: занято. Вперёд и назад: занято. [quieter] В нашем пространстве указать больше некуда.',
-    trick: '[leaning in, as if sharing a secret] Но есть хитрость. Когда вы рисуете куб на бумаге, третье направление вы подделываете. Дальнюю сторону просто рисуют меньше.',
-    copy: '[slow and deliberate] Так сделаем это ещё раз. Нарисуйте маленький куб внутри большого и соедините углы. [a short pause, then quietly amazed] Эти красные линии и есть четвёртое направление, подделанное единственным доступным нам способом.',
-    tesseract: '[hushed, full of wonder] У этой фигуры есть имя: [a beat] тессеракт. [softly] Куб, протянутый через четвёртое измерение.',
-    inout: '[slowly, letting it land] А теперь посмотрите, куда идут красные линии. [a long pause, then awed, almost whispering] Внутрь. [warm and clear again] Отсюда, где мы стоим, четвёртое направление выглядит как «внутрь» и «наружу».'
+    fourth: 'Значит, четвёртому измерению нужно четвёртое направление. [lowering the voice, intrigued] Куда бы оно указывало?',
+    stepup: '[slowly, letting it land] На ступень выше то же было бы верно и для нас. Четвёртое направление не выглядело бы новым способом указать. [a short pause, then quietly amazed] Оно выглядело бы как внутрь.'
   },
   b: {
-    fourth: 'Значит, четвёртому измерению нужно четвёртое направление. [grinning] И вот тут начинается странное.',
-    taken: '[playful, faster and faster] Попробуйте. Вверх и вниз: занято. Влево и вправо: занято. Вперёд и назад: занято. [throwing up hands] В нашем пространстве указать больше некуда.',
-    trick: '[eager, can barely wait] Но есть хитрость. Когда вы рисуете куб на бумаге, третье направление вы подделываете. Дальнюю сторону просто рисуют меньше.',
-    copy: '[building excitement] Так сделаем это ещё раз. Нарисуйте маленький куб внутри большого и соедините углы. [excited, amazed] Эти красные линии и есть четвёртое направление, подделанное единственным доступным нам способом.',
-    tesseract: '[delighted, triumphant] У этой фигуры есть имя: тессеракт! [with relish] Куб, протянутый через четвёртое измерение.',
-    inout: '[curious] А теперь посмотрите, куда идут красные линии. [astonished] Внутрь! [laughs softly, then clear] Отсюда, где мы стоим, четвёртое направление выглядит как «внутрь» и «наружу».'
+    fourth: 'Значит, четвёртому измерению нужно четвёртое направление. [grinning] Куда бы оно указывало?',
+    stepup: '[curious] На ступень выше то же было бы верно и для нас. Четвёртое направление не выглядело бы новым способом указать. [astonished] Оно выглядело бы как внутрь!'
   },
   c: {
-    fourth: '[clear and patient] Значит, четвёртому измерению нужно четвёртое направление… И вот тут начинается странное.',
-    copy: '[clear and patient] Так сделаем это ещё раз. Нарисуйте маленький куб внутри большого и соедините углы… Эти красные линии и есть четвёртое направление, подделанное единственным доступным нам способом.',
-    tesseract: '[clear and patient] У этой фигуры есть имя… тессеракт. Куб, протянутый через четвёртое измерение.',
-    inout: '[clear and patient] А теперь посмотрите, куда идут красные линии… Внутрь. Отсюда, где мы стоим, четвёртое направление выглядит как «внутрь» и «наружу».'
+    fourth: '[clear and patient] Значит, четвёртому измерению нужно четвёртое направление… Куда бы оно указывало?',
+    stepup: '[clear and patient] На ступень выше то же было бы верно и для нас. Четвёртое направление не выглядело бы новым способом указать… Оно выглядело бы как внутрь.'
   }
 }
 const WOW_BUILD = WOW[process.env.WOW ?? 'a']
@@ -82,26 +72,16 @@ const sayRu = (name, text) => WOW_BUILD[name] ?? (statusOf[name] ? `${STATUS_TAG
 // The same delivery and the same three builds for the English lines
 const WOW_EN = {
   a: {
-    fourth: 'So a fourth dimension needs a fourth direction. [lowering the voice, intrigued] And that is where it gets weird.',
-    taken: '[playful, slowly building tension] Try it. Up and down: taken. Left and right: taken. Forward and back: taken. [quieter] In our space, there is nowhere left to point.',
-    trick: '[leaning in, as if sharing a secret] But there is a trick. When you draw a cube on paper, you fake the third direction. The far side is simply drawn smaller.',
-    copy: '[slow and deliberate] So do it again. Draw a small cube inside the big one, and join the corners. [a short pause, then quietly amazed] Those red lines are the fourth direction, faked the only way we can.',
-    tesseract: '[hushed, full of wonder] This shape has a name: [a beat] a tesseract. [softly] A cube, dragged through a fourth dimension.',
-    inout: '[slowly, letting it land] And look which way the red lines run. [a long pause, then awed, almost whispering] Inward. [warm and clear again] From where we stand, the fourth direction looks like in, and out.'
+    fourth: 'So a fourth dimension needs a fourth direction. [lowering the voice, intrigued] Where would it point?',
+    stepup: '[slowly, letting it land] One step up, the same would hold for us. A fourth direction would not look like a new way to point. [a short pause, then quietly amazed] It would look like inward.'
   },
   b: {
-    fourth: 'So a fourth dimension needs a fourth direction. [grinning] And that is where it gets weird.',
-    taken: '[playful, faster and faster] Try it. Up and down: taken. Left and right: taken. Forward and back: taken. [throwing up hands] In our space, there is nowhere left to point.',
-    trick: '[eager, can barely wait] But there is a trick. When you draw a cube on paper, you fake the third direction. The far side is simply drawn smaller.',
-    copy: '[building excitement] So do it again. Draw a small cube inside the big one, and join the corners. [excited, amazed] Those red lines are the fourth direction, faked the only way we can.',
-    tesseract: '[delighted, triumphant] This shape has a name: a tesseract! [with relish] A cube, dragged through a fourth dimension.',
-    inout: '[curious] And look which way the red lines run. [astonished] Inward! [laughs softly, then clear] From where we stand, the fourth direction looks like in, and out.'
+    fourth: 'So a fourth dimension needs a fourth direction. [grinning] Where would it point?',
+    stepup: '[curious] One step up, the same would hold for us. A fourth direction would not look like a new way to point. [astonished] It would look like inward!'
   },
   c: {
-    fourth: '[clear and patient] So a fourth dimension needs a fourth direction… And that is where it gets weird.',
-    copy: '[clear and patient] So do it again. Draw a small cube inside the big one, and join the corners… Those red lines are the fourth direction, faked the only way we can.',
-    tesseract: '[clear and patient] This shape has a name… a tesseract. A cube, dragged through a fourth dimension.',
-    inout: '[clear and patient] And look which way the red lines run… Inward. From where we stand, the fourth direction looks like in, and out.'
+    fourth: '[clear and patient] So a fourth dimension needs a fourth direction… Where would it point?',
+    stepup: '[clear and patient] One step up, the same would hold for us. A fourth direction would not look like a new way to point… It would look like inward.'
   }
 }
 for (const [name, text] of Object.entries(WOW_EN).flatMap(([, build]) => Object.entries(build))) {

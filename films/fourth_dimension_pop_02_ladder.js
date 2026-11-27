@@ -9,7 +9,7 @@ const LINES = {
   two: 'Drag the line in a new direction, at a right angle to the first. A square. Two.',
   three: 'And once more, at a right angle to both. A cube. Three.',
   pattern: 'See the pattern? A dimension is not a mysterious place. It is just one more direction, at a right angle to all the others.',
-  fourth: 'So a fourth dimension needs a fourth direction. And that is where it gets weird.'
+  fourth: 'So a fourth dimension needs a fourth direction. Where would it point?'
 }
 
 // ---- the film's kit: the same text in every clip of films/fourth_dimension_pop.json ----

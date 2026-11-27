@@ -1,4 +1,4 @@
-// The fourth dimension as popular science, clip 4 of films/fourth_dimension_pop.json: gravity points inward, and a black hole is where it is strongest: its shadow, its ring and its bent sky.
+// The fourth dimension as popular science, clip 4 of films/fourth_dimension_pop.json: gravity points inward, and a black hole is where it is strongest: everything falls into it from every side, and we have photographed two.
 // The narration sets the pace: LINES is what is said, say() marks where a line starts, and until a voice has
 // spoken the lines each takes what its words would (input.lines and input.cues bring a voice's own seconds).
 //   node .claude/skills/space-scene/scripts/space.mjs preview films/fourth_dimension_pop_04_hole.js out.jpg -
@@ -6,9 +6,8 @@
 const LINES = {
   suspect: 'So is there anything in nature that points inward like that? There is one obvious suspect. Gravity.',
   strongest: 'And if you want to understand gravity, go where it is strongest. A black hole.',
-  anatomy: 'Here is the anatomy. The dark disc is the shadow: light that goes in never comes back. Around it, a thin ring, where light circles the hole. And beyond that, the whole sky, bent out of shape.',
-  sixty: 'This one weighs as much as ten Suns. And its horizon is only sixty kilometres across.',
-  photographed: 'None of this is speculation. We have photographed two of them.'
+  inward: 'Near it, everything falls inward, from every side at once. Not even light finds its way back out.',
+  photographed: 'And this part is not a guess. We have photographed two of them.'
 }
 
 // ---- the film's kit: the same text in every clip of films/fourth_dimension_pop.json ----
@@ -169,53 +168,35 @@ shot('strongest', () => {
       () => { wait(1.2); to({ cameraPitch: 78 }, 3, 'ease') }
     )
   })
-  // Named once it is there, and named into the anatomy
+  // Named once it is there, and held into the next line
   at(arrives + 1.6, () => {
-    caption('black hole', start + spoken + 0.6 + heard('anatomy', 'shadow', 0.22) - now(), { at: 'hole', angle: 300, radius: 2.2, size: 0.032, font: 'unbounded', color: INK, fade: 0.4 })
+    caption('black hole', start + spoken + 0.6 + heard('inward', 'inward', 0.2) - now(), { at: 'hole', angle: 300, radius: 2.2, size: 0.032, font: 'unbounded', color: INK, fade: 0.4 })
   })
   until(start + spoken + 0.6)
 })
 
-shot('anatomy', () => {
+shot('inward', () => {
   const start = now()
-  const spoken = say('anatomy')
+  const spoken = say('inward')
   const end = start + spoken + 0.6
   status('known', spoken + 0.6)
   // The camera flies in toward the hole, about a sixth of its way (11 radii off at this size)
   meanwhile(() => { to({ cameraMoveIn: 1.8 }, end - now()) })
-  const tShadow = start + heard('anatomy', 'shadow', 0.22)
-  const tRing = start + heard('anatomy', 'ring', 0.55)
-  const tSky = start + heard('anatomy', 'sky', 0.88)
-  at(tShadow, () => { label('shadow', end - now(), { at: 'hole', angle: 205, radius: 0.5 }) })
-  at(tShadow + 1.2, () => { keep('Light that goes in never comes back.', tRing - now()) })
-  at(tRing, () => {
+  // Everything falls inward, from every side: the arrows of chapter 03's last picture, now gravity's, on the
+  // hole and in the quiet ink, since this part is known
+  at(start + heard('inward', 'inward', 0.2) - 0.3, () => {
+    for (let k = 0; k < 8; k++) {
+      const a = k * Math.PI / 4 + Math.PI / 8
+      const far = { hole: [+(4.6 * Math.cos(a)).toFixed(3), +(4.6 * Math.sin(a)).toFixed(3)] }
+      const near = { hole: [+(2.4 * Math.cos(a)).toFixed(3), +(2.4 * Math.sin(a)).toFixed(3)] }
+      draw({ kind: 'line', points: [far, near], arrow: 'end', color: SOFT, width: 0.003, draw: 0.6, fade: 0.4 }, end - now())
+    }
+    keep('everything falls *{inward}, from every side', start + heard('inward', 'light', 0.7) - now())
+  })
+  // and light too: the ring brightens where light circles the hole before it falls in
+  at(start + heard('inward', 'light', 0.7) - 0.2, () => {
     to({ ringBrightness: 4 }, 1)
-    // Below the arch, where the ring shows clear of the disc
-    label('photon ring', end - now(), { at: 'hole', angle: 320, radius: 1.02 })
-  })
-  // The sky behind: a lensed grid, so the bending shows
-  at(tSky - 0.8, () => { to({ gridSky: 0.35 }, 1.2) })
-  at(tSky, () => { label('bent sky', end - now(), { at: 'einstein', angle: 240, radius: 2.8 }) })
-  until(end)
-})
-
-shot('sixty', () => {
-  const start = now()
-  const spoken = say('sixty')
-  const end = start + spoken + 0.6
-  status('known', spoken + 0.6)
-  at(start + heard('sixty', 'Suns', 0.5), () => {
-    caption('10 M_{☉}', end - now(), { at: [0.2, 0.15], size: 0.07, font: 'unbounded', color: GOLD, fade: 0.4 })
-  })
-  // The horizon itself, on the hole: a radius is the shadow's, and the shadow is 2.6 horizon radii, so the
-  // horizon is a circle of 1 / 2.6 radii inside it, and the ruler across it is the 60 km
-  const H = +(1 / 2.6).toFixed(3)
-  at(start + heard('sixty', 'sixty', 0.8) - 0.4, () => {
-    draw({ kind: 'circle', center: { hole: [0, 0] }, radius: H, color: GOLD, width: 0.0025, dash: true, draw: 0.5, fade: 0.4 }, end - now())
-    draw({ kind: 'line', points: [{ hole: [-H, 0] }, { hole: [H, 0] }], arrow: 'both', color: GOLD, width: 0.003, draw: 0.5, fade: 0.4 }, end - now())
-    caption('60 km', end - now(), { at: { hole: [0, 0.5] }, size: 0.026, font: 'unbounded', color: GOLD, fade: 0.4 })
-    caption('horizon: 60 km across', end - now(), { at: [0.76, 0.15], size: 0.04, font: 'unbounded', color: GOLD, fade: 0.4 })
-    caption('r_{s} = 2GM / c^{2} ≈ 30 km', end - now(), { at: [0.76, 0.7], size: 0.036, font: 'noto', color: INK, fade: 0.4 })
+    keep('not even light gets back out', end - now())
   })
   until(end)
 })

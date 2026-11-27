@@ -1,14 +1,14 @@
-// The fourth dimension as popular science, clip 3 of films/fourth_dimension_pop.json: every direction is taken, and the drawing of a cube inside a cube shows the one that is left: inward.
+// The fourth dimension as popular science, clip 3 of films/fourth_dimension_pop.json: a lamp, a ball and a wall. The shadow on the wall cannot move toward the lamp, so that direction shows on the wall as growing and shrinking: in and out. One step up, a fourth direction would look like inward.
 // The narration sets the pace: LINES is what is said, say() marks where a line starts, and until a voice has
 // spoken the lines each takes what its words would (input.lines and input.cues bring a voice's own seconds).
 //   node .claude/skills/space-scene/scripts/space.mjs preview films/fourth_dimension_pop_03_inward.js out.jpg -
 /* global film, set, to, wait, shot, caption, draw, mark, now, at, meanwhile, input */
 const LINES = {
-  taken: 'Try it. Up and down: taken. Left and right: taken. Forward and back: taken. In our space, there is nowhere left to point.',
-  trick: 'But there is a trick. When you draw a cube on paper, you fake the third direction. The far side is simply drawn smaller.',
-  copy: 'So do it again. Draw a small cube inside the big one, and join the corners. Those red lines are the fourth direction, faked the only way we can.',
-  tesseract: 'This shape has a name: a tesseract. A cube, dragged through a fourth dimension.',
-  inout: 'And look which way the red lines run. Inward. From where we stand, the fourth direction looks like in, and out.'
+  wall: 'Hold a ball between a lamp and a wall. On the wall, its shadow can slide up and down, left and right. Two directions, like a sheet.',
+  toward: 'Now move the ball toward the lamp. That direction does not exist on the wall. So the shadow does the only thing it can. It grows.',
+  away: 'Move it back toward the wall, and the shadow shrinks toward its middle.',
+  inout: 'So a direction the wall cannot point to still shows up on it. From inside, it looks like in, and out.',
+  stepup: 'One step up, the same would hold for us. A fourth direction would not look like a new way to point. It would look like inward.'
 }
 
 // ---- the film's kit: the same text in every clip of films/fourth_dimension_pop.json ----
@@ -56,175 +56,151 @@ film({
     blackHoleSize: 0,
     threeD: true,
     threeDEase: 0,
-    cameraYaw: 28,
-    cameraPitch: 14,
-    numParticles: 12000,
-    baseSpeed: 1.2,
-    trailIntensity: 0.25,
-    baseBrightness: 0.6,
-    // Stars on black, no nebula: its violet and pink read as stock space, and its dust muddied the frame
-    starsBrightness: 1.4,
-    starDensity: 0.2,
+    cameraYaw: 0,
+    cameraPitch: 0,
+    // A quiet field of starlight behind the drawing: few, short, dim strokes, so the lamp, the ball and the
+    // shadow carry the picture
+    numParticles: 8000,
+    baseSpeed: 0.6,
+    trailIntensity: 0.3,
+    baseBrightness: 0.35,
+    starsBrightness: 1.2,
+    starDensity: 0.18,
     colorPalette: [
       { r: 225, g: 236, b: 255, enabled: true, percent: 70 },
       { r: 150, g: 200, b: 255, enabled: true, percent: 30 }
     ]
   }
 })
-chapter('03', 'WHERE DOES THE FOURTH POINT?')
+chapter('03', 'SEEN FROM INSIDE')
 
 const ASPECT = 9 / 16
-// A point of space on the frame, as a cabinet drawing sees it (the one clip 2 builds the cube in): x straight
-// to the right, y straight up, and z away to the upper right at 30 degrees, shortened by half
-const DEPTH = 0.5
-const SLANT = Math.PI / 6
-const flat = (centre, size) => ([x, y, z]) => {
-  const across = x + DEPTH * z * Math.cos(SLANT)
-  const up = y + DEPTH * z * Math.sin(SLANT)
-  return [+(centre[0] + size * across * ASPECT).toFixed(5), +(centre[1] - size * up).toFixed(5)]
-}
-const stroke = (points, color, more = {}) => ({ kind: 'line', points, color, width: 0.0042, fade: 0.4, ...more })
-const label = (text, seconds, at, color, more = {}) => caption(text, seconds, { at, size: 0.03, font: 'unbounded', color, plate: 0.35, fade: 0.4, ...more })
+const part = value => +value.toFixed(5)
+const smooth = share => { const k = Math.min(1, Math.max(0, share)); return k * k * (3 - 2 * k) }
 
-const cube = flat([0.58, 0.5], 0.3)
-const INNER = 0.42
-const DEEP = 1 / INNER - 1
-const COLORS = [X, Y, Z, W]
-const corners = []
-for (let index = 0; index < 16; index++) corners.push([index & 1, (index >> 1) & 1, (index >> 2) & 1, (index >> 3) & 1])
-
-// The seconds of the whole clip, laid out first: the figure is drawn once and moves along them
+// The seconds of the whole clip, laid out first: the ball moves along them and every drawing reads it
 const REST = 0.6
 const plan = {}
 let second = now()
 for (const name of Object.keys(LINES)) { plan[name] = second; second += long(name) + REST }
-const end = second + 1.4
-const smooth = share => { const k = Math.min(1, Math.max(0, share)); return k * k * (3 - 2 * k) }
-// The copy shrinks out of the cube at "Draw a small cube"; the figure turns once through W after "dragged"
-const shrinkAt = plan.copy + heard('copy', 'Draw', 0.14)
-const joinAt = plan.copy + heard('copy', 'join', 0.46)
-const turnAt = plan.tesseract + heard('tesseract', 'dragged', 0.62) - 0.5
-const TURN = 3
-const copyScale = t => 1 - (1 - INNER) * smooth((t - shrinkAt) / 1.6)
-const angleAt = t => 2 * Math.PI * smooth((t - turnAt) / TURN)
-const place = (corner, t) => {
-  const angle = angleAt(t)
-  const [x, y, z, w] = corner
-  if (angle <= 0 || angle >= 2 * Math.PI) {
-    const scale = w ? copyScale(t) : 1
-    return cube([(x - 0.5) * scale, (y - 0.5) * scale, (z - 0.5) * scale])
+const end = second + 1.2
+const cue = (name, word, share) => plan[name] + heard(name, word, share)
+
+// The side view, on the left: the lamp, the ball between, the wall seen edge on. x runs from the lamp to the
+// wall in shares of the frame's width, y is the frame's own; the ball's sideways place (z) does not show here
+const LAMP = [0.1, 0.44]
+const WALL_X = 0.42
+const WALL = [0.2, 0.68]
+const BALL_R = 0.026
+// The wall face on, on the right, as the shadow lives on it: its middle, its half size (shares of the frame's
+// short side) and how much larger than in the side view it is drawn
+const FACE = [0.73, 0.44]
+const FACE_HALF = [0.3, 0.24]
+const FACE_ZOOM = 1.15
+
+// The ball's place along the clip, eased between the moves its lines ask for. Each move is
+// [start, seconds, { x, y, z }]: x along the lamp's axis (frame width), y and z its offsets across it (short side)
+const HOME = { x: 0.27, y: 0, z: 0 }
+const moves = [
+  [cue('wall', 'up', 0.5) - 0.2, 0.9, { y: -0.07 }],
+  [cue('wall', 'up', 0.5) + 0.8, 1.0, { y: 0.05 }],
+  [cue('wall', 'left', 0.66) - 0.1, 0.8, { y: 0, z: -0.08 }],
+  [cue('wall', 'left', 0.66) + 0.8, 1.0, { z: 0.07 }],
+  [cue('wall', 'Two', 0.85), 0.8, { z: 0 }],
+  [cue('toward', 'toward', 0.22) - 0.2, 2.4, { x: 0.17 }],
+  [cue('away', 'back', 0.25) - 0.2, 2.4, { x: 0.36 }],
+  [cue('inout', 'shows', 0.45), 3.2, { x: 0.22 }],
+  [cue('inout', 'out', 0.92) - 0.4, 2.2, { x: 0.34 }]
+]
+const ball = t => {
+  const at = { ...HOME }
+  for (const [from, seconds, target] of moves) {
+    const k = smooth((t - from) / seconds)
+    if (k <= 0) continue
+    for (const key of Object.keys(target)) at[key] = at[key] + (target[key] - at[key]) * k
   }
-  const across = (x - 0.5) * Math.cos(angle) - (w - 0.5) * Math.sin(angle)
-  const deep = (x - 0.5) * Math.sin(angle) + (w - 0.5) * Math.cos(angle)
-  const scale = 1 / (1 + DEEP * (deep + 0.5))
-  return cube([across * scale, (y - 0.5) * scale, (z - 0.5) * scale])
+  return at
 }
-// Every edge of the figure, born when its line asks for it and drawn till the clip ends. The cube itself steps
-// aside while "trick" draws a cube on paper, whose far side is smaller, and comes back for "copy"
-const spans = (way, from) => way === 3 ? [[joinAt, end]] : from[3] ? [[shrinkAt, end]] : [[plan.taken, plan.trick + 0.8], [plan.copy - 0.2, end]]
-corners.forEach(from => {
-  for (let way = 0; way < 4; way++) {
-    if (from[way] === 1) continue
-    const to = from.map((part, index) => index === way ? 1 : part)
-    for (const [born, till] of spans(way, from)) {
-      const values = {
-        ax: s => place(from, born + s)[0], ay: s => place(from, born + s)[1],
-        bx: s => place(to, born + s)[0], by: s => place(to, born + s)[1]
-      }
-      // The fourth direction is drawn twice: a wide soft line under the line itself
-      const looks = way === 3 ? [{ width: 0.016, opacity: 0.22 }, { width: 0.0052 }] : [from[3] ? { opacity: 0.6 } : {}]
-      for (const look of looks) {
-        at(born, () => { draw(stroke([['ax', 'ay'], ['bx', 'by']], COLORS[way], { ...look, draw: way === 3 ? 0.8 : 0, values }), till - now()) })
-      }
+// Light from a point: the shadow on the wall is the ball scaled by how much nearer the lamp the ball is
+const scale = t => (WALL_X - LAMP[0]) / (ball(t).x - LAMP[0])
+const sideBall = t => [part(ball(t).x), part(LAMP[1] + ball(t).y)]
+const shadowHalf = t => BALL_R * scale(t)
+const shadowMiddle = t => LAMP[1] + ball(t).y * scale(t)
+const faceMiddle = t => [part(FACE[0] + ball(t).z * scale(t) * FACE_ZOOM * ASPECT), part(FACE[1] + ball(t).y * scale(t) * FACE_ZOOM)]
+const faceRadius = t => part(BALL_R * scale(t) * FACE_ZOOM)
+
+const stroke = (points, color, more = {}) => ({ kind: 'line', points, color, width: 0.0035, fade: 0.4, ...more })
+const label = (text, seconds, at, color, more = {}) => caption(text, seconds, { at, size: 0.026, font: 'unbounded', color, plate: 0.35, fade: 0.4, ...more })
+// A drawing that reads the clip's own second at each frame: `values` turned from the shape's age to clip time
+const live = (born, fns) => Object.fromEntries(Object.entries(fns).map(([key, fn]) => [key, s => fn(born + s)]))
+
+// The scene steps back for the last line, where only the inward arrows stay
+const panelsGone = cue('stepup', 'step', 0.12) + 0.6
+
+shot('wall', () => {
+  const start = now()
+  const spoken = say('wall')
+  status('math', spoken + REST)
+  const left = panelsGone - now()
+  // The lamp: a warm point with a soft glow
+  at(cue('wall', 'lamp', 0.33) - 0.3, () => {
+    draw({ kind: 'circle', center: LAMP, radius: 0.05, fill: GOLD, color: GOLD, width: 0, fillOpacity: 0.18, fade: 0.4 }, panelsGone - now())
+    draw({ kind: 'circle', center: LAMP, radius: 0.013, fill: '#fff6dd', color: GOLD, width: 0.002, fade: 0.4 }, panelsGone - now())
+    label('lamp', panelsGone - now(), [LAMP[0], LAMP[1] + 0.09], GOLD)
+  })
+  // The ball, and the two rays that graze it on their way to the wall
+  at(cue('wall', 'ball', 0.12) - 0.2, () => {
+    const born = now()
+    draw({ kind: 'circle', center: ['bx', 'by'], radius: BALL_R, fill: INK, color: INK, width: 0, fade: 0.4, values: live(born, { bx: t => sideBall(t)[0], by: t => sideBall(t)[1] }) }, panelsGone - now())
+  })
+  at(cue('wall', 'wall', 0.4) - 0.2, () => {
+    const born = now()
+    draw(stroke([[WALL_X, WALL[0]], [WALL_X, WALL[1]]], SOFT, { width: 0.012, opacity: 0.8, draw: 0.5 }), panelsGone - now())
+    label('wall', panelsGone - now(), [WALL_X, WALL[1] + 0.05], SOFT)
+    for (const side of [-1, 1]) {
+      draw(stroke([LAMP, ['wx', 'wy']], GOLD, { width: 0.0015, opacity: 0.5, values: live(born, { wx: () => WALL_X, wy: t => part(shadowMiddle(t) + side * shadowHalf(t)) }) }), panelsGone - now())
     }
+    // The shadow on the wall, edge on: a dark band across the wall's line
+    draw(stroke([[WALL_X, 'sa'], [WALL_X, 'sb']], '#000000', { width: 0.016, values: live(born, { sa: t => part(shadowMiddle(t) - shadowHalf(t)), sb: t => part(shadowMiddle(t) + shadowHalf(t)) }) }), panelsGone - now())
+    // The wall face on: what lives on it sees only this
+    draw({ kind: 'rect', center: FACE, size: [FACE_HALF[0] * 2, FACE_HALF[1] * 2], color: SOFT, width: 0.002, fill: '#0b1018', fillOpacity: 0.85, round: 0.012, fade: 0.4 }, panelsGone - now())
+    label('the wall, face on', panelsGone - now(), [FACE[0], FACE[1] - FACE_HALF[1] - 0.04], SOFT, { size: 0.022 })
+    draw({ kind: 'circle', center: ['fx', 'fy'], radius: 'fr', fill: '#000000', color: SOFT, width: 0.0015, fade: 0.4, values: live(born, { fx: t => faceMiddle(t)[0], fy: t => faceMiddle(t)[1], fr: t => faceRadius(t) }) }, panelsGone - now())
+  })
+  // Its two directions, drawn on the wall as the shadow takes them
+  const arrows = (color, a, b, name, at) => {
+    draw(stroke([a, b], color, { arrow: 'both', width: 0.004, draw: 0.4 }), left - (now() - start))
+    label(name, left - (now() - start), at, color, { size: 0.022 })
   }
-})
-
-shot('taken', () => {
-  const start = now()
-  const spoken = say('taken')
-  status('math', spoken + REST)
-  const middle = cube([0, 0, 0])
-  // Each pair of arrows at its words, the stream of particles whipped to run that way, and its row ticked
-  const pairs = [
-    ['Up', 0.08, 'taken', 0.22, Y, [0, 0.85, 0], 'up / down', { cameraYaw: 0, cameraPitch: 30 }],
-    ['Left', 0.27, 'taken', 0.42, X, [0.85, 0, 0], 'left / right', { cameraYaw: 90, cameraPitch: 0 }],
-    ['Forward', 0.45, 'taken', 0.6, Z, [0, 0, 0.85], 'forward / back', { cameraYaw: 0, cameraPitch: 0 }]
-  ]
-  const gone = start + spoken + REST
-  pairs.forEach(([word, share, , tickShare, color, way, name, view], row) => {
-    const y = 0.3 + 0.11 * row
-    at(start + heard('taken', word, share), () => {
-      to(view, 0.6)
-    })
-    at(start + heard('taken', word, share), () => {
-      for (const sign of [1, -1]) draw(stroke([middle, cube(way.map(part => part * sign))], color, { arrow: 'end', width: 0.007, draw: 0.4 }), gone - now())
-      label(name, gone - now(), [0.17, y], color)
-    })
-    at(start + long('taken') * tickShare + 0.2, () => { label('✓ taken', gone - now(), [0.17, y + 0.045], SOFT, { size: 0.024 }) })
-  })
-  // The fourth arrow, finding nowhere left to point
-  const from = heard('taken', 'nowhere', 0.85)
-  const swing = s => 2.4 + 2.1 * s + 0.8 * Math.sin(2.6 * s)
-  at(start + from - 0.6, () => {
-    draw(stroke([middle, ['tipX', 'tipY']], W, {
-      arrow: 'end', width: 0.006, dash: true,
-      values: { tipX: s => middle[0] + 0.26 * Math.cos(swing(s)) * ASPECT, tipY: s => middle[1] - 0.26 * Math.sin(swing(s)) }
-    }), gone - now())
-    label('?', gone - now(), [0.17, 0.63], W, { size: 0.06 })
-  })
+  const dx = FACE_HALF[0] * 0.8 * ASPECT
+  const dy = FACE_HALF[1] * 0.8
+  at(cue('wall', 'up', 0.5), () => arrows(Y, [FACE[0] - dx - 0.015, FACE[1] - dy], [FACE[0] - dx - 0.015, FACE[1] + dy], 'up / down', [FACE[0] - dx - 0.015, FACE[1] - dy - 0.03]))
+  at(cue('wall', 'left', 0.66), () => arrows(X, [FACE[0] - dx, FACE[1] + dy + 0.025], [FACE[0] + dx, FACE[1] + dy + 0.025], 'left / right', [FACE[0] + dx - 0.04, FACE[1] + dy + 0.055]))
+  at(cue('wall', 'Two', 0.85), () => { keep('on the wall: *{two} directions', start + spoken + REST - now()) })
   wait(spoken + REST)
 })
 
-shot('trick', () => {
+shot('toward', () => {
   const start = now()
-  const spoken = say('trick')
+  const spoken = say('toward')
   status('math', spoken + REST)
-  // The stream comes straight at the viewer: the particles fan out from the middle as the drawn depth does
-  meanwhile(() => { to({ cameraYaw: 0, cameraPitch: 0, baseSpeed: 1.6 }, 1.5) })
-  // A cube as it is drawn on paper, straight on: a square inside a square, the corners joined along Z. It
-  // stands in the middle, where the cube was, and leaves as the cube comes back
-  const centre = [0.5, 0.47]
-  const square = half => [[-1, -1], [1, -1], [1, 1], [-1, 1], [-1, -1]].map(([a, b]) => [+(centre[0] + a * half * ASPECT).toFixed(5), +(centre[1] + b * half).toFixed(5)])
-  const outer = square(0.13)
-  const inner = square(0.065)
-  const gone = plan.copy + 0.2
-  at(start + heard('trick', 'draw', 0.26), () => { draw(stroke(outer, INK, { draw: 0.6 }), gone - now()) })
-  at(start + heard('trick', 'fake', 0.5), () => {
-    for (let index = 0; index < 4; index++) draw(stroke([outer[index], inner[index]], Z, { draw: 0.5 }), gone - now())
-    label('Z', gone - now(), [outer[2][0] + 0.015, outer[2][1] + 0.02], Z)
+  // The way the wall does not have: along the light, toward the lamp
+  at(cue('toward', 'toward', 0.22) - 0.3, () => {
+    draw(stroke([[0.36, 0.73], [0.16, 0.73]], W, { arrow: 'end', width: 0.005, draw: 0.6 }), panelsGone - now())
+    label('*{toward the lamp}', panelsGone - now(), [0.26, 0.78], INK, { accent: W, size: 0.022 })
   })
-  at(start + heard('trick', 'far', 0.73), () => {
-    draw(stroke(inner, INK, { draw: 0.5 }), gone - now())
-    label('drawn smaller', gone - now(), [centre[0], centre[1] + 0.2], SOFT, { size: 0.026 })
+  at(cue('toward', 'exist', 0.45), () => {
+    label('no such direction on the wall', start + spoken + REST - now(), [FACE[0], FACE[1] + FACE_HALF[1] + 0.09], SOFT, { size: 0.022 })
   })
+  at(cue('toward', 'grows', 0.95) - 0.4, () => { keep('the shadow can only *{grow}', start + spoken + REST - now()) })
   wait(spoken + REST)
 })
 
-shot('copy', () => {
+shot('away', () => {
   const start = now()
-  const spoken = say('copy')
+  const spoken = say('away')
   status('math', spoken + REST)
-  meanwhile(() => { to({ baseSpeed: 0.9 }, 3) })
-  const till = start + spoken + REST + long('tesseract') * 0.3
-  at(start + heard('copy', 'red', 0.6), () => {
-    // The label points at the middle of one red edge, between a corner of the cube and the same corner of its copy
-    const edge = cube([0.5, 0.5, 0.5].map(part => part * (1 + INNER) / 2))
-    draw(stroke([[0.855, 0.3], [edge[0] + 0.012, edge[1] - 0.012]], W, { arrow: 'end', width: 0.004, draw: 0.4 }), till - now())
-    caption('*{W}: the fourth direction', till - now(), { at: [0.87, 0.24], size: 0.028, font: 'unbounded', accent: W, width: 0.22, fade: 0.4 })
-  })
-  at(start + heard('copy', 'fourth', 0.75), () => { keep('red lines: the *{fourth} direction, faked', start + spoken + REST - now()) })
-  wait(spoken + REST)
-})
-
-shot('tesseract', () => {
-  const start = now()
-  const spoken = say('tesseract')
-  status('math', spoken + REST)
-  meanwhile(() => { to({ cameraYaw: 30, cameraPitch: 12 }, 5) })
-  at(start + heard('tesseract', 'tesseract', 0.42), () => {
-    caption('tesseract', start + spoken + REST - now(), { at: [0.5, 0.13], size: 0.07, font: 'unbounded', color: W, fade: 0.5 })
-  })
+  at(cue('away', 'shrinks', 0.62) - 0.3, () => { keep('or *{shrink} toward its middle', start + spoken + REST - now()) })
   wait(spoken + REST)
 })
 
@@ -232,22 +208,42 @@ shot('inout', () => {
   const start = now()
   const spoken = say('inout')
   status('math', spoken + REST)
-  meanwhile(() => { to({ cameraYaw: 0, cameraPitch: 0, baseSpeed: 1.4 }, 3) })
-  const gone = end
-  // Arrows along the red lines: inward from each corner to its copy, then outward past the corner
-  const reds = corners.filter(corner => corner[3] === 0).map(corner => [place(corner, end), place([...corner.slice(0, 3), 1], end)])
-  const along = (a, b, share) => [+(a[0] + (b[0] - a[0]) * share).toFixed(5), +(a[1] + (b[1] - a[1]) * share).toFixed(5)]
-  const outAt = start + heard('inout', 'out', 0.92)
-  at(start + heard('inout', 'Inward', 0.36), () => {
-    for (const [outer, inner] of reds) draw(stroke([along(outer, inner, 0.15), along(outer, inner, 0.8)], W, { arrow: 'end', width: 0.006, draw: 0.6 }), gone - now())
-    caption('*{inward}', outAt + 0.2 - now(), { at: [0.5, 0.13], size: 0.06, font: 'unbounded', accent: W, fade: 0.4 })
+  // On the wall face on: the direction it cannot point to, as it shows there
+  const ring = (inward, born) => {
+    for (let k = 0; k < 8; k++) {
+      const a = k * Math.PI / 4
+      const far = 0.2
+      const near = 0.1
+      const [from, to] = inward ? [far, near] : [near, far]
+      const at = r => [part(FACE[0] + r * Math.cos(a) * ASPECT), part(FACE[1] - r * Math.sin(a))]
+      draw(stroke([at(from), at(to)], W, { arrow: 'end', width: 0.004, draw: 0.5 }), panelsGone - born)
+    }
+  }
+  at(cue('inout', 'inside', 0.62), () => { ring(true, now()) })
+  at(cue('inout', 'out', 0.92) - 0.2, () => { ring(false, now()) })
+  at(cue('inout', 'inside', 0.62), () => {
+    caption('*{in} · *{out}', panelsGone - now(), { at: [0.5, 0.12], size: 0.06, font: 'unbounded', accent: W, fade: 0.4 })
   })
-  // With the arrows outward too, the word names both ways
-  at(outAt, () => {
-    for (const [outer, inner] of reds) draw(stroke([outer, along(outer, inner, -0.55)], W, { arrow: 'end', width: 0.006, draw: 0.5 }), gone - now())
-    caption('*{in} · *{out}', gone - now(), { at: [0.5, 0.13], size: 0.06, font: 'unbounded', accent: W, fade: 0.4 })
+  at(cue('inout', 'shows', 0.45), () => { keep('a direction the wall cannot point to looks like *{in} and *{out}', start + spoken + REST - now()) })
+  wait(spoken + REST)
+})
+
+shot('stepup', () => {
+  const start = now()
+  const spoken = say('stepup')
+  status('math', spoken + REST)
+  // Our space, one step up: the arrows of a fourth direction, closing in on a middle from every side
+  at(cue('stepup', 'inward', 0.93) - 1.2, () => {
+    for (let k = 0; k < 8; k++) {
+      const a = k * Math.PI / 4 + Math.PI / 8
+      const at = r => [part(0.5 + r * Math.cos(a) * ASPECT), part(0.47 - r * Math.sin(a))]
+      draw(stroke([at(0.34), at(0.12)], W, { arrow: 'end', width: 0.005, draw: 0.8 }), end - now())
+    }
+    draw({ kind: 'circle', center: [0.5, 0.47], radius: 0.012, fill: INK, color: INK, width: 0, fade: 0.4 }, end - now())
   })
-  at(start + heard('inout', 'fourth', 0.66), () => { keep('the fourth direction looks like *{in} and out', end - now()) })
+  at(cue('stepup', 'inward', 0.93) - 0.3, () => {
+    caption('a fourth direction: *{inward}', end - now(), { at: [0.5, 0.12], size: 0.05, font: 'unbounded', accent: W, fade: 0.4 })
+  })
   until(end)
 })
 

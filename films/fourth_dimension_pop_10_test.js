@@ -9,7 +9,7 @@ const LINES = {
   ruler: 'The hypothesis adds something. If matter deep in a well is squeezed along W, our rulers are squeezed too. So we need a ruler we can trust.',
   mirrors: 'Nothing exotic. Two mirrors on a solid block, a few centimetres apart, with light bouncing between them. Labs already build these to keep the best clocks on Earth steady. It is a ruler that light can read.',
   count: 'Count the round trips in one second of an atomic clock, here, deep in the well of the Earth. Then count again on a satellite, high up, where the well is shallower.',
-  verdict: 'Einstein says: the same count, up and down. The hypothesis says: up there the block is less squeezed, so a few fewer round trips. One number. Two ideas. Only one survives.'
+  verdict: 'Einstein says: the same count, up and down. The hypothesis says: up there the block is less squeezed, so a few fewer round trips. One number, and two different predictions for it.'
 }
 
 // ---- the film's kit: the same text in every clip of films/fourth_dimension_pop.json ----
@@ -466,7 +466,7 @@ shot('verdict', () => {
     cap('the hypothesis: a few fewer\n*{2.998 billion − a few}', life - (now() - start), { at: [0.27, 0.26], size: 0.032, font: 'unbounded', color: SOFT, accent: W, plate: 0.55, fade: 0.4 })
   })
   at(start + heard('verdict', 'number', 0.7) - 0.3, () => {
-    keep('one number, two *{ideas}', life - (now() - start))
+    keep('one number, two *{predictions}', life - (now() - start))
   })
   wait(life)
 })
