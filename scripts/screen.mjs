@@ -179,6 +179,11 @@ const PAGE = `<!doctype html>
   #history button:hover, #history button:focus-visible { background: var(--hover); outline: none }
   #history button[aria-current="true"] { background: #0f1a20 }
   .item-now { flex: none; margin-left: auto; padding-left: 12px; color: var(--muted) }
+  .item-new { flex: none; margin-left: auto; padding-left: 12px; color: var(--focus) }
+  /* While the operator holds a show picked from the history, newer shows wait here instead of switching */
+  #newer { flex: none; height: 26px; margin-left: auto; padding: 0 10px; border: 0; border-left: 1px solid var(--line); background: none; color: var(--focus); font: inherit; cursor: pointer }
+  #newer:hover { background: var(--hover) }
+  #newer[hidden] { display: none }
   #history time { flex: none; color: var(--muted); font-variant-numeric: tabular-nums }
   .item-what { min-width: 0; overflow: hidden; text-overflow: ellipsis }
   .item-by { flex: none; color: var(--muted) }
@@ -197,6 +202,7 @@ const PAGE = `<!doctype html>
     <time class="meta" id="ago" hidden></time>
     <span class="meta" id="source" hidden></span>
   </div>
+  <button id="newer" type="button" hidden></button>
   <ul id="history" hidden aria-label="Что показывали раньше"></ul>
 </header>
 <div id="empty">Пока ничего не показано.<br>Агент выводит сюда симуляцию командой <code>node scripts/screen.mjs live &lt;фильм&gt; "&lt;что&gt;" --by "&lt;кто&gt;"</code></div>
@@ -215,6 +221,22 @@ const PAGE = `<!doctype html>
   // Where it comes from, in the operator's words: master, or a branch still at work
   const sourceOf = entry => entry.branch && entry.branch !== 'master' ? 'ветка ' + entry.branch : 'master'
   const capital = text => text ? text[0].toUpperCase() + text.slice(1) : text
+  // "1 новый показ", "2 новых показа", "5 новых показов"
+  const shows = count => {
+    const tens = count % 100
+    const ones = count % 10
+    const form = tens >= 11 && tens <= 14 ? 'новых показов' : ones === 1 ? 'новый показ' : ones >= 2 && ones <= 4 ? 'новых показа' : 'новых показов'
+    return count + ' ' + form
+  }
+  // The shows that came after the one the operator holds
+  const newerThan = entry => entry ? history.filter(other => other.at > entry.at) : []
+  const newer = document.getElementById('newer')
+  newer.addEventListener('click', () => { pinned = null; put(history[0]); fresh() })
+  function fresh () {
+    const waiting = newerThan(pinned)
+    newer.hidden = waiting.length === 0
+    newer.textContent = shows(waiting.length) + ' — показать последний'
+  }
   const open = document.getElementById('open')
   const list = document.getElementById('history')
   function facts (entry) {
@@ -270,9 +292,15 @@ const PAGE = `<!doctype html>
         now.className = 'item-now'
         now.textContent = 'на экране'
         button.append(now)
+      } else if (pinned && entry.at > pinned.at) {
+        const fresh = document.createElement('span')
+        fresh.className = 'item-new'
+        fresh.textContent = 'новое'
+        button.append(fresh)
       }
       button.title = what.textContent + ' (' + sourceOf(entry) + ', ' + (filmOf(entry) || entry.url) + ')'
-      button.addEventListener('click', () => { pinned = entry; put(entry); close() })
+      // The latest show picked follows what agents show next; an older one is held until let go
+      button.addEventListener('click', () => { pinned = entry === history[0] ? null : entry; put(entry); fresh(); close() })
       item.append(button)
       return item
     }))
@@ -285,10 +313,9 @@ const PAGE = `<!doctype html>
   async function poll () {
     try {
       const state = await (await fetch('/state')).json()
-      // Something new shown lets go of an older one picked from the list
-      if (state.shown && (!history[0] || state.shown.at !== history[0].at)) pinned = null
       history = state.history
       put(pinned ?? state.shown)
+      fresh()
     } catch {}
     setTimeout(poll, 1000)
   }
