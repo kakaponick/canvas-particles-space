@@ -298,6 +298,8 @@ export interface ParticleState extends FlowState {
   gridFrontWidth: number
   gridFrontLead: number
   gridFrontGhost: number
+  gridFrontPulses: number
+  gridFrontPulseGap: number
   gridFrontColor: string
   // The flash's photons, light itself on the paths of light past the hole: their brightness (0: none), how
   // many, how far back their trails reach, the strokes' width, the run a taken photon fades over, their colour
@@ -715,6 +717,8 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   gridFrontWidth: 3,
   gridFrontLead: 0.15,
   gridFrontGhost: 0,
+  gridFrontPulses: 1,
+  gridFrontPulseGap: 2,
   gridFrontColor: '#fff1c8',
   gridFrontPhotons: 0,
   gridPhotonCount: 2048,

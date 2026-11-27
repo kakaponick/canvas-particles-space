@@ -77,6 +77,9 @@ export interface GridSettings {
   frontTail: number
   // How bright the ring stands where the flash's light would be with no hole (0 = none)
   frontGhost: number
+  // How many flashes go off one after another from the same place, and the run between them, in throat radii
+  frontPulses: number
+  frontPulseGap: number
   frontColor: SceneColor
   // The share of the sheet behind the holes drawn into the layer the lens reads, the rest over the frame
   lensed: number
@@ -151,6 +154,8 @@ export function createGridSettings (): GridSettings {
     frontLead: 0,
     frontTail: 1,
     frontGhost: 0,
+    frontPulses: 1,
+    frontPulseGap: 2,
     frontColor: createSceneColor(),
     lensed: 0,
     wave: new Float32Array(SHEET_WAVE_FLOATS),

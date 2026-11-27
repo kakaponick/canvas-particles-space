@@ -1836,7 +1836,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     if (flash > 0 && !layFlash(grid, Math.hypot(grid.frontX, grid.frontY) / grid.throat)) flash = 0
     setUniform4f(gl, u.flash, flash, grid.frontX, grid.frontY, grid.frontRun * grid.throat)
     if (flash > 0) {
-      setUniform2f(gl, u.flashShape, grid.frontLead * grid.throat, grid.frontTail * grid.throat)
+      setUniform4f(gl, u.flashShape, grid.frontLead * grid.throat, grid.frontTail * grid.throat, grid.frontPulses, grid.frontPulseGap * grid.throat)
       setUniform3f(gl, u.flashField, frontField ? frontField.inner : 0, (FRONT_FIELD_RADII - 1) / Math.max(frontField ? frontField.outer - frontField.inner : 1, 0.001),
         (FRONT_FIELD_ANGLES - 1) / Math.PI)
       setUniform3f(gl, u.flashColor, grid.frontColor.r * flash, grid.frontColor.g * flash, grid.frontColor.b * flash)

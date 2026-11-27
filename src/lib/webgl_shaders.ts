@@ -2152,7 +2152,7 @@ export const gridVertexShaderSource = `
   uniform float u_front;      // 3D: the nearer black hole's distance from the camera as a share of the main one's (0 = nothing is in front)
   uniform vec4 u_glow;        // how many times brighter a line is at a throat (0 = even), the power of the slowing of time it follows, the light the holes shed on the sheet (0 = none), the shadow radii it falls to half at
   uniform vec4 u_flash;       // a flash running over the lines: its band's brightness (0 = none), where it flashed on the plane from the main hole, how long its light has run
-  uniform vec2 u_flashShape;  // the band's rise ahead of the run and its tail behind it
+  uniform vec4 u_flashShape;  // the band's rise ahead of the run and its tail behind it, how many flashes go off one after another and the run between them
   uniform vec3 u_flashField;  // its delay field (light_front.ts): ln of the innermost radius solved, in throat radii; nodes per unit of that logarithm; nodes per radian
   uniform sampler2D u_flashDelay; // the delay over the straight way from the flash, in throat radii: a row of radii for each angle from the flash's side
 ${SHEET_GLSL}
@@ -2183,6 +2183,12 @@ ${SHEET_GLSL}
     return left * left;
   }
 
+  // The light of the train of flashes at a place a distance behind the first one's run: the nearest flash's band
+  float flashTrain (float behind, float lead, float tail) {
+    if (u_flashShape.z > 1.0 && behind > 0.0) behind -= u_flashShape.w * clamp(floor((behind + lead) / u_flashShape.w), 0.0, u_flashShape.z - 1.0);
+    return flashBand(behind, lead, tail);
+  }
+
   vec2 flashAt (vec2 at) {
     float straight = length(at - u_flash.yz);
     float run = u_flash.w;
@@ -2190,7 +2196,8 @@ ${SHEET_GLSL}
     float tail = u_flashShape.y;
     // The delay is never below 0, so a place the straight way leaves ahead of the band is dark unread
     if (straight > run + lead) return vec2(0.0);
-    // The ghost: the same band where the light would stand with no hole, the straight way and no delay
+    // The ghost: the first flash's band where its light would stand with no hole, the straight way and no
+    // delay (one ring, not the train: a train of ghosts would weave through the train of fronts)
     float ghost = u_flashGhost.a > 0.0 ? flashBand(run - straight, lead, tail) : 0.0;
     float throat = u_sheetWell.x;
     float rho = length(at);
@@ -2198,7 +2205,7 @@ ${SHEET_GLSL}
     if (node < 0.0) return vec2(0.0, ghost);
     float angle = atan(abs(at.x * u_flash.z - at.y * u_flash.y), dot(at, u_flash.yz)) * u_flashField.z;
     float delay = texture2D(u_flashDelay, vec2((node + 0.5) / ${FRONT_FIELD_RADII}.0, (angle + 0.5) / ${FRONT_FIELD_ANGLES}.0)).r;
-    return vec2(flashBand(run - straight - delay * throat, lead, tail), ghost);
+    return vec2(flashTrain(run - straight - delay * throat, lead, tail), ghost);
   }
 
   // The radius of ring k of the n the sheet is drawn with, at k / (n + 1) of the way down the well, so the
