@@ -14,13 +14,14 @@ film({
     // and a glow a radius wide
     blackHoleSize: 8.4, neutronStar: 1, neutronSurface: 1.4,
     neutronVeinLight: 1, neutronVeinSharp: 20, neutronWarp: 1.4, neutronLimb: 1, neutronGlow: 1, neutronGlowLight: 0.6,
-    // A sheet of large square cells seen at 62 degrees. The well is deep, 8 radii, so its walls reach far
-    // out across the frame, and lifted 30% of the way the star sits in its mouth with the round bottom of a
-    // star's well (no throat: inside its surface the sheet closes) hanging below it. The lines keep off the
-    // star's face. The well is lit by the slowing of time and by the star's own light, and the frame's bloom
-    // spreads it
-    gridSheet: 0.4, gridColor: '#8fb0ff', gridRings: 0, gridCell: 6, gridTilt: 62, gridSpan: 0.8, gridFade: 0.6,
-    gridDepth: 8, gridLift: 0.3, gridClearing: 1.4, gridClearingEdge: 1.45,
+    // A sheet of large square cells seen at 64 degrees by a camera 4 long sides away, which sees the lifted
+    // sheet whole down to the frame's foot. The well is deep, 8 radii, so its walls open wide across the
+    // frame, and lifted 55% of the way the star sits on the round bottom of a star's well (no throat: inside
+    // its surface the sheet closes), the bowl's lit rim just under it. Lifted less, the bowl hangs far below
+    // the star; more, the near sheet passes the camera. The lines keep off the star's face. The well is lit
+    // by the slowing of time and by the star's own light, and the frame's bloom spreads it
+    gridSheet: 0.4, gridColor: '#8fb0ff', gridRings: 0, gridCell: 6, gridTilt: 64, gridDistance: 4, gridNear: 0.02, gridSpan: 0.8, gridFade: 0.6,
+    gridDepth: 8, gridLift: 0.55, gridClearing: 1.4, gridClearingEdge: 1.45,
     gridThroatGlow: 2.5, gridThroatCurve: 1, gridLight: 3, gridLightReach: 8, gridLightColor: '#8fc6ff',
     bloom: 2, bloomThreshold: 0.55, bloomReach: 0.05
   }
@@ -37,9 +38,9 @@ const plate = (center, size) => ({ kind: 'rect', center, size, round: 0.014, col
 
 // The light: from the source high on the left it falls toward the well, runs down its near wall and under
 // the star, the other image of the source that the star's pull makes, and goes on below the straight path to
-// the observatory's slit. Its fall from the source and its way out to the slit are drawn in the frame, as the
-// reference lays them out; from the near wall to just past the star it is laid on the sheet, so its dip under
-// the star is the well's own. The straight path it would take without the star is dashed and passes behind
+// the observatory's slit. It is drawn in the frame, as the reference lays it out, and dips under the star
+// along the bowl's lit rim. A path laid on the sheet would pass the near rim, which stands in front of the
+// star's lower half, behind its face. The straight path it would take without the star is dashed and passes behind
 // the star: it stops at the star's outline, where it goes in and where it comes out (the frame's words and
 // shapes are drawn over the scene, so nothing hides it)
 const source = [0.081, 0.27]
@@ -52,7 +53,7 @@ draw({ ...UNLENSED, points: [[0.552, 0.542], slit] })
 draw({ kind: 'image', src: 'films/infographic_observatory.png', center: [0.891, 0.84], width: 0.32 })
 draw({
   kind: 'line', smooth: true, color: WARM, width: 0.0055, glow: 0.024, draw: 3,
-  points: [source, [0.17, 0.365], [0.235, 0.44], { sheet: [-4, -2.2] }, { sheet: [-2.5, -2.4] }, { sheet: [-1.4, -2.1] }, { sheet: [0, -1.85] }, { sheet: [1.4, -2.1] }, [0.64, 0.63], [0.78, 0.68], slit]
+  points: [source, [0.2, 0.375], [0.32, 0.47], [0.41, 0.555], [0.5, 0.618], [0.59, 0.6], [0.7, 0.64], [0.82, 0.702], slit]
 })
 draw({ kind: 'circle', center: source, radius: 0.007, fill: '#ffd9a0', color: '#ffd9a0', glow: 0.02 })
 
