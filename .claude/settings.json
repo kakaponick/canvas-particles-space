@@ -28,6 +28,12 @@
             "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/earlier_films.mjs\"",
             "shell": "bash",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/review_gate.mjs\"",
+            "shell": "bash",
+            "timeout": 20
           }
         ]
       }
@@ -40,6 +46,12 @@
             "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/earlier_films.mjs\"",
             "shell": "bash",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/review_gate.mjs\"",
+            "shell": "bash",
+            "timeout": 20
           }
         ]
       }
