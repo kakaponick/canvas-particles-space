@@ -55,7 +55,28 @@ film({
     // No hole yet: a speck of one (the pull is measured in its radii), Einstein Radius 0 bends nothing, and
     // the pull gathers the field to the centre from every side; with no flight of its own only what gravity
     // moves is lit
+    // In 3D from the first frame: straight on it is the flat picture, and the hole that comes is a body in
+    // space. Flat, the Ray Traced lens shows the field as if it lay behind the hole, which ringed the shadow
+    // with a black band and a copy of the field. The axis points at the camera (Spin Tilt 0), so the equator
+    // faces the screen until the camera climbs to it
+    threeD: true,
+    threeDEase: 0,
+    cameraYaw: 0,
+    spinTilt: 0,
     blackHoleSize: 1,
+    // The accretion disc the hole is shown by: flow A in the equator, falling slowly inward, traced along the
+    // paths of light, so its far side rises over the shadow as an arch. Dark until the hole comes
+    flowA: 0,
+    flowACount: 9000,
+    flowAFrom: 2.6,
+    flowATo: 1.4,
+    flowASpread: 1.6,
+    flowASwirl: 1.2,
+    flowALife: 6,
+    flowAThick: 0.03,
+    flowATrail: 0.5,
+    flowASize: 1.2,
+    flowTrace: 1,
     lensingRadius: 0,
     ringBrightness: 0,
     numParticles: 40000,
@@ -105,7 +126,11 @@ shot('strongest', () => {
   // The hole arrives where everything was falling to
   at(start + heard('strongest', 'hole', 0.85), () => {
     caption('black hole', spoken + 0.6 - heard('strongest', 'hole', 0.85), { at: 'hole', angle: 300, radius: 2.2, size: 0.032, font: 'unbounded', color: INK, fade: 0.4 })
-    to({ blackHoleSize: 8, gravityReach: 30, gravityStrength: 5, lensingRadius: 2.5, ringBrightness: 1.5, orbitalStrength: 20, gravityInertia: 0.6, starsBrightness: 2.2 }, 1.2)
+    to({ blackHoleSize: 8, gravityReach: 30, gravityStrength: 5, lensingRadius: 2.5, ringBrightness: 1.5, orbitalStrength: 20, gravityInertia: 0.6, starsBrightness: 2.2 }, 2.4, 'ease')
+    // The disc lights as the field it grew out of dims, so the shadow reads black, and the camera climbs to
+    // the equator: the disc turns from a ring round the shadow to the edge-on disc with its arch
+    to({ flowA: 0.7, baseBrightness: 0.5 }, 3)
+    to({ cameraPitch: 78 }, 5, 'ease')
   })
   until(start + spoken + 0.6)
 })
@@ -123,7 +148,8 @@ shot('anatomy', () => {
   at(tShadow + 1.2, () => { keep('Light that goes in never comes back.', tRing - now()) })
   at(tRing, () => {
     to({ ringBrightness: 4 }, 1)
-    label('photon ring', end - now(), { at: 'hole', angle: 25, radius: 1.02 })
+    // Below the arch, where the ring shows clear of the disc
+    label('photon ring', end - now(), { at: 'hole', angle: 320, radius: 1.02 })
   })
   // The sky behind: a lensed grid, so the bending shows
   at(tSky - 0.8, () => { to({ gridSky: 0.6 }, 1.2) })
