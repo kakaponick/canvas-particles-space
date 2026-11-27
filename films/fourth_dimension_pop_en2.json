@@ -1,0 +1,66 @@
+{
+  "size": "1080p",
+  "fps": 60,
+  "clips": [
+    {
+      "name": "which way is down?",
+      "film": "films/fourth_dimension_pop_01_down.js",
+      "input": {"lines":{"drop":4.79,"which":3.85,"opposite":12.85,"serious":10.32,"need":7.61,"fourth":6.54,"wire":12.67},"cues":{"drop":{"falls":1.2,"every":1.96},"which":{"which":2.04},"opposite":{"Tokyo":2.12,"Buenos":3.56,"opposite":5.56,"middle":12.34},"serious":{"direction":5.42,"fourth":6.8,"gravity":8.1},"need":{"cube":3.79,"hole":5.11,"wire":6.97},"fourth":{"fourth":0.38},"wire":{"kilometres":4.77,"second":9.41,"coil":12.01}}}
+    },
+    {
+      "name": "what is a dimension?",
+      "film": "films/fourth_dimension_pop_02_ladder.js",
+      "input": {"lines":{"zero":7.42,"one":6.98,"two":6.57,"three":5.48,"pattern":8.92,"fourth":6.54},"cues":{"one":{"Drag":0},"two":{"Drag":0,"right":2.79},"three":{"once":0.18,"both":2.48},"zero":{"point":3.42,"room":4.44},"fourth":{"fourth":0.38},"pattern":{"pattern":0.34,"just":4.6,"right":6.8}}}
+    },
+    {
+      "name": "where does the fourth point?",
+      "film": "films/fourth_dimension_pop_03_inward.js",
+      "input": {"lines":{"fourth":6.54,"taken":13.34,"trick":10.16,"copy":12.38,"tesseract":7.72,"inout":9.52},"cues":{"fourth":{"fourth":0.38},"copy":{"Draw":1.19,"join":5.11,"red":7.05,"fourth":8.35},"tesseract":{"tesseract":2.55,"dragged":4.83},"taken":{"Up":0.78,"Left":3.42,"Forward":6.58,"nowhere":11.5},"trick":{"draw":2.16,"fake":4.64,"far":7.22},"inout":{"Inward":3.63,"fourth":6.07,"out":8.83}}}
+    },
+    {
+      "name": "gravity at full power",
+      "film": "films/fourth_dimension_pop_04_hole.js",
+      "input": {"lines":{"suspect":7.63,"strongest":5.26,"anatomy":14.9,"sixty":7.21,"photographed":4.4},"cues":{"suspect":{"inward":2.58,"Gravity":6.7},"strongest":{"hole":4.75},"anatomy":{"shadow":2.9,"ring":7.72,"sky":12.62},"sixty":{"Suns":2.16,"sixty":5.06},"photographed":{"photographed":2.5}}}
+    },
+    {
+      "name": "the textbook picture",
+      "film": "films/fourth_dimension_pop_05_sheet.js",
+      "input": {"lines":{"textbook":9.49,"roll":6.13,"axes":9.91,"metaphor":6.69,"whatif":8.05},"cues":{"textbook":{"sheet":6.47,"mass":7.89},"roll":{"orbit":3.04,"apple":4.38,"weight":5.46},"axes":{"x":2.29,"y":2.91,"third":5.53},"metaphor":{"picture":2.71},"whatif":{"does":2.41,"w":3.67}}}
+    },
+    {
+      "name": "look from above",
+      "film": "films/fourth_dimension_pop_06_above.js",
+      "input": {"lines":{"flyup":5.05,"flat":5.1,"rings":9.33,"same":10.22,"points":5.97},"cues":{"flyup":{"up":2.21},"flat":{"flat":4.56},"rings":{"ring":3.12,"crowd":7.2},"same":{"circle":1.42,"w":3.82,"cube":6.2},"points":{"points":4.82,"inward":5.24}}}
+    },
+    {
+      "name": "the flat creature",
+      "film": "films/fourth_dimension_pop_07_creature.js",
+      "input": {"lines":{"three":5.48,"fourth":6.54,"lives":10.2,"blind":11.03,"word":3.85,"us":8.89,"chair":10.89},"cues":{"three":{"once":0.18,"both":2.48},"fourth":{"fourth":0.38},"us":{"creature":4.08,"three":6.48},"lives":{"creature":0.69,"X":6.71,"Y":7.97,"all":9.71},"blind":{"see":0.49,"drops":7.85,"spot":10.29},"word":{"gravity":2.86},"chair":{"fourth":3.35,"point":4.85,"feel":6.81}}}
+    },
+    {
+      "name": "space can ripple",
+      "film": "films/fourth_dimension_pop_08_ripple.js",
+      "input": {"lines":{"stretch":8.08,"small":6.59,"shake":6.32,"source":9.6,"proton":9.95},"cues":{"stretch":{"Einstein":4.24,"stretches":5.72},"small":{"anything":3.05,"ripple":5.63},"shake":{"fifteen":0.2,"detectors":1.86,"shake":5.46},"source":{"thirty":2.88,"billion":7.38},"proton":{"kilometre":3.27,"thousandth":5.45,"caught":9.11}}}
+    },
+    {
+      "name": "what a black hole is",
+      "film": "films/fourth_dimension_pop_09_object.js",
+      "input": {"lines":{"bottom":11.7,"deeper":4.86,"dark":9.84,"thing":12.42,"bold":10.84},"cues":{"dark":{"light":2.97,"dark":7.25,"black":9.01},"bottom":{"neutron":5.39,"half":7.33,"twenty":9.69},"deeper":{"mass":0.74,"deeper":2.26},"thing":{"hole":1.84,"tear":3.86,"object":5.56,"bottom":10.06},"bold":{"singularity":1.18,"wormhole":4.08,"white":5.46,"nobody":9.38}}}
+    },
+    {
+      "name": "how to prove it wrong",
+      "film": "films/fourth_dimension_pop_10_test.js",
+      "input": {"lines":{"fail":5.56,"clock":9.06,"ruler":10.83,"wire":12.67,"twice":7.83,"verdict":12.52},"cues":{"fail":{"fail":2.72},"clock":{"clocks":5.65,"millimetre":7.63},"ruler":{"rulers":6.09,"trust":10.11},"wire":{"kilometres":4.77,"second":9.41,"coil":12.01},"twice":{"Earth":2.52,"planet":5.86,"again":7.3},"verdict":{"Einstein":0,"hypothesis":3.74,"number":8.52}}}
+    },
+    {
+      "name": "what we actually know",
+      "film": "films/fourth_dimension_pop_11_known.js",
+      "input": {"lines":{"straight":3.46,"facts":9.52,"guess":7.41,"unanswered":8.7,"century":9.29},"cues":{"straight":{"known":1.51,"guess":2.97},"facts":{"dimension":0.95,"gravity":2.67,"black":5.95,"ripples":8.53},"guess":{"dent":1.39,"W":4.53},"unanswered":{"shrinks":2.2,"unanswered":7.28},"century":{"General":1.67,"test":3.93,"match":7.65}}}
+    },
+    {
+      "name": "so, which way is down?",
+      "film": "films/fourth_dimension_pop_12_fall.js",
+      "input": {"lines":{"which":3.85,"back":2.98,"maybe":6.51,"edge":10.96},"cues":{"which":{"which":2.04},"edge":{"well":6.68,"falling":8.34},"back":{"which":1.47},"maybe":{"down":0.58,"direction":2.94}}}
+    }
+  ]
+}

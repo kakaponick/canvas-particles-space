@@ -228,7 +228,10 @@ export async function voiceFilm ({ film, lines: FILM_LINES, cues: FILM_CUES, hea
   // VoiceStudio voice a film was first spoken by keeps the names its takes had before there were voices
   const NAMED = new Map(Object.entries(LINES).map(([name, text]) => [text, name]))
   const seedOf = text => VOICE.seeds?.[NAMED.get(text)] ?? SEED
-  const madeBy = (profile, text) => VOICE.own && !VOICE.servers ? [profile, LANGUAGE, SEED, DELIVERY, text] : [profile, LANGUAGE, seedOf(text), VOICE.engine, VOICE.fields, text]
+  // What a server's model is given for a line: the line itself, or what the voice's say(name, text) makes of it
+  // (Drama 3's bracketed delivery tags around and inside it). The words heard are checked against the line
+  const inputOf = text => VOICE.say?.(NAMED.get(text), text) ?? text
+  const madeBy = (profile, text) => VOICE.own && !VOICE.servers ? [profile, LANGUAGE, SEED, DELIVERY, text] : [profile, LANGUAGE, seedOf(text), VOICE.engine, VOICE.fields, inputOf(text)]
   const takeFile = (profile, text) => path.join(takes, TAKES + crypto.createHash('sha1').update(JSON.stringify(madeBy(profile, text))).digest('hex').slice(0, 12) + '.wav')
 
   // The profile's own recording and its words, which a voice of an audio.cpp server is given with every line;
@@ -258,7 +261,7 @@ export async function voiceFilm ({ film, lines: FILM_LINES, cues: FILM_CUES, hea
     const response = await fetch(server.replace(/\/$/, '') + '/v1/audio/speech', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: VOICE.engine, input: text, voice_ref: { type: 'base64', data }, reference_text: said, seed: seedOf(text), ...VOICE.fields })
+      body: JSON.stringify({ model: VOICE.engine, input: inputOf(text), voice_ref: { type: 'base64', data }, reference_text: said, seed: seedOf(text), ...VOICE.fields })
     }).catch(() => { throw new Error(`No audio.cpp server at ${server}`) })
     if (!response.ok) throw new Error(`${server} refused "${name}": ${response.status} ${(await response.text()).slice(0, 300)}`)
     fs.writeFileSync(file, Buffer.from(await response.arrayBuffer()))
