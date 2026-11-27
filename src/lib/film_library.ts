@@ -23,11 +23,10 @@ const PICTURES = import.meta.glob<string>([
   '!/films/**/out/**'
 ], { query: '?url', import: 'default' })
 // The three keys of each film's meta.json the list needs, as named imports, so the rest of the file stays out
-// of the page; the whole of it, as text, for the film that is opened
+// of the page; the whole of each comes in one chunk when the film mode opens (loadLibraryDetails)
 const TITLES = import.meta.glob<string>('/films/*/meta.json', { eager: true, import: 'title' })
 const KINDS = import.meta.glob<LibraryKind>('/films/*/meta.json', { eager: true, import: 'kind' })
 const FILES = import.meta.glob<string>('/films/*/meta.json', { eager: true, import: 'film' })
-const METAS = import.meta.glob<string>(['/films/*/meta.json', '/films/*/takes/*/meta.json'], { query: '?raw', import: 'default' })
 
 export type LibraryKind = 'film' | 'reel' | 'fractal'
 
@@ -92,7 +91,6 @@ const folderOf = (path: string) => keyOf(path).replace(/\/meta\.json$/, '')
 const byFolder = <T>(files: Record<string, T>) => new Map(Object.entries(files).map(([path, value]) => [folderOf(path), value]))
 const titles = byFolder(TITLES)
 const kinds = byFolder(KINDS)
-const metas = byFolder(METAS)
 const folderNames = [...byFolder(FILES).keys()]
 // A folder's own file, by the folder's name
 const entries = new Map(Object.entries(FILES).map(([path, file]) => [folderOf(path), `${folderOf(path)}/${file}`.toLowerCase()]))
@@ -113,26 +111,36 @@ function libraryFilms (): LibraryFilm[] {
   return films.sort((a, b) => a.name.localeCompare(b.name))
 }
 
-// The line and the makers of the film a path in films/ is of (the take's own makers for a take's file), or
-// null for a file of no folder
-export async function libraryDetails (path: string): Promise<FilmDetails | null> {
+// Every meta.json read, by its folder, once their chunk has come; null before
+let metas: Map<string, { about?: unknown, made?: unknown }> | null = null
+let metasComing: Promise<void> | null = null
+
+// Fetches every film's meta.json, in one chunk, once: the film mode asks as it opens, so a film's card has
+// its line and its makers when the film is chosen
+export function loadLibraryDetails () {
+  metasComing ??= import('./film_library_details').then(({ META_TEXTS }) => {
+    metas = new Map()
+    for (const [path, text] of Object.entries(META_TEXTS)) {
+      try {
+        metas.set(folderOf(path), JSON.parse(text) as { about?: unknown, made?: unknown })
+      } catch {
+        // A meta.json that is not JSON tells nothing; films.mjs check names it
+      }
+    }
+  })
+  return metasComing
+}
+
+// The line and the makers of the film a path in films/ is of (the take's own makers for a take's file): null
+// for a file of no folder, or before loadLibraryDetails has brought them
+export function libraryDetails (path: string): FilmDetails | null {
   const key = keyOf(path)
-  if (!key.includes('/')) return null
+  if (!metas || !key.includes('/')) return null
   const folder = key.split('/')[0]
   const take = /^[^/]+\/takes\/([^/]+)\//.exec(key)?.[1]
-  const read = async (at: string) => {
-    const load = metas.get(at)
-    if (!load) return null
-    try {
-      return JSON.parse(await load()) as { about?: unknown, made?: unknown }
-    } catch {
-      return null
-    }
-  }
-  const own = await read(folder)
-  const taken = take ? await read(`${folder}/takes/${take}`) : null
+  const own = metas.get(folder)
   if (!own) return null
-  const made = (taken ?? own).made
+  const made = ((take ? metas.get(`${folder}/takes/${take}`) : null) ?? own).made
   return {
     about: typeof own.about === 'string' ? own.about : '',
     made: Array.isArray(made) ? made.filter((line): line is MadeLine => typeof line?.model === 'string') : []

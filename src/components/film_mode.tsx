@@ -10,7 +10,7 @@ import { useParticleStore } from '../store/particle_store'
 import { useFractalStore } from '../store/fractal_store'
 import { useIntroDebugStore } from '../store/intro_debug_store'
 import { closeIntroDebugger } from '../lib/intro_dock'
-import { LIBRARY, libraryDetails, libraryFilmOf, type LibraryFilm } from '../lib/film_library'
+import { LIBRARY, libraryDetails, libraryFilmOf, loadLibraryDetails, type LibraryFilm } from '../lib/film_library'
 import {
   FILM_SEEK_LONG_STEP, FILM_SEEK_STEP, attachStage, cancelVideo, copyFilmText, leaveFilms, openFiles, openFilm, openFromAddress,
   openFromScene, openLibraryFilm, openPasted, saveFilmFile, saveVideo, seekFilm, seekFilmBy, stepFilm, togglePlaying
@@ -186,7 +186,8 @@ function Timeline () {
   const duration = useFilmStore(state => state.facts?.duration ?? 0)
   const seekTo = useFilmStore(state => state.seekTo)
   const seekDone = useFilmStore(state => state.seekDone)
-  const waiting = useFilmStore(state => state.waiting)
+  // Nothing to seek while a film loads or its player is made: the track stays, idle
+  const waiting = useFilmStore(state => state.waiting || state.status !== 'ready')
   const track = useRef<HTMLDivElement>(null)
   // The second under a pointer that drags, and under one that only hovers
   const [scrub, setScrub] = useState<number | null>(null)
@@ -310,7 +311,7 @@ const TRANSPORT_BUTTON = 'h-8 w-8 shrink-0 border-neon-cyan/60 text-neon-cyan ho
 function Transport () {
   const playing = useFilmStore(state => state.playing)
   const ended = useFilmStore(state => state.ended)
-  const waiting = useFilmStore(state => state.waiting)
+  const waiting = useFilmStore(state => state.waiting || state.status !== 'ready')
   const label = playing ? 'Pause' : ended ? 'Play again' : 'Play'
   return (
     <div className="flex h-12 shrink-0 items-center gap-2 border-t border-neon-cyan/20 bg-[rgba(10,10,15,0.95)] px-3">
@@ -407,6 +408,7 @@ function PlayProblem () {
 // Where the film plays: right of the panel, clear of the toolbar above it, with its transport at the foot
 function Stage () {
   const ready = useFilmStore(state => state.status === 'ready')
+  const hasFilm = useFilmStore(state => state.entry !== null)
   const waiting = useFilmStore(state => state.waiting)
   const host = useCallback((node: HTMLDivElement | null) => attachStage(node), [])
   return (
@@ -418,7 +420,8 @@ function Stage () {
         </div>
         <PlayProblem />
       </div>
-      {ready && <Transport />}
+      {/* The transport stays while one film gives way to the next, so the stage keeps its height */}
+      {hasFilm && <Transport />}
     </div>
   )
 }
@@ -428,54 +431,71 @@ function Heading ({ id, children }: { id: string, children: ReactNode }) {
   return <h3 id={id} className="pl-3 pt-1 font-orbitron text-xs tracking-[0.5px] text-neon-cyan">{children}</h3>
 }
 
-// The film in the mode: its name, its frame and length, and what the planner changed in it
-// What a film of the library's meta.json says of it beyond its title, fetched when it is opened
+/// What the second row of the card says of a film from outside the library
+const ORIGIN_LABELS = { library: '', file: 'opened from a file', paste: 'pasted', scene: 'made from the scene' } as const
+
+// What a film of the library's meta.json says beyond its title: there at once once the film mode has fetched
+// the meta files (loadLibraryDetails, asked as the mode opens), and read again the moment they arrive
 function useDetails (path: string | null) {
-  const [details, setDetails] = useState<{ path: string, about: string, makers: string[] } | null>(null)
+  const [, setArrived] = useState(false)
   useEffect(() => {
-    if (!path) return
     let current = true
-    void libraryDetails(path).then(found => {
-      if (current && found) setDetails({ path, about: found.about, makers: [...new Set(found.made.map(line => line.model))] })
-    })
+    void loadLibraryDetails().then(() => { if (current) setArrived(true) })
     return () => { current = false }
-  }, [path])
-  return details && details.path === path ? details : null
+  }, [])
+  return path ? libraryDetails(path) : null
 }
 
+// The film in the mode: its title, where it is from, its line, its frame and length, who made it and what the
+// planner changed in it. Every row has its height whatever the film, whether it is still loading and
+// whether its meta.json has come, so switching films moves nothing below the card; only the notes, opened on
+// request, grow it
 function NowLoaded () {
   const entry = useFilmStore(state => state.entry)
   const facts = useFilmStore(state => state.facts)
+  const status = useFilmStore(state => state.status)
+  const notesId = useId()
+  // The film whose notes are open, so a new film opens with them closed
+  const [notesOf, setNotesOf] = useState<string | null>(null)
   // A film of the library is told by its meta.json: its title, its line and who made it
   const film = entry?.origin === 'library' ? libraryFilmOf(entry.name) : null
   const details = useDetails(film && entry ? entry.name : null)
   if (!entry) return null
   const own = film !== null && film.path === entry.name.toLowerCase()
-  const makers = details?.makers ?? []
+  const title = film?.title ?? entry.name
+  const where = film ? (own ? film.name : entry.name) : ORIGIN_LABELS[entry.origin]
+  const about = film ? (own ? details?.about ?? '' : `A part of ${film.title}`) : ''
+  const makers = [...new Set(details?.made.map(line => line.model) ?? [])]
+  const made = film && !details ? '' : makers.length > 0 ? `Made by ${makers.join(', ')}` : 'Maker not recorded'
+  const factsLine = facts
+    ? `${KIND_LABELS[facts.kind]} · ${facts.width}×${facts.height} · ${facts.fps} fps · ${clock(facts.duration)}`
+    : status === 'failed' ? 'Did not load' : 'Reading the film…'
+  const notes = facts?.notes ?? []
+  const notesOpen = notesOf === entry.name && notes.length > 0
   return (
-    <div className="flex flex-col gap-1 bg-text-light/[0.06] px-3 py-2">
-      {film
-        ? (
-          <>
-            <p className="truncate text-sm text-text-light" title={film.title}>{film.title}</p>
-            <p className="truncate font-mono text-xs text-text-light/70" title={entry.name}>{own ? film.name : entry.name}</p>
-            {own && details?.about && <p className="text-xs leading-5 text-text-light/80">{details.about}</p>}
-          </>
-        )
-        : <p className="truncate font-mono text-sm text-text-light" title={entry.name}>{entry.name}</p>}
-      {facts && (
-        <p className="font-mono text-xs text-text-light/70">
-          {KIND_LABELS[facts.kind]} · {facts.width}×{facts.height} · {facts.fps} fps · {clock(facts.duration)}
-        </p>
-      )}
-      {makers.length > 0 && <p className="font-mono text-xs text-text-light/70">Made by {makers.join(', ')}</p>}
-      {facts && facts.notes.length > 0 && (
-        <details className="font-mono text-xs text-text-light/70">
-          <summary className="cursor-pointer hover:text-neon-cyan">{facts.notes.length === 1 ? '1 note' : `${facts.notes.length} notes`}</summary>
-          <ul className="mt-1 flex list-disc flex-col gap-1 pl-4">
-            {facts.notes.map((note, index) => <li key={index}>{note}</li>)}
-          </ul>
-        </details>
+    <div className="flex flex-col bg-text-light/[0.06] px-3 py-2">
+      <p className="h-5 truncate text-sm leading-5 text-text-light" title={title}>{title}</p>
+      <p className="h-5 truncate font-mono text-xs leading-5 text-text-light/70" title={entry.name}>{where}</p>
+      <p className="mt-1 line-clamp-2 h-10 text-xs leading-5 text-text-light/80" title={about || undefined}>{about}</p>
+      <p className="mt-1 h-5 truncate font-mono text-xs leading-5 text-text-light/70">{factsLine}</p>
+      <div className="flex h-5 items-center gap-2 font-mono text-xs leading-5 text-text-light/70">
+        <span className="min-w-0 flex-1 truncate" title={made || undefined}>{made}</span>
+        {notes.length > 0 && (
+          <button
+            type="button"
+            aria-expanded={notesOpen}
+            aria-controls={notesId}
+            onClick={() => setNotesOf(notesOpen ? null : entry.name)}
+            className="shrink-0 underline decoration-text-light/30 underline-offset-2 hover:text-neon-cyan focus-visible:outline focus-visible:outline-1 focus-visible:outline-neon-cyan"
+          >
+            {notes.length === 1 ? '1 note' : `${notes.length} notes`}
+          </button>
+        )}
+      </div>
+      {notesOpen && (
+        <ul id={notesId} className="mt-1 flex list-disc flex-col gap-1 pl-4 font-mono text-xs text-text-light/70">
+          {notes.map((note, index) => <li key={index}>{note}</li>)}
+        </ul>
       )}
     </div>
   )
