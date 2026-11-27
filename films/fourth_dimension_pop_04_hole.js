@@ -81,7 +81,26 @@ film({
     flowTrace: 1,
     lensingRadius: 0,
     ringBrightness: 0,
-    numParticles: 40000,
+    // Before the hole the matter falling to the centre from every side is flow B, turned to face the camera:
+    // born from 4 to 116 radii of the speck (past the frame's corners, so no edge of the band shows), falling
+    // from rest straight in along its radius, each particle its own fading stroke. The field drawn alone
+    // read as an even grain of dim dots with a small burst in the middle (review, 2:09–2:18). Flow B Count
+    // swept at this framing over 10000 / 16000 / 24000 / 32000: 10000 is streaks running in from the edges,
+    // 24000 and up a carpet
+    flowB: 1.8,
+    flowBCount: 10000,
+    flowBFrom: 60,
+    flowBTo: 0.5,
+    flowBSpread: 112,
+    flowBSwirl: 0,
+    flowBLife: 7,
+    flowBTrail: 0.6,
+    flowBSize: 1.2,
+    flowBFace: 1,
+    flowBThick: 0,
+    flowBColor: '#e8dcc0',
+    // The field stays as a sparse dust under the flow, a few thousand particles, so the frame is not grain
+    numParticles: 4000,
     // Before the hole the pull is strong and kept (inertia 0.9), and slow strokes are lit (Speed Glow Knee
     // 0.02), so the field is seen falling to the centre from every side while gravity is named
     baseSpeed: 0,
@@ -92,7 +111,7 @@ film({
     speedGlowKnee: 0.02,
     minOpacity: 0.05,
     trailIntensity: 0.05,
-    baseBrightness: 2,
+    baseBrightness: 0.6,
     starsBrightness: 1.6,
     starDensity: 0.22,
     gridSky: 0,
@@ -104,19 +123,23 @@ film({
 chapter('04', 'GRAVITY AT FULL POWER')
 
 const label = (text, seconds, place, color = INK) => caption(text, seconds, { size: 0.03, font: 'unbounded', color, fade: 0.4, ...place })
+// Where the hole arrives, on "where it is strongest": the arrows of the infall hold until it is there
+let arrives = 0
 
 shot('suspect', () => {
   const start = now()
   const spoken = say('suspect')
   const end = start + spoken + 0.6
+  arrives = end + heard('strongest', 'strongest', 0.45)
   status('known', spoken + 0.6)
-  // Arrows from every side to the one centre the field falls to
+  // Arrows from every side to the one centre the matter falls to, on the scene round the speck of a hole
+  // (30 to 12 of its radii), held over the line after until the hole arrives there
   at(start + heard('suspect', 'inward', 0.45), () => {
     for (let k = 0; k < 8; k++) {
       const a = k * Math.PI / 4
-      const far = [0.5 + 0.3 * Math.cos(a) * 0.5625, 0.5 + 0.3 * Math.sin(a)]
-      const near = [0.5 + 0.12 * Math.cos(a) * 0.5625, 0.5 + 0.12 * Math.sin(a)]
-      draw({ kind: 'line', points: [far, near], arrow: 'end', color: SOFT, width: 0.003, draw: 0.6, fade: 0.4 }, end - now())
+      const far = { hole: [+(30 * Math.cos(a)).toFixed(3), +(30 * Math.sin(a)).toFixed(3)] }
+      const near = { hole: [+(12 * Math.cos(a)).toFixed(3), +(12 * Math.sin(a)).toFixed(3)] }
+      draw({ kind: 'line', points: [far, near], arrow: 'end', color: SOFT, width: 0.003, draw: 0.6, fade: 0.4 }, arrives - now())
     }
   })
   at(start + heard('suspect', 'Gravity', 0.93), () => {
@@ -130,9 +153,10 @@ shot('strongest', () => {
   const spoken = say('strongest')
   status('known', spoken + 0.6)
   // The hole arrives where everything was falling to, on "where it is strongest", and is grown by "A black hole"
-  const arrives = start + heard('strongest', 'strongest', 0.45)
   at(arrives, () => {
     together(
+      // The infall gives way to the disc before the growing hole spreads its radii out over the frame
+      () => { to({ flowB: 0 }, 0.8) },
       () => { to({ blackHoleSize: 8, gravityReach: 30, gravityStrength: 5, lensingRadius: 2.5, ringBrightness: 1.5, orbitalStrength: 20, gravityInertia: 0.6, starsBrightness: 2.2 }, 2.4, 'ease') },
       // The field's long trails are cut short before the camera moves, or the move smears them into rain
       () => { to({ trailIntensity: 0.6, baseBrightness: 0.4 }, 0.6); to({ baseBrightness: 0.12 }, 1.4) },
@@ -187,7 +211,7 @@ shot('sixty', () => {
   at(start + heard('sixty', 'sixty', 0.8) - 0.4, () => {
     draw({ kind: 'circle', center: { hole: [0, 0] }, radius: H, color: GOLD, width: 0.0025, dash: true, draw: 0.5, fade: 0.4 }, end - now())
     draw({ kind: 'line', points: [{ hole: [-H, 0] }, { hole: [H, 0] }], arrow: 'both', color: GOLD, width: 0.003, draw: 0.5, fade: 0.4 }, end - now())
-    caption('60 km', end - now(), { at: { hole: [0, 0.62] }, size: 0.026, font: 'unbounded', color: GOLD, fade: 0.4 })
+    caption('60 km', end - now(), { at: { hole: [0, 0.5] }, size: 0.026, font: 'unbounded', color: GOLD, fade: 0.4 })
     caption('horizon: 60 km across', end - now(), { at: [0.76, 0.15], size: 0.04, font: 'unbounded', color: GOLD, fade: 0.4 })
     caption('r_{s} = 2GM / c^{2} ≈ 30 km', end - now(), { at: [0.76, 0.7], size: 0.036, font: 'noto', color: INK, fade: 0.4 })
   })
@@ -203,7 +227,7 @@ shot('photographed', () => {
   at(start + heard('photographed', 'photographed', 0.7), () => {
     caption('Event Horizon Telescope photographed', end - now(), { at: [0.5, 0.12], size: 0.03, font: 'unbounded', color: SOFT, fade: 0.4 })
     caption('M87* · 2019     Sagittarius A* · 2022', end - now(), { at: [0.5, 0.19], size: 0.04, font: 'unbounded', color: GOLD, fade: 0.4 })
-    caption('this picture: a simulation', end - now(), { at: [0.86, 0.94], size: 0.022, font: 'unbounded', color: SOFT, fade: 0.4 })
+    caption('this picture: a simulation', end - now(), { at: [0.85, 0.94], size: 0.026, font: 'unbounded', color: INK, plate: 0.35, fade: 0.4 })
   })
   until(end)
 })

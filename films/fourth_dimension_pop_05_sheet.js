@@ -59,17 +59,34 @@ const MASS = '#ffc861'
 // Before the dent the hole stands where the flat sheet will stay, the rim of the dent to come (5.646 radii
 // above the hole once it has sunk, by laySheet below), so the sheet holds still and only the mass goes down
 const RIM_Y = 0.2283
-// What lies on the sheet is swung round as it falls: it rolls toward the dent and circles it
-const WHIRL = {
-  gravityInertia: 0.75, orbitalStrength: 80, gravityStrength: 4, gravityReach: 16, gravityDepth: 100, baseSpeed: 0, speedGlowKnee: 0.03, trailIntensity: 0.15,
-  depthFade: 0, minOpacity: 0.1, particleSize: 2, particleSizeMin: 2, baseBrightness: 0.3
-}
+// What lies on the sheet rolls toward the dent, swung round as it goes: flow A laid on the sheet, born 2 to 7
+// radii out round the mouth and falling down the wall into the well, winding as it goes, lingering near the
+// hole (Fall Power 0.8) so the wall is lined, warm white against the cyan sheet. The particle field laid on
+// the sheet draws no matter on the wall since the engine's redshift and rebirth changes (films.md, "On the
+// sheet"), so the field is off and the flow is all the matter there is. It comes on with the mass, as the
+// dent sinks. Born 6 to 12 radii out (films.md's row) it was a faint haze on the flat with the wall bare
+const MATTER = 2.5
+// Flow A Count swept at this shot's framing (the sunk dent, tilt 68, depth 6), a second a step: 3000 reads as
+// streaks winding down the wall with the grid through them, 6000 richer, 12000 and 24000 a white disc that
+// hides the orbit drawn on the sheet
+const COUNT = 5000
 film({
   fps: 60,
   seed: 5,
   settings: {
     blackHoleSize: 8,
-    numParticles: 20000,
+    fieldEnabled: false,
+    flowA: 0,
+    flowACount: COUNT,
+    flowAFrom: 4.5,
+    flowAFall: 0.8,
+    flowATo: 0.8,
+    flowASpread: 5,
+    flowASwirl: 0.7,
+    flowALife: 5,
+    flowATrail: 0.6,
+    flowASize: 1.4,
+    flowAColor: '#ffe9c8',
     lensingEnabled: false,
     lensingRadius: 0,
     nebula: 0.45,
@@ -89,18 +106,9 @@ film({
     gridCell: 4,
     gridSpan: 1.6,
     gridFade: 0.4,
+    // The flow lies on the sheet
     gridRide: 1,
-    // The whole column lies on the sheet: a share of the ride fading with depth left the matter the hole
-    // gathers hanging between where it flies and the surface, a white ball over the shadow. Laid wholly,
-    // it crowds the steep throat, so half as many particles, dimmer, let the wall show through it
-    gridRideSoft: 0.01,
-    fieldAtHole: 1,
-    blackHoleY: RIM_Y,
-    ...WHIRL,
-    // Before the mass arrives nothing pulls: the matter only drifts over the flat sheet
-    gravityStrength: 0,
-    orbitalStrength: 0,
-    baseSpeed: 0.3
+    blackHoleY: RIM_Y
   }
 })
 // No mass yet: the hole is not there to see
@@ -157,8 +165,10 @@ const onSheet = (away, angle) => {
 shot('textbook', () => {
   const start = now()
   const spoken = say('textbook')
-  status('known', spoken + 0.6)
-  at(start + heard('textbook', 'sheet', 0.62), () => { label('a stretched sheet', 3, [0.5, 0.14], { color: INK, plate: 0.5 }) })
+  // The stretched sheet is how textbooks draw gravity, a picture and no claim about nature: "metaphor"
+  // calls it only a picture under KNOWN PHYSICS, so here it is labelled as the geometry it is
+  status('math', spoken + 0.6)
+  at(start + heard('textbook', 'sheet', 0.62), () => { label('a stretched sheet', 3, [0.25, 0.12], { color: INK, plate: 0.5 }) })
   // "a mass makes a dent": a ball drops onto the sheet, the hole under it, the pull comes on and the dent
   // sinks, the ball with it, while the sheet round it stays where it was. The ball stays to the clip's end
   const lands = start + heard('textbook', 'mass', 0.84)
@@ -172,7 +182,8 @@ shot('textbook', () => {
     // Shapes lie over the fade, so the ball goes dark with the picture as the clip leaves
     draw({ kind: 'circle', center: { hole: [0, 0] }, radius: 1.05, fill: MASS, color: '#ffe3a8', width: 0.002, glow: 0.03, fade: 0, opacity: 'lit', values: { lit: [[now(), 1], [clipEnd - 0.8, 1], [clipEnd, 0]] } }, clipEnd - now())
     label('a mass', 3.4, { hole: [2.8, 0.3] }, { color: GOLD })
-    to({ gridDepth: DEEP, blackHoleY: HOLE_Y, gravityStrength: WHIRL.gravityStrength, orbitalStrength: WHIRL.orbitalStrength, baseSpeed: 0 }, 2.4)
+    // The dent sinks and the matter on the sheet comes up with it, already running down into it
+    to({ gridDepth: DEEP, blackHoleY: HOLE_Y, flowA: MATTER * 0.6 }, 2.4)
   })
   wait(spoken + 0.6)
 })
@@ -183,8 +194,8 @@ shot('roll', () => {
   // The three things named are drawn on the sheet; the line holds until the last of them has been read
   const end = start + spoken + 1.4
   status('known', end - start - 0.2)
-  // The dent's own move ends inside this line; then the pull grows and the matter, brighter, rolls in
-  at(start + 1.2, () => { to({ gravityStrength: 5, baseBrightness: 0.9, minOpacity: 0.2 }, 2) })
+  // The dent's own move ends inside this line; then the matter, brighter, rolls in
+  at(start + 1.2, () => { to({ flowA: MATTER }, 1.2) })
   const look = { color: INK, width: 0.0035, fade: 0.4 }
   // "your orbit": a path round the dent, lying on the sheet, its way told once
   at(start + heard('roll', 'orbit', 0.55) - 0.2, () => {
@@ -195,9 +206,10 @@ shot('roll', () => {
   })
   // "your falling apple": a small ball runs down a spoke into the dent
   at(start + heard('roll', 'apple', 0.72) - 0.2, () => {
+    // It reaches the mass in 1.4 s and goes under it; the apple and its word leave together just after
     const away = s => 5.2 - 4.08 * Math.min(1, s / 1.4) ** 2
-    draw({ kind: 'circle', center: { sheet: ['ax', 'ay'] }, radius: 0.28, fill: '#ff6b5c', color: '#ff6b5c', fade: 0.3, values: { ax: s => part(away(s) * Math.cos(Math.PI / 6)), ay: s => part(away(s) * Math.sin(Math.PI / 6)) } }, end - now())
-    label('apple', end - now(), onSheet(6.2, 30), { size: 0.026, color: INK, plate: 0.4 })
+    draw({ kind: 'circle', center: { sheet: ['ax', 'ay'] }, radius: 0.28, fill: '#ff6b5c', color: '#ff6b5c', fade: 0.3, values: { ax: s => part(away(s) * Math.cos(Math.PI / 6)), ay: s => part(away(s) * Math.sin(Math.PI / 6)) } }, 1.7)
+    label('apple', 1.7, onSheet(6.2, 30), { size: 0.026, color: INK, plate: 0.4 })
   })
   // "your weight": the push down the wall of the dent
   at(start + heard('roll', 'weight', 0.92) - 0.2, () => {
@@ -218,6 +230,8 @@ shot('axes', () => {
   // Naming the picture's axes is geometry, not a claim about nature
   status('math', spoken + 0.6)
   axesEnd = start + spoken + 0.6 + long('metaphor') + 0.6 + long('whatif') + 0.6
+  // The matter dims while the axes are read on the wall, and comes back when the dent is asked to be real
+  at(start + 0.4, () => { to({ flowA: MATTER * 0.6 }, 1.2) })
   at(start + heard('axes', 'x', 0.3), () => {
     draw({ kind: 'line', points: [on(W_TOP), on(X_TIP)], arrow: 'end', color: X, width: 0.006, draw: 0.5, fade: 0.5 }, axesEnd - now())
     label('X', axesEnd - now(), on([4.1, 0, 0]), { size: 0.034, color: X })
@@ -241,8 +255,8 @@ shot('metaphor', () => {
   const start = now()
   const spoken = say('metaphor')
   status('known', spoken + 0.6)
-  // "only a picture": W goes dashed and pale
-  wAxis(spoken + 0.6, { dash: true, opacity: 0.35, draw: 0 })
+  // "only a picture": W goes dashed and pale, and stays so until "what if it does?" draws it solid over it
+  wAxis(spoken + 0.6 + heard('whatif', 'does', 0.3) + 0.6, { dash: true, opacity: 0.6, draw: 0 })
   at(start + heard('metaphor', 'picture', 0.5), () => {
     label('only a picture', start + spoken + 0.6 - now(), wSide, { size: 0.034, color: SOFT, plate: 0.4 })
   })
@@ -253,10 +267,11 @@ shot('whatif', () => {
   const start = now()
   const spoken = say('whatif')
   status('idea', spoken + 0.6)
-  // "what if it does?": W comes back solid, and the matter on the sheet falls down it harder
+  // "what if it does?": W comes back solid, and the matter on the sheet falls down it harder: back to the brightness of "roll" (any
+  // brighter burned the throat white at full size), each particle down the wall in 3.5 s where it took 5
   at(start + heard('whatif', 'does', 0.3), () => {
     wAxis(start + spoken + 0.6 - now(), { draw: 0.6, width: 0.009 })
-    to({ gravityStrength: 6 }, 2)
+    to({ flowA: MATTER, flowALife: 3.5 }, 2)
   })
   at(start + heard('whatif', 'w', 0.55), () => { keep('what if *{W} is a real direction?', start + spoken + 0.6 - now()) })
   wait(spoken + 0.6)

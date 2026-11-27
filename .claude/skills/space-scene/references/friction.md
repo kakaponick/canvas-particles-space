@@ -138,6 +138,14 @@ the friction cannot happen any more.
 
 ## Bodies over a hole
 
+### Hiding the hole under a body took the well with it (2026-11-27)
+- Wanted / got: chapter 06 of the pop film opening on chapter 05's mass ball, the bare hole hidden; with
+  `hide('hole')` the sheet lay flat, square at any `gridRings`, and the ball at `{ hole: [0, 0] }` was gone.
+- Cause: a hidden hole is no hole for the scene: the sheet's dent and rings and every `{ hole }` place go too.
+- Now: leave the hole shown and cover its shadow with the body's picture (radius 1.05 covers it from above
+  and from the side at tilt 68); `hide('ring')` alone keeps the ring from edging the picture.
+- Where: `films/fourth_dimension_pop_06_above.js`, the mass drawn before shot "flyup".
+
 ### A black hole showing round or before a planet (2026-11-27)
 - Wanted / got: the Earth; got a bare black disc before its picture came up, a dark crescent round it after a
   fly-in, and the hole's black disc left when the picture faded.

@@ -2,7 +2,7 @@
 // The narration sets the pace: LINES is what is said, say() marks where a line starts, and until a voice has
 // spoken the lines each takes what its words would (input.lines and input.cues bring a voice's own seconds).
 //   node .claude/skills/space-scene/scripts/space.mjs preview films/fourth_dimension_pop_06_above.js out.jpg -
-/* global film, set, to, wait, shot, caption, draw, mark, now, at, meanwhile, drive, input */
+/* global film, set, to, wait, shot, caption, draw, mark, now, at, meanwhile, drive, input, hide */
 const LINES = {
   flyup: "Let's test that picture. Fly up above the sheet, and look straight down.",
   flat: 'The dent disappears. From up here, the sheet looks perfectly flat.',
@@ -48,15 +48,50 @@ const keep = (text, seconds, more = {}) => caption(text, seconds, { at: [0.5, 0.
 const leave = () => { to({ fade: 1 }, 0.8) }
 // ---- end of the kit ----
 
-// The sheet as chapter 05 leaves it: seen from the side, the well deep under the hole, the matter on it
+// The sheet as chapter 05 leaves it: seen from the side, the well deep under the mass, the matter on it
 // whirling down. The flat mode draws the sheet; the camera is its tilt
 const GRID = '#4de3ff'
+// Chapter 05's mass, the textbook's ball, stands over the hole for the whole clip: the narration never says
+// it became a black hole, so the hole is covered by it
+const MASS = '#ffc861'
+// The matter on the sheet is chapter 05's: flow A laid on the sheet, born 2 to 7 radii out round the mouth
+// and winding down into the well (the field laid on the sheet draws no matter there since the engine's
+// redshift and rebirth changes, films.md "On the sheet"). From the side it opens as chapter 05 swept it at
+// the same framing; from above the count is this clip's own, swept in "rings" a second a step over 2000 /
+// 4000 / 8000 / 16000: at 2000 the rings read through the matter to the mass, at 4000 the inner rings are
+// lost under it, from 8000 it is a carpet. The count thins from one to the other while the camera rises
+const MATTER = 2
+const COUNT_SIDE = 5000
+const COUNT = 2500
 film({
   fps: 60,
   seed: 6,
   settings: {
     blackHoleSize: 8,
-    numParticles: 20000,
+    fieldEnabled: false,
+    flowA: MATTER,
+    flowACount: COUNT_SIDE,
+    flowAFrom: 4.5,
+    flowAFall: 0.8,
+    flowATo: 0.8,
+    flowASpread: 5,
+    flowASwirl: 0.7,
+    flowALife: 5,
+    flowATrail: 0.6,
+    flowASize: 1.4,
+    flowAColor: '#ffe9c8',
+    // The same matter falling straight in, for the last line; dark until then
+    flowB: 0,
+    flowBCount: COUNT,
+    flowBFrom: 4.5,
+    flowBFall: 0.8,
+    flowBTo: 0.8,
+    flowBSpread: 5,
+    flowBSwirl: 0,
+    flowBLife: 5,
+    flowBTrail: 0.6,
+    flowBSize: 1.4,
+    flowBColor: '#ffe9c8',
     lensingEnabled: false,
     lensingRadius: 0,
     orbitCount: 0,
@@ -74,37 +109,24 @@ film({
     starsBrightness: 1.6,
     starDensity: 0.22,
     gridColor: GRID,
-    gridSheet: 0.85,
+    // Chapter 05's sheet: square cells, as bright, reaching the frame's edges
+    gridSheet: 1,
+    gridLine: 2,
     gridCell: 4,
     gridTilt: 68,
     gridDepth: 6,
     gridRings: 0,
     gridSpokes: 24,
-    gridSpan: 0.6,
-    gridFade: 0.3,
+    gridSpan: 1.6,
+    gridFade: 0.4,
+    // The flow lies on the sheet
     gridRide: 1,
-    // The whole column lies on the sheet: a share of the ride fading with depth left the matter the hole
-    // gathers hanging between where it flies and the surface, a white ball over the shadow. Laid wholly,
-    // it crowds the steep throat, so half as many particles, dimmer, let the wall show through it
-    gridRideSoft: 0.01,
-    blackHoleY: 0.68,
-    fieldAtHole: 1,
-    // What falls toward the hole on the sheet, swung round as it comes: a whirl that drains down the well
-    gravityInertia: 0.75,
-    orbitalStrength: 80,
-    gravityStrength: 4,
-    gravityReach: 16,
-    gravityDepth: 100,
-    baseSpeed: 0,
-    speedGlowKnee: 0.03,
-    trailIntensity: 0.15,
-    depthFade: 0,
-    minOpacity: 0.1,
-    particleSize: 2,
-    particleSizeMin: 2,
-    baseBrightness: 0.3
+    blackHoleY: 0.68
   }
 })
+// The hole itself stays: without it the sheet has no well and no rings. The mass covers its shadow, and its
+// ring, which would edge the ball, is hidden
+hide('ring')
 chapter('06', 'LOOK FROM ABOVE')
 
 // Where a point of the sheet stands on the screen, from the hole in hole radii (the sums of
@@ -176,17 +198,38 @@ const RISE = 4
 const R_OUT = 3.2
 const R_IN = 2.4
 const RIM = 3.7
+const FLYUP = Math.max(long('flyup') + 0.6, heard('flyup', 'up', 0.45) - 0.3 + RISE + 0.2)
+
+// The mass over the hole: it comes up with the picture under the chapter card's last second and stays to the
+// clip's end, going dark with the picture as the clip leaves (shapes lie over the fade)
+{
+  const card = now() - 1.2
+  const clipEnd = now() + FLYUP + long('flat') + 0.6 + long('rings') + 0.6 + long('same') + 0.6 + long('points') + 0.6 + 0.8
+  at(card, () => {
+    draw({ kind: 'circle', center: { hole: [0, 0] }, radius: 1.05, fill: MASS, color: '#ffe3a8', width: 0.002, glow: 0.03, fade: 0, opacity: 'lit', values: { lit: [[card, 0], [card + 1.2, 1], [clipEnd - 0.8, 1], [clipEnd, 0]] } }, clipEnd - card)
+  })
+}
 
 shot('flyup', () => {
   const start = now()
   const spoken = say('flyup')
   status('math', spoken + 0.4)
   // "Fly up": the camera rises from the side of the sheet to straight above it
-  at(start + heard('flyup', 'up', 0.45) - 0.3, () => {
-    meanwhile(() => { to({ gridTilt: 0, gridDepth: DEPTH, blackHoleY: 0.5 }, RISE) })
+  const rises = start + heard('flyup', 'up', 0.45) - 0.3
+  at(rises, () => {
+    meanwhile(() => { to({ gridTilt: 0, gridDepth: DEPTH, blackHoleY: 0.5, flowACount: COUNT }, RISE) })
     caption('*{look down}', RISE, { at: [0.5, 0.12], size: 0.04, font: 'unbounded', accent: W, fade: 0.4 })
   })
-  wait(Math.max(spoken + 0.6, heard('flyup', 'up', 0.45) - 0.3 + RISE + 0.2))
+  // Halfway up the sheet is ruled again for what comes: it dips out for a moment and comes back as spokes
+  // round the hole, with one ring, which lies under the mass (the outermost ring stands half as many radii
+  // out as there are rings), so "rings" only paints rings onto it. Switched there, at the first ring, the
+  // square grid flipped to a wheel in one frame (review, 3:41)
+  at(rises + RISE * 0.45, () => {
+    to({ gridSheet: 0 }, 0.3)
+    set({ gridRings: 1 })
+    to({ gridSheet: 1 }, 0.3)
+  })
+  wait(FLYUP)
 })
 
 shot('flat', () => {
@@ -248,8 +291,9 @@ shot('points', () => {
   const spoken = say('points')
   const end = start + spoken + 0.6
   status('idea', spoken + 0.4)
-  // With nothing to swing it round, the matter goes straight in along the spokes: the depth points inward
-  meanwhile(() => { to({ gravityInertia: 0.3, orbitalStrength: 0, gravityStrength: 6, gravityReach: 14, speedGlowKnee: 0.02, trailIntensity: 0.05, minOpacity: 0.2, baseBrightness: 0.5 }, 2) })
+  // With nothing to swing it round, the matter goes straight in along the spokes: the depth points inward.
+  // The winding flow gives way to flow B, the same matter with no swirl, over two seconds
+  meanwhile(() => { to({ flowA: 0, flowB: MATTER }, 2) })
   at(start + heard('points', 'points', 0.6), () => {
     for (let index = 0; index < 8; index++) {
       const angle = index * Math.PI / 4
