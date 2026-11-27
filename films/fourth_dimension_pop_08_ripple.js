@@ -5,7 +5,7 @@
 /* global film, set, to, wait, shot, caption, draw, mark, now, at, meanwhile, input, hide, show */
 const LINES = {
   stretch: 'If this is right, mass does not curve space, the way Einstein put it. It stretches space, along W.',
-  small: 'That sounds like a small change of words. But anything that can stretch can also ripple.',
+  small: 'Either way, space that can stretch or bend can also ripple. Einstein predicted those ripples in nineteen sixteen.',
   shake: 'In twenty fifteen, two detectors in the United States felt space itself shake.',
   source: 'The source: two black holes, each about thirty times heavier than the Sun, colliding one point three billion light years away.',
   proton: 'By the time the wave reached us, it stretched a four kilometre detector by about a thousandth of the width of a proton. And we still caught it.'
@@ -97,7 +97,7 @@ const LIFT = 0.8
 hide('ring')
 chapter('08', 'SPACE CAN RIPPLE')
 // The cut to the pair: black from this second
-const CUT = now() + long('stretch') + 1.4 + heard('small', 'anything', 0.6) - 0.6 + 0.35
+const CUT = now() + long('stretch') + 1.4 + heard('small', 'space', 0.12) - 0.6 + 0.35
 {
   const card = now() - 1.2
   at(card, () => {
@@ -185,12 +185,12 @@ const WAVES = { companionWaves: 10, gridWaveLift: 9 }
 shot('small', () => {
   const start = now()
   const spoken = say('small')
-  const ripple = start + heard('small', 'ripple', 0.85)
-  status('idea', spoken + 0.4)
-  // "Anything that can stretch can also ripple": a cut through black to two black holes circling on a wide
+  const ripple = start + heard('small', 'ripple', 0.45)
+  status('known', spoken + 0.4)
+  // "Space that can stretch or bend can also ripple": a cut through black to two black holes circling on a wide
   // sheet, their waves running out over it. The ball goes with the black, the pair comes with its rings, and
   // the waves come up over a second and a half rather than at once
-  at(start + heard('small', 'anything', 0.6) - 0.6, () => {
+  at(start + heard('small', 'space', 0.12) - 0.6, () => {
     to({ fade: 1 }, 0.35)
     set(PAIR)
     show('ring')
@@ -199,6 +199,10 @@ shot('small', () => {
   })
   at(ripple - 0.2, () => {
     caption('a *{ripple} of space', start + spoken + 0.6 - now(), { at: [0.5, 0.16], size: 0.045, font: 'unbounded', accent: GRID, fade: 0.4, plate: 0.55 })
+  })
+  // The ripples are general relativity's own: Einstein predicted them, long before anyone caught one
+  at(start + heard('small', 'einstein', 0.62), () => {
+    caption('predicted by Einstein · 1916', start + spoken + 0.6 - now(), { at: [0.5, 0.245], size: 0.032, font: 'noto', color: INK, fade: 0.4, plate: 0.5 })
   })
   wait(spoken + 0.6)
 })

@@ -7,7 +7,7 @@ const LINES = {
   lives: 'Imagine a creature that lives in this sheet. It is completely flat. It can move along X, and along Y, and that is all.',
   blind: 'It cannot see the well. It cannot even imagine down. It just notices something odd: everything it drops slides toward the same spot.',
   word: 'So it invents a word for that. It calls it gravity.',
-  us: 'Here is the uncomfortable part. We might be that creature. Our sheet just has three dimensions instead of two.',
+  us: 'Now the same story, one step up. We might be that creature. Our sheet just has three dimensions instead of two.',
   chair: 'And the well we cannot see would drop into a fourth. You cannot point at it. But you can feel it, right now, pressing you into your chair.'
 }
 
@@ -223,7 +223,7 @@ shot('us', () => {
   const spoken = say('us')
   status('idea', spoken + 0.6)
   // The question stays long enough to be read, past the turn into 3D; the new space is named after it
-  const asked = start + heard('us', 'creature', 0.42) - 0.3
+  const asked = start + heard('us', 'creature', 0.5) - 0.3
   const named = Math.max(asked + 2.6, flatEnd + 0.8)
   at(asked, () => {
     caption('we = the creature?', named - 0.3 - now(), { at: [0.5, 0.12], size: 0.034, font: 'unbounded', color: INK, fade: 0.4 })

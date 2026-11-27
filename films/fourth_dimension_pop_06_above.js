@@ -7,7 +7,7 @@ const LINES = {
   flyup: "Let's test that picture. Fly up above the sheet, and look straight down.",
   flat: 'The dent disappears. From up here, the sheet looks perfectly flat.',
   rings: 'But the depth is not gone. Paint a ring at every step down the well. From above, the rings crowd together toward the middle.',
-  same: 'Recognise it? A circle inside a circle, with W running between them. It is the cube inside the cube, one dimension lower.',
+  same: 'Recognise it? A circle inside a circle, with W running between them. It is the lamp and the wall again: a direction the sheet cannot show turns into in and out.',
   points: 'So if you live in the sheet, the depth of the well does not point down. It points inward.'
 }
 
@@ -159,29 +159,7 @@ const onTop = (radius, angle) => {
   return { hole: [part(x), part(y)] }
 }
 
-// The hypercube as a small drawing: a cube inside a cube, the fourth edges red
 const ASPECT = 9 / 16
-const drawing = (centre, size) => ([x, y, z]) => {
-  const across = x * Math.cos(0.52) + z * Math.sin(0.52)
-  const away = z * Math.cos(0.52) - x * Math.sin(0.52)
-  const up = y * Math.cos(0.34) + away * Math.sin(0.34)
-  return [+(centre[0] + size * across * ASPECT).toFixed(5), +(centre[1] - size * up).toFixed(5)]
-}
-function hypercube (centre, size, seconds) {
-  const place = drawing(centre, size)
-  const inner = 0.42
-  for (let index = 0; index < 8; index++) {
-    const from = [index & 1, (index >> 1) & 1, (index >> 2) & 1].map(value => value - 0.5)
-    for (let way = 0; way < 3; way++) {
-      if (from[way] > 0) continue
-      const to = from.map((value, each) => each === way ? 0.5 : value)
-      for (const scale of [1, inner]) {
-        draw({ kind: 'line', points: [place(from.map(value => value * scale)), place(to.map(value => value * scale))], color: [X, Y, Z][way], width: 0.003, draw: 0.8, fade: 0.4 }, seconds)
-      }
-    }
-    draw({ kind: 'line', points: [place(from), place(from.map(value => value * inner))], color: W, width: 0.0045, draw: 0.8, fade: 0.4 }, seconds)
-  }
-}
 
 const RISE = 4
 // Two steps of the well that the circles pick out, far enough apart that W between them reads as an arrow
@@ -271,15 +249,31 @@ shot('same', () => {
     const [x] = above(-(R_OUT + R_IN) / 2, 0)
     caption('W', end - now(), { at: { hole: [part(x), 0.9] }, size: 0.05, font: 'unbounded', color: W, fade: 0.4, plate: 0.5 })
   })
-  // "The cube inside the cube": the rhyme, drawn small beside the picture on a dark card of its own, so the
-  // spokes do not run through it
-  at(start + heard('same', 'cube', 0.75), () => {
-    draw({ kind: 'rect', center: [0.86, 0.5], size: [0.42, 0.68], round: 0.012, color: '#46525a', width: 0.0012, fill: '#05070a', fillOpacity: 0.82, fade: 0.4 }, end - now())
-    hypercube([0.86, 0.33], 0.2, end - now())
-    draw({ kind: 'circle', center: [0.86, 0.6], radius: 0.06, color: INK, width: 0.003, draw: 0.6, fade: 0.4 }, end - now())
-    draw({ kind: 'circle', center: [0.86, 0.6], radius: 0.025, color: INK, width: 0.003, draw: 0.6, fade: 0.4 }, end - now())
-    draw({ kind: 'line', points: [[0.86 - 0.06 * ASPECT, 0.6], [0.86 - 0.025 * ASPECT, 0.6]], color: W, width: 0.0045, draw: 0.5, fade: 0.4 }, end - now())
-    caption('the same trick,\none dimension lower', end - now(), { at: [0.86, 0.75], size: 0.03, font: 'noto', color: SOFT, fade: 0.4 })
+  // "The lamp and the wall again": chapter 03's rhyme, drawn small beside the picture on a dark card of its
+  // own, so the spokes do not run through it. Above, the lamp, the ball and the wall seen edge on, W the way
+  // toward the lamp; below, the shadow as the wall shows it, small and grown, W the way between the two
+  at(start + heard('same', 'lamp', 0.62), () => {
+    const life = end - now()
+    const x = dx => +(0.86 + dx * ASPECT).toFixed(5)
+    draw({ kind: 'rect', center: [0.86, 0.5], size: [0.42, 0.68], round: 0.012, color: '#46525a', width: 0.0012, fill: '#05070a', fillOpacity: 0.82, fade: 0.4 }, life)
+    // Light from a point: the shadow is the ball scaled by how much nearer the lamp the ball is
+    const lampAt = -0.15
+    const ballAt = -0.03
+    const wallAt = 0.13
+    const ball = 0.026
+    const shade = ball * (wallAt - lampAt) / (ballAt - lampAt)
+    for (const side of [-1, 1]) {
+      draw({ kind: 'line', points: [[x(lampAt), 0.33], [x(wallAt), part(0.33 + side * shade)]], color: GOLD, width: 0.0016, draw: 0.6, fade: 0.4 }, life)
+    }
+    draw({ kind: 'line', points: [[x(wallAt), 0.2], [x(wallAt), 0.46]], color: SOFT, width: 0.004, fade: 0.4 }, life)
+    draw({ kind: 'line', points: [[x(wallAt), part(0.33 - shade)], [x(wallAt), part(0.33 + shade)]], color: '#05070a', width: 0.006, fade: 0.4 }, life)
+    draw({ kind: 'circle', center: [x(lampAt), 0.33], radius: 0.012, fill: GOLD, color: GOLD, width: 0, fade: 0.4 }, life)
+    draw({ kind: 'circle', center: [x(ballAt), 0.33], radius: ball, fill: INK, color: INK, width: 0, fade: 0.4 }, life)
+    draw({ kind: 'line', points: [[x(ballAt - 0.035), 0.4], [x(lampAt + 0.025), 0.4]], arrow: 'end', color: W, width: 0.0035, draw: 0.5, fade: 0.4 }, life)
+    draw({ kind: 'circle', center: [0.86, 0.6], radius: 0.06, color: INK, width: 0.003, draw: 0.6, fade: 0.4 }, life)
+    draw({ kind: 'circle', center: [0.86, 0.6], radius: 0.025, color: INK, width: 0.003, draw: 0.6, fade: 0.4 }, life)
+    draw({ kind: 'line', points: [[0.86 - 0.025 * ASPECT, 0.6], [0.86 - 0.06 * ASPECT, 0.6]], arrow: 'end', color: W, width: 0.0045, draw: 0.5, fade: 0.4 }, life)
+    caption('the ball\'s shadow\non the wall, again', life, { at: [0.86, 0.75], size: 0.03, font: 'noto', color: SOFT, fade: 0.4 })
   })
   wait(spoken + 0.6)
 })
