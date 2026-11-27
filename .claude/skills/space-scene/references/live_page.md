@@ -4,7 +4,8 @@
 loaded in development and on any build opened with `?agent`; `window.space.help()` lists its commands.
 
 1. Open the page with a browser tool. The `chrome-devtools` MCP server of this repository opens its own headless
-   Chrome with a fresh profile each start: `navigate_page` to `http://localhost:5173/` (the dev server, `pnpm dev`)
+   Chrome with a fresh profile each start: `navigate_page` to `http://localhost:5173/` (the dev server, `pnpm dev`; it opens with the opening already
+   over, and `?intro` in the address plays it)
    or to `https://space.xn--c6t.net/?agent`.
 2. `evaluate_script` with `() => window.space.set({ blackHoleSize: 12 })`, and the same way for every
    command `help()` lists. `set` and `intro.set` check every value, move it onto its slider's step and
