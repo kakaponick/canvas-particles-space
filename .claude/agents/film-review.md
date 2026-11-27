@@ -1,6 +1,6 @@
 ---
 name: film-review
-description: Quality gate of a space-scene film — reads the contact sheets of review.mjs (every frame 1.5 s apart and both ends of every shot) against the clips' scripts and returns every defect a viewer would see, ranked, with the reel's second and the fix. Pass the manifest's path and the clip numbers to read; it never edits.
+description: Review of a space-scene film, run when the operator asks for one — reads the contact sheets of review.mjs (every frame 1.5 s apart and both ends of every shot) against the clips' scripts and returns every defect a viewer would see, ranked, with the reel's second and the fix. Pass the manifest's path and the clip numbers to read; it never edits.
 tools: Read, Glob, Grep
 ---
 

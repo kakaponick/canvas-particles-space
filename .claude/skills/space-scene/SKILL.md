@@ -124,7 +124,8 @@ object; anything longer is a script that plays it forward. Several films joined 
    words, or a shape's stroke through words, measured on the frames it drew). `space_check` reads the timeline without drawing:
    for a script's JSON, or a film too long to draw yet.
 5. `space_render` writes the mp4 once, at the default quality.
-6. **The review gate.** A film is not finished until reviewers who did not make it have looked at all of it:
+6. **A review, on the operator's word.** The film is reported after the render; reviewers who did not make
+   it look at all of it only when the operator asks for a review:
    - `node .claude/skills/space-scene/scripts/review.mjs sheets <film or reel>` draws the whole film as
      contact sheets (a frame every 1.5 s and both ends of every shot) into
      `.claude/skills/space-scene-workspace/review/<film>/`, with `manifest.json` naming each frame's second
@@ -134,9 +135,6 @@ object; anything longer is a script that plays it forward. Several films joined 
    - Fix every blocker and major, draw the sheets of the changed clips again (`--clips`) and have them read
      again, then draw the whole film once more and record the verdict:
      `review.mjs verdict <film> pass "<what was found and fixed>"`.
-   - The Stop hook `.claude/hooks/review_gate.mjs` sends back an answer while a film rendered into `films/` in
-     the last hours has no passing verdict for its scripts as they are. Render after the verdict, or review
-     the render: the hook holds a render newer than its verdict too.
 
 Without the `space_*` tools the same commands run from anywhere in the repository:
 
@@ -164,7 +162,7 @@ old scene and reject keys the code already has. Films, scripts and docs are read
 | Several films joined into one video (a reel) | [references/reels.md](references/reels.md) |
 | A film above 60 fps | [references/high_frame_rates.md](references/high_frame_rates.md) |
 | A film's narration: voices, Drama 3 on Runpod, the tag before each line, mixing | the `film-voice` skill |
-| Whether a film is good enough to report | step 6 above, the `film-review` agent |
+| A review of a whole film, when the operator asks for one | step 6 above, the `film-review` agent |
 | Where the scene, its tools and its instructions already fought an agent, and what avoids it; where to log a new friction | [references/friction.md](references/friction.md) |
 | The live page: `window.space` in a browser, screenshots, the user's own Chrome | [references/live_page.md](references/live_page.md) |
 | A Mandelbrot (fractal) zoom: its own renderer, format and targets | `space_fractal_guide` (or `space.mjs fractal-guide`) |
@@ -173,6 +171,6 @@ old scene and reject keys the code already has. Films, scripts and docs are read
 ## What to report
 
 What was set, and where the result is: the screenshot, the film's json and mp4 as paths, and for a YouTube
-film its poster's jpg with its words. For a film, the review gate's verdict and what its reviewers found. Repeat anything the scene adjusted, name what was not looked at, and
+film its poster's jpg with its words. For a film the operator had reviewed, the verdict and what its reviewers found. Repeat anything the scene adjusted, name what was not looked at, and
 name every gate that had to be opened: the next request will need it. After a code change, name the knobs
 it added.

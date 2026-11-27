@@ -1,4 +1,4 @@
-// The review gate of a film (SKILL.md, "A film", step 6): draws the whole film as contact sheets, a frame every
+// The review of a film the operator asks for (SKILL.md, "A film", step 6): draws the whole film as contact sheets, a frame every
 // `--every` seconds and at both ends of every shot, and writes what a reviewer needs beside them: for each sheet
 // its clip, the film's own seconds and the reel's, the shots, lines and captions in it, and the shapes drawn on
 // the frame rather than on the scene, which are the first suspects. The film-review agent (.claude/agents/
@@ -8,8 +8,7 @@
 //   node .claude/skills/space-scene/scripts/review.mjs status [film]
 // Sheets go to .claude/skills/space-scene-workspace/review/<film>/ (out of git), the manifest to manifest.json
 // there. `verdict` records the reviewers' verdict for the film as it is now (verdict.json, with the time and the
-// hash of every clip's script and the reel); the Stop hook .claude/hooks/review_gate.mjs holds an answer back
-// while a rendered mp4 of the film is newer than a passing verdict, or the scripts changed since.
+// hash of every clip's script and the reel), which `status` reads.
 import crypto from 'node:crypto'
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
@@ -133,17 +132,6 @@ function verdict (file, result, line) {
   if (made.fingerprint !== now) throw new Error(`the sheets were drawn from other scripts than ${file} has now: draw them again`)
   fs.writeFileSync(path.join(out, 'verdict.json'), JSON.stringify({ film: file, result, line, at: new Date().toISOString(), fingerprint: now }, null, 2) + '\n')
   console.log(`${file}: ${result}, ${line}`)
-}
-
-// Whether a film's verdict passes and still holds: null when it does, the reason otherwise
-export function holdsBack (file) {
-  const out = path.join(REVIEW_ROOT, nameOf(file))
-  const verdictFile = path.join(out, 'verdict.json')
-  if (!fs.existsSync(verdictFile)) return 'it has no review verdict'
-  const told = JSON.parse(fs.readFileSync(verdictFile, 'utf8'))
-  if (told.result !== 'pass') return `its review failed: ${told.line}`
-  if (told.fingerprint !== fingerprint(file)) return 'its scripts changed after the review passed'
-  return null
 }
 
 function status (only) {
