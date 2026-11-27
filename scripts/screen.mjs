@@ -114,7 +114,7 @@ async function devServer () {
   const taken = new Set(Object.values(state.servers).map(server => server.port))
   const port = await freePort(taken)
   const vite = path.join(root, 'node_modules', 'vite', 'bin', 'vite.js')
-  if (!fs.existsSync(vite)) throw new Error(`No ${vite}: link this worktree's node_modules to the main checkout's first (CLAUDE.md)`)
+  if (!fs.existsSync(vite)) throw new Error(`No ${vite}: run pnpm install --offline --frozen-lockfile in this worktree first (CLAUDE.md, "Working here")`)
   const child = spawn(process.execPath, [vite, '--port', String(port), '--strictPort', '--host', '127.0.0.1'], { cwd: root, detached: true, stdio: 'ignore', windowsHide: true })
   child.unref()
   if (!(await waitFor(port, 30))) throw new Error(`The dev server of ${root} did not come up on port ${port}`)
