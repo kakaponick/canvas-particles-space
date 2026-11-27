@@ -362,7 +362,8 @@ async function films (builds, files) {
 
 const here = { label: 'this checkout', dist: path.join(root, 'dist') }
 if (command === 'page' || command === 'films') {
-  const release = await takeTurn(`bench.mjs ${command}`)
+  // A measurement has the machine alone: no film is drawn beside it and no browser started
+  const release = await takeTurn(`bench.mjs ${command}`, undefined, { alone: true })
   let base = null
   try {
     base = against ? checkout(against) : null

@@ -141,8 +141,10 @@ and lays it under the picture from the first second.
 - A preview plays the film from its start to the last second asked for and encodes nothing, about a
   second and a half for 40 seconds of film, so look often. The answer of a render names the encoder that
   made the file.
-- The script starts a browser of its own, about three seconds a call, and several jobs on one line share
-  it: five checks one call each took 16 s, the same five on one line 3 s. So a set of films goes through
+- The script starts a browser of its own, about a second a call, and several jobs on one line share
+  it: five checks one call each took 6 s, the same five on one line 1.2 s. A call that draws stands in a
+  queue with the other agents' drawings and measurements, and says so when the wait begins (`waiting for
+  ...`) and when it ends (`the turn came after ...`): read a call's output whole. So a set of films goes through
   each step in one call: `check a.js b.js c.js`, `preview a.js a.jpg - b.js b.jpg -`, `render a.js a.mp4
   high b.js b.mp4 high`. After a fix, preview again only the films that changed, at the seconds that
   changed.

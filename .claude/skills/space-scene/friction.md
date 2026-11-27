@@ -21,11 +21,6 @@ when an agent writes one; the change that fixes the instruction deletes it. An e
 - Missing: "One line holds one command word and its groups of arguments repeated; two commands, or two stills, are two calls."
 
 ## 27.11.2026 09:55 МСК twelve agents, one chapter each of films/fourth_dimension_pop.json
-- Instruction: `CLAUDE.md`, "Checks take turns across the machine": "a preview's output is read unfiltered, so its `waiting for ...` is seen".
-- Cost: no agent saw the line though calls stood up to 222 s before their turn, and three took a 2 to 4 minute call for a hang or could not say why it was long. space.mjs gives no progress token, so the server's `waiting` text (`report?.` in `mcp/space_mcp.mjs`) goes nowhere.
-- Missing: the line itself on space.mjs's output, or the sentence "through space.mjs a wait prints nothing: a call that is slow is waiting for its turn".
-
-## 27.11.2026 09:55 МСК twelve agents, one chapter each of films/fourth_dimension_pop.json
 - Instruction: `describe` of `blackHoleSize`: "0 = none".
 - Cost: "gravity before there is a hole" was set as size 0 and nothing fell: one preview, then a hole of size 1 with its lens and ring off.
 - Missing: "The pull and its reach are in black hole radii, so at size 0 there is no gravity either."

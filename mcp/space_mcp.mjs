@@ -8,7 +8,9 @@
 // file only carries text in and files out.
 // No dependencies: the protocol is JSON-RPC lines on stdio, the browser is driven over its DevTools socket.
 // A preview or a render waits its turn with the measurements of scripts/bench.mjs (scripts/turn.mjs), so a
-// film is never drawn while a build is being measured on this machine.
+// film is never drawn while a build is being measured on this machine. The turn is held for the drawing
+// alone: the browser is started and the page loaded before it is taken, and the shaders a browser compiled
+// are kept for the next one (layShaders), so a call draws a second or two after it is made.
 //
 //   node mcp/space_mcp.mjs          after `pnpm build`; .mcp.json starts it for Claude Code
 //   SPACE_DIST=path                 another build of the page
@@ -29,7 +31,7 @@ import readline from 'node:readline'
 import { spawn, spawnSync } from 'node:child_process'
 import { Buffer } from 'node:buffer'
 import { fileURLToPath } from 'node:url'
-import { takeTurn } from '../scripts/turn.mjs'
+import { getReady, takeTurn } from '../scripts/turn.mjs'
 
 const SERVER = { name: 'space-film', version: '1.0.0' }
 const PROTOCOL_VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05']
@@ -43,6 +45,9 @@ const MIME = {
 }
 const PAGE_READY_MS = 30_000
 const PROGRESS_EVERY_MS = 1000
+// How long a browser asked to leave is given before it is killed
+const BROWSER_LEAVES_MS = 2000
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 
 const INSTRUCTIONS = 'Makes 1-180 s videos of a black-hole particle scene from a "film": one JSON object, or a short ' +
   'script that plays the film forward. The scene runs on physical laws, and every effect asked for is one of them: ' +
@@ -232,6 +237,50 @@ function findLocalEncoder () {
   return tried.status === 0 ? { electron, ffmpeg } : null
 }
 
+// ---- The shaders a browser compiled, kept for the next one ----
+// A browser on a new profile compiles the scene's shaders anew: 6.3 s of an 8 s call whose drawing takes
+// 0.8 s (RTX 3070, D3D11). What it compiled lies in its profile's GPUCache, so that folder is kept in the
+// temporary folder, one for each kind of browser, and laid into the profile of the next browser, which
+// then loads the page in half a second. The profile itself is still new for every browser: nothing else
+// of one reaches the next. A browser that compiled a program the kept folder lacks leaves another set of
+// files, and its folder takes the place of the kept one.
+const SHADERS = path.join(os.tmpdir(), 'space-film-shaders')
+
+// The names and sizes of a folder's files, by which a cache that gained a program is told from the one laid in
+function filesOf (folder) {
+  try {
+    return fs.readdirSync(folder).sort().map(name => `${name}:${fs.statSync(path.join(folder, name)).size}`).join(' ')
+  } catch {
+    return ''
+  }
+}
+
+function layShaders (kind, into) {
+  try {
+    fs.mkdirSync(path.dirname(into), { recursive: true })
+    fs.cpSync(path.join(SHADERS, kind), into, { recursive: true })
+  } catch {
+    // None kept yet, or the kept one is being replaced this moment: this browser compiles its own
+    fs.rmSync(into, { recursive: true, force: true })
+  }
+  return filesOf(into)
+}
+
+function keepShaders (kind, from, laid) {
+  const left = filesOf(from)
+  if (left === '' || left === laid) return
+  const kept = path.join(SHADERS, kind)
+  const fresh = `${kept}-${process.pid}`
+  try {
+    fs.cpSync(from, fresh, { recursive: true })
+    fs.rmSync(kept, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 })
+    fs.renameSync(fresh, kept)
+  } catch {
+    // Another server is keeping its own this moment: one of the two is enough
+    fs.rmSync(fresh, { recursive: true, force: true })
+  }
+}
+
 let studio = null
 
 async function openStudio () {
@@ -300,6 +349,10 @@ async function openStudio () {
     '--autoplay-policy=no-user-gesture-required'
   ]
   const local = findLocalEncoder()
+  // Chrome keeps a profile's caches a folder further in than Electron does
+  const kind = local ? 'electron' : 'chrome'
+  const shaders = path.join(profile, ...(local ? [] : ['Default']), 'GPUCache')
+  const laid = layShaders(kind, shaders)
   // Electron started from a program that is itself Electron run as Node would run as Node too
   const { ELECTRON_RUN_AS_NODE: _asNode, ...env } = process.env
   const chrome = local
@@ -310,13 +363,21 @@ async function openStudio () {
         '--headless=new', ...flags, '--no-first-run', '--no-default-browser-check', '--window-size=1280,720', 'about:blank'
       ], { stdio: ['ignore', 'ignore', 'pipe'] })
 
-  // The profile goes with the browser. The browser lets go of its files a moment after it is killed, so
-  // the removal retries, and it is done before this returns: the server exits right after closing, and a
-  // timer set here would never fire
-  const close = () => {
+  // The profile goes with the browser, all but the shaders it compiled. A browser that is asked to leave
+  // (`ask`) writes those down first; one that does not leave in time, or was never reached, is killed. The
+  // browser lets go of its files a moment after it is gone, so the removal retries, and all of it is done
+  // before this returns: the server exits right after closing, and a timer set here would never fire
+  const gone = new Promise(resolve => chrome.once('exit', resolve))
+  let closed = false
+  const close = async ask => {
+    if (closed) return
+    closed = true
     studio = null
+    if (ask) await Promise.race([ask().then(() => gone, () => {}), sleep(BROWSER_LEAVES_MS)])
     try { chrome.kill() } catch {}
+    await Promise.race([gone, sleep(BROWSER_LEAVES_MS)])
     server.close()
+    keepShaders(kind, shaders, laid)
     try { fs.rmSync(profile, { recursive: true, force: true, maxRetries: 20, retryDelay: 150 }) } catch {}
   }
 
@@ -357,7 +418,7 @@ async function openStudio () {
     const lost = () => {
       for (const waiting of pending.values()) waiting.reject(new Error('The browser closed'))
       pending.clear()
-      close()
+      void close()
     }
     socket.addEventListener('close', lost)
     chrome.once('exit', lost)
@@ -392,15 +453,17 @@ async function openStudio () {
     // The page's own scene is not watched by anyone: it rests, so the machine draws only films
     await evaluate('window.space.pause()')
 
-    studio = { origin, uploads, downloads, evaluate, close, local: local !== null }
+    studio = { origin, uploads, downloads, evaluate, close: () => close(() => send('Browser.close')), local: local !== null }
     return studio
   } catch (error) {
-    close()
+    await close()
     throw error
   }
 }
 
-const getStudio = async () => studio ?? openStudio()
+// The browser with the page loaded in it. It is started while others draw, though not beside a measurement
+// (getReady in scripts/turn.mjs), and a wait for one is told to `say`
+const getStudio = async say => studio ?? getReady(openStudio, say)
 const inPage = (call, ...args) => `window.space.${call}(${args.map(arg => JSON.stringify(arg ?? null)).join(', ')})`
 
 // ---- Tools ----
@@ -851,10 +914,15 @@ async function handle (message) {
       ? null
       : (progress, total, text) => write({ jsonrpc: '2.0', method: 'notifications/progress', params: { progressToken, progress, total, message: text } })
     queue = queue.then(async () => {
-      // The tools that draw take the machine's turn; the ones that only read the page answer at once
-      const draws = DRAWS.test(params?.name ?? '')
-      const release = draws ? await takeTurn(params.name, waiting => report?.(0, 1, waiting)) : null
+      // A wait is told to a client that follows the call's progress, and on the terminal of one that does
+      // not (space.mjs), so a call that stands in the queue never looks like one that hangs
+      const say = text => report ? report(0, 1, text) : console.error(text)
+      let release = null
       try {
+        // The browser is at hand before the turn is taken, so the turn is held for the drawing alone. The
+        // tools that draw take the machine's turn; the ones that only read the page answer at once
+        await getStudio(say)
+        if (DRAWS.test(params?.name ?? '')) release = await takeTurn(params.name, say)
         reply(await runTool(params?.name, params?.arguments ?? {}, report))
       } catch (error) {
         reply({ content: [{ type: 'text', text: error instanceof Error ? error.message : String(error) }], isError: true })
@@ -879,11 +947,11 @@ lines.on('line', line => {
   void handle(message)
 })
 
-const shutdown = () => {
-  studio?.close()
+const shutdown = async () => {
+  await studio?.close()
   process.exit(0)
 }
 // The client closing its end is the signal to leave, once the calls already taken are answered
 lines.on('close', () => { void queue.then(shutdown) })
-process.on('SIGINT', shutdown)
-process.on('SIGTERM', shutdown)
+process.on('SIGINT', () => { void shutdown() })
+process.on('SIGTERM', () => { void shutdown() })
