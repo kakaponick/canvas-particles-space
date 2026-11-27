@@ -158,6 +158,15 @@ the friction cannot happen any more.
 - Now: a change to a clip's timing moves the marks; mix again (`node films/<film>_voice.mjs mix [voice]`,
   seconds, no machine) before rendering. The `film-voice` skill has the rest.
 
+### A re-voiced line broke a shot that checked clean before (2026-11-27)
+- Wanted / got: a new take of the ruler line; got "two moves of one value cannot overlap" at the mix.
+- Cause: `to()` moves time as `wait()` does, so three `to()`s in one `at()` run one after another and the
+  last ended 6.3 s into the shot; a later move keyed to a spoken word met it once the word came sooner.
+- Now: values that move together go in one `to()`; a move keyed to a word starts no sooner than the end of
+  the moves before it (`Math.max(word, start + their seconds)`). Check every voice's lines file after a
+  re-voice, not only the one you work with.
+- Where: shot "ruler" of `films/fourth_dimension_pop_10_test.js`.
+
 ## The machine and the tools
 
 ### Text with backslashes or CRLF edited through the shell (2026-11-27)

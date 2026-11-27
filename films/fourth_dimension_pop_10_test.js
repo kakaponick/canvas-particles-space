@@ -316,16 +316,16 @@ shot('ruler', () => {
   // The camera flies down to the sheet beside the Earth's well, and back as the shot ends
   at(start, () => {
     to({ gravityStrength: 3 }, 1.5)
-    to({ cameraMoveIn: 15, cameraPitch: -42, cameraLookPitch: 8 }, 2.4, 'ease')
-    // and the falling space dims, so the ruler and the rings it is read by stand out
-    to({ flowA: 0.6 }, 2.4)
+    // and the falling space dims as it goes, so the ruler and the rings it is read by stand out
+    to({ cameraMoveIn: 15, cameraPitch: -42, cameraLookPitch: 8, flowA: 0.6 }, 2.4, 'ease')
   })
   at(start + life - 1.6, () => { to({ cameraMoveIn: 0, cameraPitch: -62, cameraLookPitch: 0 }, 1.6, 'ease'); to({ flowA: 1.6, gridSheet: 0.8 }, 1.6) })
   const gone = start + life - 1.4
   const rulerFrom = start + heard('ruler', 'rulers', 0.4) - 2.6
   const squeezeFrom = start + heard('ruler', 'squeezed', 0.55)
-  // The ruler leaves the sheet for the frame after the squeeze is named, and lies there straight
-  const liftFrom = squeezeFrom + 1.4
+  // The ruler leaves the sheet for the frame after the squeeze is named and the flight down has ended, and lies
+  // there straight
+  const liftFrom = Math.max(squeezeFrom + 1.4, start + 3.95)
   const LIFT = 1.6
   const lift = [[liftFrom, 0], [liftFrom + LIFT, 1]]
   // The sheet and the falling space step back as the ruler lifts off, so the straight ruler reads on the dark
