@@ -2,7 +2,7 @@
 // The narration sets the pace: LINES is what is said, say() marks where a line starts, and until a voice has
 // spoken the lines each takes what its words would (input.lines and input.cues bring a voice's own seconds).
 //   node .claude/skills/space-scene/scripts/space.mjs preview films/fourth_dimension_pop_10_more.js out.jpg -
-/* global film, set, to, wait, shot, caption, draw, mark, now, at, meanwhile, input, hide */
+/* global film, set, to, wait, shot, caption, draw, mark, now, at, meanwhile, input, hide, random, pick */
 const LINES = {
   others: 'If W is real, a few other puzzles would read differently.',
   noodle: 'Fall into a black hole feet first, and your feet are pulled harder than your head. You are stretched thin. Physicists call it spaghettification.',
@@ -316,9 +316,69 @@ const PAIR = [2, 4]
 const SPECK = 1
 const SCALE = 8 / SPECK
 
+// A galaxy is drawn as its stars, points of light lying flat on the sheet (an oval with a shaded fill read as a
+// cheap sticker, the operator's note): most are spirals, a few round ellipticals. A spiral has two arms, each a
+// logarithmic spiral (pitch 17 degrees, as the Milky Way's arms) with its stars scattered about it, thinning and
+// dimming outward, round a dense warm core; an elliptical is a warm ball of stars thinning as a Gaussian. The
+// stars stand off the galaxy's place by `shift`, in the speck's radii, the disc turned in its own plane and
+// foreshortened by the sheet's tilt; every star rides the galaxy's place as space grows and keeps its offset,
+// as a bound galaxy does. Their scatter is the film's seeded chance, so the same film draws the same galaxies
+const GALAXY_RADIUS = 1.1 * SCALE
+const ELLIPTICAL = new Set([2, 6, 10])
+const ARM_STAR = ['#cfdcff', '#e4ecff', '#ffffff', '#bcd0ff']
+const CORE_STAR = ['#ffe9c4', '#fff3dc', '#ffdca8']
+const galaxyOf = index => {
+  const stars = []
+  const turn = random(0, 2 * Math.PI)
+  const flatten = Math.cos(FLAT_TILT * Math.PI / 180)
+  const size = GALAXY_RADIUS * random(0.75, 1.15)
+  const place = (along, across) => {
+    const a = along * Math.cos(turn) - across * Math.sin(turn)
+    const b = along * Math.sin(turn) + across * Math.cos(turn)
+    return [part(a * size), part(b * size * flatten)]
+  }
+  // The unresolved light: five nested faint ovals, so it falls off with no edge; a circle lying on the tipped
+  // sheet is a level oval whatever the galaxy's own turn
+  const halo = (reach, color, light) => {
+    for (const share of [0.3, 0.48, 0.65, 0.82, 1]) stars.push({ at: [0, 0], size: part(size * reach * share), sizeY: part(size * reach * share * flatten), color, light, glow: 0 })
+  }
+  // gauss: the sum of three draws, about -1 to 1
+  const gauss = () => (random() + random() + random() - 1.5) / 1.5
+  if (ELLIPTICAL.has(index)) {
+    halo(0.5, '#ffe2b0', 0.035)
+    for (let count = 0; count < 160; count++) {
+      const r = Math.abs(gauss()) * 0.6
+      const angle = random(0, 2 * Math.PI)
+      stars.push({ at: place(r * Math.cos(angle), r * Math.sin(angle) * 0.8), size: part(random(0.06, 0.15)), color: pick(CORE_STAR), light: part(Math.max(0.2, 0.95 - r * 1.1)), glow: 0 })
+    }
+    stars.push({ at: [0, 0], size: part(size * 0.08), color: '#fff0d0', light: 0.7, glow: 0.008 })
+    return stars
+  }
+  const pitch = Math.tan(17 * Math.PI / 180)
+  // the disc's own unresolved light, faint and flattened with it
+  halo(0.8, '#b8ccff', 0.028)
+  for (let arm = 0; arm < 2; arm++) {
+    for (let count = 0; count < 120; count++) {
+      // how far round the arm, its radius growing as e^(pitch t) from a tenth of the galaxy to its edge
+      const t = random() ** 0.8 * Math.log(10) / pitch
+      const r = 0.1 * Math.exp(pitch * t)
+      const angle = t + arm * Math.PI + gauss() * 0.25
+      const spread = 1 + gauss() * 0.12
+      stars.push({ at: place(r * spread * Math.cos(angle), r * spread * Math.sin(angle)), size: part(random(0.05, 0.14)), color: pick(ARM_STAR), light: part(Math.max(0.2, 0.95 - r * 0.7) * random(0.5, 1)), glow: 0 })
+    }
+  }
+  for (let count = 0; count < 50; count++) {
+    const r = Math.abs(gauss()) * 0.16
+    const angle = random(0, 2 * Math.PI)
+    stars.push({ at: place(r * Math.cos(angle), r * Math.sin(angle)), size: part(random(0.06, 0.14)), color: pick(CORE_STAR), light: 0.9, glow: 0 })
+  }
+  stars.push({ at: [0, 0], size: part(size * 0.06), color: '#fff0d0', light: 0.8, glow: 0.01 })
+  return stars
+}
+
 const grow = []
 dip(() => {
-  set({ flowA: 0, gridRings: 0, gridDepth: 0, gridTilt: FLAT_TILT, blackHoleY: 0.5, blackHoleSize: SPECK, gridCell: CELL, gridSheet: 0.6, gridSpan: 1.6, gridFade: 0.4 })
+  set({ flowA: 0, gridRings: 0, gridDepth: 0, gridTilt: FLAT_TILT, blackHoleY: 0.5, blackHoleSize: SPECK, gridCell: CELL, gridSheet: 0.45, gridSpan: 1.6, gridFade: 0.4 })
   hide('ring')
 })
 
@@ -336,12 +396,12 @@ shot('grows', () => {
     gx: grow.map(([second, share, ease]) => ease ? [second, part(x * SCALE * share), ease] : [second, part(x * SCALE * share)]),
     gy: grow.map(([second, share, ease]) => ease ? [second, part(y * SCALE * share), ease] : [second, part(y * SCALE * share)])
   })
-  const shrink = Math.cos(FLAT_TILT * Math.PI / 180)
   GALAXIES.forEach(([x, y], index) => {
-    const warm = index % 3 === 1
-    const placed = { sheet: ['gx', 'gy'] }
     const values = grown(x, y)
-    draw({ kind: 'circle', center: placed, radius: part(0.42 * SCALE), radiusY: part(0.42 * SCALE * shrink), turn: (index * 37) % 50 - 25, fill: warm ? '#ffe3b8' : '#dce8ff', fillTo: '#0b1020', fillAt: [0, 0], color: warm ? '#ffe3b8' : '#dce8ff', width: 0, glow: 0.012, fade: 0.5, values }, over)
+    for (const star of galaxyOf(index)) {
+      const oval = star.sizeY ? { radiusY: star.sizeY } : {}
+      draw({ kind: 'circle', center: { sheet: ['gx', 'gy'], shift: star.at }, radius: star.size, ...oval, fill: star.color, color: star.color, width: 0, opacity: star.light, glow: star.glow, fade: 0.5, values }, over)
+    }
   })
   // Two of them with the way between them, its length as space grows; gone before the next line's drawing
   at(start + heard('grows', 'between', 0.25), () => {

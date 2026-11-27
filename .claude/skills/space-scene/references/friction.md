@@ -20,6 +20,16 @@ Once the missing piece exists (a knob, a fix in code, a sentence in `knobs.md`, 
 
 ## Telling the film
 
+### Galaxies drawn as shaded ovals (2026-11-27)
+- Wanted / got: galaxies drifting apart on a growing sheet; ovals with a fill shaded to dark at the edge read
+  as cheap stickers (the operator's note).
+- Now: draw a galaxy as its stars: two logarithmic arms of scattered points round a dense warm core (round
+  ellipticals as a Gaussian ball), each point a circle at the galaxy's place with `shift`, so all ride one
+  pair of values; the unresolved light as five nested faint level ovals, never one shaded fill. A circle lying
+  on the tipped sheet is a level oval whatever the galaxy's own turn. Still missing: a scene object for a
+  galaxy, so the film need not draw some 300 shapes for each.
+- Where: `galaxyOf` in `films/fourth_dimension_pop_10_more.js`.
+
 ### A galaxy laid on a black hole's well (2026-11-27)
 - Wanted / got: a spinning galaxy on the sheet; got the operator's "what are these crooked settings?": the
   disc a solid record at 9000 particles, its core a lit ball at the bottom of a narrow throat, hanging under
