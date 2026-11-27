@@ -59,27 +59,16 @@ film({
     threeDEase: 0,
     cameraYaw: 10,
     cameraPitch: 8,
-    numParticles: 30000,
+    numParticles: 12000,
     baseSpeed: 0.7,
-    trailIntensity: 0.1,
-    baseBrightness: 0.8,
-    nebula: 1,
-    nebulaScale: 900,
-    nebulaSparseness: 0.35,
-    nebulaEdge: 0.5,
-    nebulaContrast: 0.3,
-    nebulaGrain: 0.1,
-    nebulaWarp: 1.5,
-    nebulaColor: '#4a22b0',
-    nebulaColorDeep: '#0f7a9a',
-    nebulaColorCore: '#ff7ab8',
-    nebulaCore: 0.5,
+    trailIntensity: 0.25,
+    baseBrightness: 0.6,
+    // Stars on black, no nebula: its violet and pink read as stock space, and its dust muddied the frame
     starsBrightness: 1.4,
     starDensity: 0.2,
     colorPalette: [
-      { r: 120, g: 200, b: 255, enabled: true, percent: 45 },
-      { r: 190, g: 140, b: 255, enabled: true, percent: 35 },
-      { r: 255, g: 210, b: 150, enabled: true, percent: 20 }
+      { r: 225, g: 236, b: 255, enabled: true, percent: 70 },
+      { r: 150, g: 200, b: 255, enabled: true, percent: 30 }
     ]
   }
 })

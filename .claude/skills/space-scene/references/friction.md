@@ -86,6 +86,17 @@ the friction cannot happen any more.
 
 ## Particles
 
+### A violet nebula and lilac particles in every clip (2026-11-27)
+- Wanted / got: a sky that serves the film; got nebula `#6a2cc0` with a pink core `#ff7ab8` in ten films and a
+  third of the particles lilac. The operator: "violet and lilac are AI slop's favourite colours", and the
+  nebula's dust muddied the Earth's frames.
+- Cause: the scene's nebula is off by default and its default colours are teal and blue; agents picked violet
+  themselves and the block travelled from clip to clip.
+- Now: films.md section 1 says where colours come from and starts the sky at stars on black. The pop film's
+  clips 1, 2, 3 and 12 dropped the nebula; clips 2 and 3 keep their field white and pale blue, 12000
+  particles with shorter trails, so the axes and figures read over it.
+- Where: films.md section 1; `films/fourth_dimension_pop_02_ladder.js`.
+
 ### One recipe's particle count copied into every clip (2026-11-27)
 - Wanted / got: a count fitted to each shot; got `numParticles` 20000 with the same size, brightness and
   opacity in four clips of the pop film framed differently, and 10000 with `flowACount` 9000 in two more.

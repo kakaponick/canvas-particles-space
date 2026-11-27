@@ -33,6 +33,13 @@ watch twice; give each moment one thing that moves.
 The particles are in every one of those pictures, and they are its vectors. So each shot says what they
 do, and a shot with a sheet lays them on it: section 16.
 
+The colours come from the subject: the film's own marks (its axes, its measured gold, its W) and what is
+really there (starlight is white with a little blue; a real nebula glows hydrogen red and oxygen teal over
+brown dust). The sky starts as stars on black, `nebula` 0 as the scene leaves it, and a nebula or a tinted
+`colorPalette` comes in only when a shot needs it, in colours the subject gives. Violet, lilac and pink, the
+stock look of "space", read as generated and are sent back: `films/fourth_dimension_pop_02_ladder.js` keeps
+its field in white and pale blue so its coloured axes carry the picture.
+
 A film made for YouTube starts one step earlier, with its poster: section 17.
 
 Give every change time: a viewer needs about three seconds to take in a new picture, and a label stays as
