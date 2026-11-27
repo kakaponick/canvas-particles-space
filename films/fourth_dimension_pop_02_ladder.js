@@ -86,13 +86,13 @@ film({
 chapter('02', 'WHAT IS A DIMENSION?')
 
 const ASPECT = 9 / 16
-const YAW = 0.52
-const PITCH = 0.34
-// A point of space on the frame, as an oblique drawing sees it: x to the right, y up, z away to the upper right
+// A point of space on the frame, as a cabinet drawing sees it: x straight to the right, y straight up, and z
+// away to the upper right at 30 degrees, shortened by half, so the square of x and y keeps its right angles
+const DEPTH = 0.5
+const SLANT = Math.PI / 6
 const flat = (centre, size) => ([x, y, z]) => {
-  const across = x * Math.cos(YAW) + z * Math.sin(YAW)
-  const away = z * Math.cos(YAW) - x * Math.sin(YAW)
-  const up = y * Math.cos(PITCH) + away * Math.sin(PITCH)
+  const across = x + DEPTH * z * Math.cos(SLANT)
+  const up = y + DEPTH * z * Math.sin(SLANT)
   return [+(centre[0] + size * across * ASPECT).toFixed(5), +(centre[1] - size * up).toFixed(5)]
 }
 const stroke = (points, color, more = {}) => ({ kind: 'line', points, color, width: 0.0045, fade: 0.4, ...more })
@@ -141,7 +141,7 @@ shot('zero', () => {
   const place = corner => ({ x: path(corner, 0), y: path(corner, 1) })
   corners.forEach(corner => {
     at(born(corner), () => {
-      draw({ kind: 'circle', center: ['x', 'y'], radius: madeBy(corner) < 0 ? 0.009 : 0.0062, fill: INK, color: INK, fade: 0.3, values: place(corner) }, end - now() - 0.4)
+      draw({ kind: 'circle', center: ['x', 'y'], radius: madeBy(corner) < 0 ? 0.009 : 0.0062, fill: INK, color: INK, fade: 0.3, values: place(corner) }, end - now() + 0.8)
     })
   })
   corners.forEach(from => {
@@ -151,15 +151,15 @@ shot('zero', () => {
       const a = place(from)
       const b = place(to)
       at(Math.max(born(from), born(to)), () => {
-        draw(stroke([['ax', 'ay'], ['bx', 'by']], COLORS[way], { fade: 0, values: { ax: a.x, ay: a.y, bx: b.x, by: b.y } }), end - now() - 0.4)
+        draw(stroke([['ax', 'ay'], ['bx', 'by']], COLORS[way], { fade: 0, values: { ax: a.x, ay: a.y, bx: b.x, by: b.y } }), end - now() + 0.8)
       })
     }
   })
-  // The count of dimensions beside the figure
+  // The count of dimensions beside the figure, gone before the fourth takes its place
   const counted = [[begin, 0], [pulls[0].at + 1.2, 1, 'hold'], [pulls[1].at + 1.2, 2, 'hold'], [pulls[2].at + 1.2, 3, 'hold']]
   const fourthAt = word('fourth', 'fourth', 0.3)
   at(pointAt, () => {
-    caption('*{#{count:0}}D', fourthAt + 0.6 - now(), { at: [0.2, 0.44], size: 0.17, font: 'unbounded', accent: INK, values: { count: counted }, fade: 0.5 })
+    caption('*{#{count:0}}D', fourthAt + 0.1 - now(), { at: [0.2, 0.44], size: 0.17, font: 'noto', accent: INK, values: { count: counted }, fade: 0.5 })
   })
   const names = [['a point', pointAt, pulls[0].at + 0.4], ['no room to move', word('zero', 'room', 0.55), pulls[0].at + 0.4],
     ['a line', pulls[0].at + 1, pulls[1].at + 0.4], ['a square', pulls[1].at + 1, pulls[2].at + 0.4], ['a cube', pulls[2].at + 1, fourthAt + 0.6]]
@@ -170,7 +170,7 @@ shot('zero', () => {
   const letters = [['X', [0.5, -0.14, 0], X, 0], ['Y', [-0.16, 0.5, 0], Y, 1], ['Z', [1.16, -0.04, 0.5], Z, 2]]
   for (const [letter, where, color, pull] of letters) {
     at(pulls[pull].at + pulls[pull].over * 0.7, () => {
-      caption(letter, end - now() - 0.4, { at: cube(where.map(part => part - 0.5)), size: 0.034, font: 'unbounded', color, fade: 0.4 })
+      caption(letter, end - now() + 0.8, { at: cube(where.map(part => part - 0.5)), size: 0.034, font: 'unbounded', color, fade: 0.4 })
     })
   }
   until(starts.one)
@@ -216,7 +216,8 @@ shot('fourth', () => {
   const middle = cube([0, 0, 0])
   const from = word('fourth', 'fourth', 0.3)
   // A fourth arrow that finds nowhere to point: it swings round the cube and settles nowhere, and the field whirls
-  at(from - 0.3, () => { to({ cameraYaw: 64, cameraPitch: -18, baseSpeed: 1.8 }, 3.5) })
+  // The camera stays inside the field as it swings, so the frame stays full of streaks
+  at(from - 0.3, () => { to({ cameraYaw: 100, cameraPitch: 20, baseSpeed: 1.8 }, 2.5) })
   const swing = s => 0.7 + 2.4 * s + 0.9 * Math.sin(2.6 * s)
   at(from, () => {
     draw(stroke([middle, ['tipX', 'tipY']], W, {
@@ -224,10 +225,11 @@ shot('fourth', () => {
       width: 0.007,
       dash: true,
       values: { tipX: s => middle[0] + 0.3 * Math.cos(swing(s)) * ASPECT, tipY: s => middle[1] - 0.3 * Math.sin(swing(s)) }
-    }), end - now() - 0.4)
-    caption('*{4D?}', end - now() - 0.4, { at: [0.2, 0.44], size: 0.17, font: 'unbounded', accent: W, fade: 0.5 })
-    caption('a *{W} direction?', end - now() - 0.4, { at: [0.6, 0.16], size: 0.046, font: 'unbounded', accent: W, fade: 0.4 })
+    }), end - now() + 0.8)
+    caption('a *{W} direction?', end - now() + 0.8, { at: [0.6, 0.16], size: 0.046, font: 'unbounded', accent: W, fade: 0.4 })
   })
+  // The fourth count lands once the third has gone from its place
+  at(from + 0.6, () => caption('*{4D?}', end - now() + 0.8, { at: [0.2, 0.44], size: 0.17, font: 'noto', accent: W, fade: 0.5 }))
   until(end)
 })
 

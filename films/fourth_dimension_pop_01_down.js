@@ -49,8 +49,9 @@ const leave = () => { to({ fade: 1 }, 0.8) }
 // ---- end of the kit ----
 
 // The Earth is NASA's photograph from Apollo 17 (films/fourth_dimension_earth.png), centred on the hole and
-// 2.62 radii wide, so its edge stands 1.31 radii out; the hole's lens and ring stay off beneath it
-const EDGE = 1.31
+// 2.62 radii wide; its disc is 0.78 of the picture's half side, so the limb stands 1.02 radii out (the ball
+// rests on it, the falls and the downs end at it). The hole's lens and ring stay off beneath it
+const EDGE = 1.03
 const hole = (x, y) => ({ hole: [x, y] })
 // A point at this distance from the middle along a direction given in degrees (0 right, 90 up)
 const out = (degrees, r) => hole(+(Math.cos(degrees * Math.PI / 180) * r).toFixed(3), +(Math.sin(degrees * Math.PI / 180) * r).toFixed(3))
@@ -71,16 +72,16 @@ film({
     // Matter falling in toward the planet from every side, gently: the field is the pull itself
     colorPalette: [{ r: 120, g: 222, b: 255, enabled: true, percent: 70 }, { r: 235, g: 246, b: 255, enabled: true, percent: 30 }],
     orbitalStrength: 0,
-    gravityInertia: 0.3,
-    gravityStrength: 3,
+    gravityInertia: 0.5,
+    gravityStrength: 15,
     gravityReach: 14,
     gravityDepth: 100,
     baseSpeed: 0,
     speedGlowKnee: 0.02,
-    trailIntensity: 0.2,
+    trailIntensity: 0.15,
     depthFade: 0,
-    minOpacity: 0.2,
-    baseBrightness: 0.5,
+    minOpacity: 0.25,
+    baseBrightness: 1.2,
     nebula: 0.6,
     nebulaScale: 700,
     nebulaSparseness: 0.4,
@@ -90,11 +91,12 @@ film({
     starDensity: 0.22
   }
 })
+// The chapter's card takes 2.8 s; the clip's shots follow it
+const END = 2.8 + ['drop', 'which', 'opposite', 'serious', 'need'].reduce((sum, name) => sum + long(name) + 0.6, 0) + 0.8
+// The Earth for the whole clip: it comes up with the picture as the card leaves, so the hole beneath it is
+// never seen bare
+at(1.6, () => draw({ kind: 'image', src: 'films/fourth_dimension_earth.png', center: hole(0, 0), width: 2.62, fade: 1.2 }, END - now()))
 chapter('01', 'WHICH WAY IS DOWN?')
-
-const END = now() + ['drop', 'which', 'opposite', 'serious', 'need'].reduce((sum, name) => sum + long(name) + 0.6, 0) + 0.8
-// The Earth for the whole clip
-draw({ kind: 'image', src: 'films/fourth_dimension_earth.png', center: hole(0, 0), width: 2.62 }, END - now())
 
 shot('drop', () => {
   const start = now()
@@ -102,12 +104,16 @@ shot('drop', () => {
   status('known', spoken)
   // The ball falls straight down the frame's vertical onto the top of the Earth, as a stone does: slow, then fast
   const fall = seconds => draw({ kind: 'circle', center: hole(0, 'y'), radius: 0.12, fill: INK, color: INK, width: 0.001, fade: 0.2, values: { y: s => +(4.2 - (4.2 - EDGE - 0.12) * Math.min(1, (s * 1.25) ** 2)).toFixed(3) } }, seconds)
-  at(start + heard('drop', 'falls', 0.15), () => {
-    fall(2.6)
-    caption('a ball', 2.2, { at: hole(1.2, 3.9), size: 0.026, font: 'unbounded', color: INK, fade: 0.3 })
+  // The first fall lands and rests a moment; the second, on "every time", starts once it has gone and rests on
+  // the Earth into the next shot, where the resting ball takes over
+  const falls = start + heard('drop', 'falls', 0.15)
+  const again = Math.max(start + heard('drop', 'every', 0.55), falls + 0.8) + 0.5
+  at(falls, () => {
+    fall(again - now())
+    caption('a ball', 1.1, { at: hole(0.75, 3.9), size: 0.026, font: 'unbounded', color: INK, fade: 0.3 })
   })
-  at(start + heard('drop', 'every', 0.55), () => {
-    fall(2.2)
+  at(again, () => {
+    fall(start + spoken + 0.6 + 0.3 - now())
     caption('every time', start + spoken + 0.6 - now(), { at: [0.72, 0.3], size: 0.03, font: 'unbounded', color: INK, fade: 0.4 })
   })
   wait(spoken + 0.6)
@@ -138,7 +144,7 @@ shot('opposite', () => {
     caption(name, left, { at: labelAt, size: 0.026, font: 'unbounded', color: INK, fade: 0.4 })
   })
   down(TOKYO, 'down in Tokyo', [0.77, 0.2], 'Tokyo', 0.18)
-  down(BUENOS, 'down in Buenos Aires', [0.23, 0.8], 'Buenos', 0.27)
+  down(BUENOS, 'down in Buenos Aires', [0.2, 0.74], 'Buenos', 0.27)
   at(start + heard('opposite', 'opposite', 0.36), () => caption('opposite ways', 2.4, { at: [0.2, 0.2], size: 0.03, font: 'noto', color: SOFT, fade: 0.4 }))
   // Toward the middle: the centre is marked, and named
   at(start + heard('opposite', 'middle', 0.93), () => {
@@ -162,7 +168,7 @@ shot('serious', () => {
     }
     draw({ kind: 'circle', center: hole(0, 0), radius: 0.16, fill: W, color: W, width: 0.002, fade: 0.3 }, left)
     caption('*{the middle} is a direction', left, { at: [0.5, 0.69], size: 0.024, font: 'unbounded', color: INK, accent: W, plate: 0.4, fade: 0.3 })
-    to({ gravityStrength: 6 }, 1.5)
+    to({ gravityStrength: 30 }, 1.5)
   })
   at(start + heard('serious', 'fourth', 0.58), () => caption('*{a fourth one: W}', start + spoken + 0.6 - now(), { at: [0.5, 0.17], size: 0.04, font: 'unbounded', color: INK, accent: W, plate: 0.4, fade: 0.3 }))
   at(start + heard('serious', 'gravity', 0.78), () => keep('Gravity is how a fourth direction *{feels}.', start + spoken + 0.6 - now()))
@@ -172,7 +178,7 @@ shot('serious', () => {
 shot('need', () => {
   const start = now()
   const spoken = say('need')
-  at(now(), () => to({ gravityStrength: 3 }, 1.5))
+  at(now(), () => to({ gravityStrength: 15 }, 1.5))
   const life = spoken + 0.6
   const ROW = 0.76
   // Three signs in a row below the Earth, each arriving at its word
@@ -198,13 +204,15 @@ shot('need', () => {
     draw({ kind: 'circle', center: [x, ROW], radius: 0.042, color: GOLD, width: 0.004, draw: 0.5, fade: 0.3 }, left)
     draw({ kind: 'circle', center: [x, ROW], radius: 0.034, fill: '#000000', color: '#000000', width: 0.001, fade: 0.3 }, left)
   })
+  // A long wire hung between two ends, sagging gently in the middle
   sign('wire', 0.95, 0.7, 'a long wire', (x, left) => {
     const points = []
-    for (let i = 0; i <= 120; i++) {
-      const t = i / 120
-      points.push([+(x - 0.06 + 0.12 * t + 0.008 * Math.cos(t * Math.PI * 12)).toFixed(4), +(ROW + 0.03 * Math.sin(t * Math.PI * 12)).toFixed(4)])
+    for (let i = 0; i <= 40; i++) {
+      const t = i / 40
+      points.push([+(x - 0.09 + 0.18 * t).toFixed(4), +(ROW - 0.02 + 0.04 * (1 - (2 * t - 1) ** 2)).toFixed(4)])
     }
     draw({ kind: 'line', points, smooth: true, color: '#aeeeff', width: 0.003, draw: 0.6, fade: 0.3 }, left)
+    for (const end of [points[0], points[40]]) draw({ kind: 'circle', center: end, radius: 0.004, fill: '#aeeeff', color: '#aeeeff', width: 0.001, fade: 0.3 }, left)
   })
   wait(life)
 })

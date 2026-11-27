@@ -85,17 +85,17 @@ film({
 chapter('03', 'WHERE DOES THE FOURTH POINT?')
 
 const ASPECT = 9 / 16
-const YAW = 0.52
-const PITCH = 0.34
-// A point of space on the frame, as an oblique drawing sees it: x to the right, y up, z away to the upper right
+// A point of space on the frame, as a cabinet drawing sees it (the one clip 2 builds the cube in): x straight
+// to the right, y straight up, and z away to the upper right at 30 degrees, shortened by half
+const DEPTH = 0.5
+const SLANT = Math.PI / 6
 const flat = (centre, size) => ([x, y, z]) => {
-  const across = x * Math.cos(YAW) + z * Math.sin(YAW)
-  const away = z * Math.cos(YAW) - x * Math.sin(YAW)
-  const up = y * Math.cos(PITCH) + away * Math.sin(PITCH)
+  const across = x + DEPTH * z * Math.cos(SLANT)
+  const up = y + DEPTH * z * Math.sin(SLANT)
   return [+(centre[0] + size * across * ASPECT).toFixed(5), +(centre[1] - size * up).toFixed(5)]
 }
 const stroke = (points, color, more = {}) => ({ kind: 'line', points, color, width: 0.0042, fade: 0.4, ...more })
-const label = (text, seconds, at, color, more = {}) => caption(text, seconds, { at, size: 0.03, font: 'unbounded', color, fade: 0.4, ...more })
+const label = (text, seconds, at, color, more = {}) => caption(text, seconds, { at, size: 0.03, font: 'unbounded', color, plate: 0.35, fade: 0.4, ...more })
 
 const cube = flat([0.58, 0.5], 0.3)
 const INNER = 0.42
@@ -114,8 +114,8 @@ const smooth = share => { const k = Math.min(1, Math.max(0, share)); return k * 
 // The copy shrinks out of the cube at "Draw a small cube"; the figure turns once through W after "dragged"
 const shrinkAt = plan.copy + heard('copy', 'Draw', 0.14)
 const joinAt = plan.copy + heard('copy', 'join', 0.46)
-const turnAt = plan.tesseract + heard('tesseract', 'dragged', 0.62) - 0.3
-const TURN = 4.6
+const turnAt = plan.tesseract + heard('tesseract', 'dragged', 0.62) - 0.5
+const TURN = 3
 const copyScale = t => 1 - (1 - INNER) * smooth((t - shrinkAt) / 1.6)
 const angleAt = t => 2 * Math.PI * smooth((t - turnAt) / TURN)
 const place = (corner, t) => {
@@ -130,20 +130,23 @@ const place = (corner, t) => {
   const scale = 1 / (1 + DEEP * (deep + 0.5))
   return cube([across * scale, (y - 0.5) * scale, (z - 0.5) * scale])
 }
-// Every edge of the figure, born when its line asks for it and drawn till the clip ends
+// Every edge of the figure, born when its line asks for it and drawn till the clip ends. The cube itself steps
+// aside while "trick" draws a cube on paper, whose far side is smaller, and comes back for "copy"
+const spans = (way, from) => way === 3 ? [[joinAt, end]] : from[3] ? [[shrinkAt, end]] : [[plan.taken, plan.trick + 0.8], [plan.copy - 0.2, end]]
 corners.forEach(from => {
   for (let way = 0; way < 4; way++) {
     if (from[way] === 1) continue
     const to = from.map((part, index) => index === way ? 1 : part)
-    const born = way === 3 ? joinAt : from[3] ? shrinkAt : plan.taken
-    const values = {
-      ax: s => place(from, born + s)[0], ay: s => place(from, born + s)[1],
-      bx: s => place(to, born + s)[0], by: s => place(to, born + s)[1]
-    }
-    // The fourth direction is drawn twice: a wide soft line under the line itself
-    const looks = way === 3 ? [{ width: 0.016, opacity: 0.22 }, { width: 0.0052 }] : [from[3] ? { opacity: 0.6 } : {}]
-    for (const look of looks) {
-      at(born, () => { draw(stroke([['ax', 'ay'], ['bx', 'by']], COLORS[way], { ...look, draw: way === 3 ? 0.8 : 0, values }), end - now()) })
+    for (const [born, till] of spans(way, from)) {
+      const values = {
+        ax: s => place(from, born + s)[0], ay: s => place(from, born + s)[1],
+        bx: s => place(to, born + s)[0], by: s => place(to, born + s)[1]
+      }
+      // The fourth direction is drawn twice: a wide soft line under the line itself
+      const looks = way === 3 ? [{ width: 0.016, opacity: 0.22 }, { width: 0.0052 }] : [from[3] ? { opacity: 0.6 } : {}]
+      for (const look of looks) {
+        at(born, () => { draw(stroke([['ax', 'ay'], ['bx', 'by']], COLORS[way], { ...look, draw: way === 3 ? 0.8 : 0, values }), till - now()) })
+      }
     }
   }
 })
@@ -155,7 +158,7 @@ shot('taken', () => {
   const middle = cube([0, 0, 0])
   // Each pair of arrows at its words, the stream of particles whipped to run that way, and its row ticked
   const pairs = [
-    ['Up', 0.08, 'taken', 0.22, Y, [0, 0.85, 0], 'up / down', { cameraYaw: 0, cameraPitch: 80 }],
+    ['Up', 0.08, 'taken', 0.22, Y, [0, 0.85, 0], 'up / down', { cameraYaw: 0, cameraPitch: 30 }],
     ['Left', 0.27, 'taken', 0.42, X, [0.85, 0, 0], 'left / right', { cameraYaw: 90, cameraPitch: 0 }],
     ['Forward', 0.45, 'taken', 0.6, Z, [0, 0, 0.85], 'forward / back', { cameraYaw: 0, cameraPitch: 0 }]
   ]
@@ -190,12 +193,13 @@ shot('trick', () => {
   status('math', spoken + REST)
   // The stream comes straight at the viewer: the particles fan out from the middle as the drawn depth does
   meanwhile(() => { to({ cameraYaw: 0, cameraPitch: 0, baseSpeed: 1.6 }, 1.5) })
-  // A cube as it is drawn on paper, straight on: a square inside a square, the corners joined along Z
-  const centre = [0.2, 0.47]
+  // A cube as it is drawn on paper, straight on: a square inside a square, the corners joined along Z. It
+  // stands in the middle, where the cube was, and leaves as the cube comes back
+  const centre = [0.5, 0.47]
   const square = half => [[-1, -1], [1, -1], [1, 1], [-1, 1], [-1, -1]].map(([a, b]) => [+(centre[0] + a * half * ASPECT).toFixed(5), +(centre[1] + b * half).toFixed(5)])
   const outer = square(0.13)
   const inner = square(0.065)
-  const gone = shrinkAt + 1.2
+  const gone = plan.copy + 0.2
   at(start + heard('trick', 'draw', 0.26), () => { draw(stroke(outer, INK, { draw: 0.6 }), gone - now()) })
   at(start + heard('trick', 'fake', 0.5), () => {
     for (let index = 0; index < 4; index++) draw(stroke([outer[index], inner[index]], Z, { draw: 0.5 }), gone - now())
@@ -244,12 +248,15 @@ shot('inout', () => {
   // Arrows along the red lines: inward from each corner to its copy, then outward past the corner
   const reds = corners.filter(corner => corner[3] === 0).map(corner => [place(corner, end), place([...corner.slice(0, 3), 1], end)])
   const along = (a, b, share) => [+(a[0] + (b[0] - a[0]) * share).toFixed(5), +(a[1] + (b[1] - a[1]) * share).toFixed(5)]
+  const outAt = start + heard('inout', 'out', 0.92)
   at(start + heard('inout', 'Inward', 0.36), () => {
     for (const [outer, inner] of reds) draw(stroke([along(outer, inner, 0.15), along(outer, inner, 0.8)], W, { arrow: 'end', width: 0.006, draw: 0.6 }), gone - now())
-    caption('*{inward}', gone - now(), { at: [0.5, 0.13], size: 0.06, font: 'unbounded', accent: W, fade: 0.4 })
+    caption('*{inward}', outAt + 0.2 - now(), { at: [0.5, 0.13], size: 0.06, font: 'unbounded', accent: W, fade: 0.4 })
   })
-  at(start + heard('inout', 'out', 0.92), () => {
+  // With the arrows outward too, the word names both ways
+  at(outAt, () => {
     for (const [outer, inner] of reds) draw(stroke([outer, along(outer, inner, -0.55)], W, { arrow: 'end', width: 0.006, draw: 0.5 }), gone - now())
+    caption('*{in} · *{out}', gone - now(), { at: [0.5, 0.13], size: 0.06, font: 'unbounded', accent: W, fade: 0.4 })
   })
   at(start + heard('inout', 'fourth', 0.66), () => { keep('the fourth direction looks like *{in} and out', end - now()) })
   until(end)

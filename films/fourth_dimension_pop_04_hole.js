@@ -2,7 +2,7 @@
 // The narration sets the pace: LINES is what is said, say() marks where a line starts, and until a voice has
 // spoken the lines each takes what its words would (input.lines and input.cues bring a voice's own seconds).
 //   node .claude/skills/space-scene/scripts/space.mjs preview films/fourth_dimension_pop_04_hole.js out.jpg -
-/* global film, set, to, wait, shot, caption, draw, mark, now, at, meanwhile, input */
+/* global film, set, to, wait, shot, caption, draw, mark, now, at, meanwhile, together, input */
 const LINES = {
   suspect: 'So is there anything in nature that points inward like that? There is one obvious suspect. Gravity.',
   strongest: 'And if you want to understand gravity, go where it is strongest. A black hole.',
@@ -68,9 +68,11 @@ film({
     // paths of light, so its far side rises over the shadow as an arch. Dark until the hole comes
     flowA: 0,
     flowACount: 9000,
-    flowAFrom: 2.6,
+    // The disc is born over a wide band (1.8 to 4.2 radii) and crowds as it closes in, so it is densest
+    // near the hole and thins out into the dark at its outer edge
+    flowAFrom: 3,
     flowATo: 1.4,
-    flowASpread: 1.6,
+    flowASpread: 2.4,
     flowASwirl: 1.2,
     flowALife: 6,
     flowAThick: 0.03,
@@ -80,12 +82,16 @@ film({
     lensingRadius: 0,
     ringBrightness: 0,
     numParticles: 40000,
+    // Before the hole the pull is strong and kept (inertia 0.9), and slow strokes are lit (Speed Glow Knee
+    // 0.02), so the field is seen falling to the centre from every side while gravity is named
     baseSpeed: 0,
-    gravityStrength: 12,
+    gravityStrength: 30,
     gravityReach: 200,
-    gravityInertia: 0.5,
+    gravityInertia: 0.9,
     orbitalStrength: 0,
-    trailIntensity: 0.08,
+    speedGlowKnee: 0.02,
+    minOpacity: 0.05,
+    trailIntensity: 0.05,
     baseBrightness: 2,
     starsBrightness: 1.6,
     starDensity: 0.22,
@@ -123,14 +129,23 @@ shot('strongest', () => {
   const start = now()
   const spoken = say('strongest')
   status('known', spoken + 0.6)
-  // The hole arrives where everything was falling to
-  at(start + heard('strongest', 'hole', 0.85), () => {
-    caption('black hole', spoken + 0.6 - heard('strongest', 'hole', 0.85), { at: 'hole', angle: 300, radius: 2.2, size: 0.032, font: 'unbounded', color: INK, fade: 0.4 })
-    to({ blackHoleSize: 8, gravityReach: 30, gravityStrength: 5, lensingRadius: 2.5, ringBrightness: 1.5, orbitalStrength: 20, gravityInertia: 0.6, starsBrightness: 2.2 }, 2.4, 'ease')
-    // The disc lights as the field it grew out of dims, so the shadow reads black, and the camera climbs to
-    // the equator: the disc turns from a ring round the shadow to the edge-on disc with its arch
-    to({ flowA: 0.7, baseBrightness: 0.12 }, 3)
-    to({ cameraPitch: 78 }, 5, 'ease')
+  // The hole arrives where everything was falling to, on "where it is strongest", and is grown by "A black hole"
+  const arrives = start + heard('strongest', 'strongest', 0.45)
+  at(arrives, () => {
+    together(
+      () => { to({ blackHoleSize: 8, gravityReach: 30, gravityStrength: 5, lensingRadius: 2.5, ringBrightness: 1.5, orbitalStrength: 20, gravityInertia: 0.6, starsBrightness: 2.2 }, 2.4, 'ease') },
+      // The field's long trails are cut short before the camera moves, or the move smears them into rain
+      () => { to({ trailIntensity: 0.6, baseBrightness: 0.4 }, 0.6); to({ baseBrightness: 0.12 }, 1.4) },
+      // The disc lights as the field it grew out of dims, so the shadow reads black
+      () => { to({ flowA: 0.7 }, 3) },
+      // and the camera climbs to the equator as it lights: the disc turns from a ring round the shadow to the
+      // edge-on disc with its arch, never held face on
+      () => { wait(1.2); to({ cameraPitch: 78 }, 3, 'ease') }
+    )
+  })
+  // Named once it is there, and named into the anatomy
+  at(arrives + 1.6, () => {
+    caption('black hole', start + spoken + 0.6 + heard('anatomy', 'shadow', 0.22) - now(), { at: 'hole', angle: 300, radius: 2.2, size: 0.032, font: 'unbounded', color: INK, fade: 0.4 })
   })
   until(start + spoken + 0.6)
 })
@@ -140,7 +155,8 @@ shot('anatomy', () => {
   const spoken = say('anatomy')
   const end = start + spoken + 0.6
   status('known', spoken + 0.6)
-  meanwhile(() => { to({ cameraZoom: 1.3 }, end - now()) })
+  // The camera flies in toward the hole, about a sixth of its way (11 radii off at this size)
+  meanwhile(() => { to({ cameraMoveIn: 1.8 }, end - now()) })
   const tShadow = start + heard('anatomy', 'shadow', 0.22)
   const tRing = start + heard('anatomy', 'ring', 0.55)
   const tSky = start + heard('anatomy', 'sky', 0.88)
@@ -152,8 +168,8 @@ shot('anatomy', () => {
     label('photon ring', end - now(), { at: 'hole', angle: 320, radius: 1.02 })
   })
   // The sky behind: a lensed grid, so the bending shows
-  at(tSky - 0.8, () => { to({ gridSky: 0.6 }, 1.2) })
-  at(tSky, () => { label('bent sky', end - now(), { at: 'einstein', angle: 140, radius: 1.8 }) })
+  at(tSky - 0.8, () => { to({ gridSky: 0.35 }, 1.2) })
+  at(tSky, () => { label('bent sky', end - now(), { at: 'einstein', angle: 240, radius: 2.8 }) })
   until(end)
 })
 
@@ -163,11 +179,17 @@ shot('sixty', () => {
   const end = start + spoken + 0.6
   status('known', spoken + 0.6)
   at(start + heard('sixty', 'Suns', 0.5), () => {
-    caption('10 M_{☉}', end - now(), { at: [0.2, 0.3], size: 0.07, font: 'unbounded', color: GOLD, fade: 0.4 })
+    caption('10 M_{☉}', end - now(), { at: [0.2, 0.15], size: 0.07, font: 'unbounded', color: GOLD, fade: 0.4 })
   })
-  at(start + heard('sixty', 'sixty', 0.8), () => {
-    caption('horizon: 60 km across', end - now(), { at: [0.8, 0.3], size: 0.04, font: 'unbounded', color: GOLD, fade: 0.4 })
-    caption('r_{s} = 2GM / c^{2} ≈ 30 km', end - now(), { at: [0.8, 0.7], size: 0.036, font: 'noto', color: INK, fade: 0.4 })
+  // The horizon itself, on the hole: a radius is the shadow's, and the shadow is 2.6 horizon radii, so the
+  // horizon is a circle of 1 / 2.6 radii inside it, and the ruler across it is the 60 km
+  const H = +(1 / 2.6).toFixed(3)
+  at(start + heard('sixty', 'sixty', 0.8) - 0.4, () => {
+    draw({ kind: 'circle', center: { hole: [0, 0] }, radius: H, color: GOLD, width: 0.0025, dash: true, draw: 0.5, fade: 0.4 }, end - now())
+    draw({ kind: 'line', points: [{ hole: [-H, 0] }, { hole: [H, 0] }], arrow: 'both', color: GOLD, width: 0.003, draw: 0.5, fade: 0.4 }, end - now())
+    caption('60 km', end - now(), { at: { hole: [0, 0.62] }, size: 0.026, font: 'unbounded', color: GOLD, fade: 0.4 })
+    caption('horizon: 60 km across', end - now(), { at: [0.76, 0.15], size: 0.04, font: 'unbounded', color: GOLD, fade: 0.4 })
+    caption('r_{s} = 2GM / c^{2} ≈ 30 km', end - now(), { at: [0.76, 0.7], size: 0.036, font: 'noto', color: INK, fade: 0.4 })
   })
   until(end)
 })
@@ -177,10 +199,11 @@ shot('photographed', () => {
   const spoken = say('photographed')
   const end = start + spoken + 0.6
   status('known', spoken + 0.6)
+  // The two photographs are named above the picture, and the picture says it is a simulation, not one of them
   at(start + heard('photographed', 'photographed', 0.7), () => {
-    caption('M87* · 2019', end - now(), { at: [0.2, 0.3], size: 0.04, font: 'unbounded', color: GOLD, fade: 0.4 })
-    caption('Sagittarius A* · 2022', end - now(), { at: [0.8, 0.3], size: 0.04, font: 'unbounded', color: GOLD, fade: 0.4 })
-    caption('Event Horizon Telescope', end - now(), { at: [0.5, 0.16], size: 0.03, font: 'unbounded', color: SOFT, fade: 0.4 })
+    caption('Event Horizon Telescope photographed', end - now(), { at: [0.5, 0.12], size: 0.03, font: 'unbounded', color: SOFT, fade: 0.4 })
+    caption('M87* · 2019     Sagittarius A* · 2022', end - now(), { at: [0.5, 0.19], size: 0.04, font: 'unbounded', color: GOLD, fade: 0.4 })
+    caption('this picture: a simulation', end - now(), { at: [0.86, 0.94], size: 0.022, font: 'unbounded', color: SOFT, fade: 0.4 })
   })
   until(end)
 })
