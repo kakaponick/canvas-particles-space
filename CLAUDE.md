@@ -13,7 +13,7 @@ A WebGL particle flight through space, ending in a black hole. React drives only
 - **A rented machine waits for the operator's yes.** A Runpod pod (narration, any GPU work) starts only after the operator agrees to that run in the current conversation, with the lines, voices and expected cost named; the film-voice skill says how.
 - **Critical and major defects are fixed without asking** (a rented machine excepted): a bug, a broken check, or a reviewer agent's blocker or major, found while a task makes or changes something, is fixed within that task and named in the report. The operator decides only what is not a defect: taste between working options, a push, the task's scope. A question, an audit or a review the operator asked for only reports.
 - **The operator sees a simulation first.** Whoever makes or changes a simulation (a film, a lab film, a tracer, a new look of the engine) puts it on the operator's screen with `node scripts/screen.mjs live <film> "<what>" --by "<who>"` from its worktree, before drawing any still, preview, sheet or render; it needs only a shell. `.claude/skills/space-scene/references/live_page.md`, "On the operator's screen", says how. A brief for a subagent that will make a simulation says so.
-- **A brief for another agent** points here, at `docs/` and at `scripts/bench.mjs`, and states only the goal and what is particular to the task; its checks are those Checking a change gives for its kind.
+- **A brief for another agent** points here, at `docs/`, and states only the goal and what is particular to the task; its checks are those Checking a change gives for its kind.
 - **A commit message** is a subject line of what changed, then a few short paragraphs: why, and how it was checked, with the numbers that decided something.
 
 ## Checking a change
@@ -24,16 +24,15 @@ A change owes the checks of its kind, each run once on the finished change; what
 |---|---|
 | Any | `pnpm build` and `pnpm lint`, both clean |
 | Adds, renames or removes a setting, an intro parameter, a layer or a preset | the audit, `node .claude/skills/space-scene/scripts/audit.mjs`, printing no problem |
-| Adds work to the per-frame path: per particle, per pixel, a loop, an allocation | Measuring. A knob read once a frame, or a uniform in place of a constant, adds none |
-| Touches only `films/` or docs | nothing beyond build and lint: no code a bench measures has changed |
+| Touches only `films/` or docs | nothing beyond build and lint |
 
-- **After a rebase on a master that moved**: build, lint and the audit again, then fast-forward at once. The frame time measured against the change's own parent still holds.
+- **After a rebase on a master that moved**: build, lint and the audit again, then fast-forward at once.
 - **Film bytes are compared only at the user's word**: `node scripts/bench.mjs films --against <commit>` tells whether the previews of `films/` moved between two builds, for a user who asks which change moved a picture.
 - **Checks take turns across the machine** (`scripts/turn.mjs`): `bench.mjs` and the film server's previews and renders wait for one another, since a build measured beside another agent's Chrome measures that agent. A preview holds the turn for its drawing alone, a second or two; a bench holds it for its whole run, minutes, so start it once the task's previews are done. A wait prints `waiting for ...` and `the turn came after ...`: a slow call is a call in the queue, so read a preview's output unfiltered. A new script that drives Chrome takes the turn too.
 
 ## Devices
 
-Current browsers with WebGL2 on desktop-class hardware: one code path, defaults tuned for that hardware, frame time judged by Measuring on the development machine. Legacy browsers and weak devices are not supported, and that is a hard rule: no fallback, polyfill, lighter mode, lowered default or feature turned off for them, and no change held back or reshaped by what it would cost on them.
+Current browsers with WebGL2 on desktop-class hardware: one code path, defaults tuned for that hardware. Legacy browsers and weak devices are not supported, and that is a hard rule: no fallback, polyfill, lighter mode, lowered default or feature turned off for them, and no change held back or reshaped by what it would cost on them.
 
 ## Earlier films
 
@@ -89,20 +88,6 @@ Two words used here and in `docs/`:
 ### The subsystems
 
 Before a change to one of these, read its section in `docs/scene.md`, which holds the laws its code keeps: Inertia and 3D's step (`stepSpace`, the camera's poses); 3D's places and sky; what stands in front of the holes (the front layers); the lens (Ray Traced, Kerr, Horizon Grid); the zoom and pan; the space grid (Lensed Grid, Sheet, Lattice, Light Front); particles on the sheet; the flows; the traced disc; a second black hole, its merger and waves; the orbiting stars; the bloom. A new thing drawn round the holes, on the sheet or in 3D follows the section it joins.
-
-### Measuring
-
-A change that adds work to the per-frame path is done when `bench.mjs` says its main-thread time per frame is `within noise` of the commit before it. Runs vary by about ±10%, so the script runs each build twice in turns and as many again when their ranges come out apart; one call is the whole measurement. It ends in a line that begins `VERDICT`: `within noise` closes the measurement, and the same call again brings no new fact; `apart` with the change slower is a regression: find where the time goes, or, when it is the price of a visual feature, report it in numbers.
-
-- **Throughput**: `node scripts/bench.mjs page --against <commit>` builds the commit before your change (`HEAD` while the change is uncommitted, else its parent) in a temporary worktree, builds this checkout, and measures both in turns; `--debug` measures with the intro debugger open, for a change to the debugger. The default scene is flat with every other layer off, so a change to what 3D, the flows, the orbiting stars, a pair, the grids or the nebula draw is measured with `--set '<json>'`, the settings of a scene that shows it (`window.space.set` takes them once the opening has ended). To find where the time goes, take a CDP `Profiler` capture with self time per function.
-- **The graphics card's share**: the step, the strokes and the composite pass run on the graphics card, and the main thread's time does not show them; for a shader that works per particle or per pixel, read the frame rate each run prints beside it.
-
-For orientation, on the development machine (RTX 3070):
-
-| Scene | FPS | Main thread |
-|---|---|---|
-| Default | 2220–2330 | 0.42–0.44 ms/frame |
-| `?debug`, debugger open | 715–960 | 0.53–0.56 ms/frame |
 
 ### Gotchas
 
