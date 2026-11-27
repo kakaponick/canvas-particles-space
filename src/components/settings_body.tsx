@@ -257,6 +257,10 @@ function SettingsBody () {
         <SettingSlider field="horizonScale" />
         <SettingSlider field="blackHoleDepth" />
         <div className="mt-3 flex flex-col gap-1">
+          <SettingSlider field="neutronStar" />
+          <SettingSlider field="neutronSurface" />
+        </div>
+        <div className="mt-3 flex flex-col gap-1">
           <SettingSlider field="blackHoleSpin" />
           <SettingSlider field="spinTilt" />
           <SettingSlider field="spinAxis" />
@@ -297,6 +301,19 @@ function SettingsBody () {
             <SettingSlider field="cameraPair" />
             <SettingSlider field="cameraCutZoom" />
             <SettingSlider field="cameraCutShift" />
+          </div>
+          <div className="mt-3 flex flex-col gap-1">
+            <SettingSlider field="neutronVeins" />
+            <SettingSlider field="neutronVeinSharp" />
+            <SettingSlider field="neutronVeinLight" />
+            <SettingSlider field="neutronWarp" />
+            <SettingSlider field="neutronLimb" />
+            <SettingSlider field="neutronShade" />
+            <SettingSlider field="neutronGlow" />
+            <SettingSlider field="neutronGlowLight" />
+            <SettingSlider field="neutronTurn" />
+            <SettingColor field="neutronColor" />
+            <SettingColor field="neutronVeinColor" />
           </div>
         </SettingsFine>
       </SettingsSection>

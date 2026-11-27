@@ -196,6 +196,23 @@ export interface CompositeSettings {
   ringGlowSkirt: number
   ringGlowCoreShare: number
   ringGlowSkirtShare: number
+  // A neutron star in the hole's stead: its brightness (0: none), its radius in shadow radii, how far its glow
+  // reaches in radii, how far it has turned (radians); its veins: how many across, how thin, how bright; how
+  // bright its limb, how much darker its face toward the limb, how bright its glow, how far its veins wander;
+  // its two colours
+  neutron: number
+  neutronSurface: number
+  neutronGlow: number
+  neutronTurn: number
+  neutronVeins: number
+  neutronVeinSharp: number
+  neutronVeinLight: number
+  neutronLimb: number
+  neutronShade: number
+  neutronGlowLight: number
+  neutronWarp: number
+  neutronColor: SceneColor
+  neutronVeinColor: SceneColor
   // The ring's colour and what its approaching and receding sides turn toward
   ringColor: SceneColor
   ringApproaching: SceneColor
@@ -767,7 +784,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     'titleSpeck', 'titleWinkRest', 'titleWind', 'titleBurnShape', 'titleBurnRimWidth', 'titleFallShape', 'titleDustShape', 'titleDustCut', 'titleBurnEdge',
     'echoShape', 'echoSwell', 'dustMotion', 'dustFlare', 'dustNoise', 'dustWarp', 'echoTintEase', 'starFlareRate', 'remnantShape', 'vignetteSpan', 'knee',
     'skyGrid', 'gridCell', 'skyGridLine', 'orbits', 'front', 'nebula', 'nebulaColor', 'nebulaColorDeep', 'nebulaColorCore', 'nebulaShape', 'nebulaLook', 'nebulaPatch', 'nebulaDrift', 'nebulaSpace', 'nebulaNoise', 'nebulaNorm', 'gridPull', 'gridColor', 'gridHaze', 'gridShape',
-    'colorFlash', 'colorLight', 'colorDust', 'colorTitle', 'colorEmber',
+    'colorFlash', 'colorLight', 'colorDust', 'colorTitle', 'colorEmber', 'neutron', 'neutronVeins', 'neutronShade', 'neutronColor', 'neutronVein',
     'cameraZoom', 'zoomCenter', 'layerZoom', 'shake', 'lensFringe', 'lensFringeEase', 'vignette', 'filmGrain', 'letterbox'
   ] as const
   const compositeUniforms = getUniforms(gl, compositeProgram, COMPOSITE_UNIFORMS)
@@ -1590,6 +1607,14 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     setUniform4f(gl, u.ringLine, settings.ringLineMin, settings.ringOffset, settings.ringReach, settings.ringSoftness)
     setUniform4f(gl, u.ringGlowShape, settings.ringGlowCore, settings.ringGlowSkirt, settings.ringGlowCoreShare, settings.ringGlowSkirtShare)
     setUniform3f(gl, u.ringColor, settings.ringColor.r, settings.ringColor.g, settings.ringColor.b)
+    setUniform4f(gl, u.neutron, settings.horizon > 0 ? settings.neutron : 0, Math.max(settings.neutronSurface, 1) * settings.horizon * ratio,
+      settings.neutronGlow, settings.neutronTurn)
+    if (settings.neutron > 0) {
+      setUniform4f(gl, u.neutronVeins, settings.neutronVeins, settings.neutronVeinSharp, settings.neutronVeinLight, settings.neutronLimb)
+      setUniform3f(gl, u.neutronShade, settings.neutronShade, settings.neutronGlowLight, settings.neutronWarp)
+      setUniform3f(gl, u.neutronColor, settings.neutronColor.r, settings.neutronColor.g, settings.neutronColor.b)
+      setUniform3f(gl, u.neutronVein, settings.neutronVeinColor.r, settings.neutronVeinColor.g, settings.neutronVeinColor.b)
+    }
     setUniform3f(gl, u.ringApproaching, settings.ringApproaching.r, settings.ringApproaching.g, settings.ringApproaching.b)
     setUniform3f(gl, u.ringReceding, settings.ringReceding.r, settings.ringReceding.g, settings.ringReceding.b)
     setUniform2f(gl, u.center, settings.centerX * ratio, settings.centerY * ratio)

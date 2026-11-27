@@ -20,7 +20,7 @@ exists.
 1. The unit everything is measured in
 2. The flight: the particle field (and the flows)
 3. Gravity on the particles
-4. Capture: the event horizon (and spin)
+4. Capture: the event horizon (and spin, and a neutron star in the hole's stead)
 5. The lens: how light bends
 6. The photon ring
 7. Orbiting stars
@@ -434,6 +434,23 @@ and `frameDrag` above 0 and particles within a few radii; the sky's lean needs `
 - The `Kerr` preset is the `Schwarzschild` preset (section 15 says what that sets) spinning near its
   fastest, seen nearly side-on, with the ring's bright side on the flat side.
 
+### A neutron star in the hole's stead
+
+| What you want | Knobs |
+|---|---|
+| A neutron star drawn where the hole stands, and the radius of its surface (which the sheet's well follows too) | `neutronStar`, `neutronSurface` |
+| Its plasma: its veins, how many, how thin, how bright and how far they wander; its lit limb and how its face darkens toward it | `neutronVeins`, `neutronVeinSharp`, `neutronVeinLight`, `neutronWarp`, `neutronLimb`, `neutronShade` |
+| Its glow, how far and how bright; how fast it turns; its two colours | `neutronGlow`, `neutronGlowLight`, `neutronTurn`, `neutronColor`, `neutronVeinColor` |
+
+- `neutronStar` above 0 draws the star in the composite pass at the hole: a ball `neutronSurface` shadow
+  radii wide (the shadow's own size below 1) whose veins are read on the ball, so they crowd toward the
+  limb and turn with it about the picture's up at `neutronTurn` turns a second. It covers the shadow; the
+  photon ring and the lens are a hole's, so switch them off (`ringEnabled`, `lensingEnabled`) for a star.
+- `neutronSurface` is the star's, not only its body's: above 0 the sheet's well (section 9) closes in a
+  round bottom inside that radius, so a star on the sheet sits in a bowl instead of over a throat.
+- The sheet is drawn over the finished frame, star included: set `gridClearing` to `neutronSurface` and
+  `gridClearingEdge` a little above it to keep the lines off its face.
+
 ## 5. The lens: how light bends
 
 Gate: `lensingEnabled` on and `lensingRadius` above 0, with something behind the hole to bend: `gridSky`,
@@ -692,7 +709,7 @@ straight-on (section 11).
 | The flat mode's sheet camera: its distance, and how near it the sheet is cut off; how far the sheet reaches and the share of that it fades over | `gridDistance`, `gridNear`, `gridSpan`, `gridFade` |
 | How high a gravitational wave lifts the sheet | `gridWaveLift` |
 | What a pair's spiral wave turns with: 0 the line between the wells, 1 the orbit laid flat | `gridWaveOrbit` |
-| The sheet's shape: where its rings stand (equal steps of depth to equal radii), the share of the well's depth it is lifted by, how far a second well reaches toward its own hole | `gridRingSpacing`, `gridLift`, `gridWell2Bottom` |
+| The sheet's shape: where its rings stand (equal steps of depth to equal radii), the share of the well's depth it is lifted by, a star's round-bottomed well in place of the hole's throat, how far a second well reaches toward its own hole | `gridRingSpacing`, `gridLift`, `neutronSurface`, `gridWell2Bottom` |
 | The sheet in the picture: the share of it behind the holes drawn through the lens, and how its pose turns while 3D eases in | `gridLensed`, `gridEaseTurn` |
 | The sheet's light: how many times brighter a line is at a throat and how close to it that glow keeps; the light the holes shed on it, where it falls to half, and its colour | `gridThroatGlow`, `gridThroatCurve`, `gridLight`, `gridLightReach`, `gridLightColor` |
 | A flash running over the sheet's lines: its band's brightness (0 is off), where it flashed (the main well's radii, x right, y away, as a film's sheet places), how far it has run along the surface, the band's width and its rising share, the slope its way counts, the radius a hole takes a ray at, and its colour | `gridFront`, `gridFrontX`, `gridFrontY`, `gridFrontRun`, `gridFrontWidth`, `gridFrontLead`, `gridFrontSlope`, `gridFrontCapture`, `gridFrontColor` |
@@ -716,6 +733,11 @@ straight-on (section 11).
 - `gridLift` 1 puts the well's bottom on the hole, so a 3D camera nearer the hole than `gridDepth` along
   the flight stands on the hole's side of the sheet; at 0 the sheet runs through the hole and the funnel
   hangs below it, the textbook's ball resting on a sheet seen from the side.
+- `neutronSurface` above 0 makes the main well a star's: outside its surface, `neutronSurface` shadow radii from the
+  middle, the well is the hole's; within it the sheet follows the slowing of time inside a ball of even
+  density and closes in a round bottom instead of ending at the horizon's ring: the well of a neutron star
+  (section 4, which draws one there), about 1.4 for a typical star. `gridLift` then lifts by a share of the
+  round bottom: below 1 the bottom shows under the star, a bowl it sits in.
 - `gridWell2Bottom` 1 sinks a second hole's well exactly to where that hole stands: a hole on the sheet's
   far side digs a deep well, one on the near side none. At 0 each well is `gridDepth` of its own radii, the
   two add up, and the second well's bottom misses its hole.

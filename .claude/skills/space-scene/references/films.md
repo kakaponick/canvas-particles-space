@@ -475,7 +475,9 @@ kind.
   the zoom and the pan. `films/fourth_dimension_experiment.js` stands the Earth so: NASA's photograph cut
   out on a clear ground, its disc 0.78 of the half side, drawn 2.62 radii wide.
 - A thing the scene cannot draw (an observatory, a spacecraft, a planet's surface) is a generated picture,
-  cut out on a clear ground. The ai-service makes one: `POST https://r.xn--c6t.net/service/v1/images`
+  cut out on a clear ground. What the simulation is about is drawn by its code, never a picture: a neutron
+  star is `neutronStar` with `neutronSurface` (knobs.md section 4), whose well the sheet follows too; a body
+  the scene has no code for yet gets its code before the film, at the operator's word. The ai-service makes one: `POST https://r.xn--c6t.net/service/v1/images`
   with `{ prompt, model: "chatgpt", aspect: "1:1" }`, then `GET /v1/jobs/<id>` until `done`,
   `GET /v1/jobs/<id>/result` and the image's `url` (the key is `AI_SERVICE_TOKEN`: run the script under
   `withsecret AI_SERVICE_TOKEN --`, which hands it over as `SECRET_AI_SERVICE_TOKEN`, sent as
@@ -519,7 +521,9 @@ the words at the edges. `films/infographic_style.js` puts every rule below on on
   near side of the sheet lands on the body, so push a path laid on the sheet out until a still at the film's
   tilt shows the gap. A ring round a body in an inset is taller than the body, so it passes round it.
 - **The body is there from the first frame.** A body drawn over a black hole is drawn before the fade lifts,
-  or the hole's bare shadow shows where the star should be.
+  or the hole's bare shadow shows where the star should be. A neutron star the scene draws itself
+  (`neutronStar`) covers the shadow from the first frame; its sheet keeps off its face with `gridClearing` at
+  `neutronSurface`, and below Sheet Lift 1 its well's round bottom shows under it, the bowl it sits in.
 - **Words come with what they name and ride with it.** A label for a place of the scene takes that place
   (`{ sheet: [...] }`, `{ hole: [...] }`, `at: 'hole'`), so a change of tilt, lift or camera carries the words
   with the thing; a legend row arrives once the thing it names is drawn. A legend, a column or the words in

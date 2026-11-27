@@ -97,6 +97,8 @@ export interface GridSettings {
   // The main hole's well, at the middle of the plane: the radius it ends at and its depth there; the depth
   // the hole itself stands at, the share of it the sheet is lifted by (1: the well's bottom)
   throat: number
+  // A star's surface in place of the hole's horizon, in throat radii from the middle (0: a hole)
+  star: number
   depth: number
   holeDepth: number
   // A second black hole's well where its place falls on the plane, from the main hole; a depth of 0 is none
@@ -160,6 +162,7 @@ export function createGridSettings (): GridSettings {
     rideCut: 1,
     pose: new Float32Array([1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0]),
     throat: 0,
+    star: 0,
     depth: 0,
     holeDepth: 0,
     well2X: 0,
@@ -297,8 +300,11 @@ export function layFlatSheet (
   orbitX: number,
   orbitY: number,
   lift: number,
-  bottom: number
+  bottom: number,
+  star: number
 ) {
+  // Lifted by a share of the well's bottom, which a star holds at its own depth
+  lift *= sheetDent(0, 1, star)
   const distance = cameraSides * Math.max(width, height)
   const tilt = tiltDegrees * Math.PI / 180
   const sin = Math.sin(tilt)
@@ -354,7 +360,7 @@ export function layFlatSheet (
     flat.well2Y = wellAway - wellY
     flat.throat2 = wellThroat
     // Its own depth, from which reaching its hole takes away what the main well has already dented there
-    const reached = Math.max(wellDepth - flat.depth * dent(Math.hypot(flat.well2X, flat.well2Y), flat.throat), 0)
+    const reached = Math.max(wellDepth - flat.depth * sheetDent(Math.hypot(flat.well2X, flat.well2Y), flat.throat, star), 0)
     flat.depth2 = mix(wellDepth, reached, bottom)
     // The centre of the pair lies on the flat sheet
     settleWell(pairX - centerX, pairY - centerY, 0, 0, 0, distance, sin, cos)
@@ -401,7 +407,8 @@ export function laySpaceSheet (
   orbitX: number,
   orbitY: number,
   lift: number,
-  bottom: number
+  bottom: number,
+  star: number
 ) {
   // The well goes down along the way the plane faces, on the side away from a camera that looks down the flight
   const down = equator[8] < 0 ? -1 : 1
@@ -423,7 +430,7 @@ export function laySpaceSheet (
   space.unit = 1
   space.throat = horizon
   space.depth = depthInRadii * horizon
-  space.holeDepth = space.depth * lift
+  space.holeDepth = space.depth * lift * sheetDent(0, 1, star)
   // The well's bottom stands at the hole, as the flat camera sets it: the plane is lifted along the way it
   // faces by the depth there, so its flat part lies that much nearer a camera looking down the flight; by
   // a share of it, the hole stands that share of the way down the well
@@ -445,7 +452,7 @@ export function laySpaceSheet (
     // Its own depth, or as deep as its bottom must go to reach the hole: from the lifted plane, less what the
     // main well has dented there, down to the hole's height off the equator the way the well goes
     const height = onPlane(equator, 6, companionX - holeX, companionY - holeY, companionZ - holeZ) * down * scale
-    const reached = Math.max(height + space.holeDepth - space.depth * dent(Math.hypot(space.well2X, space.well2Y), horizon), 0)
+    const reached = Math.max(height + space.holeDepth - space.depth * sheetDent(Math.hypot(space.well2X, space.well2Y), horizon, star), 0)
     space.depth2 = mix(depthInRadii * companionRadius, reached, bottom)
     space.pairX = onPlane(equator, 0, pairX - holeX, pairY - holeY, pairZ - holeZ) * scale
     space.pairY = onPlane(equator, 3, pairX - holeX, pairY - holeY, pairZ - holeZ) * scale
@@ -489,6 +496,18 @@ function dent (away: number, edge: number) {
   return (1 - Math.sqrt(Math.max(1 - x / (3 * Math.cos(Math.acos(-x) / 3)), 0))) * 2.3660254
 }
 
+// sheetDent() of SHEET_GLSL: dent() for the well of a star whose surface is seen `star` throat radii from
+// its middle (0: a hole), which closes in a round bottom within the surface
+function sheetDent (away: number, edge: number, star: number) {
+  if (!(star >= 1) || away >= star * edge) return dent(away, edge)
+  const x = 1 / star
+  const shallow = x / (3 * Math.cos(Math.acos(-x) / 3))
+  const share = away / (star * edge)
+  const a = Math.max(2 - (1 - shallow) / Math.max(1 - 1.5 * shallow, 0.001), 0)
+  const within = share * (a + (1 - a) * share)
+  return (1 - (1.5 * Math.sqrt(1 - shallow) - 0.5 * Math.sqrt(Math.max(1 - shallow * within * within, 0)))) * 2.3660254
+}
+
 /**
  * Where a point lying on the sheet as it was last placed is seen on the scene's frame, in CSS pixels before
  * the scene camera's zoom and shake: `x`, `y` in the main well's radii from its middle, along the plane's
@@ -501,7 +520,7 @@ export function sheetPoint (grid: GridSettings, x: number, y: number): { x: numb
   const pose = grid.pose
   const alongX = x * grid.throat
   const alongY = -y * grid.throat
-  const depth = grid.depth * dent(Math.hypot(alongX, alongY), grid.throat) +
+  const depth = grid.depth * sheetDent(Math.hypot(alongX, alongY), grid.throat, grid.star) +
     (grid.depth2 > 0 ? grid.depth2 * dent(Math.hypot(alongX - grid.well2X, alongY - grid.well2Y), grid.throat2) : 0)
   const seenX = pose[0] * alongX + pose[4] * alongY + pose[8] * depth + pose[12]
   const seenY = pose[1] * alongX + pose[5] * alongY + pose[9] * depth + pose[13]
@@ -777,7 +796,7 @@ export function sendSheet<U> (set: (uniform: U, x: number, y: number, z: number,
   set(u.sheetV, pose[4], pose[5], pose[6], pose[7])
   set(u.sheetN, pose[8], pose[9], pose[10], pose[11])
   set(u.sheetO, pose[12], pose[13], pose[14], pose[15])
-  set(u.sheetWell, grid.throat, grid.depth, grid.holeDepth, 0)
+  set(u.sheetWell, grid.throat, grid.depth, grid.holeDepth, grid.star)
   set(u.sheetWell2, grid.well2X, grid.well2Y, grid.throat2, grid.depth2)
   const wave = grid.wave
   set(u.sheetWave, wave[0], wave[1], wave[2], wave[3])

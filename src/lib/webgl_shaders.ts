@@ -60,7 +60,7 @@ const SHEET_GLSL = `  uniform vec4 u_sheetU;      // the sheet's pose: where its
   uniform vec4 u_sheetV;      // where it sends the second, the nearest it draws
   uniform vec4 u_sheetN;      // where it sends the way the wells go down, the x of its picture's centre
   uniform vec4 u_sheetO;      // where the plane's place over the main hole stands, the y of its picture's centre; the hole is at its well's bottom
-  uniform vec4 u_sheetWell;   // the main hole's well: the radius it ends at, its depth there, the depth the hole stands at; unused
+  uniform vec4 u_sheetWell;   // the main hole's well: its throat's radius, its depth there, the depth the hole stands at, a star's surface in throat radii (0 = a hole)
   uniform vec4 u_sheetWell2;  // a second hole's well: where it falls on the plane from the main hole, its radius and depth (0 = none)
   uniform vec4 u_sheetWave;   // a ringing hole's wave on the sheet: height (0 = none), seconds since it left the hole, angular frequency, 1 / decay time
   uniform vec4 u_sheetWaveSpread; // radius beyond which it weakens, how far it travels a second; unused
@@ -70,10 +70,31 @@ const SHEET_GLSL = `  uniform vec4 u_sheetU;      // the sheet's pose: where its
   uniform vec4 u_sheetPairFront;  // once the two are one: seconds since then (negative = not yet), how far the wave travels a second, seconds the old wave takes to give way to the new; unused
 
 ${DENT_GLSL}
+  // dent() for the well of a star instead of a hole, its surface seen "star" throat radii from its middle
+  // (0 = a hole, whose well ends at the horizon). Outside the surface the well is the same; within it time
+  // is slowed as within a ball of even density, the inner Schwarzschild solution,
+  // sqrt(1 - rs / R) * 1.5 - sqrt(1 - rs r^2 / R^3) * 0.5, which meets the outer well at the surface and lies
+  // flat at the centre, so the sheet closes in a round bottom. The star's radius R is the nearest approach of
+  // light seen grazing its surface. Within it no light is seen, and a point a share u of the way out to the
+  // surface on the sheet stands u (a + (1 - a) u) of the way out in the star: that meets the outside, where
+  // dr / db = (R - 1.5) / (R - 1) * R / b in rs, with the same slope, so the sheet has no crease at the
+  // surface; a stays at 0 or more, the most a star at the photon sphere can match. A surface at the throat's
+  // edge or beyond keeps R at 1.5 rs or more, well clear of 9/8 rs, below which no star stands
+  float sheetDent (float away, float edge, float star) {
+    if (star < 1.0 || away >= star * edge) return dent(away, edge);
+    float x = 1.0 / star;
+    float shallow = x / (3.0 * cos(acos(-x) / 3.0));
+    float share = away / (star * edge);
+    float a = max(2.0 - (1.0 - shallow) / max(1.0 - 1.5 * shallow, 0.001), 0.0);
+    float within = share * (a + (1.0 - a) * share);
+    float rate = 1.5 * sqrt(1.0 - shallow) - 0.5 * sqrt(max(1.0 - shallow * within * within, 0.0));
+    return (1.0 - rate) * 2.3660254;
+  }
+
   // How deep the wells lie at a place of the plane
   float sheetDepth (vec2 at) {
     float depth = 0.0;
-    if (u_sheetWell.y > 0.0) depth = u_sheetWell.y * dent(length(at), u_sheetWell.x);
+    if (u_sheetWell.y > 0.0) depth = u_sheetWell.y * sheetDent(length(at), u_sheetWell.x, u_sheetWell.w);
     // A second black hole dents the sheet the same way, and the dents add up
     if (u_sheetWell2.w > 0.0) depth += u_sheetWell2.w * dent(length(at - u_sheetWell2.xy), u_sheetWell2.z);
     return depth;
@@ -575,6 +596,11 @@ export const compositeFragmentShaderSource = `
   uniform vec4 u_ringLine;       // the line: its floor in screen pixels, how far outside the shadow's edge it stands in its own widths, how far from the hole the ring is drawn in shadow radii, the width of its bell of light as a share of its own
   uniform vec4 u_ringGlowShape;  // the glow: how far its tight core and its wide skirt reach, in black hole radii, and the share of the glow each holds at the line
   uniform vec3 u_ringColor;      // the ring's colour, and what its approaching and receding sides turn toward
+  uniform vec4 u_neutron;        // a neutron star in the hole's stead: brightness (0 = none), its radius, how far its glow reaches in radii, how far it has turned
+  uniform vec4 u_neutronVeins;   // its veins: how many across, how thin, how bright; how bright its limb
+  uniform vec3 u_neutronShade;   // how much darker its face is toward the limb, how bright its glow, how far a slower noise bends its veins
+  uniform vec3 u_neutronColor;   // its plasma's colour, and its veins' and glow's
+  uniform vec3 u_neutronVein;
   uniform vec3 u_ringApproaching;
   uniform vec3 u_ringReceding;
   uniform float u_ringGlow;      // strength of the soft light around the line; 0 leaves the bare line
@@ -848,6 +874,44 @@ ${DENT_GLSL}
       mix(mix(hash13(i + e.yyx), hash13(i + e.xyx), u.x), mix(hash13(i + e.yxx), hash13(i + e.xxx), u.x), u.y),
       u.z
     ) - 0.5);
+  }
+
+  // A neutron star drawn in the hole's stead (Neutron Star above 0), "fromHole" from its middle: a ball of
+  // the radius of its surface turning about the picture's up, its plasma a deep colour crossed by bright
+  // veins, ridged noise read on the ball so they turn with it and crowd toward the limb as a sphere's
+  // markings do. Its face darkens toward the limb, the limb itself is lit, and a glow falls off round it as
+  // the square of the share of Glow Reach left. A slower noise bends the place the veins are read at, so
+  // they branch and wander like threads of current rather than lie in the cells of the noise; where the
+  // layers' ridges meet the veins stop at full rather than pool into flat white. Three layers
+  // of noise: each one more is another read of the noise for every pixel of the star
+  vec3 neutronStar (vec3 color, vec2 fromHole, float px) {
+    float d = length(fromHole) / u_neutron.y;
+    float reach = max(u_neutron.z, 0.001);
+    vec3 glow = color;
+    if (d > 1.0 - 2.0 * px / u_neutron.y) {
+      float left = clamp(1.0 - (d - 1.0) / reach, 0.0, 1.0);
+      glow += u_neutronVein * u_neutron.x * u_neutronShade.y * left * left;
+      if (d >= 1.0) return glow;
+    }
+    vec2 p = fromHole / u_neutron.y;
+    vec3 n = vec3(p.x, -p.y, sqrt(max(1.0 - dot(p, p), 0.0)));
+    float c = cos(u_neutron.w);
+    float s = sin(u_neutron.w);
+    vec3 q = vec3(c * n.x + s * n.z, n.y, c * n.z - s * n.x) * u_neutronVeins.x;
+    if (u_neutronShade.z > 0.0) {
+      vec3 slow = q * 0.5;
+      q += u_neutronShade.z * 2.0 * (vec3(valueNoise3(slow), valueNoise3(slow + 7.3), valueNoise3(slow + 13.1)) - 0.5);
+    }
+    float veins = 0.0;
+    float share = 0.6;
+    for (int layer = 0; layer < 3; layer++) {
+      veins += share * pow(1.0 - abs(2.0 * valueNoise3(q) - 1.0), u_neutronVeins.y);
+      q = q * 2.03 + vec3(1.7, 9.2, 4.1);
+      share *= 0.5;
+    }
+    vec3 body = u_neutronColor * (1.0 - u_neutronShade.x * (1.0 - n.z)) +
+      u_neutronVein * (min(veins, 1.0) * u_neutronVeins.z + pow(1.0 - n.z, 3.0) * u_neutronVeins.w);
+    return mix(glow, body * u_neutron.x, smoothstep(1.0, 1.0 - 2.0 * px / u_neutron.y, d));
   }
 
   vec3 hash33 (vec3 p) {
@@ -1947,6 +2011,7 @@ ${DENT_GLSL}
     // which pass between the holes and the camera too, slide it by Front Waves of what they slide the rest.
     // The camera's own lens splits its colours and its exposure scales it as they do the rest, and the film
     // below acts on it
+    if (u_neutron.x > 0.0) color = neutronStar(color, frag - u_hole, px);
     if (u_front.x > 0.0) {
       vec2 frontPx = layerPoint(u_front.w > 0.0 ? frag + waveMoved * u_front.w : frag);
       vec3 front = drawnInFront(frontPx);
@@ -2188,7 +2253,7 @@ ${SHEET_GLSL}
     // At a throat the line glows by the slowing of time there, the share dent() gives: 1 at the shadow's
     // edge, where the sheet stands vertical, and falling as 1 / r far off, with no depth needed to show it
     if (u_glow.x > 0.0) {
-      float slowed = u_sheetWell.x > 0.0 ? dent(r, u_sheetWell.x) : 0.0;
+      float slowed = u_sheetWell.x > 0.0 ? sheetDent(r, u_sheetWell.x, u_sheetWell.w) : 0.0;
       if (u_sheetWell2.z > 0.0) slowed = max(slowed, dent(length(fromHole - u_sheetWell2.xy), u_sheetWell2.z));
       glow.x += u_glow.x * pow(clamp(slowed, 0.0, 1.0), u_glow.y);
     }
@@ -2199,10 +2264,38 @@ ${SHEET_GLSL}
       if (u_sheetWell2.z > 0.0) glow.y += shed(length(fromHole - u_sheetWell2.xy), u_glow.w * u_sheetWell2.z);
       glow.y *= u_glow.z;
     }
-    // Inside a throat the sheet lies below the horizon. The flat mode's shadow covers it; seen by the scene's
-    // own camera, from any side, it is not drawn
-    float shown = u_sheet.w > 0.0 && (r < u_sheetWell.x || length(fromHole - u_sheetWell2.xy) < u_sheetWell2.z) ? 0.0 : 1.0;
-    return vec4(sheetSeen(fromHole, depth), shown * (1.0 - smoothstep(u_sheet.z, u_lines.y, r)));
+    return vec4(sheetSeen(fromHole, depth), 1.0 - smoothstep(u_sheet.z, u_lines.y, r));
+  }
+
+  // Inside a throat the sheet lies below the horizon, where light from it does not come back, and it is not
+  // drawn from any side: the part of a piece of the plane inside the circle round "centre" is dropped, and a
+  // piece that crosses the circle ends on it, so every line comes down the wall to the horizon's ring at the
+  // well's full depth. Without the cut the inside would lie flat at that depth, a disc at the bottom that
+  // the hole's shadow covers only while the well's bottom is the hole and the camera looks down, and a piece
+  // from the wall to that disc would cut across the steepest part of the wall at a height of its own
+  bool outsideThroat (inout vec2 a, inout vec2 b, vec2 centre, float radius) {
+    vec2 fromA = a - centre;
+    vec2 fromB = b - centre;
+    float insideA = dot(fromA, fromA) - radius * radius;
+    float insideB = dot(fromB, fromB) - radius * radius;
+    if (insideA >= 0.0 && insideB >= 0.0) return true;
+    if (insideA < 0.0 && insideB < 0.0) return false;
+    // Where along the piece it is the radius from the centre: |fromA + t (b - a)| = radius
+    vec2 step = b - a;
+    float square = dot(step, step);
+    float lean = dot(fromA, step);
+    float root = sqrt(max(lean * lean - square * insideA, 0.0));
+    if (insideA < 0.0) a += step * (-lean + root) / square;
+    else b = a + step * (-lean - root) / square;
+    return true;
+  }
+
+  // Both throats' cuts of a piece of the plane; false when nothing of it is left. A star has no throat: its
+  // sheet goes on over its round bottom
+  bool outsideThroats (inout vec2 a, inout vec2 b) {
+    if (u_sheetWell.x > 0.0 && u_sheetWell.w < 1.0 && !outsideThroat(a, b, vec2(0.0), u_sheetWell.x)) return false;
+    if (u_sheetWell2.z > 0.0 && !outsideThroat(a, b, u_sheetWell2.xy, u_sheetWell2.z)) return false;
+    return true;
   }
 
   // Where a point of the camera's space is drawn on the frame, the scene camera's zoom and shake with the
@@ -2212,11 +2305,22 @@ ${SHEET_GLSL}
     return vec3(point, u_sheetU.w / seen.z * u_lens.z);
   }
 
+  // Where a piece starts and ends along its line, from the line's nearest approach to the main hole, for a
+  // line that passes it "offset" away. Pieces crowd toward that approach as the square of their number,
+  // short where the sheet curves and long far off. A line through the throat starts at the throat's edge
+  // instead, so no piece is spent inside it, and since the well's depth grows there as the square root of
+  // the distance from the edge, the pieces step down the wall in even steps of depth to the horizon's ring.
+  // Over a star's round bottom the line runs on from its middle
+  vec2 alongLine (float offset) {
+    float start = u_sheetWell.w < 1.0 && u_sheetWell.x > abs(offset) ? sqrt(u_sheetWell.x * u_sheetWell.x - offset * offset) : 0.0;
+    vec2 share = a_gridLine.yz;
+    return sign(share) * (start + share * share * (u_lines.y - start));
+  }
+
   void main () {
     bool crosswise = a_gridLine.w > 0.5;
-    // Pieces are short near the black hole, where the sheet curves, and long far from it
-    vec2 along = sign(a_gridLine.yz) * a_gridLine.yz * a_gridLine.yz * u_lines.y;
     float across;
+    bool kept = true;
     vec4 first;
     vec4 last;
     vec2 firstGlow;
@@ -2242,14 +2346,18 @@ ${SHEET_GLSL}
         across = a_gridLine.x < 0.0 || a_gridLine.x >= u_rings.y ? 2.0 * u_lines.y : 0.0;
         float angle = 3.14159265 * a_gridLine.x / max(u_rings.y, 1.0);
         vec2 spoke = vec2(cos(angle), sin(angle));
+        vec2 along = alongLine(0.0);
         firstAt = spoke * along.x;
         lastAt = spoke * along.y;
+        kept = outsideThroats(firstAt, lastAt);
       }
     } else {
       // The lines are counted from a place that stays put while the black hole moves across the sheet
       across = (a_gridLine.x - fract(-(crosswise ? u_lines.w : u_lines.z) / u_lines.x)) * u_lines.x;
+      vec2 along = alongLine(across);
       firstAt = crosswise ? vec2(along.x, across) : vec2(across, along.x);
       lastAt = crosswise ? vec2(along.y, across) : vec2(across, along.y);
+      kept = outsideThroats(firstAt, lastAt);
     }
     first = onSurface(firstAt, firstGlow);
     last = onSurface(lastAt, lastGlow);
@@ -2264,7 +2372,7 @@ ${SHEET_GLSL}
     // What lies nearer than the camera's near plane is cut off where the piece crosses it, as a stroke of
     // the field is
     float near = u_sheetV.w;
-    if (abs(across) > u_lines.y || (first.z < near && last.z < near) || first.w + last.w <= 0.0) {
+    if (!kept || abs(across) > u_lines.y || (first.z < near && last.z < near) || first.w + last.w <= 0.0) {
       gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
       return;
     }

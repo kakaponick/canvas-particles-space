@@ -244,6 +244,8 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
   let fadeBacklog = 0
   // Seconds the shake's clock is ahead of the scene's, and its undertone's ahead of that
   let shakeLead = 0
+  // How far the neutron star has turned, in radians: its turns a second, run up on the scene's clock
+  let neutronTurned = 0
   let undertoneLead = 0
 
   const intro = createIntroFrame()
@@ -427,6 +429,19 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       ringGlowSkirt: 0.18,
       ringGlowCoreShare: 0.3,
       ringGlowSkirtShare: 0.12,
+      neutron: 0,
+      neutronSurface: 0,
+      neutronGlow: 0,
+      neutronTurn: 0,
+      neutronVeins: 1,
+      neutronVeinSharp: 1,
+      neutronVeinLight: 0,
+      neutronLimb: 0,
+      neutronShade: 0,
+      neutronGlowLight: 0,
+      neutronWarp: 0,
+      neutronColor: createSceneColor(),
+      neutronVeinColor: createSceneColor(),
       ringColor: createSceneColor(),
       ringApproaching: createSceneColor(),
       ringReceding: createSceneColor(),
@@ -1517,7 +1532,7 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
         layFlatSheet(
           state.gridTilt, state.gridDepth, viewportWidth, viewportHeight, holeX, holeY, horizon * holeScale,
           settings.companionX, settings.companionY, companionRadius * companionScale, centreX, centreY, pair.mergedPhase,
-          state.gridDistance, state.gridNear, orbitX, orbitY, state.gridLift, state.gridWell2Bottom
+          state.gridDistance, state.gridNear, orbitX, orbitY, state.gridLift, state.gridWell2Bottom, state.neutronSurface
         )
       }
       if (shared > 0) {
@@ -1538,7 +1553,7 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
           settings.companionWorldX, settings.companionWorldY, settings.companionWorldZ, companionRadius,
           (hole.x - settings.vanishX) * worldPerPixel, (hole.y - settings.vanishY) * worldPerPixel, pivot,
           pairPlane[0] * ringCos + pairPlane[3] * ringSin, pairPlane[1] * ringCos + pairPlane[4] * ringSin,
-          pairPlane[2] * ringCos + pairPlane[5] * ringSin, orbitX, orbitY, state.gridLift, state.gridWell2Bottom
+          pairPlane[2] * ringCos + pairPlane[5] * ringSin, orbitX, orbitY, state.gridLift, state.gridWell2Bottom, state.neutronSurface
         )
       }
       placeSheet(
@@ -1985,6 +2000,23 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     composite.ringGlowSkirtShare = state.ringGlowSkirtShare
     readSceneColor(composite.ringColor, state.ringColor)
     readSceneColor(composite.ringApproaching, state.ringColorApproaching)
+    // The neutron star in the hole's stead, as its surface stands and its turn has run up
+    neutronTurned = (neutronTurned + dt * state.neutronTurn * 2 * Math.PI) % (2 * Math.PI)
+    composite.neutron = state.neutronStar
+    if (state.neutronStar > 0) {
+      composite.neutronSurface = state.neutronSurface
+      composite.neutronGlow = state.neutronGlow
+      composite.neutronTurn = neutronTurned
+      composite.neutronVeins = state.neutronVeins
+      composite.neutronVeinSharp = state.neutronVeinSharp
+      composite.neutronVeinLight = state.neutronVeinLight
+      composite.neutronLimb = state.neutronLimb
+      composite.neutronShade = state.neutronShade
+      composite.neutronGlowLight = state.neutronGlowLight
+      composite.neutronWarp = state.neutronWarp
+      readSceneColor(composite.neutronColor, state.neutronColor)
+      readSceneColor(composite.neutronVeinColor, state.neutronVeinColor)
+    }
     readSceneColor(composite.ringReceding, state.ringColorReceding)
     // The explosion as the camera sees it: its place, and its fronts as much larger as it stands nearer
     const frontScale = blastAtHole ? centreScale : blastScale
@@ -2202,6 +2234,7 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       grid.ringSpacing = state.gridRingSpacing
       grid.lensed = state.gridLensed
       grid.throatGlow = state.gridThroatGlow
+      grid.star = state.neutronSurface
       grid.throatCurve = state.gridThroatCurve
       grid.light = state.gridLight
       grid.lightReach = state.gridLightReach

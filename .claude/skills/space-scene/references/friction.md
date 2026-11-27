@@ -207,6 +207,24 @@ the friction cannot happen any more.
   past the far ones.
 - Where: shots "us" and "chair" of `films/fourth_dimension_pop_07_creature.js`.
 
+### A bucket under the hole, sent back by the operator (2026-11-27)
+- Wanted / got: a funnel under a neutron star; below it the throat stood as a white bucket with a flat
+  gridded bottom and lines ending at ragged heights. It was in my own stills for several rounds, and I read
+  it as a composition problem and hid it behind the star instead of calling it a defect.
+- Cause: the sheet inside a throat lay flat at the well's full depth, a disc the hole's shadow covered only
+  when the well's bottom was the hole and the camera looked down, and pieces of a line, cut by distance along
+  it, crossed the steep wall in one or two straight chords.
+- Now: fixed in the grid program. A line ends on the horizon's ring and its pieces step evenly down the wall
+  (`alongLine`, `outsideThroats` in `src/lib/webgl_shaders.ts`). Habit: a part of the scene's own drawing
+  that no physics explains is a defect to report, even when a picture can cover it.
+- Where: `films/infographic_style.js`; any sheet with Sheet Lift below 1 or with the shadow off.
+
+### Hole Clearing drew a dark disc above a star that sits in the well (2026-11-27)
+- Wanted / got: a star picture on the well's bottom, below the hole; got a black disc above the star.
+- Cause: Hole Clearing cuts the lines round the hole's place on the frame, and that place was above the star.
+- Now: set `gridClearing` and `gridClearingEdge` to 0 when a picture stands in the hole's stead.
+- Where: `films/infographic_style.js`.
+
 ### Equal-radius rings made the sheet unreadable (2026-11-27)
 - Wanted / got: cells of the flat sheet to show stretching; `gridRingSpacing` 1 at 72 rings filled the frame
   with fine rings, and the operator preferred the contour rings.

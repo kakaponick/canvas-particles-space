@@ -265,6 +265,19 @@ export interface ParticleState extends FlowState {
   gridRideCut: number
   gridWell2Bottom: number
   gridLift: number
+  neutronSurface: number
+  neutronStar: number
+  neutronGlow: number
+  neutronTurn: number
+  neutronVeins: number
+  neutronVeinSharp: number
+  neutronVeinLight: number
+  neutronLimb: number
+  neutronShade: number
+  neutronGlowLight: number
+  neutronWarp: number
+  neutronColor: string
+  neutronVeinColor: string
   gridEaseTurn: number
   // The sheet's light: how many times brighter a line is at a throat and the power of the slowing of time it
   // follows; the light the holes shed on it, the shadow radii it falls to half at, and its colour
@@ -667,6 +680,19 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   gridRideCut: 1,
   gridWell2Bottom: 1,
   gridLift: 1,
+  neutronSurface: 0,
+  neutronStar: 0,
+  neutronGlow: 0.35,
+  neutronTurn: 0.05,
+  neutronVeins: 3.5,
+  neutronVeinSharp: 16,
+  neutronVeinLight: 1.1,
+  neutronLimb: 0.7,
+  neutronShade: 0.6,
+  neutronGlowLight: 0.4,
+  neutronWarp: 0.8,
+  neutronColor: '#062a7a',
+  neutronVeinColor: '#8fdcff',
   gridEaseTurn: 1,
   gridThroatGlow: 1.5,
   gridThroatCurve: 2,
