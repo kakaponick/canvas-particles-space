@@ -22,7 +22,7 @@ import {
 import { RING_LIGHT_TEXTURE_UNIT, SHADOW_TEXTURE_UNIT, createFieldFeedback, type FieldFeedback, type FieldInput } from './field_feedback'
 import type { SceneColor } from './scene_color'
 import type { StepSettings } from './particle_simulation'
-import { MAX_ORBITERS, STRETCH_FLOATS, STRETCH_SECONDS } from './orbiters'
+import { LONGEST_TRACE, MAX_ORBITERS, STRETCH_FLOATS, STRETCH_SECONDS } from './orbiters'
 import type { TitleSprite } from './title_sprite'
 import { RING_BINS } from './ring_energy'
 import { SHADOW_SAMPLES, type ShadowShape } from './kerr_shadow'
@@ -57,12 +57,12 @@ const FRONT_DARK = 0.5 / 255
 // the least that cannot round back to where it was, so a trail fades all the way to the background
 const FADE_STEP = 1 / 255
 
-// The longest trace a star may leave, seconds (the top of the Orbit Trail setting)
-const LONGEST_TRACE = 60
 // Rows of stretches the longest traces take, and one more for the row being flown
 const TRACE_ROWS = Math.ceil(LONGEST_TRACE / STRETCH_SECONDS) + 1
-// Room for every star's longest trace
+// The most the ring of traces grows to: every star's longest trace, 35 MB
 const TRACE_CAPACITY = TRACE_ROWS * MAX_ORBITERS
+// Rows of the stars there are the ring is first given room for, about ten seconds of them
+const FIRST_TRACE_ROWS = 640
 // The levels of the nebula's noise its clouds start at with Sparseness 0 (haze everywhere) and 1 (a few
 // thin wisps), the same span the opening's dust takes
 const NEBULA_LEVEL_LOW = 0.2
@@ -924,9 +924,11 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
 
   // The stretches the stars have flown, a ring of records the layer is drawn from every frame. Rows of
   // them are written one after another and start again at the front when the end is reached, over the
-  // oldest; the ring gets its room when the first star is drawn
-  const traceBuffer = gl.createBuffer()
-  let traceSized = false
+  // oldest. It holds `traceRoom` stretches: some ten seconds of the stars there are when the first is drawn,
+  // grown (growTraces) whenever a new row would land on one still lit, up to TRACE_CAPACITY, so a long trail
+  // or many stars take the memory only once they are asked for
+  let traceBuffer = gl.createBuffer()
+  let traceRoom = 0
   // Where each kept row begins, how many stretches it holds and how far the traces had dimmed when it was last flown, oldest first
   const rowStart = new Int32Array(TRACE_ROWS)
   const rowSize = new Uint8Array(TRACE_ROWS)
@@ -1085,6 +1087,34 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     rowCount = 0
   }
 
+  // Gives the ring of traces room for `need` stretches or half as many again as it had, up to TRACE_CAPACITY,
+  // in a new buffer that takes the kept rows over, oldest first from its front
+  function growTraces (need: number) {
+    const room = Math.min(Math.max(need, Math.ceil(traceRoom * 1.5)), TRACE_CAPACITY)
+    const grown = gl.createBuffer()
+    gl.bindBuffer(gl.COPY_WRITE_BUFFER, grown)
+    gl.bufferData(gl.COPY_WRITE_BUFFER, room * STRETCH_STRIDE, gl.DYNAMIC_DRAW)
+    if (rowCount > 0) {
+      // The kept rows lie in one run of the ring, or in two when they pass its end
+      const from = rowStart[oldestRow]
+      const newest = (oldestRow + rowCount - 1) % TRACE_ROWS
+      const to = rowStart[newest] + rowSize[newest]
+      const head = (from < to ? to : traceRoom) - from
+      gl.bindBuffer(gl.COPY_READ_BUFFER, traceBuffer)
+      gl.copyBufferSubData(gl.COPY_READ_BUFFER, gl.COPY_WRITE_BUFFER, from * STRETCH_STRIDE, 0, head * STRETCH_STRIDE)
+      if (from >= to) gl.copyBufferSubData(gl.COPY_READ_BUFFER, gl.COPY_WRITE_BUFFER, 0, head * STRETCH_STRIDE, to * STRETCH_STRIDE)
+      gl.bindBuffer(gl.COPY_READ_BUFFER, null)
+      for (let i = 0; i < rowCount; i++) {
+        const row = (oldestRow + i) % TRACE_ROWS
+        rowStart[row] += rowStart[row] >= from ? -from : head
+      }
+    }
+    gl.bindBuffer(gl.COPY_WRITE_BUFFER, null)
+    gl.deleteBuffer(traceBuffer)
+    traceBuffer = grown
+    traceRoom = room
+  }
+
   // Takes the row of stretches the stars are flying into the ring: over the last row while they go on
   // with it, after it when a new one begins
   function keepRow (frame: FrameInput) {
@@ -1095,8 +1125,18 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     const count = frame.orbitCount
     let newest = (oldestRow + rowCount - 1) % TRACE_ROWS
     if (rowCount === 0 || frame.orbitRowNew || rowSize[newest] !== count) {
+      if (traceRoom === 0) growTraces(count * FIRST_TRACE_ROWS)
       let start = rowCount === 0 ? 0 : rowStart[newest] + rowSize[newest]
-      if (start + count > TRACE_CAPACITY) start = 0
+      if (start + count > traceRoom) start = 0
+      // A row that would land on the oldest, which is still lit, makes the ring larger first while it may grow
+      if (rowCount > 0 && traceRoom < TRACE_CAPACITY &&
+        rowStart[oldestRow] < start + count && rowStart[oldestRow] + rowSize[oldestRow] > start) {
+        const from = rowStart[oldestRow]
+        const to = rowStart[newest] + rowSize[newest]
+        growTraces((from < to ? to - from : traceRoom - from + to) + count)
+        start = rowStart[newest] + rowSize[newest]
+        if (start + count > traceRoom) start = 0
+      }
       // The oldest rows give way where the new one lands, and when there is no row left to name it
       while (rowCount > 0 && (rowCount === TRACE_ROWS ||
         (rowStart[oldestRow] < start + count && rowStart[oldestRow] + rowSize[oldestRow] > start))) {
@@ -1111,10 +1151,6 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     rowFlown[newest] = frame.orbitDimmed
 
     gl.bindBuffer(gl.ARRAY_BUFFER, traceBuffer)
-    if (!traceSized) {
-      traceSized = true
-      gl.bufferData(gl.ARRAY_BUFFER, TRACE_CAPACITY * STRETCH_STRIDE, gl.DYNAMIC_DRAW)
-    }
     gl.bufferSubData(gl.ARRAY_BUFFER, rowStart[newest] * STRETCH_STRIDE, frame.orbitRow, 0, count * STRETCH_FLOATS)
 
     // Rows that have gone dark are let go, oldest first
@@ -1179,7 +1215,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
       stampSegments(to - from)
     } else {
       pointTraces(from * STRETCH_STRIDE)
-      stampSegments(TRACE_CAPACITY - from)
+      stampSegments(traceRoom - from)
       pointTraces(0)
       stampSegments(to)
     }

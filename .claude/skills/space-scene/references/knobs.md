@@ -522,7 +522,7 @@ second needs `ringFeedEnabled` and matter captured or skimming past (gravity, a 
 Gate: `orbitCount` above 0. A trace needs `orbitTrail` above 0 (at 0 only the stars show); the spin's
 swing needs `blackHoleSpin` and `orbitDrag` above 0.
 
-Up to 64 stars with real velocity in space, each on a plane of its own near the hole's equator: ellipses
+Up to 128 stars with real velocity in space, each on a plane of its own near the hole's equator: ellipses
 that precess, faster the closer they come, as around a real black hole. They circle the main hole only.
 
 | What | Keys |
@@ -574,7 +574,7 @@ particles alone barely show them. The plane's precession needs a spin on either 
 
 | What | Keys |
 |---|---|
-| The companion's radius, as a share of the main one (0 is none); its mass is its size | `companionSize` |
+| The companion's radius, as a share of the main one (0 is none, above 1 the heavier of the two); its mass is its size | `companionSize` |
 | Gap between the centres, in main hole radii | `companionDistance` |
 | Rate of the pair's time; the sign is the direction | `companionSpeed` |
 | Strength of the spiral gravitational wave of the pair | `companionWaves` |

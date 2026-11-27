@@ -1925,8 +1925,9 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       if (composite.ringDoppler > 0) composite.ringSide = Math.atan2(y, x)
     }
     // The second hole's ring takes the main ring's sides, Ring Sides times as strong, and with Follow Spin
-    // the side its own spin turns toward the camera, the same way
-    let secondDoppler = state.ringDoppler * state.companionRingSides
+    // the side its own spin turns toward the camera, the same way. Its contrast stops at the main ring's top,
+    // 1: past it the tint would run beyond the ring's two colours, and past 2 the dim side below black
+    let secondDoppler = Math.min(state.ringDoppler * state.companionRingSides, 1)
     let secondSide = roll === 0 ? state.ringSide : state.ringSide + roll
     const secondFollow = companionSpin > 0 && secondDoppler > 0 ? state.ringSpinFollow : 0
     if (secondFollow > 0) {

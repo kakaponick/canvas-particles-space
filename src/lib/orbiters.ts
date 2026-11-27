@@ -19,7 +19,12 @@ import { nextRandom, type Random } from './random'
 import { depositRingEnergy, type RingEnergy } from './ring_energy'
 import { samplePaletteColor, type PaletteSampler } from './particle_simulation'
 
-export const MAX_ORBITERS = 64
+// The most stars (the top of the Orbiting Stars' Count): the main thread integrates each every frame
+export const MAX_ORBITERS = 128
+// The longest trace a star may leave, seconds (the top of the Orbit Trail setting). A frame draws every
+// stretch still lit, up to this many seconds of them for each star, and the renderer's ring of traces grows
+// to hold them only as far as the trail and the count ask
+export const LONGEST_TRACE = 120
 // A stretch: its start and how far the traces had dimmed when it was last flown, its end and its
 // brightness, its colour as four bytes
 export const STRETCH_FLOATS = 9
