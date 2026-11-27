@@ -1998,12 +1998,14 @@ export const gridVertexShaderSource = `
   uniform vec2 u_jolt;        // the scene camera's shake (0 into the layer the lens reads, which the composite pass shakes)
   uniform vec4 u_rings;       // rings drawn around the black hole in place of the square cells (0 = the cells), lines through the hole drawn across them, the share of the way the rings are moved from equal steps of depth to equal radii; unused
   uniform float u_front;      // 3D: the nearer black hole's distance from the camera as a share of the main one's (0 = nothing is in front)
+  uniform vec4 u_glow;        // how many times brighter a line is at a throat (0 = even), the power of the slowing of time it follows, the light the holes shed on the sheet (0 = none), the shadow radii it falls to half at
 ${SHEET_GLSL}
   varying vec2 v_ends;        // distance along the piece from its start and from its end
   varying float v_across;     // signed distance from its axis
   varying float v_halfWidth;
   varying float v_alpha;
   varying float v_front;      // 1 for a piece nearer the camera than the holes, which passes in front of them
+  varying vec2 v_glow;        // the gain on the sheet's own colour, and how lit it is by the holes
 
   // The radius of ring k of the n the sheet is drawn with, at k / (n + 1) of the way down the well, so the
   // rings are its contour lines. dent() turned inside out gives it: a share of the depth is a slowing of
@@ -2015,11 +2017,32 @@ ${SHEET_GLSL}
     return u_sheetWell.x * 0.3849002 / (sunk * kept);
   }
 
+  // A hole's light on the sheet a distance from it, for a light that falls to half at "reach": 1 at the
+  // hole and as the square of the distance far off
+  float shed (float dist, float reach) {
+    return reach * reach / (reach * reach + dist * dist);
+  }
+
   // A point of the sheet, given from the black hole on the plane: where it lies in the space of the
-  // sheet's camera, and how lit it is
-  vec4 onSurface (vec2 fromHole) {
+  // sheet's camera, and how lit it is; "glow" takes the gain on the sheet's colour there and the holes' light
+  vec4 onSurface (vec2 fromHole, out vec2 glow) {
     float r = length(fromHole);
     float depth = sheetDepth(fromHole) + sheetWave(fromHole);
+    glow = vec2(1.0, 0.0);
+    // At a throat the line glows by the slowing of time there, the share dent() gives: 1 at the shadow's
+    // edge, where the sheet stands vertical, and falling as 1 / r far off, with no depth needed to show it
+    if (u_glow.x > 0.0) {
+      float slowed = u_sheetWell.x > 0.0 ? dent(r, u_sheetWell.x) : 0.0;
+      if (u_sheetWell2.z > 0.0) slowed = max(slowed, dent(length(fromHole - u_sheetWell2.xy), u_sheetWell2.z));
+      glow.x += u_glow.x * pow(clamp(slowed, 0.0, 1.0), u_glow.y);
+    }
+    // Each hole lights the sheet round it: the main one from where it stands in its well, so its throat's
+    // wall is lit nearest, a second one across the plane, each by its own radii
+    if (u_glow.z > 0.0) {
+      if (u_sheetWell.x > 0.0) glow.y += shed(length(vec3(fromHole, depth - u_sheetWell.z)), u_glow.w * u_sheetWell.x);
+      if (u_sheetWell2.z > 0.0) glow.y += shed(length(fromHole - u_sheetWell2.xy), u_glow.w * u_sheetWell2.z);
+      glow.y *= u_glow.z;
+    }
     // Inside a throat the sheet lies below the horizon. The flat mode's shadow covers it; seen by the scene's
     // own camera, from any side, it is not drawn
     float shown = u_sheet.w > 0.0 && (r < u_sheetWell.x || length(fromHole - u_sheetWell2.xy) < u_sheetWell2.z) ? 0.0 : 1.0;
@@ -2040,6 +2063,8 @@ ${SHEET_GLSL}
     float across;
     vec4 first;
     vec4 last;
+    vec2 firstGlow;
+    vec2 lastGlow;
     if (u_rings.x > 0.0 && u_sheetWell.x > 0.0) {
       // Rings and spokes around the black hole in place of the square cells. A line the count leaves out
       // is put past the sheet's reach, where it is dropped below
@@ -2051,21 +2076,21 @@ ${SHEET_GLSL}
         float radius = contour(k);
         if (u_rings.z > 0.0) radius = mix(radius, u_sheetWell.x + (contour(1.0) - u_sheetWell.x) * (u_rings.x + 1.0 - k) / u_rings.x, u_rings.z);
         vec2 turn = 3.14159265 * a_gridLine.yz;
-        first = onSurface(radius * vec2(cos(turn.x), sin(turn.x)));
-        last = onSurface(radius * vec2(cos(turn.y), sin(turn.y)));
+        first = onSurface(radius * vec2(cos(turn.x), sin(turn.x)), firstGlow);
+        last = onSurface(radius * vec2(cos(turn.y), sin(turn.y)), lastGlow);
       } else {
         // A line through the hole is two spokes
         across = a_gridLine.x < 0.0 || a_gridLine.x >= u_rings.y ? 2.0 * u_lines.y : 0.0;
         float angle = 3.14159265 * a_gridLine.x / max(u_rings.y, 1.0);
         vec2 spoke = vec2(cos(angle), sin(angle));
-        first = onSurface(spoke * along.x);
-        last = onSurface(spoke * along.y);
+        first = onSurface(spoke * along.x, firstGlow);
+        last = onSurface(spoke * along.y, lastGlow);
       }
     } else {
       // The lines are counted from a place that stays put while the black hole moves across the sheet
       across = (a_gridLine.x - fract(-(crosswise ? u_lines.w : u_lines.z) / u_lines.x)) * u_lines.x;
-      first = onSurface(crosswise ? vec2(along.x, across) : vec2(across, along.x));
-      last = onSurface(crosswise ? vec2(along.y, across) : vec2(across, along.y));
+      first = onSurface(crosswise ? vec2(along.x, across) : vec2(across, along.x), firstGlow);
+      last = onSurface(crosswise ? vec2(along.y, across) : vec2(across, along.y), lastGlow);
     }
 
     v_ends = vec2(0.0);
@@ -2073,6 +2098,7 @@ ${SHEET_GLSL}
     v_halfWidth = 0.0;
     v_alpha = 0.0;
     v_front = 0.0;
+    v_glow = vec2(1.0, 0.0);
     // What lies nearer than the camera's near plane is cut off where the piece crosses it, as a stroke of
     // the field is
     float near = u_sheetV.w;
@@ -2081,9 +2107,11 @@ ${SHEET_GLSL}
       return;
     }
     if (first.z < near || last.z < near) {
-      vec4 cut = mix(first, last, (near - first.z) / (last.z - first.z));
-      if (first.z < near) first = cut;
-      else last = cut;
+      float share = (near - first.z) / (last.z - first.z);
+      vec4 cut = mix(first, last, share);
+      vec2 cutGlow = mix(firstGlow, lastGlow, share);
+      if (first.z < near) { first = cut; firstGlow = cutGlow; }
+      else { last = cut; lastGlow = cutGlow; }
     }
     // A piece whose middle is nearer the camera than the nearer hole passes in front of the holes, and no
     // shadow clears it. The main hole stands in its well, at its depth there, in the sheet camera's space
@@ -2111,6 +2139,7 @@ ${SHEET_GLSL}
     v_across = acrossPiece;
     v_halfWidth = halfWidth;
     v_alpha = mix(first.w, last.w, end) * width / drawWidth;
+    v_glow = mix(firstGlow, lastGlow, end);
 
     // The screen has its first row at the top
     gl_Position = vec4(pixel.x / u_resolution.x * 2.0 - 1.0, 1.0 - pixel.y / u_resolution.y * 2.0, 0.0, 1.0);
@@ -2126,12 +2155,14 @@ export const gridFragmentShaderSource = `
   uniform vec2 u_frame;   // height of the drawing buffer, height of each letterbox bar
   uniform vec2 u_clearing; // the shadow radii inside which a line is gone and beyond which it is whole
   uniform vec2 u_kept;     // the share drawn of a piece behind the holes, and of one in front of them
+  uniform vec3 u_lightColor; // colour of the holes' light on the sheet, at the sheet's brightness
 
   varying vec2 v_ends;
   varying float v_across;
   varying float v_halfWidth;
   varying float v_alpha;
   varying float v_front;
+  varying vec2 v_glow;
 
   void main () {
     // Round caps, so the pieces of a line join without a notch
@@ -2147,7 +2178,7 @@ export const gridFragmentShaderSource = `
       if (u_shadow2.z > 0.0) alpha *= smoothstep(u_shadow2.z * u_clearing.x + 1.0, u_shadow2.z * u_clearing.y + 2.0, length(screen - u_shadow2.xy));
     }
     if (u_frame.y > 0.0) alpha *= smoothstep(u_frame.y - 1.0, u_frame.y + 1.0, min(screen.y, u_frame.x - screen.y));
-    gl_FragColor = vec4(u_color.rgb * alpha, 1.0);
+    gl_FragColor = vec4((u_color.rgb * v_glow.x + u_lightColor * v_glow.y) * alpha, 1.0);
   }
 `
 

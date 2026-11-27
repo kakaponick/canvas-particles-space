@@ -2167,6 +2167,11 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       grid.spokes = state.gridSpokes
       grid.ringSpacing = state.gridRingSpacing
       grid.lensed = state.gridLensed
+      grid.throatGlow = state.gridThroatGlow
+      grid.throatCurve = state.gridThroatCurve
+      grid.light = state.gridLight
+      grid.lightReach = state.gridLightReach
+      readSceneColor(grid.lightColor, state.gridLightColor)
     }
     // The sheet's waves, which the grid program draws and the particles on the sheet ride, from the sky's
     if (state.gridSheet > 0 || (settings.ride > 0 && state.gridRideWave > 0)) waveSheet(grid, composite)

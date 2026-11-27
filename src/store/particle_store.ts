@@ -266,6 +266,13 @@ export interface ParticleState extends FlowState {
   gridWell2Bottom: number
   gridLift: number
   gridEaseTurn: number
+  // The sheet's light: how many times brighter a line is at a throat and the power of the slowing of time it
+  // follows; the light the holes shed on it, the shadow radii it falls to half at, and its colour
+  gridThroatGlow: number
+  gridThroatCurve: number
+  gridLight: number
+  gridLightReach: number
+  gridLightColor: string
   // Width of the lensed grid's lines, CSS pixels; the CSS pixels a cell of it pulled in shrinks to before its
   // lines start to merge into a haze, and the share of that by which the haze is whole
   gridSkyLine: number
@@ -638,6 +645,11 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   gridWell2Bottom: 1,
   gridLift: 1,
   gridEaseTurn: 1,
+  gridThroatGlow: 1.5,
+  gridThroatCurve: 2,
+  gridLight: 1,
+  gridLightReach: 3,
+  gridLightColor: '#d6ebff',
   gridSkyLine: 1.5,
   gridSkyHaze: 6,
   gridSkyHazeSpan: 0.5,

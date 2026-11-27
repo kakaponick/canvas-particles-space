@@ -694,6 +694,7 @@ straight-on (section 11).
 | What a pair's spiral wave turns with: 0 the line between the wells, 1 the orbit laid flat | `gridWaveOrbit` |
 | The sheet's shape: where its rings stand (equal steps of depth to equal radii), the share of the well's depth it is lifted by, how far a second well reaches toward its own hole | `gridRingSpacing`, `gridLift`, `gridWell2Bottom` |
 | The sheet in the picture: the share of it behind the holes drawn through the lens, and how its pose turns while 3D eases in | `gridLensed`, `gridEaseTurn` |
+| The sheet's light: how many times brighter a line is at a throat and how close to it that glow keeps; the light the holes shed on it, where it falls to half, and its colour | `gridThroatGlow`, `gridThroatCurve`, `gridLight`, `gridLightReach`, `gridLightColor` |
 
 - The sheet is a surface of the scene: a piece of the main hole's equator (the plane matter, the flows and
   the orbiting stars follow; across the line of flight while the hole does not spin), dented where the
@@ -721,6 +722,14 @@ straight-on (section 11).
   into an Einstein ring and the shadow covers them. The dent already places each point where light passing
   the hole is seen, so at 1 the lines are bent twice: use it for a sheet that is matter in the scene
   rather than a diagram over it, with `gridDepth` lowered.
+- Two lights make the throat the bright part of the sheet. `gridThroatGlow` brightens a line by the
+  slowing of time where it lies, the share the dent is drawn by: whole at the shadow's edge, so it shows on
+  a sheet seen from straight above and on one with no depth, and `gridThroatCurve` above 1 holds it to the
+  throat's wall. `gridLight` adds `gridLightColor` from the hole as it stands at the well's bottom, falling
+  to half `gridLightReach` shadow radii away and as the square of the distance beyond: the light of the
+  matter round the hole, or of a body drawn over it (films.md), on the surface it sits in. A second hole
+  glows and lights the sheet by its own radii. Both add to `gridColor` and each channel stops at full, so
+  high values turn the throat white; 0 for both draws the sheet in its one colour.
 - `gridEaseTurn` 1 turns the sheet's pose as a camera turns while 3D eases in (`threeDEase`), the plane
   flat and square; 0 squeezes it midway and slides its lines across the screen. The well's bottom stays on
   the hole either way.

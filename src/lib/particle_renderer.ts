@@ -741,7 +741,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   const compositeUniforms = getUniforms(gl, compositeProgram, COMPOSITE_UNIFORMS)
   const gridUniforms = getUniforms(gl, gridProgram, [
     'resolution', 'pixelRatio', ...SHEET_UNIFORMS, 'lines', 'lens', 'jolt', 'color',
-    'shadow', 'frame', 'shadow2', 'sheet', 'clearing', 'rings', 'front', 'kept'
+    'shadow', 'frame', 'shadow2', 'sheet', 'clearing', 'rings', 'front', 'kept', 'glow', 'lightColor'
   ] as const)
 
   const latticeUniforms = getUniforms(gl, latticeProgram, [
@@ -1688,6 +1688,10 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     // Whole no nearer than gone
     setUniform2f(gl, u.clearing, grid.clearFrom, Math.max(grid.clearTo, grid.clearFrom))
     setUniform4f(gl, u.color, settings.gridColor.r * grid.brightness, settings.gridColor.g * grid.brightness, settings.gridColor.b * grid.brightness, 1)
+    // A light that reaches no farther than nothing sheds none, which keeps the shader off a division by zero
+    const light = grid.lightReach > 0 ? Math.max(grid.light, 0) : 0
+    setUniform4f(gl, u.glow, Math.max(grid.throatGlow, 0), Math.max(grid.throatCurve, 0.01), light, grid.lightReach)
+    setUniform3f(gl, u.lightColor, grid.lightColor.r * grid.brightness, grid.lightColor.g * grid.brightness, grid.lightColor.b * grid.brightness)
     if (intoLayer) {
       setUniform2f(gl, u.kept, lensed, 0)
       setUniform4f(gl, u.lens, layerZoomX, layerZoomY, layerZoom, 0)

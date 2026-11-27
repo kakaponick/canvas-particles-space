@@ -16,6 +16,7 @@
 // The lines are a static buffer of segments the grid vertex shader places, so the sheet costs the main
 // thread a few numbers per frame and nothing while it is off.
 import { turnOnto } from './camera_pose'
+import { createSceneColor, type SceneColor } from './scene_color'
 
 // Lines on each side of the black hole, in both directions, and the pieces each line is drawn in
 export const GRID_LINES_PER_SIDE = 112
@@ -56,6 +57,14 @@ export interface GridSettings {
   rings: number
   spokes: number
   ringSpacing: number
+  // How many times brighter a line is where time is slowed most, at a throat (0: even), and the power of
+  // that slowing it follows; the light the holes shed on the sheet (0: none), the shadow radii it falls to
+  // half at, and its colour
+  throatGlow: number
+  throatCurve: number
+  light: number
+  lightReach: number
+  lightColor: SceneColor
   // The share of the sheet behind the holes drawn into the layer the lens reads, the rest over the frame
   lensed: number
   // The sheet's waves for SHEET_GLSL, six slots of four (sendSheet): the ringing hole's wave, how it
@@ -115,6 +124,11 @@ export function createGridSettings (): GridSettings {
     rings: 0,
     spokes: 24,
     ringSpacing: 0,
+    throatGlow: 0,
+    throatCurve: 1,
+    light: 0,
+    lightReach: 1,
+    lightColor: createSceneColor(),
     lensed: 0,
     wave: new Float32Array(SHEET_WAVE_FLOATS),
     rideSoft: 1,
