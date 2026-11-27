@@ -66,22 +66,11 @@ film({
     blackHoleSize: 10,
     blackHoleX: 0.5,
     blackHoleY: 0.5,
-    numParticles: 12000,
+    // No matter falls on the Earth: its pull is a billionth of a black hole's, and an infall drawn into it
+    // reads as a hole under the photograph. Down is told by the drawn arrows; the sky stands still behind
+    fieldEnabled: false,
     lensingEnabled: false,
     ringEnabled: false,
-    // Matter falling in toward the planet from every side, gently: the field is the pull itself
-    colorPalette: [{ r: 120, g: 222, b: 255, enabled: true, percent: 70 }, { r: 235, g: 246, b: 255, enabled: true, percent: 30 }],
-    orbitalStrength: 0,
-    gravityInertia: 0.5,
-    gravityStrength: 15,
-    gravityReach: 14,
-    gravityDepth: 100,
-    baseSpeed: 0,
-    speedGlowKnee: 0.02,
-    trailIntensity: 0.15,
-    depthFade: 0,
-    minOpacity: 0.25,
-    baseBrightness: 1.2,
     nebula: 0.6,
     nebulaScale: 700,
     nebulaSparseness: 0.4,
@@ -160,7 +149,7 @@ shot('serious', () => {
   const start = now()
   const spoken = say('serious')
   status('idea', spoken)
-  // The middle becomes a direction: the two downs turn red, and the field falls in harder
+  // The middle becomes a direction: the two downs turn red
   at(start + heard('serious', 'direction', 0.42), () => {
     const left = start + spoken + 0.6 - now()
     for (const degrees of [TOKYO, BUENOS]) {
@@ -168,7 +157,6 @@ shot('serious', () => {
     }
     draw({ kind: 'circle', center: hole(0, 0), radius: 0.16, fill: W, color: W, width: 0.002, fade: 0.3 }, left)
     caption('*{the middle} is a direction', left, { at: [0.5, 0.69], size: 0.024, font: 'unbounded', color: INK, accent: W, plate: 0.4, fade: 0.3 })
-    to({ gravityStrength: 30 }, 1.5)
   })
   at(start + heard('serious', 'fourth', 0.58), () => caption('*{a fourth one: W}', start + spoken + 0.6 - now(), { at: [0.5, 0.17], size: 0.04, font: 'unbounded', color: INK, accent: W, plate: 0.4, fade: 0.3 }))
   at(start + heard('serious', 'gravity', 0.78), () => keep('Gravity is how a fourth direction *{feels}.', start + spoken + 0.6 - now()))
@@ -178,7 +166,6 @@ shot('serious', () => {
 shot('need', () => {
   const start = now()
   const spoken = say('need')
-  at(now(), () => to({ gravityStrength: 15 }, 1.5))
   const life = spoken + 0.6
   const ROW = 0.76
   // Three signs in a row below the Earth, each arriving at its word
