@@ -105,6 +105,12 @@ Once the missing piece exists (a knob, a fix in code, a sentence in `knobs.md`, 
 
 ## The tools and the machine
 
+### `space.mjs guide` in a fresh worktree (2026-11-28)
+- Wanted / got: the film format from `space.mjs guide` in a new worktree; it stopped with "has no index.html".
+- Cause: the guide is read from the built page, and a worktree has no `dist/` until `pnpm build`.
+- Now: run `guide` from the main checkout, whose `dist/` exists. Still missing: a guide that reads the source.
+- Where: `.claude/skills/space-scene/scripts/space.mjs`.
+
 ### A black screen I called fixed without opening it (2026-11-27)
 - Wanted / got: the operator's screen to play a show picked from its history; I fixed dead addresses of
   removed worktrees and said so, and the operator still got a black screen.

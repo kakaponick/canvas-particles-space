@@ -279,6 +279,10 @@ Tours and language:
   other, a merger, one hole wearing both colours; a cable-like camera between them; about 8 300 keys, most of
   them the physics (the distance drive, the hops, the swirl). Written without a preview or a check, at the
   operator's word: check it before the first render.
+- `lanes.js`: a ride in the traffic of a disc: three flows as lanes at Kepler rates, a rider low over the plane
+  weaving, leaning and changing lanes inward while the hole spins up and the inner lane falls in, then thrown out
+  over the pole on an outflow to look down at the lanes; about 8 200 keys, 64 % of them the simulation's own.
+  Written without a preview, at the operator's word: check it before the first render.
 - `horizon.js`: a film carried by its text: words on black, a definition, a formula, a label, counters
   read from the film, a list that builds.
 - `graphics.js`: everything drawn over the picture: rings that mark radii, an arrow with a label, a chart
