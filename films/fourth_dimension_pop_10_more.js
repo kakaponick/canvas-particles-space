@@ -487,6 +487,9 @@ dip(() => {
     gridWellWidth: GROWN,
     gridCell: 4,
     gridRings: 40,
+    // 22 spokes, so none points at the camera or away from it: of 24, those two stood as one vertical line
+    // through the hole, down the W arrow and through the dashed mass under it ("тут тоже артефакты", 8:34)
+    gridSpokes: 22,
     gridDepth: +(DISC_DEPTH * GROWN).toFixed(3),
     gridTilt: DISC_TILT,
     blackHoleY: DISC_Y,
@@ -515,8 +518,13 @@ shot('missing', () => {
   const lasts = end + long('missingw') + 0.6 + long('reading') + 0.6 - start
   status('known', spoken + 0.4)
   // The galaxy's core: a soft glow flattened into the disc's plane, wider than the hole's shadow it covers, with
-  // no hard edge, so it reads as light and not as a ball
-  draw({ kind: 'circle', center: { hole: [0, 0] }, radius: part(1.6 * GROWN), radiusY: part(0.5 * GROWN), fill: '#fff3dc', fillTo: '#1a1408', fillAt: [0, 0], color: '#fff3dc', width: 0, glow: 0.06, fade: 0.6 }, lasts)
+  // no hard edge, so it reads as light and not as a ball. One ellipse shaded to a dark rim was an opaque beige
+  // plate over the disc (the operator, 8:34): the glow is layers, each wider and fainter, the smallest opaque
+  // and still wider and taller than the hole's shadow
+  for (let layer = 0; layer < 6; layer++) {
+    const grow = 1 + layer * 0.5
+    draw({ kind: 'circle', center: { hole: [0, 0] }, radius: part(0.45 * grow * GROWN), radiusY: part(0.4 * (1 + layer * 0.18) * GROWN), fill: '#fff3dc', fillOpacity: layer === 0 ? 1 : part(0.9 / (layer + 0.8)), color: '#fff3dc', width: 0, glow: layer === 0 ? 0.1 : 0, fade: 0.6 }, lasts)
+  }
   // The speed of the disc at each distance: what the matter we see would give (it falls off past the bright
   // middle, as round a mass that is all inside) against what is measured (flat)
   at(start + heard('missing', 'spin', 0.15), () => {
@@ -531,9 +539,9 @@ shot('missing', () => {
       seen.push([part(r), part(speedSeen(r))])
       measured.push([part(r), part(r < CORE ? speedSeen(r) : speedSeen(CORE))])
     }
-    draw({ kind: 'plot', box: [0.64, 0.08, 0.3, 0.26], x: [0, 10], y: [0, 1.3], series: [{ points: seen, color: SOFT }, { points: measured, color: GOLD }], xLabel: 'distance from the centre', yLabel: 'speed', labelSize: 0.022, plate: 0.6, fade: 0.4 }, lasts - (now() - start))
-    caption('measured', lasts - (now() - start), { at: [0.86, 0.1], size: 0.022, font: 'unbounded', color: GOLD, fade: 0.4 })
-    caption('from what we see', lasts - (now() - start), { at: [0.85, 0.245], size: 0.022, font: 'unbounded', color: SOFT, fade: 0.4 })
+    draw({ kind: 'plot', box: [0.64, 0.075, 0.3, 0.2], x: [0, 10], y: [0, 1.3], series: [{ points: seen, color: SOFT }, { points: measured, color: GOLD }], xLabel: 'distance from the centre', yLabel: 'speed', labelSize: 0.022, plate: 0.6, fade: 0.4 }, lasts - (now() - start))
+    caption('measured', lasts - (now() - start), { at: [0.86, 0.08], size: 0.022, font: 'unbounded', color: GOLD, fade: 0.4 })
+    caption('from what we see', lasts - (now() - start), { at: [0.85, 0.205], size: 0.022, font: 'unbounded', color: SOFT, fade: 0.4 })
   })
   at(start + heard('missing', 'five', 0.62) - 0.2, () => {
     keep('As if they held *{about five times} the matter we see.', end - now(), { accent: GOLD })
