@@ -35,7 +35,8 @@ last few. A shell is all an agent needs; no browser tool of its own.
 
 1. A film not yet in `films/` goes there as `films/_lab_<name>.js`; `films/_lab_*` is in the repository's
    `.git/info/exclude`, so it never joins a commit.
-2. From the worktree: `node scripts/screen.mjs live <film> "<what it shows>"`. It starts that worktree's
+2. From the worktree, rebased on master (the operator sees the worktree's whole page, toolbar and all, and
+   the script refuses a branch behind master): `node scripts/screen.mjs live <film> "<what it shows>"`. It starts that worktree's
    dev server once (a port from 5200 up, detached; later calls reuse it), starts the screen if it is not
    up, and shows `?live=<film>` there. `?live=` plays that film of `films/` inside the page's own scene,
    looping: its tracks are written into the settings every frame, the operator can still turn the camera,

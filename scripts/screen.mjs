@@ -19,7 +19,7 @@ import path from 'node:path'
 import net from 'node:net'
 import process from 'node:process'
 import { createServer } from 'node:http'
-import { spawn } from 'node:child_process'
+import { execFileSync, spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -116,6 +116,12 @@ async function live (film, label) {
   if (!film) throw new Error('Name a film of films/: node scripts/screen.mjs live <film> ["what it shows"]')
   const name = path.basename(film)
   if (!fs.existsSync(path.join(root, 'films', name))) throw new Error(`No films/${name} in ${root}: a scratch film goes there as films/_lab_<name>.js`)
+  // The operator sees this worktree's whole page, so a branch behind master shows a page master has changed
+  try {
+    execFileSync('git', ['merge-base', '--is-ancestor', 'master', 'HEAD'], { cwd: root, stdio: 'ignore' })
+  } catch {
+    throw new Error(`${root} is behind master: rebase it first (git rebase master), or the operator sees a page master has already changed`)
+  }
   const port = await devServer()
   await show(`http://127.0.0.1:${port}/?live=${encodeURIComponent(name)}`, label ?? name)
 }
