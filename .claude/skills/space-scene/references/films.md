@@ -270,6 +270,10 @@ Tours and language:
 - `three_d.js`: the scene in three dimensions: a disc in the hole's equator passing before the shadow, an
   equator that leans with the spin, a pair on a tilted orbit, a sheet whose well runs down to the hole
   (flows for the disc, particles on the sheet).
+- `immersion.js`: a 3D showcase in one descent with a camera that never stops: out of a Doppler-tinted
+  jump, round the column, over a disc of three flows, a fly-by through the disc's plane, tilted orbits, a
+  merger, a dive into the traced disc; about 7 800 keys, most of them driven paths (circle in a disc, flows,
+  the traced disc). Written without a preview: check it before the first render.
 - `horizon.js`: a film carried by its text: words on black, a definition, a formula, a label, counters
   read from the film, a list that builds.
 - `graphics.js`: everything drawn over the picture: rings that mark radii, an arrow with a label, a chart
