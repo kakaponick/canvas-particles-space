@@ -167,6 +167,9 @@ film({
     gridRideDepth: 400,
     // The Earth's well is a billionth of a black hole's: no redshift to see near it
     gravityRedshift: 0,
+    // nor a glow of slowed time at its throat, nor light of its own on the sheet: the Earth shines by the Sun
+    gridThroatGlow: 0,
+    gridLight: 0,
     fieldAtHole: 1,
     gridFade: 0.3
   }
@@ -304,11 +307,11 @@ shot('ruler', () => {
     const rest = gone - now()
     const born = now()
     const count = (RULER.last - RULER.first) / RULER.every + 1
-    sketch({ kind: 'line', points: rulerLine('lift'), smooth: true, color: INK, width: 0.004, fade: 0.3, draw: 1.6, values: { lift } }, rest)
+    sketch({ kind: 'line', points: rulerLine('lift'), smooth: true, color: GOLD, width: 0.004, fade: 0.3, draw: 1.6, values: { lift } }, rest)
     for (let k = RULER.first; k <= RULER.last; k += RULER.every) {
       const late = 1.6 * (k - RULER.first) / RULER.every / count
       at(born + late, () => {
-        sketch({ kind: 'line', points: rulerMark(k, 'lift'), color: INK, width: 0.0034, fade: 0.15, values: { lift } }, rest - late)
+        sketch({ kind: 'line', points: rulerMark(k, 'lift'), color: GOLD, width: 0.0034, fade: 0.15, values: { lift } }, rest - late)
       })
     }
   })
@@ -328,14 +331,14 @@ shot('ruler', () => {
       for (let dot = 0; dot < DOTS; dot++) {
         const late = 0.8 * (k - RULER.first) / (RULER.last - RULER.first)
         at(now() + late, () => {
-          sketch({ kind: 'circle', center: [part(near + (deep - near) * (dot + 0.5) / DOTS), STRAIGHT.y - 0.04], radius: 0.005, color: GOLD, width: 0, fill: GOLD, fillOpacity: 1, fade: 0.2 }, rest - late)
+          sketch({ kind: 'circle', center: [part(near + (deep - near) * (dot + 0.5) / DOTS), STRAIGHT.y - 0.04], radius: 0.005, color: INK, width: 0, fill: INK, fillOpacity: 1, fade: 0.2 }, rest - late)
         })
       }
     }
     cap('out on the flat', rest, { at: [STRAIGHT.right - 0.04, STRAIGHT.y + 0.05], size: 0.022, font: 'unbounded', color: SOFT, fade: 0.3 })
     cap('deep in the well', rest, { at: [STRAIGHT.left + 0.04, STRAIGHT.y + 0.05], size: 0.022, font: 'unbounded', color: SOFT, fade: 0.3 })
     at(now() + 0.8, () => {
-      cap('the same *{space} in every step', gone - now(), { at: [0.5, STRAIGHT.y - 0.1], size: 0.034, font: 'unbounded', color: INK, accent: GOLD, fade: 0.3 })
+      cap('the same *{space} in every step', gone - now(), { at: [0.5, STRAIGHT.y - 0.1], size: 0.034, font: 'unbounded', color: SOFT, accent: INK, fade: 0.3 })
     })
   })
   at(start + heard('ruler', 'trust', 0.92) - 0.5, () => {
