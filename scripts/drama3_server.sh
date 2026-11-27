@@ -7,7 +7,8 @@
 # /setup.sh'; the servers are then https://<pod>-8080.proxy.runpod.net and -8081. They have no password: the
 # pod is deleted once the lines are spoken. A server holds its own copy of Q4_K_S, about 25 GB of the card by
 # estimate (the key used could not read the pod's log, so it was never measured).
-# What it says goes to the container's log.
+# What it says goes to the container's log. A Windows checkout holds this file with CRLF line ends, which bash
+# on the machine reads as part of each command: turn them into LF before encoding it.
 set -u
 say () { echo "[setup $(date -u +%H:%M:%S)] $*"; }
 say "start"
