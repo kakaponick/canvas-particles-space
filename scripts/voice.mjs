@@ -110,7 +110,8 @@ function voiceOf (file) {
   return voice
 }
 
-const words = text => text.toLowerCase().replace(/[^a-z0-9' ]+/g, ' ').split(/\s+/).filter(Boolean)
+// A line's words as a recognizer writes them, in any alphabet; ё is written е as often as not
+const words = text => text.toLowerCase().replace(/ё/g, 'е').replace(/[^\p{L}\p{N}' ]+/gu, ' ').split(/\s+/).filter(Boolean)
 
 // ---- what a reel's clips say ----
 
@@ -194,11 +195,19 @@ export function linesOfReel (film) {
 // line, and what tells its takes and files from the film's own (`own`). The film's voice is the first. A voice
 // with `servers` is spoken by audio.cpp servers instead (a rented machine: scripts/drama3_server.sh), its `engine`
 // the model's id there, cloning the profile's own recording; they speak at once, a line each.
+// A voice may name its own VoiceStudio `profile`. A voice in another language names its `language` and its own
+// `lines`, by the same names, and its `cues`, each
+// 'word|the same word in its language' (as written in its line): the clips look the second up by the first.
 // takes: what the names of the film's takes in films/voice/ begin with
-export async function voiceFilm ({ film, lines: LINES, cues: CUES, heardAs = {}, profile: PROFILE, language: LANGUAGE, seed: SEED, delivery: DELIVERY, voices: VOICES, takes: TAKES = 'fd_' }) {
+export async function voiceFilm ({ film, lines: FILM_LINES, cues: FILM_CUES, heardAs = {}, profile: FILM_PROFILE, language: FILM_LANGUAGE, seed: SEED, delivery: DELIVERY, voices: VOICES, takes: TAKES = 'fd_' }) {
   const VOICE_NAME = process.argv[3] ?? Object.keys(VOICES)[0]
   const VOICE = VOICES[VOICE_NAME]
   if (!VOICE) throw new Error(`No voice "${VOICE_NAME}": ${Object.keys(VOICES).join(', ')}`)
+  const LINES = VOICE.lines ?? FILM_LINES
+  const CUES = VOICE.cues ?? FILM_CUES
+  const LANGUAGE = VOICE.language ?? FILM_LANGUAGE
+  // A voice may be another VoiceStudio profile's: its name
+  const PROFILE = VOICE.profile ?? FILM_PROFILE
   // What this voice's files end in: nothing for the film's own
   const OF_VOICE = VOICE.own ? '' : '_' + VOICE_NAME
   // The film, whose clips every voice plays, and the reel this voice paces: the film itself for its own
@@ -222,10 +231,16 @@ export async function voiceFilm ({ film, lines: LINES, cues: CUES, heardAs = {},
   const madeBy = (profile, text) => VOICE.own && !VOICE.servers ? [profile, LANGUAGE, SEED, DELIVERY, text] : [profile, LANGUAGE, seedOf(text), VOICE.engine, VOICE.fields, text]
   const takeFile = (profile, text) => path.join(takes, TAKES + crypto.createHash('sha1').update(JSON.stringify(madeBy(profile, text))).digest('hex').slice(0, 12) + '.wav')
 
-  // The profile's own recording and its words, which a voice of an audio.cpp server is given with every line
+  // The profile's own recording and its words, which a voice of an audio.cpp server is given with every line;
+  // a voice with a `sample` ({ audio: a WAV path from the repository's root, text: its words, word for word })
+  // takes that recording instead, and no VoiceStudio profile
   let sample = null
   async function sampleOf (profile) {
     if (sample) return sample
+    if (VOICE.sample) {
+      sample = { data: fs.readFileSync(path.join(root, VOICE.sample.audio)).toString('base64'), text: VOICE.sample.text }
+      return sample
+    }
     const profiles = await (await studio('/profiles')).json()
     const found = profiles.find(each => each.id === profile)
     const audio = await studio(`/profiles/${profile}/audio`)
@@ -279,7 +294,9 @@ export async function voiceFilm ({ film, lines: LINES, cues: CUES, heardAs = {},
     return file
   }
 
+  // What names the voice in its takes: the VoiceStudio profile's id, or what a sample holds
   async function profileId () {
+    if (VOICE.sample) return 'sample:' + crypto.createHash('sha1').update(fs.readFileSync(path.join(root, VOICE.sample.audio))).update(VOICE.sample.text).digest('hex').slice(0, 12)
     const profiles = await (await studio('/profiles')).json()
     const found = profiles.find(profile => profile.name.toLowerCase() === PROFILE.toLowerCase())
     if (!found) throw new Error(`VoiceStudio has no profile named ${PROFILE}: ${profiles.map(profile => profile.name).join(', ')}`)
@@ -293,7 +310,7 @@ export async function voiceFilm ({ film, lines: LINES, cues: CUES, heardAs = {},
     const form = new FormData()
     form.set('file', new Blob([fs.readFileSync(file)], { type: 'audio/wav' }), 'take.wav')
     form.set('model', 'whisper-1')
-    form.set('language', 'en')
+    form.set('language', { English: 'en', Russian: 'ru' }[LANGUAGE] ?? 'en')
     form.set('response_format', 'verbose_json')
     form.append('timestamp_granularities[]', 'word')
     const response = await studio('/v1/audio/transcriptions', { method: 'POST', body: form })
@@ -337,7 +354,7 @@ export async function voiceFilm ({ film, lines: LINES, cues: CUES, heardAs = {},
         const [key, ...others] = word.split('|')
         // The word as the recognizer writes it, and what it is known to hear in its place
         const spoken = words(key).join('')
-        const takenFor = [spoken, ...others, ...(heardAs[spoken] ?? [])]
+        const takenFor = [spoken, ...others.map(other => words(other).join('')), ...(heardAs[spoken] ?? [])]
         const found = said.findIndex(([each], index) => index > after && takenFor.includes(each))
         if (found < 0) {
           console.warn(`  "${key}" was not heard in ${name}: the clip falls back on its guess`)
