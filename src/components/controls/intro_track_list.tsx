@@ -460,25 +460,26 @@ const FLIP_LABEL_AT = 0.86
 // Approximate width of a marker's label in pixels, with its offset from the diamond
 const labelWidth = (label: string) => label.length * 7 + 16
 
-// Which groups of a lane can show their label: one that runs right must end before the next diamond, one
-// flipped to the left must start after the previous diamond and the label that runs right of it
-function labelsThatFit (groups: IntroMarker[][], duration: number, secondsPerPx: number) {
-  const shown = groups.map(() => true)
-  if (secondsPerPx <= 0) return shown
-  let reach = -Infinity
-  groups.forEach((group, index) => {
+// Where each group of a lane shows its label. One that runs right must end before the next diamond; the last
+// one must end before the lane does, or it flips. One flipped to the left must start after the previous
+// diamond, the label that runs right of it and the lane's start. A label that fits nowhere hides: past the
+// lane's end it would widen a phone's narrow track list into a sideways scroll
+function placeLabels (groups: IntroMarker[][], duration: number, secondsPerPx: number) {
+  if (secondsPerPx <= 0) return groups.map(group => ({ shown: true, flip: share(group[0].time, duration) > FLIP_LABEL_AT }))
+  let reach = 0
+  return groups.map((group, index) => {
     const time = group[0].time
     const span = labelWidth(group[0].label) * secondsPerPx
-    if (share(time, duration) > FLIP_LABEL_AT) {
-      const previous = groups[index - 1]
-      shown[index] = !previous || time - span >= Math.max(previous[0].time, reach)
-    } else {
-      const next = groups[index + 1]
-      shown[index] = !next || next[0].time - time >= span
-      if (shown[index]) reach = time + span
+    const previous = groups[index - 1]
+    const next = groups[index + 1]
+    const flipped = () => ({ shown: time - span >= Math.max(previous ? previous[0].time : 0, reach), flip: true })
+    if (share(time, duration) > FLIP_LABEL_AT) return flipped()
+    if ((next ? next[0].time : duration) - time >= span) {
+      reach = time + span
+      return { shown: true, flip: false }
     }
+    return next ? { shown: false, flip: false } : flipped()
   })
-  return shown
 }
 
 // One diamond on a lane for a moment that cannot be moved, or for moments too close together to tell apart on
@@ -489,17 +490,18 @@ interface MarkerProps {
   trackKey: string
   duration: number
   showLabel: boolean
+  // The label runs to the left of the diamond (placeLabels)
+  flip: boolean
   // Opens the track's parameters
   onOpenTrack: () => void
 }
 
-function MarkerButton ({ group, trackKey, duration, showLabel, onOpenTrack }: MarkerProps & { group: IntroMarker[] }) {
+function MarkerButton ({ group, trackKey, duration, showLabel, flip, onOpenTrack }: MarkerProps & { group: IntroMarker[] }) {
   const seek = useIntroDebugStore(state => state.seek)
   const isPhase = useIntroDebugStore(state => group.some(marker => marker.label === state.readout.phase))
   const first = group[0]
   const selected = useSelectedMoment(state => state.key === momentKey(trackKey, first))
   const labels = group.map(marker => marker.label).join(', then ')
-  const flip = share(first.time, duration) > FLIP_LABEL_AT
   return (
     <button
       type="button"
@@ -557,7 +559,7 @@ const stepDecimals = (step: number) => Math.max(0, Math.min(6, Math.ceil(-Math.l
 // A moment the user can move: drag the diamond along its lane, or focus it and use the arrows, and its
 // parameter follows on its slider's step and range. A click or Enter still seeks to it, Delete puts it back.
 // It is a slider for screen readers, valued in seconds, and its hint menu names the parameter it moves
-function MovableMarker ({ marker, trackKey, duration, showLabel, onOpenTrack }: MarkerProps & { marker: IntroMarker }) {
+function MovableMarker ({ marker, trackKey, duration, showLabel, flip, onOpenTrack }: MarkerProps & { marker: IntroMarker }) {
   const seek = useIntroDebugStore(state => state.seek)
   const setParam = useIntroDebugStore(state => state.setParam)
   const isPhase = useIntroDebugStore(state => marker.label === state.readout.phase)
@@ -607,7 +609,6 @@ function MovableMarker ({ marker, trackKey, duration, showLabel, onOpenTrack }: 
 
   const time = marker.time
   const coarse = Math.max(spec.step, MOMENT_STEP)
-  const flip = share(time, duration) > FLIP_LABEL_AT
   const name = spec.spokenName ?? spec.label
 
   return (
@@ -887,7 +888,7 @@ const TrackRow = memo(function TrackRow ({ track, duration, hidden, expanded, te
   const changedCount = changed.length + textChanges
   const panelId = `intro-track-${track.key}`
   const markerGroups = groupMarkers(markers, markerGap)
-  const labelShown = labelsThatFit(markerGroups, duration, secondsPerPx)
+  const labels = placeLabels(markerGroups, duration, secondsPerPx)
   // Worked out again only when the spans change, which is when the row re-renders for them
   const spanText = useMemo(() => `, ${describeSpans(spans)}`, [spans])
   // The reset button goes once it has done its job, so the focus moves back to the track's name first
@@ -964,8 +965,8 @@ const TrackRow = memo(function TrackRow ({ track, duration, hidden, expanded, te
               {spans.map((span, index) => <SpanBar key={index} span={span} duration={duration} />)}
             </span>
             {markerGroups.map((group, index) => group.length === 1 && group[0].param
-              ? <MovableMarker key={group[0].label} marker={group[0]} trackKey={track.key} duration={duration} showLabel={labelShown[index]} onOpenTrack={openTrack} />
-              : <MarkerButton key={group[0].label} group={group} trackKey={track.key} duration={duration} showLabel={labelShown[index]} onOpenTrack={openTrack} />)}
+              ? <MovableMarker key={group[0].label} marker={group[0]} trackKey={track.key} duration={duration} showLabel={labels[index].shown} flip={labels[index].flip} onOpenTrack={openTrack} />
+              : <MarkerButton key={group[0].label} group={group} trackKey={track.key} duration={duration} showLabel={labels[index].shown} flip={labels[index].flip} onOpenTrack={openTrack} />)}
           </div>
         </div>
       </div>

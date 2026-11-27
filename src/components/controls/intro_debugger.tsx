@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
+import { Fragment, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import { Keyboard, Pause, Play, Repeat, RotateCcw, StepForward } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -184,14 +184,11 @@ function IntroDebugger () {
   useEffect(() => () => window.cancelAnimationFrame(drag.current.frame), [])
 
   // However the dock closes (its toggle, Alt+Shift+D, Escape, the agent API), focus inside it goes back to its
-  // toggle instead of falling to the page. A layout effect, so the dock is still in the page and still holds
-  // the focus when this runs
-  useLayoutEffect(() => {
-    if (!open) return
-    return () => {
-      if (isInDock(document.activeElement)) focusIntroToggle()
-    }
-  }, [open])
+  // toggle instead of falling to the page. Told by the store as it closes, while the dock is still in the page
+  // and still holds the focus: by the time React runs this component's effects, the dock is gone
+  useEffect(() => useIntroDebugStore.subscribe((state, before) => {
+    if (before.open && !state.open && isInDock(document.activeElement)) focusIntroToggle()
+  }), [])
 
   // Tells the page the dock is open, so the first-visit hints step aside (index.css)
   useEffect(() => {

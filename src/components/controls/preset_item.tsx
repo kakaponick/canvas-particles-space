@@ -57,7 +57,7 @@ function PresetItem ({
   return (
     <li
       // 28px with its border, the height of every row and button beside it
-      className={cn('flex h-7 items-center border font-mono text-xs', active ? 'border-neon-cyan/60 bg-neon-cyan/10' : 'border-text-light/15', className)}
+      className={cn('flex h-7 items-center border font-mono text-xs', active ? 'border-neon-cyan/60 bg-neon-cyan/10 forced-colors:border-[Highlight]' : 'border-text-light/15', className)}
       // Leaving with the pointer cancels a pending DELETE, unless the keyboard is on it; the focus goes back to
       // the trash button instead of falling to the page
       onMouseLeave={(event) => {
@@ -74,7 +74,7 @@ function PresetItem ({
           // 11px plus the item's 1px border puts the name on the rows' 12px label edge
           'flex h-full min-w-0 items-center gap-2 pl-[11px] pr-3 text-left transition-colors duration-150 hover:text-neon-cyan',
           'focus-visible:outline focus-visible:outline-1 focus-visible:outline-neon-cyan',
-          active ? 'text-neon-cyan' : 'text-text-light/85',
+          active ? 'text-neon-cyan forced-colors:text-[Highlight]' : 'text-text-light/85',
           nameClassName
         )}
       >

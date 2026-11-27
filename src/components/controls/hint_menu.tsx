@@ -160,8 +160,13 @@ function HintMenu () {
     const below = menu.y + height <= window.innerHeight - EDGE
     const top = below ? menu.y : Math.max(EDGE, menu.anchorTop - height)
     setPosition({ left, top })
-    ;(resetRef.current ?? element).focus({ preventScroll: true })
   }, [menu])
+
+  // The focus goes in once the menu is drawn at its place: until then it is hidden, and a hidden element
+  // refuses the focus, which would leave Reset out of the keyboard's reach
+  useLayoutEffect(() => {
+    if (position) (resetRef.current ?? menuRef.current)?.focus({ preventScroll: true })
+  }, [position])
 
   // Any press outside, a scroll, a resize or Escape closes it
   useEffect(() => {

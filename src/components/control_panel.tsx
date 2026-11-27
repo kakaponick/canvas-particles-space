@@ -28,11 +28,13 @@ function keepOpen (event: Event) {
 }
 
 // The scene toolbar's buttons. A panel's button opens and closes it from the same spot and shows it open in
-// solid cyan, so the way back is always where the way in was
+// solid cyan, so the way back is always where the way in was. Forced colours drop that fill, so there the
+// open panel's button takes the system's highlight
 const SCENE_BUTTON = cn(
   'h-9 w-9 border-neon-cyan bg-[rgba(10,10,15,0.95)] text-neon-cyan shadow-[0_0_16px_rgba(0,255,255,0.25)]',
   'hover:bg-[rgba(0,255,255,0.12)] hover:text-neon-cyan',
   'aria-expanded:bg-neon-cyan aria-expanded:text-bg-dark aria-expanded:hover:bg-neon-cyan/85 aria-expanded:hover:text-bg-dark',
+  'forced-colors:aria-expanded:bg-[Highlight] forced-colors:aria-expanded:text-[HighlightText] forced-colors:aria-expanded:hover:bg-[Highlight] forced-colors:aria-expanded:hover:text-[HighlightText]',
   'focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-bg-dark'
 )
 
