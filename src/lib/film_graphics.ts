@@ -5,6 +5,7 @@
 import type { CompositeSettings } from './particle_renderer'
 import { captionAlpha, captionValue, type FilmGraphic, type FilmNumber, type FilmPlace, type FilmPlan } from './film'
 import { drawMarked, placeOnFrame, plainFont } from './film_captions'
+import type { GridSettings } from './space_grid'
 import { clamp, fail } from './agent_values'
 
 type Point = readonly [number, number]
@@ -157,9 +158,12 @@ const short = (value: number) => String(+value.toPrecision(4))
 
 /**
  * Draws the shapes shown at `time` over `ctx`, whose canvas holds the frame at `pixel` video pixels per scene
- * pixel. `composite` is the frame as the scene drew it: where the holes are and how the camera stands.
+ * pixel. `composite` is the frame as the scene drew it: where the holes are and how the camera stands; `sheet`
+ * the space sheet as it laid it, for shapes that lie on it.
  */
-export function drawGraphics (ctx: CanvasRenderingContext2D, plan: FilmPlan, time: number, composite: CompositeSettings, pixel: number, images: FilmImages) {
+export function drawGraphics (
+  ctx: CanvasRenderingContext2D, plan: FilmPlan, time: number, composite: CompositeSettings, pixel: number, images: FilmImages, sheet: GridSettings | null = null
+) {
   const width = plan.width * pixel
   const height = plan.height * pixel
   const shortSide = Math.min(width, height)
@@ -168,7 +172,7 @@ export function drawGraphics (ctx: CanvasRenderingContext2D, plan: FilmPlan, tim
     const read = (value: FilmNumber) => typeof value === 'number' ? value : captionValue(plan, graphic, value, time)
     const alpha = captionAlpha(graphic, time) * clamp(read(graphic.opacity), 0, 1)
     if (alpha <= 0) continue
-    const at = (place: FilmPlace) => placeOnFrame(place, read, composite, pixel, width, height)
+    const at = (place: FilmPlace) => placeOnFrame(place, read, composite, pixel, width, height, false, sheet)
     // How much of its stroke is there by now
     const drawn = graphic.draw > 0 ? clamp((time - graphic.from) / graphic.draw, 0, 1) : 1
     const stroke = Math.max(graphic.width * shortSide, graphic.width > 0 ? 1 : 0)

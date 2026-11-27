@@ -412,6 +412,12 @@ kind.
 - A shape that explains the scene rides on it: give its places as `{ hole: [dx, dy] }` in radii, and it
   follows the hole, the zoom and the pan. A shape that belongs to the film (a chart, a framed picture) is
   given in shares of the frame.
+- A shape that lies on the space sheet takes `{ sheet: [x, y] }`: the main well's radii from its middle,
+  x to the right and y away from the flat camera, sunk into the well as the surface is. It follows the
+  sheet through `gridTilt`, the zoom and the 3D camera, so a ruler down a spoke stays on the spoke while the
+  camera comes down to it. The spokes are every 360 / `gridSpokes` degrees; the rings are the well's
+  contour lines (`gridRingSpacing` 0), ring k of n at `0.3849 / ((1 - c * c) * c)` radii with
+  `c = 1 - k / (n + 1) / 2.3660254`. `films/fourth_dimension_pop_10_test.js` lays a ruler on them.
 - Let a shape read the number it shows. `radius: 'lensingRadius'` keeps a ring on the Einstein ring while
   a track moves it; `radius: 'companionDistance'` around the main hole is the second hole's orbit seen
   from it. A plot's `marker` and a caption's `#{...}` given the same value move together, which is what

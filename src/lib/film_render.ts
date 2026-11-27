@@ -185,8 +185,8 @@ export async function createFilmPlayer (plan: FilmPlan, pixel: number, imageUrls
       ctx.fillRect(0, 0, canvas.width, canvas.height)
       ctx.globalAlpha = 1
     }
-    if (images) drawGraphics(ctx, plan, time, scene.frame.composite, canvas.width / plan.width, images)
-    if (plan.captions.length > 0) drawCaptions(ctx, plan, time, scene.frame.composite, canvas.width / plan.width)
+    if (images) drawGraphics(ctx, plan, time, scene.frame.composite, canvas.width / plan.width, images, scene.frame.grid)
+    if (plan.captions.length > 0) drawCaptions(ctx, plan, time, scene.frame.composite, canvas.width / plan.width, scene.frame.grid)
   }
 
   return { canvas, drawFrame, dispose }

@@ -197,31 +197,77 @@ shot('clock', () => {
   wait(life)
 })
 
+// ---- the ruler, lying on the sheet ----
+// The sheet's rings are its contour lines, each the same step down the well, which is the step along W
+// (gridRings, as the grid's shader lays them): ring k of RINGS, in the well's radii from its middle
+const RINGS = 72
+const ring = k => {
+  const kept = 1 - k / (RINGS + 1) / 2.3660254
+  return 0.3849002 / ((1 - kept * kept) * kept)
+}
+// A place on the sheet, `away` of the well's radii from its middle, `angle` degrees round from the right
+// toward the far side; the spokes are every 15 degrees
+const onSheet = (away, angle) => {
+  const turn = angle * Math.PI / 180
+  return { sheet: [part(away * Math.cos(turn)), part(away * Math.sin(turn))] }
+}
+const along = (from, to, angle) => {
+  const places = []
+  for (let index = 0; index <= 40; index++) places.push(onSheet(from + (to - from) * index / 40, angle))
+  return places
+}
+// The ruler lies down the spoke at RULER.angle, and its marks are the rings it crosses, from ring `first`
+// out on the flat to ring `last` just above the Earth: every mark one step along W, so the deeper the ruler
+// lies, the closer its marks stand on the surface. A mark is a piece of its ring, `half` of the well's
+// radii either side of the spoke
+const RULER = { angle: 60, first: 5, last: 30, half: 0.22 }
+const markOn = k => {
+  const away = ring(k)
+  const turn = RULER.half / away * 180 / Math.PI
+  return [onSheet(away, RULER.angle - turn), onSheet(away, RULER.angle), onSheet(away, RULER.angle + turn)]
+}
+// One step of the ruler out on the flat and one deep in the well, picked out with the same words
+const STEPS = [[RULER.first, RULER.first + 1, -14], [RULER.last - 2, RULER.last - 1, -40]]
+
 shot('ruler', () => {
   const start = now()
   const spoken = say('ruler')
   const life = spoken + 0.6
   status('idea', spoken)
-  at(start, () => { to({ gravityStrength: 3 }, 1.5) })
-  // A ruler down the wall of the well, to the Earth: its marks crowd together as it goes down
-  at(start + heard('ruler', 'rulers', 0.4) - 0.5, () => {
-    const rest = life - (now() - start)
-    const top = [0.7, 0.3]
-    const foot = [0.33, 0.6]
-    sketch({ kind: 'line', points: [top, foot], color: INK, width: 0.003, fade: 0.3, draw: 0.8 }, rest)
-    let share = 0
-    let step = 0.13
-    for (let index = 0; index < 12 && share <= 1; index++) {
-      const x = top[0] + (foot[0] - top[0]) * share
-      const y = top[1] + (foot[1] - top[1]) * share
-      sketch({ kind: 'line', points: [[part(x - 0.012), part(y - 0.016)], [part(x + 0.012), part(y + 0.016)]], color: INK, width: 0.0025, fade: 0.3 }, rest)
-      share += step
-      step *= 0.8
+  // The camera comes down to the sheet beside the Earth's well, and leaves it as the line ends
+  at(start, () => {
+    to({ gravityStrength: 3 }, 1.5)
+    to({ cameraZoom: 2.6, cameraX: 0.9, cameraY: 2.2, gridTilt: 72 }, 2.4, 'ease')
+  })
+  at(start + life - 1.6, () => { to({ cameraZoom: 1, cameraX: 0, cameraY: 0, gridTilt: 62 }, 1.6, 'ease') })
+  const gone = start + life - 1.4
+  // The ruler laid down the spoke, its marks lit ring by ring from the flat down to the Earth
+  const rulerFrom = start + heard('ruler', 'rulers', 0.4) - 2.6
+  at(rulerFrom, () => {
+    const rest = gone - now()
+    const born = now()
+    const count = RULER.last - RULER.first + 1
+    sketch({ kind: 'line', points: along(ring(RULER.first), ring(RULER.last), RULER.angle), smooth: true, color: INK, width: 0.003, fade: 0.3, draw: 1.6 }, rest)
+    for (let k = RULER.first; k <= RULER.last; k++) {
+      const late = 1.6 * (k - RULER.first) / count
+      at(born + late, () => {
+        sketch({ kind: 'line', points: markOn(k), smooth: true, color: INK, width: 0.0026, fade: 0.15 }, rest - late)
+      })
     }
-    // The squeeze along W, beside it
-    sketch({ kind: 'line', points: [[0.78, 0.36], [0.5, 0.6]], arrow: 'end', color: W, width: 0.0045, fade: 0.3, draw: 0.8 }, rest)
-    cap('W', rest, { at: [0.69, 0.52], size: 0.04, font: 'unbounded', color: W, fade: 0.3 })
-    cap('squeezed along *{W}', rest, { at: [0.79, 0.27], size: 0.026, font: 'unbounded', color: SOFT, accent: W, fade: 0.3 })
+    // The same step of the ruler, on the flat and deep in the well
+    at(born + 1.8, () => {
+      for (const [outer, inner, angle] of STEPS) {
+        sketch({ kind: 'line', points: along(ring(outer), ring(inner), RULER.angle), smooth: true, color: GOLD, width: 0.008, fade: 0.3 }, gone - now())
+        cap('1 m', gone - now(), { at: onSheet((ring(outer) + ring(inner)) / 2, RULER.angle + angle), size: 0.026, font: 'unbounded', color: GOLD, fade: 0.3 })
+      }
+    })
+  })
+  // W is the way the well goes down: an arrow along the next spoke, down to the Earth
+  at(start + heard('ruler', 'squeezed', 0.55) - 0.5, () => {
+    const rest = gone - now()
+    sketch({ kind: 'line', points: along(4.2, 1.3, RULER.angle + 30), smooth: true, arrow: 'end', color: W, width: 0.0042, fade: 0.3, draw: 0.9 }, rest)
+    cap('*{W}', rest, { at: onSheet(2.4, RULER.angle + 44), size: 0.036, font: 'unbounded', accent: W, fade: 0.3 })
+    cap('squeezed along *{W}', rest, { at: [0.5, 0.18], size: 0.03, font: 'unbounded', color: SOFT, accent: W, fade: 0.3 })
   })
   at(start + heard('ruler', 'trust', 0.92) - 0.5, () => {
     keep('a ruler we can *{trust}?', life - (now() - start))

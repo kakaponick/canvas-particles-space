@@ -62,15 +62,17 @@ export const CAPTION_ALIGNS = ['left', 'center', 'right'] as const
 export const GRAPHIC_KINDS = ['line', 'circle', 'rect', 'plot', 'image'] as const
 export type GraphicKind = typeof GRAPHIC_KINDS[number]
 export const GRAPHIC_ARROWS = ['end', 'start', 'both'] as const
-// What a place rides with: the frame, or one of the two black holes
-export const GRAPHIC_ANCHORS = ['hole', 'companion'] as const
+// What a place rides with: the frame, one of the two black holes, or the space sheet
+export const GRAPHIC_ANCHORS = ['hole', 'companion', 'sheet'] as const
 
 // A number of a shape: written, or the name of a value read at each second (the shape's own "values", the
 // film's "seconds", or a number of the scene as the tracks left it)
 export type FilmNumber = number | string
 
 // A point of a shape. On the frame it is shares of the frame's width and height; at a black hole it is that
-// hole's radii from its centre, x to the right and y up, and rides with the hole, the zoom and the camera
+// hole's radii from its centre, x to the right and y up, and rides with the hole, the zoom and the camera.
+// On the sheet it is the main well's radii from the well's middle, x to the right and y away from the flat
+// camera, and it lies on the surface, down into the wells, however the sheet is turned and seen
 export interface FilmPlace {
   anchor: 'frame' | typeof GRAPHIC_ANCHORS[number]
   x: FilmNumber
@@ -497,7 +499,7 @@ function readNumber (where: string, value: unknown, values: Record<string, FilmT
   return value
 }
 
-const PLACE_FORMS = '[x, y] in shares of the frame, { "hole": [dx, dy] } or { "companion": [dx, dy] } in that hole\'s radii'
+const PLACE_FORMS = '[x, y] in shares of the frame, { "hole": [dx, dy] } or { "companion": [dx, dy] } in that hole\'s radii, or { "sheet": [x, y] } on the space sheet in its well\'s radii'
 
 function readPlace (where: string, source: unknown, values: Record<string, FilmTrack>): FilmPlace {
   if (Array.isArray(source) && source.length === 2) {
@@ -1042,7 +1044,7 @@ function describeTimeline (plan: FilmPlan) {
     const words = caption.text.replace(/\s+/g, ' ')
     entries.push({ at: caption.from, text: `${span(caption.from, caption.to)}  caption "${words.length > 40 ? words.slice(0, 40) + '...' : words}"` })
   }
-  const where = (place: FilmPlace | null | undefined) => !place || place.anchor === 'frame' ? 'on the frame' : place.anchor === 'hole' ? 'at the black hole' : 'at the second black hole'
+  const where = (place: FilmPlace | null | undefined) => !place || place.anchor === 'frame' ? 'on the frame' : place.anchor === 'hole' ? 'at the black hole' : place.anchor === 'sheet' ? 'on the space sheet' : 'at the second black hole'
   for (const graphic of plan.graphics) {
     const amount = (value: FilmNumber) => typeof value === 'number' ? seconds(value) : `"${value}"`
     const what = graphic.kind === 'line'

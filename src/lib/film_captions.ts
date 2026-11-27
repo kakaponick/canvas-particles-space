@@ -15,6 +15,7 @@ export type CaptionPlan = Pick<FilmPlan, 'width' | 'height' | 'duration' | 'capt
 export type CaptionFrame = Pick<CompositeSettings, 'letterbox' | 'cameraZoom' | 'holeX' | 'holeY' | 'horizon' | 'einstein' |
   'companionRadius' | 'companionX' | 'companionY' | 'shakeX' | 'shakeY' | 'zoomX' | 'zoomY' | 'shadowShape' | 'spinAxis'>
 import { captionLetters, writeNumber, type CaptionRun } from './caption_text'
+import { sheetPoint, type GridSettings } from './space_grid'
 
 // The frame of a picture with no black hole: a caption that points aims at a round spot of `radius` pixels
 // at x, y, as a fractal film's captions aim at its target
@@ -62,12 +63,25 @@ export function holeOnFrame (composite: CaptionFrame, pixel: number, second: boo
 /**
  * A place of a caption or a shape on a frame `width` by `height` video pixels: where it is, and how long
  * its unit is there (the hole's radius, or the frame's short side). Null for a place at a second black hole
- * while there is none, unless `orMain` puts it at the main one instead.
+ * while there is none, unless `orMain` puts it at the main one instead, and for a place on the space sheet
+ * (`sheet`, as the scene last laid it) while there is no sheet or the point is behind its camera.
  */
 export function placeOnFrame (
-  place: FilmPlace, read: (value: FilmNumber) => number, composite: CaptionFrame, pixel: number, width: number, height: number, orMain = false
+  place: FilmPlace, read: (value: FilmNumber) => number, composite: CaptionFrame, pixel: number, width: number, height: number, orMain = false,
+  sheet: GridSettings | null = null
 ) {
   if (place.anchor === 'frame') return { x: read(place.x) * width, y: read(place.y) * height, unit: Math.min(width, height) }
+  if (place.anchor === 'sheet') {
+    const point = sheet ? sheetPoint(sheet, read(place.x), read(place.y)) : null
+    if (!point) return null
+    // Seen through the scene camera's zoom and shake, as the sheet's lines are
+    const zoom = composite.cameraZoom
+    return {
+      x: (composite.zoomX + (point.x - composite.shakeX - composite.zoomX) * zoom) * pixel,
+      y: (composite.zoomY + (point.y - composite.shakeY - composite.zoomY) * zoom) * pixel,
+      unit: composite.horizon * zoom * pixel
+    }
+  }
   const second = place.anchor === 'companion' && composite.companionRadius > 0
   if (place.anchor === 'companion' && !second && !orMain) return null
   const hole = holeOnFrame(composite, pixel, second)
@@ -265,9 +279,12 @@ export function loadCaptionFonts (plan: Pick<FilmPlan, 'captions'> & Partial<Pic
 
 /**
  * Draws the captions shown at `time` over `ctx`, whose canvas holds the frame at `pixel` video pixels per
- * scene pixel. `composite` is the frame as the scene drew it: where the hole is and how the camera stands.
+ * scene pixel. `composite` is the frame as the scene drew it: where the hole is and how the camera stands;
+ * `sheet` the space sheet as it laid it, for words on it.
  */
-export function drawCaptions (ctx: CanvasRenderingContext2D, plan: CaptionPlan, time: number, composite: CaptionFrame, pixel: number) {
+export function drawCaptions (
+  ctx: CanvasRenderingContext2D, plan: CaptionPlan, time: number, composite: CaptionFrame, pixel: number, sheet: GridSettings | null = null
+) {
   const width = plan.width * pixel
   const height = plan.height * pixel
   const shortSide = Math.min(width, height)
@@ -298,11 +315,14 @@ export function drawCaptions (ctx: CanvasRenderingContext2D, plan: CaptionPlan, 
     if (typeof caption.at === 'object' && 'anchor' in caption.at) {
       // The words are centred on a point of the scene and ride with it
       const read = (value: FilmNumber) => typeof value === 'number' ? value : captionValue(plan, caption, value, time)
-      const point = placeOnFrame(caption.at, read, composite, pixel, width, height, true)
-      if (point) {
-        x = point.x
-        y = point.y
+      const point = placeOnFrame(caption.at, read, composite, pixel, width, height, true, sheet)
+      // A place on the sheet while none is laid, or behind its camera, shows nothing
+      if (!point) {
+        ctx.restore()
+        continue
       }
+      x = point.x
+      y = point.y
     } else if (caption.at === 'hole' || caption.at === 'einstein' || caption.at === 'companion') {
       // Where the composite pass put the black hole on the frame
       const second = caption.at === 'companion' && composite.companionRadius > 0

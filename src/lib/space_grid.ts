@@ -453,6 +453,27 @@ function dent (away: number, edge: number) {
 }
 
 /**
+ * Where a point lying on the sheet as it was last placed is seen on the scene's frame, in CSS pixels before
+ * the scene camera's zoom and shake: `x`, `y` in the main well's radii from its middle, along the plane's
+ * first direction and against its second (to the right and away from the flat camera), sunk into the wells
+ * as the surface is; their waves are left out. Null while no sheet is laid, and for a point nearer than its
+ * near plane.
+ */
+export function sheetPoint (grid: GridSettings, x: number, y: number): { x: number, y: number } | null {
+  if (!(grid.throat > 0)) return null
+  const pose = grid.pose
+  const alongX = x * grid.throat
+  const alongY = -y * grid.throat
+  const depth = grid.depth * dent(Math.hypot(alongX, alongY), grid.throat) +
+    (grid.depth2 > 0 ? grid.depth2 * dent(Math.hypot(alongX - grid.well2X, alongY - grid.well2Y), grid.throat2) : 0)
+  const seenX = pose[0] * alongX + pose[4] * alongY + pose[8] * depth + pose[12]
+  const seenY = pose[1] * alongX + pose[5] * alongY + pose[9] * depth + pose[13]
+  const seenZ = pose[2] * alongX + pose[6] * alongY + pose[10] * depth + pose[14]
+  if (!(seenZ > pose[7])) return null
+  return { x: pose[11] + seenX * pose[3] / seenZ, y: pose[15] + seenY * pose[3] / seenZ }
+}
+
+/**
  * Sets the sheet for this frame from the two layouts: `shared` of the way from the flat camera's (0) to the
  * 3D camera's (1), so switching 3D on turns the sheet from its diagram view to where it lies in the scene.
  * The pair's spiral wave turns with the line between the two wells, or `orbitShare` of the way toward the
