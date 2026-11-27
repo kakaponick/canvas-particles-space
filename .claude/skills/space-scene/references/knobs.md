@@ -757,6 +757,8 @@ straight-on (section 11).
 - `gridFront` is a flash of light spreading across the sheet, drawn by its own lines lighting up where the
   front is (`gridFrontColor`, added to their colour: no line, no light). Its gate is `gridFront` above 0 and
   `gridFrontRun` moved on a track: 0 to 30 over 11 s from `gridFrontX` -10 crosses the default well. The
+  flash's place is read from the hole while `gridFrontRun` is 0 and then stays on the sheet: a hole that
+  moves after the flash (dragged, following the cursor, or on a track) leaves the flash where it went off. The
   light's way to a point is the straight line from the flash on the flat sheet measured along the surface,
   so over a well, which goes down and back up, the band lags behind its flat circle (the Shapiro delay as
   the sheet tells it), more with a deeper `gridDepth` or a steeper `gridFrontSlope`; a way passing within

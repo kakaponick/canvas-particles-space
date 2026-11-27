@@ -766,6 +766,12 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   const field: FieldFeedback = madeField
   // Whether the composite pass reads the ring's light from the field this frame
   let ringLit = false
+  // Where the sheet's fixed point stood from the hole (grid.anchorX/Y) when the flash went off, and the place
+  // it went off at: a flash stays where it went off on the sheet while the hole moves on. Taken again while
+  // Front Run is 0, when the flash is off and when its place changes
+  let flashAnchorX = 0
+  let flashAnchorY = 0
+  let flashPlace = ''
 
   const fadeUniforms = getUniforms(gl, fadeProgram, ['fade'] as const)
   const particleUniforms = getUniforms(gl, particleProgram, ['floor', 'resolution', 'pixelRatio', 'center', 'flight', 'doppler', 'tintAhead', 'tintEdge', 'tintBehind', 'tint', 'zoom', 'zoomFrom'] as const)
@@ -1789,7 +1795,14 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     // The flash running over the lines, its lengths from the main well's radii into the plane's units; its
     // place against the plane's second direction, as sheetPoint takes it. Off, the shader works none of it out
     const flash = grid.front > 0 && grid.throat > 0 ? grid.front : 0
-    setUniform4f(gl, u.flash, flash, grid.frontX * grid.throat, -grid.frontY * grid.throat, grid.frontRun * grid.throat)
+    const place = flash > 0 ? `${grid.frontX} ${grid.frontY}` : ''
+    if (flash <= 0 || grid.frontRun <= 0 || place !== flashPlace) {
+      flashAnchorX = grid.anchorX
+      flashAnchorY = grid.anchorY
+      flashPlace = place
+    }
+    // Every place fixed on the sheet moves against the hole as the sheet's fixed point does
+    setUniform4f(gl, u.flash, flash, grid.frontX * grid.throat + grid.anchorX - flashAnchorX, -grid.frontY * grid.throat + grid.anchorY - flashAnchorY, grid.frontRun * grid.throat)
     if (flash > 0) {
       setUniform4f(gl, u.flashShape, grid.frontLead * grid.throat, grid.frontTail * grid.throat, Math.max(grid.frontSlope, 0), Math.max(grid.frontCapture, 0))
       setUniform3f(gl, u.flashColor, grid.frontColor.r * flash, grid.frontColor.g * flash, grid.frontColor.b * flash)
