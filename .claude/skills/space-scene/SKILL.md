@@ -159,6 +159,7 @@ old scene and reject keys the code already has. Films, scripts and docs are read
 | A film above 60 fps | [references/high_frame_rates.md](references/high_frame_rates.md) |
 | A film's narration: voices, Drama 3 on Runpod, the tag before each line, mixing | the `film-voice` skill |
 | Whether a film is good enough to report | step 6 above, the `film-review` agent |
+| Where the scene and its tools already fought an agent, and what avoids it; where to log a new friction | [references/friction.md](references/friction.md) |
 | The live page: `window.space` in a browser, screenshots, the user's own Chrome | [references/live_page.md](references/live_page.md) |
 | A Mandelbrot (fractal) zoom: its own renderer, format and targets | `space_fractal_guide` (or `space.mjs fractal-guide`) |
 | A new knob, or an effect no combination of knobs gives | `CLAUDE.md`, "Driving the scene as an agent"; `docs/films.md` for film code |
