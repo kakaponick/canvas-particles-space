@@ -280,7 +280,9 @@ shot('light', () => {
   // The key frame comes as the line reaches "Outside", and is held until "behind" has been heard and read
   const key = Math.max(open + 7, start + heard('light', 'Outside', 0.31))
   const keyEnd = Math.max(key + 6, start + heard('light', 'behind', 0.56) + 2)
-  const end = Math.max(keyEnd + 7.5, start + spoken + 0.6)
+  // The front runs out 5.1 s past the key frame: at 7.5 the break before "axes" ran 5.4 s of silence, and the
+  // operator asked for about 3
+  const end = Math.max(keyEnd + 5.1, start + spoken + 0.6)
   // The delay past the Sun is measured; the picture draws the field larger than life, and says so
   status('known', end - open)
   caption('the field is drawn far stronger than a real one', end - open, { at: [0.5, 0.95], size: 0.019, font: 'noto', color: SOFT, plate: 0.7, fade: 0.4 })
@@ -334,9 +336,9 @@ shot('light', () => {
   wait(1)
   to({ gridFrontRun: 9 }, key - now(), 'out')
   wait(keyEnd - now())
-  to({ gridFrontRun: 12.5 }, 1.5, 'linear')
-  wait(1.5)
-  to({ gridFrontRun: 20 }, 3, 'linear')
+  to({ gridFrontRun: 12.5 }, 1.2, 'linear')
+  wait(1)
+  to({ gridFrontRun: 20 }, 2.4, 'linear')
   until(end)
   // Back through black to the textbook's sheet and its star
   to({ fade: 1 }, DIP)
