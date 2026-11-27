@@ -13,8 +13,9 @@
 //
 // A film is a .json file, or a script that plays it forward: a .js file. "--input <file.json>" anywhere on
 // the line is what a script reads as input. check writes the JSON a script comes to when it is given a place.
-// Several check, preview or render jobs may follow one another on one line; the browser is then started
-// once, where each call starts its own (about a second). A seconds list of "-" leaves the choice of
+// Several jobs of one command may follow one another on one line (check a.js b.js, preview a.js a.jpg -
+// b.js b.jpg -); the browser is then started once, where each call starts its own (about a second). One
+// line holds one command word: two commands, or two stills, are two calls. A seconds list of "-" leaves the choice of
 // frames to the film: a frame of each shot, or nine spread over it. A preview prints the timeline a check
 // does, so a film about to be previewed needs no check of its own.
 //

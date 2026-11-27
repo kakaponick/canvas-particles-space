@@ -174,7 +174,8 @@ and lays it under the picture from the first second.
   queue with the other agents' drawings and measurements, and says so when the wait begins (`waiting for
   ...`) and when it ends (`the turn came after ...`): read a call's output whole. So a set of films goes through
   each step in one call: `check a.js b.js c.js`, `preview a.js a.jpg - b.js b.jpg -`, `render a.js a.mp4
-  high b.js b.mp4 high`. After a fix, preview again only the films that changed, at the seconds that
+  high b.js b.mp4 high`. One line holds one command word and its groups of arguments repeated: two
+  commands, or two stills, are two calls. After a fix, preview again only the films that changed, at the seconds that
   changed.
 - A render needs nothing after it but the mp4. Once the previews are right, start it in the background and
   commit the films and finish the rest while it runs.

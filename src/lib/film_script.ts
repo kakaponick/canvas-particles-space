@@ -733,7 +733,10 @@ is the film above. It is plain JavaScript: functions, loops, Math. The same scri
   set({ fade: 1 }); to({ fade: 0 }, 1.5)   "fade" and "speed" are values like any other
 
 Captions, shapes, titles, events and switches take no time: they are laid at the current second. What takes time
-is wait, to, drive, opening and what is played inside shot and slow.
+is wait, to, drive, opening and what is played inside shot and slow. Inside at, shot and slow a to moves that
+function's own second on too, so what is written after it starts when the move ends: put a move that should run
+beside the rest in meanwhile. The seconds of a caption's or a shape's own numbers (values, a function of its
+seconds) count from its own start, not from the film's.
 
   meanwhile(() => { to({ gridTilt: 70 }, 30) })   starts now and does not hold what follows: a slow move
                              under the whole film

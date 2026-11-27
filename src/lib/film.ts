@@ -1142,8 +1142,18 @@ function describeTimeline (plan: FilmPlan) {
     entries.push({ at: times[0], text: `${span(times[0], times[times.length - 1])}  the picture is dark by ${few(values, '')}` })
   }
   for (const track of plan.tracks) {
-    const { times } = track
-    entries.push({ at: times[0], text: `${span(times[0], times[times.length - 1])}  ${trackWords(track)}` })
+    const { times, values } = track
+    // A track that only steps (a switch, or keys that all hold) changes at its keys' seconds: each value is a
+    // line of its own at its second, since a span "0-17.57 s: 0 > 40" reads as a ramp from second 0
+    const steps = times.length > 1 && (track.toggle || track.eases.slice(1).every(ease => ease === 'hold'))
+    if (!steps) {
+      entries.push({ at: times[0], text: `${span(times[0], times[times.length - 1])}  ${trackWords(track)}` })
+      continue
+    }
+    for (let key = 0; key < times.length; key++) {
+      if (key > 0 && values[key] === values[key - 1]) continue
+      entries.push({ at: times[key], text: `${span(times[key], times[key])}  ${trackWords({ ...track, values: [values[key]] })}` })
+    }
   }
   for (const cue of plan.cues) {
     const set = Object.keys(cue.params)

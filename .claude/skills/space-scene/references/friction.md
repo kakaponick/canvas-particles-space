@@ -31,51 +31,7 @@ Once the missing piece exists (a knob, a fix in code, a sentence in `knobs.md`, 
 - Now: pieces deep in a well are shorter on the surface and hold the same amount of space: draw unequal
   lengths with the same count of dots in each. Check a claim's wording against the physics before drawing it.
 
-## The film script
-
-### A move inside `at()` or `shot()` pushed what came after it late (2026-11-27)
-- Wanted / got: a caption or a shape at a second inside a shot; seven of twelve agents on the pop film got
-  it late by the length of a `to()` written before it (2.4 to 10 s), and one clip failed with "draw() takes
-  seconds, 0 or more". A re-voiced line later broke a shot that had checked clean: three `to()`s in one
-  `at()` ran one after another, the last ending 6.3 s in, and a move keyed to a spoken word met it once the
-  word came sooner ("two moves of one value cannot overlap").
-- Cause: `space_guide`, "A film as a script", says of `at` only "a function played from a second already
-  past or still to come", and of `to` "time moves on 5 s"; that the second moves inside the function too is
-  left to the reader.
-- Now: values that move together go in one `to()`; a move beside the rest goes in `meanwhile`; a move keyed
-  to a word starts no sooner than the end of the moves before it (`Math.max(word, start + their seconds)`).
-  Check every voice's lines file after a re-voice. Missing in the guide: "Inside `at` and `shot` a `to`
-  moves that function's own second on, so what is written after it starts when the move ends."
-- Where: `src/lib/film_script.ts` (the guide's text); shot "ruler" of `films/fourth_dimension_pop_10_test.js`.
-
-### A shape's `values` given in film seconds (2026-11-27)
-- Wanted / got: a shape moving at a second of the film; two agents got it standing still or moving at the
-  wrong time, a preview each.
-- Cause: `space_guide`, graphics: "values (keyframes, as a caption's)" and `draw`: "a function of its
-  seconds".
-- Now, missing in the guide: "The seconds of a shape's or a caption's `values` are counted from its own
-  start in a script, not from the film's."
-
-### A step in the middle of a clip printed as a ramp (2026-11-27)
-- Wanted / got: a `set` at 17.57 s; the timeline printed "0-17.57 s gridRings: 0 > 40", read as a ramp
-  from second 0, while the storyboard showed one step at 17.57 s.
-- Now, missing in the timeline: a step printed as a step, "17.57 s gridRings: 40".
-
-### Gravity before there is a hole (2026-11-27)
-- Wanted / got: matter pulled before the hole shows; at `blackHoleSize` 0 nothing fell.
-- Cause: `describe` of `blackHoleSize` says "0 removes the black hole", not that the pull goes with it.
-- Now: a hole of size 1 with its lens and ring off. Missing in the spec: "The pull and its reach are in
-  black hole radii, so at size 0 there is no gravity either."
-
 ## The tools and the machine
-
-### Two commands on one line of `space.mjs` (2026-11-27)
-- Wanted / got: several jobs in one call; four agents joined two commands (`preview ... - still ...`,
-  `still a.jpg 22 still b.jpg 38.2`) and got `ENOENT ... open '...\still'` or the usage line.
-- Cause: `films.md`, section 7: "a set of films goes through each step in one call", and the script's
-  header: "Several check, preview or render jobs may follow one another on one line".
-- Now, missing in both: "One line holds one command word and its groups of arguments repeated; two
-  commands, or two stills, are two calls."
 
 ### Reading a contact sheet's tiles as one frame (2026-11-27)
 - Wanted / got: compare two stills stacked side by side; read the right tile's coordinates as the whole
