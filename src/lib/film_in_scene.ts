@@ -139,7 +139,12 @@ function makeOverlay () {
 // Plays a film (its JSON or its script as a string, or the name of a film of the library) in the scene
 export async function playInScene (source: unknown, options: SceneFilmOptions = {}) {
   let film = source
-  if (typeof source === 'string' && isLibraryFilm(source.trim())) film = await libraryText(source.trim())
+  // A film of the library is its JSON or its script, by the file's ending
+  if (typeof source === 'string' && isLibraryFilm(source.trim())) {
+    const name = source.trim()
+    const text = await libraryText(name)
+    film = text !== null && name.endsWith('.json') ? JSON.parse(text) : text
+  }
   if (typeof film === 'string') film = writeFilm(film, options.input ?? {}).film
   if (typeof film === 'object' && film !== null && 'clips' in film) fail('A reel plays in the film mode; play its clips here one by one')
   const plan = planFilm(film)
