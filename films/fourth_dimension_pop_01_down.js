@@ -71,11 +71,7 @@ film({
     fieldEnabled: false,
     lensingEnabled: false,
     ringEnabled: false,
-    nebula: 0.6,
-    nebulaScale: 700,
-    nebulaSparseness: 0.4,
-    nebulaColor: '#6a2cc0',
-    nebulaColorDeep: '#0f7a9a',
+    // Stars on black, no nebula: its dust muddied the frame round the Earth and the signs
     starsBrightness: 1.4,
     starDensity: 0.22
   }

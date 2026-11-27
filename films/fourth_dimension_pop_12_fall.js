@@ -86,15 +86,7 @@ film({
     depthFade: 0,
     minOpacity: 0.2,
     baseBrightness: 0.5,
-    nebula: 0.8,
-    nebulaScale: 700,
-    nebulaSparseness: 0.4,
-    nebulaEdge: 0.5,
-    nebulaContrast: 0.35,
-    nebulaGrain: 0.1,
-    nebulaWarp: 1.5,
-    nebulaColor: '#6a2cc0',
-    nebulaColorDeep: '#0f7a9a',
+    // Stars on black, no nebula: its dust muddied the frame round the Earth, as in chapter 01
     starsBrightness: 1.6,
     starDensity: 0.22,
     gridColor: '#4de3ff',
@@ -211,12 +203,6 @@ shot('edge', () => {
   // at its bottom
   at(tTurn, () => {
     to({ gridSheet: 0.8, flowA: 1.6, cameraMoveIn: 0, cameraPitch: -62 }, TURN, 'ease')
-  })
-  // Halfway down the turn the sky's nebula shows a straight seam for a moment: it dims over that stretch
-  at(tTurn + 0.6, () => {
-    to({ nebula: 0.1 }, 0.6)
-    wait(1.2)
-    to({ nebula: 0.8 }, 1)
   })
   // and goes down into it, while space falls in past the camera
   at(tWell - 0.4, () => {
