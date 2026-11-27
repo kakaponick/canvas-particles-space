@@ -58,8 +58,6 @@ const TILT = 68
 // flat sheet stands 2.8 radii above the hole and the ball of 1.05 radii lies inside the bowl
 const HOLE_Y = 0.7
 const DEEP = 4
-// The textbook's mass, the star below, in the hole's radii: wider than the shadow, so no shadow shows round it
-const BALL = 1.9
 // Before the dent the hole stands where the flat sheet will stay, the rim of the dent to come (3.735 radii
 // above the hole once it has sunk, by the sheet sums of fourth_dimension_well.js), so the sheet holds still and only the mass goes down
 const RIM_Y = 0.4
@@ -75,22 +73,21 @@ const MATTER = 2.5
 // hides the orbit drawn on the sheet. The operator found 5000 a muddy swirl over a crowded grid ("симуляция в
 // этом отрезке некрасивая"): half as many, finer
 const COUNT = 2500
-// The mass is the scene's own neutron star, drawn in the hole's stead, not a flat yellow disc drawn over the
-// picture ("что за странное солнце"): the disc hung in front of the dent's near wall, where the star sits in
-// it. Warm plasma with white-hot veins, a lit limb and a glow, turning slowly; its light falls on the dent.
-// The sheet follows films/infographic_style.js, the textbook's rubber sheet as a picture: larger cells, the
-// well drawn 2.5 times wider than a real one round so compact a star so the bowl opens round it, the lines
-// kept off its face, lit by the slowing of time and by the star, fading into the dark before the frame's
+// The mass is the scene's own black hole, its shadow and photon ring at the bottom of the dent, as everywhere
+// else in the film: not a flat yellow disc drawn over the picture ("что за странное солнце"), which hung in
+// front of the dent's near wall, and not the neutron star tried after it ("отмени этот стиль, давай просто
+// везде использовать черную дыру"). The sheet follows films/infographic_style.js: larger cells, the throat
+// lit by the slowing of time and by the matter round the hole, fading into the dark before the frame's
 // edges, and the frame's bloom spreading the light
-const STAR = {
-  neutronStar: 1, neutronSurface: BALL, neutronColor: '#a8400c', neutronVeinColor: '#ffc27a', neutronCoreColor: '#fff6e0',
-  neutronVeinLight: 1, neutronLimb: 1.4, neutronGlow: 1, neutronGlowLight: 0.6
-}
+const RING = { ringBrightness: 2.2, ringGlow: 1.2 }
 // How far the camera creeps in on the sunk dent before the flash; after it the sheet comes back at 1
 const PUSH = 1.04
 const LOOK = {
-  gridCell: 6, gridSheet: 0.6, gridLine: 1.3, gridLineNear: 2.5, gridSpan: 0.9, gridFade: 0.6,
-  gridWellWidth: 2.5, gridClearing: BALL, gridClearingEdge: BALL + 0.05, gridThroatGlow: 2.5, gridThroatCurve: 1,
+  gridCell: 6, gridSheet: 0.8, gridLine: 1.3, gridLineNear: 2.5, gridSpan: 0.9, gridFade: 0.6,
+  // The well is the black hole's own. Drawn 2.5 times wider, as round the neutron star tried first, its throat
+  // stood at 2.5 shadow radii: the walls ended in a hard cut under the hole and the matter circled a floor
+  // there ("у тебя артефакты в симуляции")
+  gridThroatGlow: 2.5,
   gridLight: 3, gridLightColor: '#ffb45c', gridLightReach: 3,
   bloom: 2, bloomThreshold: 0.55, bloomReach: 0.05
 }
@@ -125,7 +122,7 @@ film({
     gridRide: 1,
     blackHoleY: RIM_Y,
     ...LOOK,
-    ...STAR
+    ...RING
   }
 })
 // No mass yet: the hole is not there to see
@@ -139,21 +136,23 @@ const part = value => +value.toFixed(4)
 // 21.9 to 41.35 s). Two ways were put on the screen: W standing straight down from a corner on the left flat,
 // square to the sheet (laySheet's level, as chapter 06 places points), hung beside the dent under the flat
 // sheet, over the near lines, an arrow in the air that did not read as the dent's depth; W down the far wall,
-// which on the screen drops toward the ball, lies on the dent itself and reads as down at once. So W runs down
-// the far wall's spoke from a corner on the far flat to the ball's top, and X and Y open from that corner
+// which on the screen drops toward the hole, lies on the dent itself and reads as down at once. So W runs down
+// the far wall's spoke from a corner on the far flat to the hole, and X and Y open from that corner
 // up-left and up-right, square to each other on the sheet, so W continues neither
-const CORNER = [0, 6]
+// How far out on the far flat the corner stands
+const FAR = 6
+const CORNER = [0, FAR]
 const AXIS = 2.8
-const X_TIP = { sheet: [-AXIS, 6 + AXIS] }
-const Y_TIP = { sheet: [AXIS, 6 + AXIS] }
-const X_AT = { sheet: [-AXIS - 0.8, 6 + AXIS + 0.8] }
-const Y_AT = { sheet: [AXIS + 0.8, 6 + AXIS + 0.8] }
+const X_TIP = { sheet: [-AXIS, FAR + AXIS] }
+const Y_TIP = { sheet: [AXIS, FAR + AXIS] }
+const X_AT = { sheet: [-AXIS - 0.8, FAR + AXIS + 0.8] }
+const Y_AT = { sheet: [AXIS + 0.8, FAR + AXIS + 0.8] }
 // The corner mark between X and Y, lying on the sheet
 const MARK = (() => {
   const c = 0.8 / Math.SQRT2
-  return [[-c, 6 + c], [0, 6 + 2 * c], [c, 6 + c]].map(s => ({ sheet: s }))
+  return [[-c, FAR + c], [0, FAR + 2 * c], [c, FAR + c]].map(s => ({ sheet: s }))
 })()
-const W_PATH = [6, 5, 4.2, 3.5, 3, 2.6, 2.3, 2.1, 1.9, 1.7, 1.55, 1.45].map(away => ({ sheet: [0, away] }))
+const W_PATH = [FAR, 5, 4.2, 3.5, 3, 2.6, 2.3, 2.1, 1.9, 1.7, 1.55, 1.45, 1.3, 1.15].map(away => ({ sheet: [0, away] }))
 const wSide = { sheet: [4.4, 3.6] }
 const label = (text, seconds, place, more) => caption(text, seconds, { at: place, size: 0.03, font: 'unbounded', fade: 0.4, ...more })
 // A place on the sheet, `away` of the well's radii from its middle, `angle` degrees round from the right
@@ -172,17 +171,18 @@ shot('textbook', () => {
   // calls it only a picture under KNOWN PHYSICS, so here it is labelled as the geometry it is
   status('math', spoken + 0.6)
   at(start + heard('textbook', 'sheet', 0.62), () => { label('a stretched sheet', 3, [0.25, 0.12], { color: INK, plate: 0.5 }) })
-  // "a mass makes a dent": the star lights on the flat sheet in a burst of its glow that settles, then the
-  // pull comes on and the dent sinks, the star with it, while the sheet round it stays where it was. The star
+  // "a mass makes a dent": the black hole comes on the flat sheet, its ring flaring and settling, then the
+  // pull comes on and the dent sinks, the hole with it, while the sheet round it stays where it was. The hole
   // stays to the clip's end
   const lands = start + heard('textbook', 'mass', 0.84)
   at(lands, () => {
     show('hole')
-    set({ neutronGlowLight: 2.4 })
-    to({ neutronGlowLight: STAR.neutronGlowLight }, 1.6, 'out')
+    show('ring')
+    set({ ringBrightness: 5 })
+    to({ ringBrightness: RING.ringBrightness }, 1.6, 'out')
   })
   at(lands, () => {
-    label('a mass', 3.4, { hole: [3.6, 0.4] }, { color: GOLD })
+    label('a mass', 3.4, { hole: [3.6, 1] }, { color: GOLD })
     // The dent sinks and the matter on the sheet comes up with it, already running down into it
     to({ gridDepth: DEEP, blackHoleY: HOLE_Y, flowA: MATTER * 0.6 }, 2.4)
   })
@@ -224,10 +224,9 @@ shot('roll', () => {
   })
   // "your weight": the push down the wall of the dent
   at(start + heard('roll', 'weight', 0.92) - 0.2, () => {
-    // Down the wall to the star's edge, which it meets 0.9 out on this spoke. On the near spoke at 230° it
-    // ended well short of the star and its word sat on the status in the corner
-    draw({ kind: 'line', points: [4.6, 3.6, 2.7, 1.9, 1.3, 0.9].map(away => onSheet(away, 205)), smooth: true, arrow: 'end', draw: 0.5, ...look, width: 0.0055, glow: 0.008 }, end - now())
-    label('weight', end - now(), onSheet(4.2, 190), { size: 0.026, color: INK, plate: 0.4 })
+    // Down the wall to the throat's mouth, 1.5 out on this spoke
+    draw({ kind: 'line', points: [5.4, 4.6, 3.9, 3.3, 2.7, 2.2, 1.8, 1.5].map(away => onSheet(away, 230)), smooth: true, arrow: 'end', draw: 0.5, ...look, width: 0.0055, glow: 0.008 }, end - now())
+    label('weight', end - now(), onSheet(5.6, 222), { size: 0.026, color: INK, plate: 0.4 })
   })
   wait(end - start)
 })
@@ -250,16 +249,16 @@ const LIGHT = {
   flowA: 0, gridRide: 0, gridDepth: 2, gridSpan: 2, gridCell: 2.5, gridSheet: 0.3, gridLine: 1.2, gridFade: 0.3, gridThroatGlow: 1, gridLight: 0,
   starsBrightness: 0, starDensity: 0, cameraZoom: 1,
   // The flash's picture is the bare hole on its own real well: the textbook's star and wide bowl go
-  neutronStar: 0, gridWellWidth: 1, gridClearing: 1.04, gridClearingEdge: 1.2, gridThroatCurve: 2, gridLineNear: 3, bloomReach: 0.08,
+  gridLineNear: 3, bloomReach: 0.08,
   gridFront: 4, gridFrontColor: '#ff8a1e', gridFrontX: SOURCE[0], gridFrontY: SOURCE[1], gridFrontRun: 0, gridFrontWidth: 3, gridFrontLead: 0.1,
   gridFrontGhost: 0.35, gridFrontStrength: 20, gridFrontField: ZONE, gridFrontFieldEven: 1, gridFrontFieldLine: 1.5
 }
 // The textbook's sheet as "roll" leaves it, set back after the flash
 const SHEET = {
   threeD: false, cameraYaw: 40, cameraPitch: 20, cameraMoveIn: 0, cameraFloat: 0.3,
-  blackHoleSize: 8, blackHoleY: HOLE_Y, lensingEnabled: false, ringBrightness: 1, ringGlow: 0.3,
+  blackHoleSize: 8, blackHoleY: HOLE_Y, lensingEnabled: false,
   flowA: MATTER, gridRide: 1, gridDepth: DEEP,
-  starsBrightness: 1.2, starDensity: 0.22, cameraZoom: 1, ...LOOK, ...STAR,
+  starsBrightness: 1.2, starDensity: 0.22, cameraZoom: 1, ...LOOK, ...RING,
   gridFront: 0, gridFrontRun: 0, gridFrontGhost: 0, gridFrontStrength: 1, gridFrontField: 0, gridFrontFieldEven: 0, gridFrontFieldLine: 0
 }
 const note = (text, seconds, place, more = {}) => caption(text, seconds, { at: place, size: 0.024, font: 'noto', color: INK, plate: 0.55, fade: 0.4, ...more })
