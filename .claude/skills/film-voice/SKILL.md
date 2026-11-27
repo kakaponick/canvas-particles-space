@@ -42,6 +42,9 @@ and the old wav no longer lies under the picture. Mixing needs no machine and ta
 ## Drama 3 on Runpod
 
 Read the global `runpod-rent` skill before the first rent of a session: the key, the money, the rules.
+**Every rent waits for the operator's yes in the current turn**: run `--dry`, then ask with the lines to be
+spoken, the voices and the expected minutes and dollars, and rent only after the answer. A yes covers that one
+run, not the next re-speak.
 
 ```
 RUNPOD_KEY_FILE=<the operator's key file> node scripts/drama3_pod.mjs <film> [voice] [--set <DRAMA3_SET>] [--dry]
