@@ -46,8 +46,11 @@ interface FilmState {
   ended: boolean
   // A new player is being made: before the first frame, or to start again
   waiting: boolean
-  // The second on screen: written a few times a second while it changes
+  // The second on screen, or the one a seek goes to: written a few times a second while it changes
   time: number
+  // The second a seek goes to while the frames before it are stepped, and how much of that is done (0 to 1)
+  seekTo: number | null
+  seekDone: number
   quality: FilmQualityChoice
   saving: FilmSaving | null
   saveProblem: string
@@ -91,6 +94,8 @@ export const useFilmStore = create<FilmState>((set, get) => ({
   ended: false,
   waiting: false,
   time: 0,
+  seekTo: null,
+  seekDone: 0,
   ...(typeof window === 'undefined' ? { quality: 'high' as const, recent: [] } : readStored()),
   saving: null,
   saveProblem: '',

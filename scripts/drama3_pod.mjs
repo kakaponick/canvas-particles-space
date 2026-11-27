@@ -3,7 +3,7 @@
 // yet spoken on them (DRAMA3_SERVERS), then the pod deleted whatever happened, and what it cost. The skill
 // film-voice says when to use it; the global runpod-rent skill says how the account and its money are handled.
 //   RUNPOD_KEY_FILE=<file holding a Runpod API key> node scripts/drama3_pod.mjs <film> [voice,voice,...] [--set <DRAMA3_SET>] [--dry]
-// <film> names films/<film>_voice.mjs; [voice] one or more of its VOICES, comma-separated, spoken one after another
+// <film> names films/<film>/voice.mjs; [voice] one or more of its VOICES, comma-separated, spoken one after another
 // on the same pod (its first by default). --dry lists what would be spoken and rents nothing. The key is read inside this process and never printed.
 import { Buffer } from 'node:buffer'
 import { spawn } from 'node:child_process'
@@ -99,7 +99,7 @@ async function main () {
   const [film, voice] = args.filter(arg => arg !== '--dry')
   if (!film) throw new Error('node scripts/drama3_pod.mjs <film> [voice,voice,...] [--set <DRAMA3_SET>] [--dry]')
   const voices = voice ? voice.split(',') : [null]
-  const script = path.join(root, 'films', `${film}_voice.mjs`)
+  const script = path.join(root, 'films', film, 'voice.mjs')
   if (!fs.existsSync(script)) throw new Error(`no ${path.relative(root, script)}`)
   // A job of the voice script (speak on the servers named, or plan: the lines it would speak, asking no server)
   const runOne = (job, servers, one) => new Promise((resolve, reject) => {

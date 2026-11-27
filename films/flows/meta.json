@@ -1,0 +1,15 @@
+{
+  "title": "Flows",
+  "about": "Matter told where to go: a ring, a fall a swirl winds, a camera rising over the plane, an outflow, with the field off.",
+  "kind": "film",
+  "film": "flows.json",
+  "made": [
+    {
+      "model": "claude-fable-5-2",
+      "at": "2026-11-26",
+      "did": "Add flows, matter told where to go, and a switch that takes the particle field away",
+      "commits": 1,
+      "from": "git"
+    }
+  ]
+}

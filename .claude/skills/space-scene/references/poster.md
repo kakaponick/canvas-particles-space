@@ -35,7 +35,8 @@ the picture first, then the film that keeps its promise. The poster and the titl
 5. **The places it is shown.** Keep the bottom right corner (the length) and the bottom edge (the red bar of
    what was watched) free of anything that matters: leave a margin. The middle holds the point: a vertical
    crop of a 16:9 poster shows only the middle. The channel logo stays off it.
-6. **Make it a film of its own, at 4K.** A poster is `films/<name>_poster.js` (or `.json`) beside the film:
+6. **Make it a film of its own, at 4K.** A poster is `films/<name>/posters/poster.js` (or `.json`) in the
+   film's folder:
    `"size": "4k"` (3840x2160, what YouTube now asks for; 1280x720 is the least a Test & Compare take may be),
    `"intro": false`, the film's `seed`, the settings of the moment it shows (in a script, the same function that
    makes that shot), a `warmup` long enough for the trails, a second or two of `duration`, the words as its
@@ -43,14 +44,14 @@ the picture first, then the film that keeps its promise. The poster and the titl
    by motion and weak in light. A vertical film (a Short) gets a vertical poster of its own, 2160x3840
    (`"width": 2160, "height": 3840`), staged for that frame.
 7. **Two or three takes that differ in their idea**, not in a shade: with words and without, the subject close
-   and the whole scene, another colour scheme. Each take is a file of its own (`<name>_poster.js`,
-   `<name>_poster2.js`). They go to Test & Compare in YouTube Studio on the desktop (up to three; Shorts have
+   and the whole scene, another colour scheme. Each take is a file of its own (`posters/poster.js`,
+   `posters/poster2.js`). They go to Test & Compare in YouTube Studio on the desktop (up to three; Shorts have
    none), which picks by the share of watch time, not by clicks.
 8. **Draw each as a still**, one frame as the render makes it, with no label; several go in one call:
-   `node .claude/skills/space-scene/scripts/space.mjs still films/<name>_poster.js films/<name>_poster.jpg 1.5`
+   `node .claude/skills/space-scene/scripts/space.mjs still films/<name>/posters/poster.js films/<name>/out/poster.jpg 1.5`
    (through the server: `space_preview` with `still` and `out`). Then the shrink test: the same still at 168 px
    wide, the size of a phone's feed,
-   `still films/<name>_poster.js out/<name>_poster_small.jpg 1.5 168`. At that size it must be clear what
+   `still films/<name>/posters/poster.js out/<name>_poster_small.jpg 1.5 168`. At that size it must be clear what
    happens, and squinting at it must leave one bright patch, the subject. What does not pass is simplified.
 9. **The checklist, then the user chooses.** Show the takes side by side with the titles they were made for,
    say which one you would publish and why; the user picks.

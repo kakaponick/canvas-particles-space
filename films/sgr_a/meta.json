@@ -1,0 +1,15 @@
+{
+  "title": "Sagittarius A*",
+  "about": "Sagittarius A* and S2's precessing orbit, then the S cluster.",
+  "kind": "film",
+  "film": "sgr_a.js",
+  "made": [
+    {
+      "model": "claude-opus-5-5",
+      "at": "2026-11-26",
+      "did": "Add five minute-long films of real black holes, each from its measured numbers",
+      "commits": 1,
+      "from": "git"
+    }
+  ]
+}

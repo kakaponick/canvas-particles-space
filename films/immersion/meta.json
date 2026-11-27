@@ -1,0 +1,15 @@
+{
+  "title": "Immersion",
+  "about": "A 3D showcase in one descent with a camera that never stops, from a jump into the shadow.",
+  "kind": "film",
+  "film": "immersion.js",
+  "made": [
+    {
+      "model": "claude-opus-5-5",
+      "at": "2026-11-28",
+      "did": "immersion",
+      "commits": 1,
+      "from": "git"
+    }
+  ]
+}

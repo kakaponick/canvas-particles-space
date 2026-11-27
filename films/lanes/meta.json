@@ -1,0 +1,15 @@
+{
+  "title": "Lanes",
+  "about": "A ride in the traffic of an accretion disc: three flows as lanes at Kepler rates, then out over the pole.",
+  "kind": "film",
+  "film": "lanes.js",
+  "made": [
+    {
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-28",
+      "did": "lanes",
+      "commits": 1,
+      "from": "git"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "title": "OGLE-2011-BLG-0462",
+  "about": "The first lone black hole, drifting across the bulge's star field, found by its lens.",
+  "kind": "film",
+  "film": "ogle_0462.js",
+  "made": [
+    {
+      "model": "claude-opus-5-5",
+      "at": "2026-11-26",
+      "did": "Add five minute-long films of real black holes, each from its measured numbers",
+      "commits": 1,
+      "from": "git"
+    }
+  ]
+}

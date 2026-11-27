@@ -1,11 +1,11 @@
 # A reel: several films in one video
 
 A JSON object with `clips`; the same tools take it wherever they take a film, and its keys are in
-`space_guide`. `films/reel.json` is one.
+`space_guide`. `films/reel/reel.json` is one.
 
 - Reach for a reel when one film cannot be it: another setup of the scene that should start fresh (a cut,
   with its own seed and warm-up), another kind of picture (the fall into the fractal), or a film that
-  exists and is worth a stretch of (`"film": "films/horizon.js"` with `from` and `to`). What one scene can
+  exists and is worth a stretch of (`"film": "films/horizon/horizon.js"` with `from` and `to`). What one scene can
   do by tracks stays one film: a reel's clips share nothing but the frame.
 - Make and check each clip alone first. In a reel it draws the frames it draws alone, so what is left to
   judge is the joins.

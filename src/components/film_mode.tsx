@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react'
-import { Check, Clapperboard, Copy, Download, FileDown, FolderOpen, Pause, Play, RotateCcw, WandSparkles, X } from 'lucide-react'
+import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
+import {
+  Check, ChevronRight, Clapperboard, Copy, Download, FastForward, FileDown, FolderOpen, Pause, Play, Rewind, RotateCcw, WandSparkles, X
+} from 'lucide-react'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { cn, isTextEntry } from '@/lib/utils'
@@ -8,10 +10,10 @@ import { useParticleStore } from '../store/particle_store'
 import { useFractalStore } from '../store/fractal_store'
 import { useIntroDebugStore } from '../store/intro_debug_store'
 import { closeIntroDebugger } from '../lib/intro_dock'
-import { LIBRARY_FILMS } from '../lib/film_library'
+import { LIBRARY, libraryDetails, libraryFilmOf, type LibraryFilm } from '../lib/film_library'
 import {
-  attachStage, cancelVideo, copyFilmText, leaveFilms, openFiles, openFilm, openFromAddress, openFromScene, openLibraryFilm,
-  openPasted, saveFilmFile, saveVideo, togglePlaying
+  FILM_SEEK_LONG_STEP, FILM_SEEK_STEP, attachStage, cancelVideo, copyFilmText, leaveFilms, openFiles, openFilm, openFromAddress,
+  openFromScene, openLibraryFilm, openPasted, saveFilmFile, saveVideo, seekFilm, seekFilmBy, stepFilm, togglePlaying
 } from '../lib/film_session'
 import ToggleButton from './controls/toggle_button'
 import { SettingsRow } from './controls/settings_section'
@@ -33,11 +35,20 @@ const canSaveVideo = typeof window !== 'undefined' && typeof window.VideoEncoder
 const ACTION = 'h-7 gap-1.5 border-neon-cyan/50 px-2 font-mono text-xs text-neon-cyan hover:bg-neon-cyan/20 hover:text-neon-cyan'
 const QUIET_ACTION = 'h-7 gap-1.5 border-text-light/40 px-2 font-mono text-xs text-text-light/80 hover:bg-neon-cyan/20 hover:text-neon-cyan'
 
-// m:ss, the way a player shows time
-function clock (seconds: number) {
+// m:ss, the way a player shows time; with tenths, m:ss.t, where a seek or a frame step must read
+function clock (seconds: number, tenths = false) {
+  if (tenths) {
+    const at = Math.max(0, Math.floor(seconds * 10)) / 10
+    return `${Math.floor(at / 60)}:${(at % 60).toFixed(1).padStart(4, '0')}`
+  }
   const whole = Math.max(0, Math.floor(seconds))
   return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}`
 }
+
+// The share of the track a second stands at, in percent
+const shareOf = (second: number, duration: number) => duration > 0 ? Math.max(0, Math.min(100, second / duration * 100)) : 0
+// How far a finger moves sideways on the timeline before it seeks, so a scroll that lands on it does not
+const TOUCH_SLOP = 8
 
 const spokenSeconds = (seconds: number) => `${Math.floor(seconds)} seconds`
 
@@ -133,30 +144,168 @@ export function FilmDrop () {
   )
 }
 
-// How far the film has come, in its own leaf: the one part of the mode that changes as the film plays
-function Progress () {
+// The time shown and the film's length, in its own leaf: it changes as the film plays
+function TimeReadout () {
   const time = useFilmStore(state => state.time)
   const duration = useFilmStore(state => state.facts?.duration ?? 0)
-  const share = duration > 0 ? Math.min(100, time / duration * 100) : 0
+  const seeking = useFilmStore(state => state.seekTo !== null)
   return (
-    <>
-      <span className="shrink-0 font-mono text-xs tabular-nums text-text-light/90">
-        {clock(time)}<span className="text-text-light/50"> / {clock(duration)}</span>
-      </span>
-      <div
-        role="progressbar"
-        aria-label="Film progress"
-        aria-valuemin={0}
-        aria-valuemax={Math.round(duration)}
-        aria-valuenow={Math.round(time)}
-        aria-valuetext={`${spokenSeconds(time)} of ${spokenSeconds(duration)}`}
-        className="relative h-1.5 min-w-0 flex-1 bg-text-light/10"
-      >
-        <div className="absolute inset-y-0 left-0 bg-neon-cyan" style={{ width: `${share}%` }} />
-      </div>
-    </>
+    <span className={cn('shrink-0 font-mono text-xs tabular-nums', seeking ? 'text-neon-cyan' : 'text-text-light/90')}>
+      {clock(time, true)}<span className="text-text-light/50"> / {clock(duration)}</span>
+    </span>
   )
 }
+
+// Keys the timeline takes while it has the focus, as a slider does: the seconds each moves by, or a frame
+type SeekKey = { by: number } | { to: 'start' | 'end' } | { frames: number }
+const TIMELINE_KEYS: Record<string, SeekKey> = {
+  ArrowLeft: { by: -FILM_SEEK_STEP },
+  ArrowDown: { by: -FILM_SEEK_STEP },
+  ArrowRight: { by: FILM_SEEK_STEP },
+  ArrowUp: { by: FILM_SEEK_STEP },
+  PageDown: { by: -FILM_SEEK_LONG_STEP },
+  PageUp: { by: FILM_SEEK_LONG_STEP },
+  Home: { to: 'start' },
+  End: { to: 'end' },
+  ',': { frames: -1 },
+  '.': { frames: 1 }
+}
+
+function seekByKey (key: SeekKey, duration: number) {
+  if ('by' in key) seekFilmBy(key.by)
+  else if ('to' in key) seekFilm(key.to === 'start' ? 0 : duration)
+  else stepFilm(key.frames)
+}
+
+// Where the film is and where it can go: a click or a drag on the track seeks there (on release, so a drag
+// across the film starts no work until it ends), a finger only after a sideways slop or a tap, and the keys of
+// a slider while it has the focus. A seek far ahead or behind takes the time the frames before it take to
+// step: the track shows how much of that is done, and the frame stays until the new one is there
+function Timeline () {
+  const time = useFilmStore(state => state.time)
+  const duration = useFilmStore(state => state.facts?.duration ?? 0)
+  const seekTo = useFilmStore(state => state.seekTo)
+  const seekDone = useFilmStore(state => state.seekDone)
+  const waiting = useFilmStore(state => state.waiting)
+  const track = useRef<HTMLDivElement>(null)
+  // The second under a pointer that drags, and under one that only hovers
+  const [scrub, setScrub] = useState<number | null>(null)
+  const [hover, setHover] = useState<number | null>(null)
+  // A finger that landed and has not yet shown which way it goes
+  const touch = useRef<{ id: number, x: number, y: number } | null>(null)
+
+  const secondAt = (clientX: number) => {
+    const box = track.current?.getBoundingClientRect()
+    if (!box || box.width === 0) return 0
+    return Math.max(0, Math.min(1, (clientX - box.left) / box.width)) * duration
+  }
+  const startDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
+    event.currentTarget.setPointerCapture(event.pointerId)
+    setScrub(secondAt(event.clientX))
+  }
+  const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (waiting || event.button !== 0) return
+    if (event.pointerType === 'touch') {
+      touch.current = { id: event.pointerId, x: event.clientX, y: event.clientY }
+      return
+    }
+    event.preventDefault()
+    event.currentTarget.focus()
+    startDrag(event)
+  }
+  const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const landed = touch.current
+    if (landed && landed.id === event.pointerId && scrub === null) {
+      const dx = Math.abs(event.clientX - landed.x)
+      const dy = Math.abs(event.clientY - landed.y)
+      if (dy > TOUCH_SLOP && dy >= dx) touch.current = null
+      else if (dx > TOUCH_SLOP) {
+        touch.current = null
+        startDrag(event)
+      }
+      return
+    }
+    if (scrub !== null) setScrub(secondAt(event.clientX))
+    else if (event.pointerType === 'mouse') setHover(secondAt(event.clientX))
+  }
+  const onPointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const landed = touch.current
+    touch.current = null
+    if (scrub !== null) {
+      seekFilm(secondAt(event.clientX))
+      setScrub(null)
+    } else if (landed && landed.id === event.pointerId) {
+      // A tap seeks where it fell
+      seekFilm(secondAt(event.clientX))
+    }
+  }
+  const onPointerCancel = () => {
+    touch.current = null
+    setScrub(null)
+  }
+  const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.ctrlKey || event.altKey || event.metaKey || waiting) return
+    // Space and K play and pause here too, as on the page
+    if (!event.repeat && (event.key === ' ' || event.key.toLowerCase() === 'k')) {
+      event.preventDefault()
+      togglePlaying()
+      return
+    }
+    const key = TIMELINE_KEYS[event.key]
+    if (!key) return
+    event.preventDefault()
+    seekByKey(key, duration)
+  }
+
+  const shown = scrub ?? time
+  const share = shareOf(shown, duration)
+  const label = scrub ?? hover
+  return (
+    <div
+      ref={track}
+      role="slider"
+      tabIndex={0}
+      aria-label="Seek"
+      aria-valuemin={0}
+      aria-valuemax={Math.round(duration * 10) / 10}
+      aria-valuenow={Math.round(shown * 10) / 10}
+      aria-valuetext={`${spokenSeconds(shown)} of ${spokenSeconds(duration)}${seekTo !== null ? ', seeking' : ''}`}
+      aria-disabled={waiting || undefined}
+      aria-keyshortcuts="ArrowLeft ArrowRight PageUp PageDown Home End , ."
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerCancel}
+      onLostPointerCapture={() => setScrub(null)}
+      onPointerLeave={() => setHover(null)}
+      onKeyDown={onKeyDown}
+      className="group relative h-8 min-w-0 flex-1 cursor-pointer touch-pan-y select-none outline-none focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-neon-cyan"
+    >
+      <div className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 bg-text-light/10 transition-[height] duration-100 group-hover:h-2">
+        <div className="absolute inset-y-0 left-0 bg-neon-cyan" style={{ width: `${share}%` }} />
+      </div>
+      {seekTo !== null && (
+        // How much of the frames before the sought one are stepped
+        <div aria-hidden="true" className="absolute inset-x-0 bottom-0.5 h-0.5 bg-text-light/10">
+          <div className="absolute inset-y-0 left-0 bg-neon-cyan/70" style={{ width: `${Math.round(seekDone * 100)}%` }} />
+        </div>
+      )}
+      <div aria-hidden="true" className="absolute top-1/2 h-4 w-[3px] -translate-x-1/2 -translate-y-1/2 bg-neon-cyan" style={{ left: `${share}%` }} />
+      {label !== null && (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute -top-6 -translate-x-1/2 whitespace-nowrap bg-[rgb(10,10,15)] px-1.5 py-0.5 font-mono text-[11px] tabular-nums text-neon-cyan"
+          style={{ left: `${shareOf(label, duration)}%` }}
+        >
+          {clock(label, true)}
+        </span>
+      )}
+      <span role="status" className="sr-only">{seekTo !== null ? `Seeking to ${spokenSeconds(seekTo)}` : ''}</span>
+    </div>
+  )
+}
+
+const TRANSPORT_BUTTON = 'h-8 w-8 shrink-0 border-neon-cyan/60 text-neon-cyan hover:bg-neon-cyan/20 hover:text-neon-cyan'
 
 function Transport () {
   const playing = useFilmStore(state => state.playing)
@@ -164,7 +313,7 @@ function Transport () {
   const waiting = useFilmStore(state => state.waiting)
   const label = playing ? 'Pause' : ended ? 'Play again' : 'Play'
   return (
-    <div className="flex h-12 shrink-0 items-center gap-3 border-t border-neon-cyan/20 bg-[rgba(10,10,15,0.95)] px-3">
+    <div className="flex h-12 shrink-0 items-center gap-2 border-t border-neon-cyan/20 bg-[rgba(10,10,15,0.95)] px-3">
       <Button
         variant="outline"
         size="icon"
@@ -173,13 +322,38 @@ function Transport () {
         title={`${label} (Space)`}
         disabled={waiting}
         onClick={togglePlaying}
-        className="h-8 w-8 shrink-0 border-neon-cyan/60 text-neon-cyan hover:bg-neon-cyan/20 hover:text-neon-cyan"
+        className={TRANSPORT_BUTTON}
       >
         {playing
           ? <Pause aria-hidden="true" className="h-4 w-4" />
           : ended ? <RotateCcw aria-hidden="true" className="h-4 w-4" /> : <Play aria-hidden="true" className="h-4 w-4" />}
       </Button>
-      <Progress />
+      <Button
+        variant="outline"
+        size="icon"
+        aria-label={`Back ${FILM_SEEK_STEP} seconds`}
+        aria-keyshortcuts="ArrowLeft"
+        title={`Back ${FILM_SEEK_STEP} s (←)`}
+        disabled={waiting}
+        onClick={() => seekFilmBy(-FILM_SEEK_STEP)}
+        className={TRANSPORT_BUTTON}
+      >
+        <Rewind aria-hidden="true" className="h-4 w-4" />
+      </Button>
+      <Button
+        variant="outline"
+        size="icon"
+        aria-label={`Forward ${FILM_SEEK_STEP} seconds`}
+        aria-keyshortcuts="ArrowRight"
+        title={`Forward ${FILM_SEEK_STEP} s (→)`}
+        disabled={waiting}
+        onClick={() => seekFilmBy(FILM_SEEK_STEP)}
+        className={TRANSPORT_BUTTON}
+      >
+        <FastForward aria-hidden="true" className="h-4 w-4" />
+      </Button>
+      <TimeReadout />
+      <Timeline />
     </div>
   )
 }
@@ -255,18 +429,46 @@ function Heading ({ id, children }: { id: string, children: ReactNode }) {
 }
 
 // The film in the mode: its name, its frame and length, and what the planner changed in it
+// What a film of the library's meta.json says of it beyond its title, fetched when it is opened
+function useDetails (path: string | null) {
+  const [details, setDetails] = useState<{ path: string, about: string, makers: string[] } | null>(null)
+  useEffect(() => {
+    if (!path) return
+    let current = true
+    void libraryDetails(path).then(found => {
+      if (current && found) setDetails({ path, about: found.about, makers: [...new Set(found.made.map(line => line.model))] })
+    })
+    return () => { current = false }
+  }, [path])
+  return details && details.path === path ? details : null
+}
+
 function NowLoaded () {
   const entry = useFilmStore(state => state.entry)
   const facts = useFilmStore(state => state.facts)
+  // A film of the library is told by its meta.json: its title, its line and who made it
+  const film = entry?.origin === 'library' ? libraryFilmOf(entry.name) : null
+  const details = useDetails(film && entry ? entry.name : null)
   if (!entry) return null
+  const own = film !== null && film.path === entry.name.toLowerCase()
+  const makers = details?.makers ?? []
   return (
     <div className="flex flex-col gap-1 bg-text-light/[0.06] px-3 py-2">
-      <p className="truncate font-mono text-sm text-text-light" title={entry.name}>{entry.name}</p>
+      {film
+        ? (
+          <>
+            <p className="truncate text-sm text-text-light" title={film.title}>{film.title}</p>
+            <p className="truncate font-mono text-xs text-text-light/70" title={entry.name}>{own ? film.name : entry.name}</p>
+            {own && details?.about && <p className="text-xs leading-5 text-text-light/80">{details.about}</p>}
+          </>
+        )
+        : <p className="truncate font-mono text-sm text-text-light" title={entry.name}>{entry.name}</p>}
       {facts && (
         <p className="font-mono text-xs text-text-light/70">
           {KIND_LABELS[facts.kind]} · {facts.width}×{facts.height} · {facts.fps} fps · {clock(facts.duration)}
         </p>
       )}
+      {makers.length > 0 && <p className="font-mono text-xs text-text-light/70">Made by {makers.join(', ')}</p>}
       {facts && facts.notes.length > 0 && (
         <details className="font-mono text-xs text-text-light/70">
           <summary className="cursor-pointer hover:text-neon-cyan">{facts.notes.length === 1 ? '1 note' : `${facts.notes.length} notes`}</summary>
@@ -302,32 +504,97 @@ function OpenActions () {
   )
 }
 
+interface FilmRowProps {
+  name: string
+  current: boolean
+  onOpen: () => void
+  onForget?: () => void
+  // Quiet words after the name: a film's kind, a take's makers
+  aside?: string
+  // The parts of a film, opened and closed by a button at the row's end
+  parts?: { open: boolean, onToggle: () => void, controls: string }
+}
+
+const ROW_SIDE_BUTTON = 'flex w-7 items-center justify-center bg-text-light/[0.06] text-text-light/60 hover:text-neon-cyan focus-visible:outline focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-neon-cyan'
+
 // One film to open: the one in the mode is marked as current
-function FilmRow ({ name, current, onOpen, onForget }: { name: string, current: boolean, onOpen: () => void, onForget?: () => void }) {
+function FilmRow ({ name, current, onOpen, onForget, aside, parts }: FilmRowProps) {
   return (
-    <li className="flex h-7 items-stretch">
+    <div className="flex h-7 items-stretch">
       <button
         type="button"
         aria-current={current || undefined}
         onClick={onOpen}
         className={cn(
-          'min-w-0 flex-1 truncate border-l-2 pl-[10px] pr-2 text-left font-mono text-xs transition-colors duration-150',
+          'flex min-w-0 flex-1 items-center gap-2 border-l-2 pl-[10px] pr-2 text-left font-mono text-xs transition-colors duration-150',
           'focus-visible:outline focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-neon-cyan',
           current ? 'border-neon-cyan bg-neon-cyan/15 text-neon-cyan' : 'border-transparent bg-text-light/[0.06] text-text-light/90 hover:bg-neon-cyan/10 hover:text-neon-cyan'
         )}
       >
-        {name}
+        <span className="min-w-0 flex-1 truncate">{name}</span>
+        {aside && <span className="shrink-0 text-[11px] text-text-light/50">{aside}</span>}
       </button>
+      {parts && (
+        <button
+          type="button"
+          aria-label={`Parts of ${name}`}
+          aria-expanded={parts.open}
+          aria-controls={parts.controls}
+          title={parts.open ? 'Hide parts' : 'Show parts'}
+          onClick={parts.onToggle}
+          className={ROW_SIDE_BUTTON}
+        >
+          <ChevronRight aria-hidden="true" className={cn('h-3.5 w-3.5 transition-transform duration-150 motion-reduce:transition-none', parts.open && 'rotate-90')} />
+        </button>
+      )}
       {onForget && (
         <button
           type="button"
           aria-label={`Remove ${name} from recent films`}
           title="Remove from recent"
           onClick={onForget}
-          className="flex w-7 items-center justify-center bg-text-light/[0.06] text-text-light/60 hover:text-neon-cyan focus-visible:outline focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-neon-cyan"
+          className={ROW_SIDE_BUTTON}
         >
           <X aria-hidden="true" className="h-3.5 w-3.5" />
         </button>
+      )}
+    </div>
+  )
+}
+
+// What the library's list says of a kind beside a film's title; a plain film needs no word
+const KIND_ASIDE = { film: '', fractal: 'fractal', reel: 'reel' } as const
+
+// A film of the library by its title, with its parts (a reel's clips, other voices, posters, takes) under it
+// on request; a film whose part is open shows its parts from the start
+function LibraryRow ({ film, current }: { film: LibraryFilm, current: string | undefined }) {
+  const partsId = useId()
+  const holdsCurrent = current !== undefined && film.parts.some(part => part.path === current)
+  const [open, setOpen] = useState(holdsCurrent)
+  useEffect(() => {
+    if (holdsCurrent) setOpen(true)
+  }, [holdsCurrent])
+  return (
+    <li className="flex flex-col gap-px">
+      <FilmRow
+        name={film.title}
+        aside={film.kind ? KIND_ASIDE[film.kind] : undefined}
+        current={film.path === current}
+        onOpen={() => { void openLibraryFilm(film.path) }}
+        parts={film.parts.length > 0 ? { open, onToggle: () => setOpen(!open), controls: partsId } : undefined}
+      />
+      {film.parts.length > 0 && open && (
+        <ul id={partsId} aria-label={`Parts of ${film.title}`} className="flex flex-col gap-px pl-3">
+          {film.parts.map(part => (
+            <li key={part.path}>
+              <FilmRow
+                name={part.label}
+                current={part.path === current}
+                onOpen={() => { void openLibraryFilm(part.path) }}
+              />
+            </li>
+          ))}
+        </ul>
       )}
     </li>
   )
@@ -346,13 +613,14 @@ function Library () {
           <Heading id={recentId}>RECENT</Heading>
           <ul className="flex flex-col gap-px">
             {recent.map(film => (
-              <FilmRow
-                key={film.name}
-                name={film.name}
-                current={film.name === current}
-                onOpen={() => { void openFilm({ name: film.name, text: film.text, origin: 'file' }) }}
-                onForget={() => forget(film.name)}
-              />
+              <li key={film.name}>
+                <FilmRow
+                  name={film.name}
+                  current={film.name === current}
+                  onOpen={() => { void openFilm({ name: film.name, text: film.text, origin: 'file' }) }}
+                  onForget={() => forget(film.name)}
+                />
+              </li>
             ))}
           </ul>
         </section>
@@ -360,9 +628,7 @@ function Library () {
       <section aria-labelledby={libraryId} className="flex flex-col gap-1">
         <Heading id={libraryId}>LIBRARY</Heading>
         <ul className="flex flex-col gap-px">
-          {LIBRARY_FILMS.map(name => (
-            <FilmRow key={name} name={name} current={name === current} onOpen={() => { void openLibraryFilm(name) }} />
-          ))}
+          {LIBRARY.map(film => <LibraryRow key={film.name} film={film} current={current?.toLowerCase()} />)}
         </ul>
       </section>
     </>
@@ -485,6 +751,25 @@ function takesKeys (target: EventTarget | null) {
     (target instanceof Element && target.closest('button, a[href], summary, [role="slider"], [role="radio"], [role="switch"]') !== null)
 }
 
+// The arrows, J, L, the comma and the full stop seek, as in a video player, unless the focus is on a control
+// that moves with them itself; a button does not, so they seek with the focus on Play
+function takesSeekKeys (target: EventTarget | null) {
+  return isTextEntry(target) ||
+    (target instanceof Element && target.closest('[role="slider"], [role="radio"], [role="radiogroup"], [role="switch"], select') !== null)
+}
+
+// The page's own seek keys: the seconds or frames each moves by, beside Home and End
+const PAGE_SEEK_KEYS: Record<string, SeekKey> = {
+  ArrowLeft: { by: -FILM_SEEK_STEP },
+  ArrowRight: { by: FILM_SEEK_STEP },
+  j: { by: -FILM_SEEK_LONG_STEP },
+  l: { by: FILM_SEEK_LONG_STEP },
+  ',': { frames: -1 },
+  '.': { frames: 1 },
+  Home: { to: 'start' },
+  End: { to: 'end' }
+}
+
 function FilmMode () {
   const open = useFilmStore(state => state.open)
   const setOpen = useFilmStore(state => state.setOpen)
@@ -516,12 +801,22 @@ function FilmMode () {
     }
   }, [])
 
-  // While the mode is open: Space or K plays and pauses, and a film pasted onto the page opens
+  // While the mode is open: Space or K plays and pauses, the seek keys seek, and a film pasted onto the page
+  // opens. A seek key held down repeats; a seek asked for while one runs takes its place
   useEffect(() => {
     if (!open) return
     const keyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.repeat || event.ctrlKey || event.altKey || event.metaKey) return
-      if (event.key !== ' ' && event.key.toLowerCase() !== 'k') return
+      if (event.defaultPrevented || event.ctrlKey || event.altKey || event.metaKey) return
+      const state = useFilmStore.getState()
+      if (state.status !== 'ready' || state.waiting) return
+      const seek = PAGE_SEEK_KEYS[event.key.length === 1 ? event.key.toLowerCase() : event.key]
+      if (seek) {
+        if (takesSeekKeys(event.target)) return
+        event.preventDefault()
+        seekByKey(seek, state.facts?.duration ?? 0)
+        return
+      }
+      if (event.repeat || (event.key !== ' ' && event.key.toLowerCase() !== 'k')) return
       if (takesKeys(event.target)) return
       event.preventDefault()
       togglePlaying()
@@ -574,7 +869,8 @@ function FilmMode () {
             </SheetTitle>
             <SheetDescription className="sr-only">
               Plays a film live in the browser. Open a .json or .js film, drop it on the page or paste its text; Space plays and
-              pauses. Escape or the Films button at the top right closes it and brings the particle scene back.
+              pauses, the left and right arrows seek 5 seconds, J and L 10, comma and full stop a frame, Home and End to the
+              start and the end. Escape or the Films button at the top right closes it and brings the particle scene back.
             </SheetDescription>
           </SheetHeader>
           <NowLoaded />

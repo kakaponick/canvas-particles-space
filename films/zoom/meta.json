@@ -1,0 +1,15 @@
+{
+  "title": "Zoom",
+  "about": "A push in on the hole and the orbits round it, the lensed grid brought in.",
+  "kind": "film",
+  "film": "zoom.json",
+  "made": [
+    {
+      "model": "claude-fable-5-2",
+      "at": "2026-11-25",
+      "did": "Add a film that presents the zoom",
+      "commits": 1,
+      "from": "git"
+    }
+  ]
+}

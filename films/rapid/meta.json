@@ -1,0 +1,15 @@
+{
+  "title": "Into the photon ring",
+  "about": "A zoom into the photon ring, its Doppler sides and flowing patches.",
+  "kind": "film",
+  "film": "rapid.json",
+  "made": [
+    {
+      "model": "claude-fable-5-2",
+      "at": "2026-11-25",
+      "did": "Add five films, each built on one thing the scene can do, with a soundtrack played from the film's own keyframes",
+      "commits": 1,
+      "from": "git"
+    }
+  ]
+}

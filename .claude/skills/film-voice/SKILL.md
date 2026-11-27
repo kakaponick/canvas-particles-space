@@ -7,7 +7,7 @@ description: Narration of a space-scene film or reel (VoiceStudio, or Fish Audio
 
 A film's lines live in its clips: each clip's `LINES`, `say('name')` where a line starts, `status('kind')` for
 the claim it makes. `scripts/voice.mjs` makes the narration outside the page, called by the film's own
-`films/<film>_voice.mjs` (`voiceFilm`). The full example is `films/fourth_dimension_pop_voice.mjs`: a reel's
+`films/<film>/voice.mjs` (`voiceFilm`). The full example is `films/fourth_dimension_pop/voice.mjs`: a reel's
 lines read from its clips (`linesOfReel`), four voices, the delivery by status, a built "wow" moment.
 
 Before the lines are voiced, read the whole script once as text, not for its pictures. Each line answers
@@ -23,12 +23,13 @@ given), so only a changed line is spoken again, and a voice tried once costs not
 
 | Job | Command | Needs |
 |---|---|---|
-| Speak the lines not yet spoken; write each line's length and cue seconds into the reel as the clips' `input` | `node films/<film>_voice.mjs [speak] [voice]` | the voice's engine (below) |
-| Write every take down and show where the words heard differ from the line | `node films/<film>_voice.mjs verify [voice]` | VoiceStudio (its recognizer) |
-| Lay the takes at the seconds the clips mark: `films/<film>[_voice].wav` | `node films/<film>_voice.mjs mix [voice]` | nothing but the takes |
+| Speak the lines not yet spoken; write each line's length and cue seconds into the reel as the clips' `input` | `node films/<film>/voice.mjs [speak] [voice]` | the voice's engine (below) |
+| Write every take down and show where the words heard differ from the line | `node films/<film>/voice.mjs verify [voice]` | VoiceStudio (its recognizer) |
+| Lay the takes at the seconds the clips mark: `films/<film>/out/<film>[_<voice>].wav` | `node films/<film>/voice.mjs mix [voice]` | nothing but the takes |
 
-The first voice of `VOICES` is the film's own: its reel is `films/<film>.json`. Another voice writes its own
-wav and a copy of the reel paced by its takes, `films/<film>_<voice>.json`; render that reel with that wav.
+The first voice of `VOICES` is the film's own: its reel is `films/<film>/<film>.json`. Another voice writes its
+own wav and a copy of the reel paced by its takes, `films/<film>/voices/<voice>.json`; render that reel with
+that wav.
 
 **Mix again after every change of a clip's timing** (a shot made longer, a pause, a line moved): the marks
 move and the old wav no longer lies under the picture. It takes seconds. Then render.
@@ -74,7 +75,7 @@ it. A voice's `say(name, text)` returns what the model is given; the words heard
 without its tags.
 
 1. **Tag each line by the claim it makes**, as its clip labels it on the screen (`statusOf` in
-   `fourth_dimension_pop_voice.mjs` reads the labels from the clips):
+   `fourth_dimension_pop/voice.mjs` reads the labels from the clips):
 
    | Label | Tag |
    |---|---|
@@ -98,7 +99,7 @@ without its tags.
 - A VoiceStudio profile is cloned by its recording and its words (`profile`). A recording kept in the
   repository's `films/voice/` is a `sample: { audio, text }`, its text word for word what is said: Drama 3 is
   given those words, and a profile whose words are wrong (half in another alphabet) clones badly.
-- Another language: its lines in a module beside the film (`films/fourth_dimension_pop_ru.mjs`), its cues as
+- Another language: its lines in a module beside the film (`films/fourth_dimension_pop/ru.mjs`), its cues as
   `'word|слово'` in the order the line says them, and `language` for the recognizer. The picture keeps its
   English captions unless they are translated in the clips.
 

@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc && tsc -p tsconfig.node.json --noEmit && vite build",
     "preview": "vite preview",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0 && node scripts/films.mjs check"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",

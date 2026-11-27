@@ -1,15 +1,15 @@
 // The narration of a film that is a reel: each line is spoken by VoiceStudio on this machine in the voice of
 // a profile, and the film waits for it, since every clip reads the length of its lines as input and marks
-// the second each one starts at (say() in the clips). A film's own script in films/ names what is said and
-// by whom and calls voiceFilm, which reads the job from the command line:
-//   node films/<film>_voice.mjs          speaks the lines not yet spoken and writes their lengths into the
+// the second each one starts at (say() in the clips). A film's own script in its folder names what is said
+// and by whom and calls voiceFilm, which reads the job from the command line:
+//   node films/<film>/voice.mjs          speaks the lines not yet spoken and writes their lengths into the
 //                                        reel, as each clip's input
-//   node films/<film>_voice.mjs verify   has VoiceStudio write down every take and shows where the words
+//   node films/<film>/voice.mjs verify   has VoiceStudio write down every take and shows where the words
 //                                        differ from the line
-//   node films/<film>_voice.mjs mix      lays the takes at the seconds the clips marked and writes
-//                                        films/<film>.wav: give it to space_render as "audio"
+//   node films/<film>/voice.mjs mix      lays the takes at the seconds the clips marked and writes
+//                                        films/<film>/out/<film>.wav: give it to space_render as "audio"
 // A second word names another of the film's voices: "speak omnivoice" writes a copy of the reel paced by that
-// voice's takes, films/<film>_omnivoice.json, and "mix omnivoice" its sound; the film itself stays as it is.
+// voice's takes, films/<film>/voices/omnivoice.json, and "mix omnivoice" its sound; the film stays as it is.
 // Takes are kept in films/voice/, so only a changed line is spoken again.
 // VOICESTUDIO_URL=http://host:port names another VoiceStudio.
 import { Buffer } from 'node:buffer'
@@ -30,6 +30,8 @@ const PEAK = 0.95
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const films = path.join(root, 'films')
 const takes = path.join(films, 'voice')
+// A film's own reel in its folder (films/README.md)
+const reelOf = film => path.join(films, film, `${film}.json`)
 
 // ---- wav ----
 
@@ -120,7 +122,7 @@ const words = text => text.toLowerCase().replace(/ё/g, 'е').replace(/[^\p{L}\p
 // time. So a line is written once, in the clip that says it, and a cue is a word the clip itself names.
 // A word is kept as the clip writes it, which is the name it will look it up by
 export function linesOfReel (film) {
-  const reel = JSON.parse(fs.readFileSync(path.join(films, `${film}.json`), 'utf8'))
+  const reel = JSON.parse(fs.readFileSync(reelOf(film), 'utf8'))
   const lines = {}
   const asked = {}
   for (const clip of reel.clips) {
@@ -186,7 +188,7 @@ export function linesOfReel (film) {
 
 // ---- the three jobs ----
 
-// film: the reel's name in films/, without .json. lines: what is said, by the name the clips call it by,
+// film: the name of the reel's folder in films/. lines: what is said, by the name the clips call it by,
 // spelled the way it is spoken. cues: the words the picture answers to, { line: ['word', ...] }: the second
 // each is said at goes to the clips as input.cues[line][word]; a word the recognizer tends to mishear names
 // what it hears instead after a bar ('w|double'), or in `heardAs` ({ w: ['double'] }).
@@ -211,9 +213,9 @@ export async function voiceFilm ({ film, lines: FILM_LINES, cues: FILM_CUES, hea
   // What this voice's files end in: nothing for the film's own
   const OF_VOICE = VOICE.own ? '' : '_' + VOICE_NAME
   // The film, whose clips every voice plays, and the reel this voice paces: the film itself for its own
-  // voice, a copy beside it for another
-  const filmFile = path.join(films, `${film}.json`)
-  const reelFile = path.join(films, `${film}${OF_VOICE}.json`)
+  // voice, a copy in the film's voices/ for another
+  const filmFile = reelOf(film)
+  const reelFile = VOICE.own ? filmFile : path.join(films, film, 'voices', `${VOICE_NAME}.json`)
   const lengthsFile = path.join(takes, `${film}${OF_VOICE}_lines.json`)
 
   async function studio (route, options) {
@@ -384,6 +386,7 @@ export async function voiceFilm ({ film, lines: FILM_LINES, cues: FILM_CUES, hea
         given.push(JSON.stringify({ lines: own(lengths), cues: own(cues) }))
       }
       const text = JSON.stringify(reel, null, 2).replace(/"input (\d+)"/g, (whole, index) => given[index])
+      fs.mkdirSync(path.dirname(reelFile), { recursive: true })
       fs.writeFileSync(reelFile, text + '\n')
       console.log(`Wrote the lengths into ${reelFile}`)
     }
@@ -461,7 +464,8 @@ export async function voiceFilm ({ film, lines: FILM_LINES, cues: FILM_CUES, hea
     for (const sample of sound) peak = Math.max(peak, Math.abs(sample))
     const gain = peak > 0 ? PEAK / peak : 0
     for (let frame = 0; frame < sound.length; frame++) sound[frame] *= gain
-    const out = path.join(films, `${film}${OF_VOICE}.wav`)
+    const out = path.join(films, film, 'out', `${film}${OF_VOICE}.wav`)
+    fs.mkdirSync(path.dirname(out), { recursive: true })
     writeWav(out, sound)
     console.log(`Wrote ${out}: ${order.length} lines over ${duration.toFixed(1)} s`)
   }

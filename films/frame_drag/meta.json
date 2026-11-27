@@ -1,0 +1,15 @@
+{
+  "title": "Frame dragging",
+  "about": "An infall that leans into a spiral as the hole spins up, then the mirrored spiral as the axis turns.",
+  "kind": "film",
+  "film": "frame_drag.js",
+  "made": [
+    {
+      "model": "claude-fable-5-2",
+      "at": "2026-11-25",
+      "did": "Add films/frame_drag.js, 15 seconds that show the particles dragged round by a spinning hole",
+      "commits": 1,
+      "from": "git"
+    }
+  ]
+}

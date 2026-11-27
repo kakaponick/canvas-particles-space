@@ -1,0 +1,15 @@
+{
+  "title": "Mandelbrot zoom",
+  "about": "A zoom into the Mandelbrot set.",
+  "kind": "fractal",
+  "film": "mandelbrot.json",
+  "made": [
+    {
+      "model": "claude-opus-5-5",
+      "at": "2026-11-25",
+      "did": "Fork the film renderer into a zoom into the Mandelbrot set that falls as deep as asked",
+      "commits": 1,
+      "from": "git"
+    }
+  ]
+}

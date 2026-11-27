@@ -1,0 +1,15 @@
+{
+  "title": "A reel",
+  "about": "A reel of horizon, a fractal clip and graphics.",
+  "kind": "reel",
+  "film": "reel.json",
+  "made": [
+    {
+      "model": "claude-fable-5-2",
+      "at": "2026-11-25",
+      "did": "Give films a reel",
+      "commits": 1,
+      "from": "git"
+    }
+  ]
+}

@@ -2,13 +2,18 @@
 // scene, plays it on the stage, and saves it as a file or an mp4. The engine (film_live.ts) and the
 // renderer behind it load when the first film is opened, so a visitor who never opens one downloads neither.
 import { useFilmStore, type FilmEntry } from '../store/film_store'
-import { baseName, isLibraryFilm, libraryText } from './film_library'
+import { addressName, baseName, libraryText, resolveLibraryFilm } from './film_library'
 import type { GivenFile, LivePlayer, LoadedFilm } from './film_live'
 
 const engine = () => import('./film_live')
 const PROGRESS_MS = 250
-// The address that opens a film of the library straight away: ?film=kerr_around
+// The address that opens a film of the library straight away, at a second when it names one:
+// ?film=kerr_around&t=12. A film's folder names it, a part its path in films/ (fourth_dimension_pop/clips/01_down)
 const FILM_PARAM = 'film'
+const TIME_PARAM = 't'
+// The step of the seek keys and buttons, in seconds, and of J and L
+const SEEK_STEP = 5
+const SEEK_LONG_STEP = 10
 
 const FILM_FILE = /\.(json|m?js)$/i
 const PICTURE_FILE = /\.(png|jpe?g|webp|gif|avif)$/i
@@ -18,6 +23,8 @@ const given = new Map<string, GivenFile>()
 let loaded: LoadedFilm | null = null
 let player: LivePlayer | null = null
 let stage: HTMLElement | null = null
+// The second the next player starts at: the address's ?t=, once
+let startSecond = 0
 // Bumped by every new film, and by every new player or stage, so work begun for an older one drops its result
 let loads = 0
 let players = 0
@@ -27,8 +34,9 @@ const messageOf = (error: unknown) => error instanceof Error ? error.message : S
 // The address bar names a film of the library while it is open, so the address can be shared
 function nameInAddress (name: string | null) {
   const url = new URL(window.location.href)
-  if (name) url.searchParams.set(FILM_PARAM, name.replace(/\.(json|js)$/i, ''))
+  if (name) url.searchParams.set(FILM_PARAM, name)
   else url.searchParams.delete(FILM_PARAM)
+  url.searchParams.delete(TIME_PARAM)
   if (url.href !== window.location.href) window.history.replaceState(window.history.state, '', url)
 }
 
@@ -46,7 +54,7 @@ async function startPlayer () {
   const host = stage
   if (!film || !host) return
   const mine = players
-  useFilmStore.setState({ waiting: true, playing: false, ended: false, time: 0 })
+  useFilmStore.setState({ waiting: true, playing: false, ended: false, time: 0, seekTo: null, seekDone: 0 })
   const { createLivePlayer, livePixel } = await engine()
   const ratio = window.devicePixelRatio || 1
   try {
@@ -66,6 +74,8 @@ async function startPlayer () {
     made.canvas.setAttribute('aria-label', `The film ${useFilmStore.getState().entry?.name ?? ''}`)
     host.replaceChildren(made.canvas)
     useFilmStore.setState({ waiting: false })
+    if (startSecond > 0) made.seek(startSecond)
+    startSecond = 0
     // Motion waits for Play when reduced motion is asked for
     if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) made.play()
   } catch (error) {
@@ -78,8 +88,8 @@ export async function openFilm (entry: FilmEntry) {
   const mine = ++loads
   stopPlayer()
   loaded = null
-  useFilmStore.setState({ open: true, entry, status: 'loading', facts: null, problem: '', needs: [], playing: false, ended: false, time: 0, saveProblem: '' })
-  nameInAddress(entry.origin === 'library' ? entry.name : null)
+  useFilmStore.setState({ open: true, entry, status: 'loading', facts: null, problem: '', needs: [], playing: false, ended: false, time: 0, seekTo: null, seekDone: 0, saveProblem: '' })
+  nameInAddress(entry.origin === 'library' ? addressName(entry.name) : null)
   try {
     const { loadFilm, MissingFiles } = await engine()
     try {
@@ -101,13 +111,15 @@ export async function openFilm (entry: FilmEntry) {
   }
 }
 
+// A film of the library by its folder's name or its path in films/; it is kept under its path
 export async function openLibraryFilm (name: string) {
-  const text = await libraryText(name)
-  if (text === null) {
+  const path = resolveLibraryFilm(name)
+  const text = path ? await libraryText(path) : null
+  if (path === null || text === null) {
     useFilmStore.setState({ open: true, status: 'failed', problem: `The library has no film called ${name}` })
     return
   }
-  await openFilm({ name, text, origin: 'library' })
+  await openFilm({ name: path, text, origin: 'library' })
 }
 
 // Files from the picker or a drop: films, the films a reel names and the pictures a film draws. The film to
@@ -153,10 +165,13 @@ export async function openFromScene () {
 
 // The film named in the address, when the page opens with one
 export function openFromAddress () {
-  const name = new URL(window.location.href).searchParams.get(FILM_PARAM)
+  const params = new URL(window.location.href).searchParams
+  const name = params.get(FILM_PARAM)
   if (!name) return
-  const file = [name, `${name}.js`, `${name}.json`].find(isLibraryFilm)
-  if (file) void openLibraryFilm(file)
+  const file = resolveLibraryFilm(name)
+  if (!file) return
+  startSecond = Math.max(0, Number(params.get(TIME_PARAM)) || 0)
+  void openLibraryFilm(file)
 }
 
 // The stage the film plays on: given when the mode opens, taken back when it closes
@@ -176,6 +191,25 @@ export function togglePlaying () {
   else player.play()
 }
 
+// Goes to the film's second `second`; it plays on from there if it was playing
+export function seekFilm (second: number) {
+  player?.seek(Math.max(0, second))
+}
+
+// Moves by `seconds` from the second shown or sought: the seek buttons and keys
+export function seekFilmBy (seconds: number) {
+  if (!player) return
+  seekFilm(useFilmStore.getState().time + seconds)
+}
+
+// Moves by whole frames: a frame back or on, while the film is paused
+export function stepFilm (frames: number) {
+  player?.step(frames)
+}
+
+export const FILM_SEEK_STEP = SEEK_STEP
+export const FILM_SEEK_LONG_STEP = SEEK_LONG_STEP
+
 // The mode is closed: the film rests and the address forgets it; the film stays loaded for next time
 export function leaveFilms () {
   attachStage(null)
@@ -188,7 +222,7 @@ export function saveFilmFile () {
   const type = /\.json$/i.test(entry.name) ? 'application/json' : 'text/javascript'
   const link = document.createElement('a')
   link.href = URL.createObjectURL(new Blob([entry.text], { type }))
-  link.download = entry.name
+  link.download = baseName(entry.name)
   link.click()
   setTimeout(() => URL.revokeObjectURL(link.href), 60_000)
 }
@@ -217,7 +251,7 @@ export async function saveVideo () {
     if (progress.frames > 0) useFilmStore.setState({ saving: { frame: progress.frame, frames: progress.frames } })
   }, PROGRESS_MS)
   try {
-    await renderLoaded(film, quality, `${entry.name.replace(/\.(json|m?js)$/i, '')}.mp4`)
+    await renderLoaded(film, quality, `${baseName(entry.name).replace(/\.(json|m?js)$/i, '')}.mp4`)
   } catch (error) {
     const message = messageOf(error)
     if (!/cancelled/i.test(message)) useFilmStore.setState({ saveProblem: message.split('\n')[0] })

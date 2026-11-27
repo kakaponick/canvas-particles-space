@@ -2,8 +2,10 @@
 // simulation an agent or a subagent last put on it. Agents need only a shell: no browser tool of their own.
 //
 //   node scripts/screen.mjs live <film> "<what>" --by "<who>"   from a worktree: its dev server (started once,
-//                                                          then reused) plays films/<film> at ?live=, and
-//                                                          the screen shows it
+//                                                          then reused) plays the film at ?live=, and
+//                                                          the screen shows it. <film> is a film's folder
+//                                                          (kerr_around), a part (fourth_dimension/clips/
+//                                                          02_well.js) or a scratch film (_lab_<name>.js)
 //   node scripts/screen.mjs show <address> "<what>" --by "<who>" the screen shows any address
 //   node scripts/screen.mjs stop                            stops this worktree's dev server (before the
 //                                                          worktree is removed)
@@ -24,6 +26,7 @@ import process from 'node:process'
 import { createServer } from 'node:http'
 import { execFileSync, spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
+import { findFilm } from './films.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const SCREEN_PORT = 5199
@@ -136,8 +139,14 @@ async function devServer (checkout = root, fresh = false) {
 
 async function live (film, label, by) {
   if (!film) throw new Error('Name a film of films/: node scripts/screen.mjs live <film> "<what>" --by "<who>"')
-  const name = path.basename(film)
-  if (!fs.existsSync(path.join(root, 'films', name))) throw new Error(`No films/${name} in ${root}: a scratch film goes there as films/_lab_<name>.js`)
+  // Its path in films/, which the page's library finds it by: a folder's name stays a name
+  const found = findFilm(film)
+  if (!found || !path.resolve(found).startsWith(path.join(root, 'films') + path.sep)) {
+    throw new Error(`No film ${film} in ${path.join(root, 'films')}: a scratch film goes there as films/_lab_<name>.js`)
+  }
+  const inFilms = path.relative(path.join(root, 'films'), found).replaceAll(path.sep, '/')
+  const folder = inFilms.split('/')[0]
+  const name = fs.existsSync(path.join(root, 'films', folder, 'meta.json')) && findFilm(folder) === found ? folder : inFilms
   // The operator sees this worktree's whole page, so a branch behind master shows a page master has changed
   try {
     execFileSync('git', ['merge-base', '--is-ancestor', 'master', 'HEAD'], { cwd: root, stdio: 'ignore' })

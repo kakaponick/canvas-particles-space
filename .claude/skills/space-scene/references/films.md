@@ -37,7 +37,7 @@ The colours come from the subject: the film's own marks (its axes, its measured 
 really there (starlight is white with a little blue; a real nebula glows hydrogen red and oxygen teal over
 brown dust). The sky starts as stars on black, `nebula` 0 as the scene leaves it, and a nebula or a tinted
 `colorPalette` comes in only when a shot needs it, in colours the subject gives. Violet, lilac and pink, the
-stock look of "space", read as generated and are sent back: `films/fourth_dimension_pop_02_ladder.js` keeps
+stock look of "space", read as generated and are sent back: `films/fourth_dimension_pop/clips/02_ladder.js` keeps
 its field in white and pale blue so its coloured axes carry the picture.
 
 A film made for YouTube starts one step earlier, with its poster: section 17.
@@ -88,7 +88,7 @@ The rules of zoom, pan and cut are knobs.md section 11; this is how to use them.
     A flat clip that flies goes to 3D first (`threeD`, `threeDEase` 0, `cameraYaw` 0, `cameraPitch` about
     -62 frames as the flat `gridTilt` 62), then flies with `cameraMoveIn`, `cameraPitch` and
     `cameraLookPitch`: 15 radii in at pitch -42 with the head up 12 framed a well's far wall.
-    `films/grs1915_free.js` is a camera that never stops.
+    `films/grs1915_free/grs1915_free.js` is a camera that never stops.
 
 - Push in on the particles, the ring, the orbits and the grids (at 4x the ring is still a hairline); frame
   the opening's title and dust at zoom 1, since those two soften when magnified.
@@ -173,8 +173,12 @@ and lays it under the picture from the first second.
 - The one render is reported with its size. Another quality, a lighter copy or another version is made on
   the user's word. A render made stale by a new request is stopped at once,
   before the new work is thought through.
-- In `films/` the json or js is the film; the rendered mp4, audio and the posters' jpg stay out of git. On
-  Windows a render fails to replace an mp4 that a player still has open.
+- A project film is a folder of `films/` (`films/README.md` holds the layout): `node scripts/films.mjs new
+  <film> --kind film --title "<title>" --about "<one line>" --model <your model id> --agent "<harness>" --did
+  "<what>"` makes it and its `meta.json`, the film goes in as `films/<film>/<film>.js`, and the mp4, the
+  audio and the posters' jpg go to `films/<film>/out/`, out of git. Whoever changes a film later adds a line
+  to its record in the same commit: `node scripts/films.mjs made <film> --model <id> --agent "<harness>" --did
+  "<what>"`. On Windows a render fails to replace an mp4 that a player still has open.
 
 ## 8. High frame rates
 
@@ -230,13 +234,13 @@ A body over a hole (a planet, a star) keeps the hole and its well and covers the
   Earth's well is a billionth of a black hole's; the throat glow also washes out white marks on the wall),
   and `gridClearing` with `gridClearingEdge` 0, which otherwise cut a dark disc where the hole is seen
   when the picture stands below it in the well.
-- `films/fourth_dimension_pop_06_above.js` and `films/infographic_style.js` do it.
+- `films/fourth_dimension_pop/clips/06_above.js` and `films/infographic_style/infographic_style.js` do it.
 
 A small black hole beside words, quiet: the field at `baseSpeed` 0 lights only as noise round a small hole,
 since its light is its speed. One flow falling in and winding instead (`flowA` 1.8, From 7, To 0.8, Spread
 4, Swirl 0.8, the field off), its count swept at the framing: 3000 read as a spiral round the shadow, 5000
 and up a disc that pulls the eye. A ring flow (From equal to To) beside it draws a solid tube.
-`films/fourth_dimension_pop_12_known.js`.
+`films/fourth_dimension_pop/clips/12_known.js`.
 
 The opening in slow motion: `lightCrossTime` at its top, `matterSpeed` low, and every later moment
 (`remnantAt`, `horizonAt`, `dissolveAt`, `releaseAt`, `introEnd`) moved out to match, so the light takes
@@ -244,8 +248,9 @@ seconds to cross the frame.
 
 ## 10. Films to start from
 
-Every film in `films/`, one line each: what it shows, and the particle looks of section 16 it uses. Copy
-the nearest one and change it; they all pass the check.
+Every film in `films/`, one line each: what it shows, and the particle looks of section 16 it uses. Each lives
+in its own folder, `films/<film>/`, with its `meta.json` (`node scripts/films.mjs list` shows them all, with
+the models that made them). Copy the nearest one and change it; they all pass the check.
 
 One ability each:
 
@@ -264,7 +269,7 @@ One ability each:
 Tours and language:
 
 - `showreel.json`: a 50-second tour with labels (the opening, a zoom, the lens by keyframes, orbits, the
-  sheet, a merger); `showreel_sound.mjs` and `showreel_voice.mjs` make its soundtrack and narration.
+  sheet, a merger); `showreel/sound.mjs` and `showreel/voice.mjs` make its soundtrack and narration.
 - `language.js`: a film written as a script: shots, a path drawn by a function, a part used as a function,
   a loop of waves, slow motion, a title card, fades.
 - `three_d.js`: the scene in three dimensions: a disc in the hole's equator passing before the shadow, an
@@ -309,30 +314,30 @@ Real black holes:
   over the sheet, the camera riding the smaller hole.
 - `ogle_0462.js`: the first lone black hole, drifting across the bulge's star field, found by its lens.
 
-The Fourth Dimension, a published film (`fourth_dimension_youtube.md` holds its release):
+The Fourth Dimension, a published film, in `fourth_dimension/` (`youtube.md` holds its release):
 
-- `fourth_dimension.json`: the reel of its six clips paced by a narration (`fourth_dimension_omnivoice.json`
-  the same reel in another voice, `fourth_dimension_voice.mjs` the narration's maker).
-- `fourth_dimension_ladder.js`: a point pulled into a line, a square, a cube and a hypercube, the fourth
+- `fourth_dimension.json`: the reel of its six clips paced by a narration (`voices/omnivoice.json` the
+  same reel in another voice, `voice.mjs` the narration's maker).
+- `clips/01_ladder.js`: a point pulled into a line, a square, a cube and a hypercube, the fourth
   pull pointing inward.
-- `fourth_dimension_well.js`: the film to copy for particles on the sheet: the textbook's well with matter
+- `clips/02_well.js`: the film to copy for particles on the sheet: the textbook's well with matter
   on it, a camera that rises above it, axes and lines that stay on the surface (ring of matter, then the
   sheet's setup with the drain and the fall, then a fall in space).
-- `fourth_dimension_ripple.js`: the well deepening, two holes rippling the sheet, the matter on it riding the
+- `clips/03_ripple.js`: the well deepening, two holes rippling the sheet, the matter on it riding the
   waves (the sheet's setup).
-- `fourth_dimension_experiment.js`: the Earth at the bottom of its own well, space falling in along every
+- `clips/04_experiment.js`: the Earth at the bottom of its own well, space falling in along every
   spoke, a clock on the well's wall (the sheet's fall).
-- `fourth_dimension_fall.js`: a spinning hole in its lattice, circled and then entered (a disc in 3D wound by
+- `clips/05_fall.js`: a spinning hole in its lattice, circled and then entered (a disc in 3D wound by
   the spin's drag).
-- `fourth_dimension_credits.js`: credits that fall into the hole as dust.
-- `fourth_dimension_poster.js`, `_poster2.js`, `_poster3.js`: its three poster takes (poster.md).
-- `fourth_dimension_pop.json`: the same idea told as popular science, a reel of twelve chapters
-  (`fourth_dimension_pop_01_down.js` to `_12_fall.js`), each with its own `LINES` and the cue words its
+- `clips/06_credits.js`: credits that fall into the hole as dust.
+- `posters/poster.js`, `poster2.js`, `poster3.js`: its three poster takes (poster.md).
+- `fourth_dimension_pop/fourth_dimension_pop.json`: the same idea told as popular science, a reel of thirteen
+  chapters (`clips/01_down.js` to `clips/13_fall.js`), each with its own `LINES` and the cue words its
   picture asks for, and the kit of `say`, `long`, `heard` and the claim's status in the same text at the
-  head of every clip; `fourth_dimension_pop_voice.mjs` reads the lines and cues from the clips and speaks
+  head of every clip; `voice.mjs` reads the lines and cues from the clips and speaks
   them in Fish Audio Drama 3 on a rented machine.
 
-Narration: `scripts/voice.mjs` is what every `*_voice.mjs` calls (`voiceFilm`: speak, verify, mix;
+Narration: `scripts/voice.mjs` is what every film's `voice.mjs` calls (`voiceFilm`: speak, verify, mix;
 `linesOfReel` for a reel whose clips hold their own lines). A clip of a voiced reel is previewed in its
 voice's time with `--input films/voice/<film>_lines.json`.
 
@@ -402,7 +407,7 @@ by itself.
   given as `input` and the shot waiting that long.
 - Text to be read is held by the script, not by the voice. A sentence spoken over two dated notes left
   them 3 s on screen once a faster voice said it: the sentence that follows became a line of its own, said
-  when the notes had been up for as long as they take to read (`films/fourth_dimension_experiment.js`, its
+  when the notes had been up for as long as they take to read (`films/fourth_dimension/clips/04_experiment.js`, its
   last shot). A caption whose seconds come out of two spoken words is checked for the short case, and
   dropped under about 1.2 s, where it is a flash.
 - Inside an `at` block `to` moves that block's clock: work out a caption's seconds after the `to`.
@@ -451,7 +456,7 @@ The guide lists what a caption takes; this is what each thing is for.
 
 ## 14. Shapes over the picture
 
-`graphics` in the JSON, `draw` in a script; the keys are in `space_guide`. `films/graphics.js` uses every
+`graphics` in the JSON, `draw` in a script; the keys are in `space_guide`. `films/graphics/graphics.js` uses every
 kind.
 
 - A shape is for what words cannot point at: a radius (a circle), a direction or a cause (an arrow), a
@@ -465,21 +470,21 @@ kind.
   sheet through `gridTilt`, the zoom and the 3D camera, so a ruler down a spoke stays on the spoke while the
   camera comes down to it. The spokes are every 360 / `gridSpokes` degrees; the rings are the well's
   contour lines (`gridRingSpacing` 0), ring k of n at `0.3849 / ((1 - c * c) * c)` radii with
-  `c = 1 - k / (n + 1) / 2.3660254`. `films/fourth_dimension_pop_11_test.js` lays a ruler on them. A path
+  `c = 1 - k / (n + 1) / 2.3660254`. `films/fourth_dimension_pop/clips/11_test.js` lays a ruler on them. A path
   up the well and back (light climbing the wall and falling back) is a smooth run of `{ sheet }` points on
   the near wall, its radius rising and falling along it; the angle about -90 faces the camera.
 - A device the eye must read (a clock, a pair of mirrors) drawn in the hole's radii shrinks with the scene:
   a light clock on the Earth came out 40 px tall once the 3D camera pulled back. Draw it, and anything too
   small to read at its place, large on the frame's empty side with a dashed lead and a dot to its place,
   lead and dot in the accent colour, width about 0.0024, since a thin pale lead vanishes over a lit field;
-  the light clocks of `films/fourth_dimension_pop_11_test.js` point so at the Earth and at the flat.
+  the light clocks of `films/fourth_dimension_pop/clips/11_test.js` point so at the Earth and at the flat.
   Far out on the flat a `{ sheet }` point
   lands away from where a flat guess puts it: probe with a few labelled dots in a throwaway still before
-  aiming a lead (`clockBody`, `clockLead`, `inset` in `films/fourth_dimension_pop_11_test.js`).
+  aiming a lead (`clockBody`, `clockLead`, `inset` in `films/fourth_dimension_pop/clips/11_test.js`).
 - A shape leaves the scene for the frame through `{ between: [place, place], share: 'lift' }`: the place
   that share of the way from the first to the second on the frame, the share a value of the shape keyed
   from 0 to 1. Give every point the same two kinds of place and the shape lifts off whole: the ruler of
-  `films/fourth_dimension_pop_11_test.js` leaves the sheet and lies straight across the frame. The same
+  `films/fourth_dimension_pop/clips/11_test.js` leaves the sheet and lies straight across the frame. The same
   form with `share` a number holds a shape that part of the way, and a light dot keyed back and forth
   between two mirrors bounces between them.
 - `shift: [dx, dy]` on a scene place moves it by that many of the place's own units (y up) without leaving
@@ -501,7 +506,7 @@ kind.
 - A body that is not a black hole (a planet, a star seen as a disc) is a picture over the hole: an image
   centred at `{ hole: [0, 0] }` with `lensingEnabled` and `ringEnabled` false, riding the hole, the zoom
   and the pan, while the hole under it still pulls the particles; its size and what else to turn off: the
-  recipe "A body over a hole" (section 9). `films/fourth_dimension_experiment.js` stands the Earth so: NASA's photograph cut
+  recipe "A body over a hole" (section 9). `films/fourth_dimension/clips/04_experiment.js` stands the Earth so: NASA's photograph cut
   out on a clear ground, its disc 0.78 of the half side, drawn 2.62 radii wide.
 - A thing the scene cannot draw (an observatory, a spacecraft, a planet's surface) is a generated picture,
   cut out on a clear ground. What the simulation is about is drawn by its code, never a picture: a neutron
@@ -515,7 +520,7 @@ kind.
   RGBA PNG whose ground is truly clear (about 30 s, a limit of about 25 a day); check the alpha before use.
   Light it in the prompt as the scene lights it (the star's colour, its side), scale it to about 800 px
   wide, and where the picture's border cut the object off (a rock running to its edge), fade the alpha
-  over that border, or put that border off the frame. `films/infographic_style.js` stands its observatory
+  over that border, or put that border off the frame. `films/infographic_style/infographic_style.js` stands its observatory
   so, its dome's slit where the light ends.
 - Lay an arrow over a stream the particles already draw: the arrow names the motion, the particles show it.
 - Shapes lie over `fade` and under the captions, so a chart can stand on black.
@@ -523,7 +528,7 @@ kind.
 ### An infographic look
 
 The look of a scientific illustration: the scene a quiet stage, the one thing the film is about lit on it,
-the words at the edges. `films/infographic_style.js` puts every rule below on one frame.
+the words at the edges. `films/infographic_style/infographic_style.js` puts every rule below on one frame.
 
 - **Cold stage, one warm accent.** The grids, the stars and a body stay blue (`gridColor`, a body's
   `fill`); the subject of the sentence, a path, a ring, a term, takes one warm colour, the same in the shape
@@ -608,7 +613,7 @@ the flat mode unless the row sets `threeD`):
 A look of the field is grown and answers to a dozen settings at once; a flow (knobs.md, "Flows: matter
 told where to go") is said in the terms of the shot, where the matter is, where it goes, which way it
 turns, with `"warmup": 0`. Each row was seen in a tracer in 3D at `cameraYaw` 0, `cameraPitch` 62,
-with the field off, as `films/flows.json` films them:
+with the field off, as `films/flows/flows.json` films them:
 
 | The matter | Law: cause -> stroke | Settings | Grown, warm-up | What the viewer sees |
 |---|---|---|---|---|
@@ -635,7 +640,7 @@ with the field off, as `films/flows.json` films them:
   moves every particle one way, and a turning camera streaks it into parallel rain. Three flows tipped 0,
   60 and 120 degrees, each `Thick` 0.5 with `Bell` 1 and `Swirl` 0, falling from 4.5 radii (`Spread` 1.5) to
   0.9 with the field off, are a ball of strokes all pointing at the hole, lines of the scene a turn does
-  not smear (`FALL` in `films/fourth_dimension_pop_07_creature.js`); from 5.5 wide 3 the outer strokes
+  not smear (`FALL` in `films/fourth_dimension_pop/clips/07_creature.js`); from 5.5 wide 3 the outer strokes
   still raked the frame's sides once the camera came in 2 to 3 radii. A camera that moves in through the ball
   of falling matter rakes it into rain again: at 2 to 3 radii in, pitch 32 to 40, light 0.8, grey streaks
   filled the frame; 1 radius in at pitch 26 with the light at 0.45 and `Trail` 0.25 keeps fine strokes. The band matters as much as the
@@ -676,7 +681,7 @@ goes. So a shot with a tilted sheet has its particles on the sheet, and its sent
 go: down the well along a spoke, round its throat, or held in a band. This is the one home of the setup; the guide's recipe "Matter on the
 sheet" and knobs.md section 9 point here.
 
-The setup, framed as in `films/fourth_dimension_well.js` and `fourth_dimension_ripple.js`, at `gridTilt`
+The setup, framed as in `films/fourth_dimension/clips/02_well.js` and `fourth_dimension_ripple.js`, at `gridTilt`
 66 with `gridDepth` 5 to 10 and the hole at `blackHoleY` 0.6 to 0.78, and from above at `gridTilt` 0 with
 the hole at 0.5:
 
@@ -755,7 +760,7 @@ What keeps the picture on the sheet right:
   own count (a half, a quarter) and `particleSize` with `particleSizeMin` (1.2 to 2) at the shot's
   framing, and take the frame where the rings read first and the strokes second.
 - A drawing rides the sheet when the script lays it there by the sheet's own sums: `laySheet` in
-  `films/fourth_dimension_well.js` gives an axis, a line down the well's wall or a dot its place at every
+  `films/fourth_dimension/clips/02_well.js` gives an axis, a line down the well's wall or a dot its place at every
   tilt, depth and place of the hole, so the camera can move while they stay on the surface.
 
 ## 17. The poster: a YouTube thumbnail planned with the film

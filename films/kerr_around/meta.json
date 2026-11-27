@@ -1,0 +1,15 @@
+{
+  "title": "Around a spinning hole",
+  "about": "Over a spinning hole from pole to pole, the ring's bright side and Doppler contrast following the spin.",
+  "kind": "film",
+  "film": "kerr_around.js",
+  "made": [
+    {
+      "model": "claude-opus-5-5",
+      "at": "2026-11-25",
+      "did": "Add three 30-second films of the Ray Traced lens and the spinning hole, each moving the observer along one axis the new renderer made exact",
+      "commits": 1,
+      "from": "git"
+    }
+  ]
+}

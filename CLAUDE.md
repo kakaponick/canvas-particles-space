@@ -120,4 +120,6 @@ For orientation, on the development machine (RTX 3070):
 
 ## Films
 
+A film is a folder of `films/`, `films/README.md` its layout: `node scripts/films.mjs new` makes one with its `meta.json`, and whoever makes or changes a film adds a line to that record of who made it, its model's id included, in the same commit (`node scripts/films.mjs made <film> --model <id> --agent "<harness>" --did "<what>"`).
+
 Before changing film or fractal code, read its rules, and add a new rule for that code there: `docs/films.md` for films (`src/lib/film*.ts`, `reel*.ts`, `caption_text.ts`, `intro_tracks.ts`, the scene's `fire`, `makeTitle` and `useTitle`, the fonts in `public/fonts` and `index.css`, `mcp/`, `scripts/voice.mjs`), in sections an agent reads by the code it changes: the film and its plan, the film's scene, scripts, reels, over the frame (fade, shapes, captions), encoding and output, the `space` MCP server, narration; `docs/fractal_films.md` for the Mandelbrot zoom, its films and the page's Mandelbrot mode (any `fractal*` file).

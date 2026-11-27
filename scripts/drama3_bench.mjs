@@ -17,7 +17,7 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { linesOfReel } from './voice.mjs'
 import { GPUS, PORTS, api, deletePod, get, startDrama3Pod } from './drama3_pod.mjs'
-import * as ru from '../films/fourth_dimension_pop_ru.mjs'
+import * as ru from '../films/fourth_dimension_pop/ru.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const STUDIO = process.env.VOICESTUDIO_URL ?? 'http://127.0.0.1:3900'

@@ -1,0 +1,22 @@
+{
+  "title": "Showreel",
+  "about": "A 50-second tour with labels: the opening, a zoom, the lens by keyframes, orbits, the sheet, a merger.",
+  "kind": "film",
+  "film": "showreel.json",
+  "made": [
+    {
+      "model": "claude-fable-5-2",
+      "at": "2026-11-25",
+      "did": "Add a showreel, a 50 s film that presents what films can do and is itself the example to start from",
+      "commits": 3,
+      "from": "git"
+    },
+    {
+      "model": "claude-opus-5-5",
+      "at": "2026-11-25",
+      "did": "Make the ray traced lens the default",
+      "commits": 1,
+      "from": "git"
+    }
+  ]
+}

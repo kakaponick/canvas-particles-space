@@ -6,7 +6,7 @@
 // ?live=<film> in the address, which plays that film of the library and starts it again after every reload.
 import { applyTracks, filmFade, planFilm, type FilmPlan } from './film'
 import { writeFilm } from './film_script'
-import { isLibraryFilm, libraryText } from './film_library'
+import { libraryText, resolveLibraryFilm } from './film_library'
 import { drawCaptions, loadCaptionFonts } from './film_captions'
 import { drawGraphics, loadGraphicImages, type FilmImages } from './film_graphics'
 import { SETTING_KEYS, fail, parseSettings, type Patch } from './agent_values'
@@ -139,11 +139,12 @@ function makeOverlay () {
 // Plays a film (its JSON or its script as a string, or the name of a film of the library) in the scene
 export async function playInScene (source: unknown, options: SceneFilmOptions = {}) {
   let film = source
-  // A film of the library is its JSON or its script, by the file's ending
-  if (typeof source === 'string' && isLibraryFilm(source.trim())) {
-    const name = source.trim()
-    const text = await libraryText(name)
-    film = text !== null && name.endsWith('.json') ? JSON.parse(text) : text
+  // A film of the library (by its folder, its path or a scratch film's name) is its JSON or its script, by
+  // the ending of the file it is found as
+  const path = typeof source === 'string' ? resolveLibraryFilm(source.trim()) : null
+  if (path !== null) {
+    const text = await libraryText(path)
+    film = text !== null && path.endsWith('.json') ? JSON.parse(text) : text
   }
   if (typeof film === 'string') film = writeFilm(film, options.input ?? {}).film
   if (typeof film === 'object' && film !== null && 'clips' in film) fail('A reel plays in the film mode; play its clips here one by one')
@@ -194,7 +195,8 @@ export function sceneFilmTime () {
 export function playFromAddress () {
   const name = new URL(window.location.href).searchParams.get(LIVE_PARAM)
   if (!name) return
-  const file = [name, `${name}.js`, `${name}.json`].find(isLibraryFilm)
+  // A film's folder (?live=kerr_around), a path in films/ or a scratch film's name
+  const file = resolveLibraryFilm(name)
   if (!file) {
     console.warn(`?live=${name}: the library has no such film`)
     return

@@ -1,0 +1,15 @@
+{
+  "title": "Rosette",
+  "about": "Orbiting stars added one by one, their precessing ellipses laying a rosette.",
+  "kind": "film",
+  "film": "rosette.json",
+  "made": [
+    {
+      "model": "claude-fable-5-2",
+      "at": "2026-11-25",
+      "did": "Add five films, each built on one thing the scene can do, with a soundtrack played from the film's own keyframes",
+      "commits": 1,
+      "from": "git"
+    }
+  ]
+}

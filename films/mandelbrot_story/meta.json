@@ -1,0 +1,15 @@
+{
+  "title": "A fall into the Mandelbrot set",
+  "about": "The set whole, the rule that draws it, then a dive past the depth where ordinary numbers give out.",
+  "kind": "fractal",
+  "film": "mandelbrot_story.js",
+  "made": [
+    {
+      "model": "claude-opus-5-5",
+      "at": "2026-11-25",
+      "did": "Finish the Mandelbrot zoom as a feature of the page",
+      "commits": 1,
+      "from": "git"
+    }
+  ]
+}

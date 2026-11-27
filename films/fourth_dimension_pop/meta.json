@@ -1,0 +1,22 @@
+{
+  "title": "The Fourth Dimension, popular science",
+  "about": "The same idea told as popular science: a reel of thirteen chapters, each with its own lines.",
+  "kind": "reel",
+  "film": "fourth_dimension_pop.json",
+  "made": [
+    {
+      "model": "claude-fable-5-2",
+      "at": "2026-11-27",
+      "did": "Add The Fourth Dimension told as popular science",
+      "commits": 1,
+      "from": "git"
+    },
+    {
+      "model": "claude-opus-5-5",
+      "at": "2026-11-27",
+      "did": "Voice The Fourth Dimension told as popular science in Fish Audio Drama 3",
+      "commits": 40,
+      "from": "git"
+    }
+  ]
+}

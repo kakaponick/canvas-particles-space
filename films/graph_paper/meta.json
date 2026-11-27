@@ -1,0 +1,22 @@
+{
+  "title": "Graph paper",
+  "about": "The lensed grid bent by the lens's keys, then by a second hole.",
+  "kind": "film",
+  "film": "graph_paper.json",
+  "made": [
+    {
+      "model": "claude-fable-5-2",
+      "at": "2026-11-25",
+      "did": "Add five films, each built on one thing the scene can do, with a soundtrack played from the film's own keyframes",
+      "commits": 1,
+      "from": "git"
+    },
+    {
+      "model": "claude-opus-5-5",
+      "at": "2026-11-25",
+      "did": "Make the ray traced lens the default",
+      "commits": 1,
+      "from": "git"
+    }
+  ]
+}

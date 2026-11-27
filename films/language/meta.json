@@ -1,0 +1,15 @@
+{
+  "title": "The script language",
+  "about": "A film written as a script: shots, a path drawn by a function, a loop of waves, slow motion, a title card, fades.",
+  "kind": "film",
+  "film": "language.js",
+  "made": [
+    {
+      "model": "claude-fable-5-2",
+      "at": "2026-11-25",
+      "did": "Give a film a language",
+      "commits": 1,
+      "from": "git"
+    }
+  ]
+}

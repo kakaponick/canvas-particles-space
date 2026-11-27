@@ -11,8 +11,9 @@
 //                                                          or shrunk to width pixels
 //   node space.mjs render <film> <out.mp4> [medium|high|max] [audio file]
 //
-// A film is a .json file, or a script that plays it forward: a .js file. "--input <file.json>" anywhere on
-// the line is what a script reads as input. check writes the JSON a script comes to when it is given a place.
+// A film is a .json file, a script that plays it forward (a .js file), or a film's folder (films/waltz,
+// whose meta.json names its file). "--input <file.json>" anywhere on the line is what a script reads as input.
+// check writes the JSON a script comes to when it is given a place.
 // Several jobs of one command may follow one another on one line (check a.js b.js, preview a.js a.jpg -
 // b.js b.jpg -); the browser is then started once, where each call starts its own (about a second). One
 // line holds one command word: two commands, or two stills, are two calls. A seconds list of "-" leaves the choice of
@@ -54,8 +55,16 @@ function findRoot () {
 const isScript = file => /\.[cm]?js$/i.test(file)
 const isFilm = file => isScript(file) || file.toLowerCase().endsWith('.json')
 
+// A film's folder (films/<film>, films/README.md) stands for the film's own file, named by its meta.json
+function filmFileOf (given) {
+  const meta = path.join(given, 'meta.json')
+  if (!fs.existsSync(given) || !fs.statSync(given).isDirectory() || !fs.existsSync(meta)) return given
+  return path.join(given, JSON.parse(fs.readFileSync(meta, 'utf8')).film)
+}
+
 // The film a file holds, as the tools take it: a script as its text, a JSON film as its object
-function readFilm (file, input) {
+function readFilm (given, input) {
+  const file = filmFileOf(given)
   try {
     const text = fs.readFileSync(file, 'utf8')
     if (!isScript(file)) return { film: JSON.parse(text) }

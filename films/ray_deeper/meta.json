@@ -1,0 +1,15 @@
+{
+  "title": "Ray traced: deeper",
+  "about": "A dive to the photon rings at the shadow's edge, in a tall frame, lit by orbiting stars.",
+  "kind": "film",
+  "film": "ray_deeper.js",
+  "made": [
+    {
+      "model": "claude-opus-5-5",
+      "at": "2026-11-25",
+      "did": "Add three 30-second films of the Ray Traced lens and the spinning hole, each moving the observer along one axis the new renderer made exact",
+      "commits": 1,
+      "from": "git"
+    }
+  ]
+}

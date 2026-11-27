@@ -1,0 +1,15 @@
+{
+  "title": "GRS 1915+105: the heartbeat",
+  "about": "GRS 1915+105's 50-second heartbeat in real time: the inner ring fills, falls in and flares, with its light curve.",
+  "kind": "film",
+  "film": "grs1915.js",
+  "made": [
+    {
+      "model": "claude-opus-5-5",
+      "at": "2026-11-26",
+      "did": "Add five minute-long films of real black holes, each from its measured numbers",
+      "commits": 3,
+      "from": "git"
+    }
+  ]
+}

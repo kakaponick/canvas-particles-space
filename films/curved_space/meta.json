@@ -1,0 +1,16 @@
+{
+  "title": "Curved space",
+  "about": "The lensed grid alone, read through the lens.",
+  "kind": "film",
+  "film": "curved_space.json",
+  "made": [
+    {
+      "model": "claude-opus-5-5",
+      "at": "2026-11-25",
+      "did": "Light the opening's dust as a nebula behind the stars",
+      "commits": 4,
+      "last": "2026-11-26",
+      "from": "git"
+    }
+  ]
+}

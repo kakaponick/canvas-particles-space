@@ -1,0 +1,15 @@
+{
+  "title": "GRS 1915+105, free camera",
+  "about": "The same hole seen by a camera that leaves its circle, flies past the shadow and under it.",
+  "kind": "film",
+  "film": "grs1915_free.js",
+  "made": [
+    {
+      "model": "claude-opus-5-5",
+      "at": "2026-11-26",
+      "did": "Let the 3D camera roll, look aside and move off its circle",
+      "commits": 2,
+      "from": "git"
+    }
+  ]
+}

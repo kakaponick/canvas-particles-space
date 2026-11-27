@@ -165,28 +165,33 @@ export async function loadFilm (name: string, text: string, files: GivenFiles): 
 }
 
 // What the live player needs of a film's own player. A particle film steps every frame before the one it
-// shows; a reel and a fractal film reach a frame by themselves
+// shows, from its first; a fractal film draws any frame by itself; a reel reaches any later frame by itself
+// (its clip steps to it) and an earlier one only from a new player
 interface FramePlayer {
   canvas: HTMLCanvasElement
   stepsEvery: boolean
+  // Frames before the newest drawn can be drawn again by the same player
+  goesBack: boolean
   draw: (index: number, show: boolean) => unknown
   dispose: () => void
 }
 
-async function makePlayer (film: LoadedFilm, pixel: number): Promise<FramePlayer> {
+// `first`: the frame the player is made for, so a reel opens the clip that frame is in first
+async function makePlayer (film: LoadedFilm, pixel: number, first = 0): Promise<FramePlayer> {
   if (film.kind === 'film') {
     // A fresh plan each time: a player writes the tracks into its plan as it plays
     const player = await createFilmPlayer(planFilm(film.source), pixel, film.images)
-    return { canvas: player.canvas, stepsEvery: true, draw: (index, show) => player.drawFrame(index, show), dispose: player.dispose }
+    return { canvas: player.canvas, stepsEvery: true, goesBack: false, draw: (index, show) => player.drawFrame(index, show), dispose: player.dispose }
   }
   if (film.kind === 'fractal') {
     const plan = planFractal(film.source)
     await loadFonts(plan)
     const player = createFractalPlayer(plan, pixel)
-    return { canvas: player.canvas, stepsEvery: false, draw: (index, show) => show ? player.drawFrame(index) : undefined, dispose: player.dispose }
+    return { canvas: player.canvas, stepsEvery: false, goesBack: true, draw: (index, show) => show ? player.drawFrame(index) : undefined, dispose: player.dispose }
   }
-  const player = await createReelPlayer(planReel(film.source), pixel, { images: film.images }, 0)
-  return { canvas: player.canvas, stepsEvery: false, draw: (index, show) => show ? player.drawFrame(index) : undefined, dispose: player.dispose }
+  const plan = planReel(film.source)
+  const player = await createReelPlayer(plan, pixel, { images: film.images }, Math.min(first, plan.frames - 1))
+  return { canvas: player.canvas, stepsEvery: false, goesBack: false, draw: (index, show) => show ? player.drawFrame(index) : undefined, dispose: player.dispose }
 }
 
 // Video pixels per film pixel for a film shown in a box of this many device pixels: its own scale, or less
@@ -197,21 +202,29 @@ export function livePixel (film: LoadedFilm, width: number, height: number) {
 }
 
 export interface LiveState {
-  // The second of the film on screen
+  // The second of the film on screen, or the one a seek is going to
   time: number
   playing: boolean
   // The film has reached its last frame; Play starts it again
   ended: boolean
-  // A new player is being made, before the first frame or to start again
-  waiting: boolean
+  // The second a seek is going to, while the frames before it are stepped; null when none is
+  seekTo: number | null
+  // How much of that seek's stepping is done, 0 to 1
+  seekDone: number
 }
 
 // Seconds between two reports of the time while the film plays, so the panel re-renders a few times a second
 const REPORT_MS = 100
+// The main thread's share of one tick spent stepping toward a seek's frame, in milliseconds: the page stays
+// responsive (the pointer, the transport) while a long seek runs. A step's own cost sets how many fit
+const SEEK_SLICE_MS = 12
+// The most steps one tick of a seek issues, so the graphics card's queue never runs far ahead of the slice
+const SEEK_MOST_STEPS = 240
 
 // Plays `film` on its own canvas, drawn at `pixel` video pixels a film pixel, paused on its first frame.
 // `report` hears the time and the state; `problem` hears a frame that could not be drawn, and the film
-// pauses there
+// pauses there. A seek goes to any frame: a scene only goes forward, so a particle film steps the frames
+// before it unshown, from its start again when it lies behind, and every frame shown is still the render's
 export async function createLivePlayer (film: LoadedFilm, pixel: number, report: (state: LiveState) => void, problem: (message: string) => void) {
   let player = await makePlayer(film, pixel)
   const canvas = document.createElement('canvas')
@@ -230,7 +243,6 @@ export async function createLivePlayer (film: LoadedFilm, pixel: number, report:
   let playing = false
   let held = false
   let disposed = false
-  let waiting = false
   // Work in flight (frames, a new player), so the clock never starts more beside it
   let busy = false
   // The clock: frame `anchorFrame` was on screen at `anchorAt`
@@ -240,13 +252,24 @@ export async function createLivePlayer (film: LoadedFilm, pixel: number, report:
   let raf = 0
   // Frames one tick may catch up by before the film slows instead
   const maxLag = Math.max(2, Math.ceil(film.fps / 15))
+  // The frame a seek goes to, and the frame its stepping started after; steps a tick of it may take
+  let wanted: number | null = null
+  let seekFrom = 0
+  let seekSteps = 4
 
   const send = (force: boolean) => {
     const now = performance.now()
     if (!force && now - reportedAt < REPORT_MS) return
     reportedAt = now
-    // The last frame stands for the film's end, so a film played through reads its whole length
-    report({ time: shown >= last ? film.duration : Math.max(0, shown) / film.fps, playing, ended: shown >= last && !playing, waiting })
+    const done = wanted !== null && wanted > seekFrom ? (drawn - seekFrom) / (wanted - seekFrom) : 0
+    report({
+      // The last frame stands for the film's end, so a film played through reads its whole length
+      time: wanted !== null ? wanted / film.fps : shown >= last ? film.duration : Math.max(0, shown) / film.fps,
+      playing,
+      ended: wanted === null && shown >= last && !playing,
+      seekTo: wanted !== null ? wanted / film.fps : null,
+      seekDone: Math.max(0, Math.min(1, done))
+    })
   }
   const anchor = () => {
     anchorAt = performance.now()
@@ -275,6 +298,7 @@ export async function createLivePlayer (film: LoadedFilm, pixel: number, report:
       .catch((error: unknown) => {
         if (disposed) return
         playing = false
+        wanted = null
         problem(error instanceof Error ? error.message : String(error))
       })
       .finally(() => {
@@ -283,25 +307,72 @@ export async function createLivePlayer (film: LoadedFilm, pixel: number, report:
       })
   }
 
-  // The film from its start again: a scene only goes forward, so it is a new player
-  const restart = () => run(async () => {
-    waiting = true
-    send(true)
+  // A new player, made for frame `first`: the way back, since a scene only goes forward
+  const renew = async (first: number) => {
     player.dispose()
-    player = await makePlayer(film, pixel)
-    if (disposed) {
-      player.dispose()
+    player = await makePlayer(film, pixel, first)
+    if (disposed) player.dispose()
+    drawn = -1
+  }
+
+  // The seek has shown its frame: the clock goes on from there
+  const arrive = (target: number) => {
+    if (wanted === target) wanted = null
+    anchor()
+    send(true)
+  }
+
+  // One tick of a seek: a slice of the steps toward its frame, or the frame itself
+  const seekTick = () => {
+    const target = wanted
+    if (target === null) return
+    if (target === shown && target === drawn) return arrive(target)
+    if (!player.stepsEvery) {
+      run(async () => {
+        if (target <= drawn && !player.goesBack) await renew(target)
+        if (disposed) return
+        await drawUpTo(target)
+        arrive(target)
+      })
       return
     }
-    drawn = -1
-    await drawUpTo(0)
-    waiting = false
-    anchor()
-  })
+    if (target <= drawn) {
+      // Behind the scene: from its start again. The canvas keeps the frame it shows until the new one is there
+      run(async () => {
+        await renew(0)
+        seekFrom = -1
+      })
+      return
+    }
+    run(async () => {
+      const started = performance.now()
+      const until = Math.min(target, drawn + seekSteps)
+      for (let index = drawn + 1; index <= until; index++) {
+        await player.draw(index, index === target)
+        drawn = index
+      }
+      if (disposed) return
+      // As many steps next tick as fit the slice at this tick's pace
+      const spent = Math.max(0.5, performance.now() - started)
+      seekSteps = Math.max(1, Math.min(SEEK_MOST_STEPS, Math.round(seekSteps * Math.min(2, SEEK_SLICE_MS / spent))))
+      if (drawn === target) {
+        ctx.drawImage(player.canvas, 0, 0)
+        shown = drawn
+        arrive(target)
+      } else {
+        send(false)
+      }
+    })
+  }
 
   const tick = (now: number) => {
     raf = requestAnimationFrame(tick)
-    if (busy || held || !playing) return
+    if (busy || held) return
+    if (wanted !== null) {
+      seekTick()
+      return
+    }
+    if (!playing) return
     if (shown >= last) {
       playing = false
       send(true)
@@ -321,6 +392,16 @@ export async function createLivePlayer (film: LoadedFilm, pixel: number, report:
     })
   }
 
+  // Goes to frame `frame`; a seek asked for while another runs takes its place
+  const seekFrame = (frame: number) => {
+    const target = Math.max(0, Math.min(last, Math.round(frame)))
+    if (wanted === null && target === shown) return
+    // A seek that keeps going the same way keeps its start, so its share done stays true
+    if (wanted === null || target <= drawn) seekFrom = target > drawn ? drawn : -1
+    wanted = target
+    send(true)
+  }
+
   await drawUpTo(0)
   raf = requestAnimationFrame(tick)
 
@@ -328,13 +409,22 @@ export async function createLivePlayer (film: LoadedFilm, pixel: number, report:
     canvas,
     play () {
       playing = true
-      if (shown >= last) restart()
+      // From the end, Play starts the film again
+      if (wanted === null && shown >= last) seekFrame(0)
       else anchor()
       send(true)
     },
     pause () {
       playing = false
       send(true)
+    },
+    // Goes to the film's second `second`, playing on from there if it was playing
+    seek (second: number) {
+      seekFrame(second * film.fps)
+    },
+    // Moves by `frames` frames from the frame shown or sought
+    step (frames: number) {
+      seekFrame((wanted ?? Math.max(0, shown)) + frames)
     },
     // Stops the clock without letting the film go, while a render takes the machine
     hold (on: boolean) {

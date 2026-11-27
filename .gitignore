@@ -26,11 +26,16 @@ dist-ssr
 # Backup files
 *.backup
 
-# Rendered films, their sound and their posters; the films themselves are the json and js files
+# Renders of the films (each film's out/, films/README.md) and the narration's takes; the films themselves are
+# the json and js files
+films/**/out/
+# Renders written loose into films/, until node scripts/films.mjs tidy puts them in their out/
 films/*.mp4
 films/*.wav
-films/*_poster*.jpg
+films/*.jpg
 films/voice/
+# Scratch films of the live page
+films/_lab_*
 
 # What scripts/yt_keywords.mjs gathers: read once, kept nowhere
 yt-keywords/

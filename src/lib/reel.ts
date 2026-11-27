@@ -316,7 +316,7 @@ another setup of the scene, or to another kind of picture, is a new clip.
     { "film": { "duration": 12, "preset": "Schwarzschild", "intro": false } },
     { "fractal": { "duration": 10, "target": "spiral", "depth": 20 },
       "transition": { "kind": "dissolve", "seconds": 1 } },
-    { "film": "films/graphics.js", "from": 22, "to": 29, "name": "the pair",
+    { "film": "films/graphics/graphics.js", "from": 22, "to": 29, "name": "the pair",
       "transition": { "kind": "black", "seconds": 0.6 } }
   ]
 }
@@ -360,7 +360,7 @@ Recipes
                                        { "fractal": { "duration": 12, "target": "spiral", "depth": 12 },
                                          "transition": { "kind": "dissolve", "seconds": 1.5 } }]
   A part of a film that is there (through the film server):
-                             { "film": "films/horizon.js", "from": 18, "to": 27 }
+                             { "film": "films/horizon/horizon.js", "from": 18, "to": 27 }
 
 Not in a reel: captions or shapes over the whole of it (each clip has its own), and a script for the reel
 itself (a reel is JSON; its clips may be scripts).`

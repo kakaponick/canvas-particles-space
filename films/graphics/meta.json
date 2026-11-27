@@ -1,0 +1,15 @@
+{
+  "title": "Drawn over the picture",
+  "about": "Rings that mark radii, an arrow with a label, a chart with a walking dot, a second hole's orbit, a framed picture.",
+  "kind": "film",
+  "film": "graphics.js",
+  "made": [
+    {
+      "model": "claude-fable-5-2",
+      "at": "2026-11-25",
+      "did": "Let a film draw over its picture",
+      "commits": 2,
+      "from": "git"
+    }
+  ]
+}

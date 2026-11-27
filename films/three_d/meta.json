@@ -1,0 +1,15 @@
+{
+  "title": "The scene in 3D",
+  "about": "A disc in the hole's equator passing before the shadow, a pair on a tilted orbit, a sheet whose well runs down to the hole.",
+  "kind": "film",
+  "film": "three_d.js",
+  "made": [
+    {
+      "model": "claude-fable-5-2",
+      "at": "2026-11-26",
+      "did": "Add a film of the scene in three dimensions",
+      "commits": 1,
+      "from": "git"
+    }
+  ]
+}

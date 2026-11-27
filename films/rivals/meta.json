@@ -1,0 +1,15 @@
+{
+  "title": "Rivals",
+  "about": "Two rival holes that pass matter back and forth, each gift drawing them closer, until they merge.",
+  "kind": "film",
+  "film": "rivals.js",
+  "made": [
+    {
+      "model": "claude-sonnet-5-5",
+      "at": "2026-11-28",
+      "did": "rivals",
+      "commits": 1,
+      "from": "git"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "title": "Infographic style",
+  "about": "The infographic look on one frame: a star in its well, a bent path, a title, leader lines, a legend and an inset.",
+  "kind": "film",
+  "film": "infographic_style.js",
+  "made": [
+    {
+      "model": "claude-opus-5-5",
+      "at": "2026-11-27",
+      "did": "Give films an infographic look",
+      "commits": 8,
+      "from": "git"
+    }
+  ]
+}

@@ -39,8 +39,9 @@ to only while its worktree lives. Each `live` call starts the worktree's dev ser
 seconds), since Vite can miss files a rebase, a checkout or a stash rewrites and serve a stale module that
 leaves the page black; after such a git step, call `live` again rather than trust the page's reload. A shell is all an agent needs; no browser tool of its own.
 
-1. A film not yet in `films/` goes there as `films/_lab_<name>.js`; `films/_lab_*` is in the repository's
-   `.git/info/exclude`, so it never joins a commit.
+1. A film not yet in `films/` goes there as `films/_lab_<name>.js`; `films/_lab_*` is in `.gitignore`, so it
+   never joins a commit. A film of the library is named by its folder (`kerr_around`) or its path in `films/`
+   (`fourth_dimension/clips/02_well.js`).
 2. From the worktree, rebased on master (the operator sees the worktree's whole page, toolbar and all, and
    the script refuses a branch behind master):
    `node scripts/screen.mjs live <film> "<what>" --by "<who>"`, both in the operator's language: what as

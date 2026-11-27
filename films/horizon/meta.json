@@ -1,0 +1,15 @@
+{
+  "title": "Horizon",
+  "about": "A film carried by its text: words on black, a definition, a formula, a label, counters read from the film.",
+  "kind": "film",
+  "film": "horizon.js",
+  "made": [
+    {
+      "model": "claude-fable-5-2",
+      "at": "2026-11-25",
+      "did": "Let a film's captions say what popular science is written in",
+      "commits": 1,
+      "from": "git"
+    }
+  ]
+}

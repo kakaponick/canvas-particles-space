@@ -178,7 +178,7 @@ is the same video on any machine.
 
 A longer film is easier written as a script: JavaScript that plays the film forward, where no second is
 written by hand, a part of a film is a function and a path is a function of time. It comes to the same JSON
-(`films/language.js` is one):
+(`films/language/language.js` is one):
 
 ```js
 film({ preset: 'Schwarzschild', settings: { gridSheet: 0.6, orbitCount: 12 } })
@@ -213,21 +213,21 @@ to({ fade: 1 }, 1.5)
   caption's own is a number read from the film as it plays; Greek, mathematics and the signs of the Sun and the
   planets are bundled (Noto Sans, Noto Sans Math, Noto Sans Symbols), so they are the same on every machine; a
   caption can arrive a letter, a word or a line at a time, stand on a plate, in a column, on black, or point at a
-  distance from the hole. `films/horizon.js` is a 40 s film about the event horizon made of these.
+  distance from the hole. `films/horizon/horizon.js` is a 40 s film about the event horizon made of these.
 - **Several films in one**: a JSON object with `clips` is a reel, taken by the same tools: clips of the scene and
   of the fractal one after another, each a film's JSON, a script or a path to a film that exists, cut to a
-  stretch with `from` and `to`, joined by a cut, through black or by a dissolve. `films/reel.json` goes from a
+  stretch with `from` and `to`, joined by a cut, through black or by a dissolve. `films/reel/reel.json` goes from a
   stretch of `horizon.js` into the fractal and out to a stretch of `graphics.js`.
 - **A film that draws**: `graphics` lays shapes over the picture: a line or an arrow, a circle or an arc, a
   rectangle, a small chart with a dot that walks along its curve, a picture. A shape can ride on the scene (its
   places in black hole radii, following the hole, the zoom and the pan) and read its numbers from the film, so a
-  ring stays on the Einstein radius while a track moves it. `films/graphics.js` is a 34 s film made of these, with
+  ring stays on the Einstein radius while a track moves it. `films/graphics/graphics.js` is a 34 s film made of these, with
   a camera that pans from the centre of a pair to its second black hole.
-- **A film to start from**: `films/showreel.json` is a 50 s tour of what a film can do (the opening with its own
+- **A film to start from**: `films/showreel/showreel.json` is a 50 s tour of what a film can do (the opening with its own
   title, a zoom with labels on the shadow, the lens changed by keyframes, orbiting stars, the sheet, two black
-  holes merging). `node films/showreel_sound.mjs` writes its soundtrack, `films/showreel.wav`, to give
-  `space_render` as `audio`; `node films/showreel_voice.mjs` then lays a narration over it
-  (`films/showreel_voiced.wav`), spoken by a [VoiceStudio](https://github.com/debpalash/VoiceStudio) running on
+  holes merging). `node films/showreel/sound.mjs` writes its soundtrack, `films/showreel/out/showreel.wav`, to give
+  `space_render` as `audio`; `node films/showreel/voice.mjs` then lays a narration over it
+  (`films/showreel/out/showreel_voiced.wav`), spoken by a [VoiceStudio](https://github.com/debpalash/VoiceStudio) running on
   this machine, in a designed voice or in the voice of a recording named in `SHOWREEL_VOICE`. Rendered videos
   and sound files in `films/` stay out of git.
 - **Five more films** in `films/`, each built on one thing the scene can do. `exposure.json`: trails that never
@@ -236,7 +236,7 @@ to({ fade: 1 }, 1.5)
   the lens travelling over the lensed grid, wound up by Twist, then two lenses. `rapid.json` (60 fps): the opening
   stretched until the light takes four seconds to cross the frame. `waltz.json` (vertical, 60 fps): two black
   holes closing and parting over the sheet before they merge.
-- **The zoom on its own**: `films/zoom.json` (60 fps, silent) pushes in from 1× to 8× on the photon ring, which
+- **The zoom on its own**: `films/zoom/zoom.json` (60 fps, silent) pushes in from 1× to 8× on the photon ring, which
   stays a line of a pixel and a half, cuts between 1×, 2×, 4× and 8×, travels with the black hole over the lensed
   grid at 4× and pulls back with the trails streaking behind the camera.
 
@@ -266,8 +266,8 @@ as the offset of its orbit from that point's orbit (perturbation), with an expon
 underflows, and rebased so the zoom has no glitches. `"loop": true` makes a clip that falls forever when played
 on repeat. A fractal film is a timeline too: the pace, the turn and the colours move along keyframes, and it takes
 a fade, captions with a live ×10ⁿ, and shots. It can be written as a script in the films' own language
-(`space.fractal.script`). `films/mandelbrot.json` falls for 60 s to ×10⁶⁰, `films/mandelbrot_loop.json` is a 12 s
-loop, and `films/mandelbrot_story.js` tells a fall in words, speeding up past the depth where ordinary numbers give
+(`space.fractal.script`). `films/mandelbrot/mandelbrot.json` falls for 60 s to ×10⁶⁰, `films/mandelbrot_loop/mandelbrot_loop.json` is a 12 s
+loop, and `films/mandelbrot_story/mandelbrot_story.js` tells a fall in words, speeding up past the depth where ordinary numbers give
 out and stopping there.
 
 On the page the ∞ button in the scene toolbar opens the same zoom live, in place of the particle scene. Its panel

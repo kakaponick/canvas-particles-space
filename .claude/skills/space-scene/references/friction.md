@@ -28,7 +28,7 @@ Once the missing piece exists (a knob, a fix in code, a sentence in `knobs.md`, 
   pair of values; the unresolved light as five nested faint level ovals, never one shaded fill. A circle lying
   on the tipped sheet is a level oval whatever the galaxy's own turn. Still missing: a scene object for a
   galaxy, so the film need not draw some 300 shapes for each.
-- Where: `galaxyOf` in `films/fourth_dimension_pop_10_more.js`.
+- Where: `galaxyOf` in `films/fourth_dimension_pop/clips/10_more.js`.
 
 ### A galaxy laid on a black hole's well (2026-11-27)
 - Wanted / got: a spinning galaxy on the sheet; got the operator's "what are these crooked settings?": the
@@ -41,7 +41,7 @@ Once the missing piece exists (a knob, a fix in code, a sentence in `knobs.md`, 
   shadow; seen from 76 degrees, so a mass under the sheet hangs clear below the disc instead of projecting
   onto its near edge; the disc's count swept at the framing (2500). Still missing: a body that dents the
   sheet into a dish with no hole in it.
-- Where: the third picture of `films/fourth_dimension_pop_10_more.js`.
+- Where: the third picture of `films/fourth_dimension_pop/clips/10_more.js`.
 
 ### Matching a reference by the reviewer's notes, not by the reference (2026-11-27)
 - Wanted / got: the infographic's funnel as the reference draws it; the film-review agent called the well
@@ -52,7 +52,7 @@ Once the missing piece exists (a knob, a fix in code, a sentence in `knobs.md`, 
 - Now: put a still and the reference side by side and fix what differs; take a reviewer's note on looks
   only when it moves the still toward the reference. What is missing is a review step that shows the
   reviewer the reference beside each tile.
-- Where: `films/infographic_style.js`, the well (`gridDepth`, `gridLift`).
+- Where: `films/infographic_style/infographic_style.js`, the well (`gridDepth`, `gridLift`).
 
 ## The scene
 
@@ -65,7 +65,7 @@ Once the missing piece exists (a knob, a fix in code, a sentence in `knobs.md`, 
   (a walked table of radius against surface length), leaves the scene's spokes on with Sheet Rings 1 and
   tunes the step so one ring lies on that one ring. Still missing: a Ring Spacing that lays the rings at
   equal steps along the surface, which would also clear them round the shadow as the scene's lines are.
-- Where: "cells" in `films/fourth_dimension_pop_06_above.js` (`RINGS`, `WALK`).
+- Where: "cells" in `films/fourth_dimension_pop/clips/06_above.js` (`RINGS`, `WALK`).
 
 ### Hiding the hole took every place on the scene to its middle (2026-11-27)
 - Wanted / got: galaxies on a flat sheet with the hole hidden (`hide('hole')`); every `{ hole }` and
@@ -75,7 +75,7 @@ Once the missing piece exists (a knob, a fix in code, a sentence in `knobs.md`, 
 - Now: keep the hole and make it a speck (Black Hole Size 1) under something drawn over it, and give the
   places in the speck's radii. Still missing: places that keep their unit while the hole is hidden, or a
   note in the guide.
-- Where: the second picture of `films/fourth_dimension_pop_10_more.js` (`SPECK`, `SCALE`).
+- Where: the second picture of `films/fourth_dimension_pop/clips/10_more.js` (`SPECK`, `SCALE`).
 
 ### A body that fades in or out over a hole showed the hole through it (2026-11-27)
 - Wanted / got: the textbook's ball coming up with the picture and going with it; got a see-through ball with
@@ -89,7 +89,7 @@ Once the missing piece exists (a knob, a fix in code, a sentence in `knobs.md`, 
   ramp: hold the whole frame black under the captions with a black rect (`size` [1.9, 1.05], its opacity
   1 until the title is gone at 2.4 s, then 0 over 0.6 s) and ramp the ball over the same 0.6 s. Still
   missing: a word of the chapter kit for "the picture comes up after the title", so no clip needs a rect.
-- Where: the ball's draws at the head of `films/fourth_dimension_pop_06_above.js` to `_08_ripple.js`, and at
+- Where: the ball's draws at the head of `films/fourth_dimension_pop/clips/06_above.js` to `_08_ripple.js`, and at
   "mass" in `_05_sheet.js`.
 
 ### A pair's ripple not seen until the merger (2026-11-27)
@@ -101,7 +101,7 @@ Once the missing piece exists (a knob, a fix in code, a sentence in `knobs.md`, 
   coarser cells, not more lift, make the crests read. Four rounds of review went to lift and clearing alone.
 - Still missing: a lift that falls off near the wells (a knob). At lift 3.5 a few pinched lines still
   converge beside the pair's middle; any lift that raises the far crests more folds them into a crease.
-- Where: `PAIR`, `WAVES` in `films/fourth_dimension_pop_08_ripple.js`.
+- Where: `PAIR`, `WAVES` in `films/fourth_dimension_pop/clips/08_ripple.js`.
 
 ## The tools and the machine
 
@@ -144,12 +144,12 @@ Once the missing piece exists (a knob, a fix in code, a sentence in `knobs.md`, 
 - Cause: `scripts/voice.mjs` runs each clip in a sandbox with 5 s to play; `space.mjs check` has no such
   limit, so the clip checked clean.
 - Now: build a table once and look values up; time a clip's script with `linesOfReel` after adding sums to it.
-- Where: `films/fourth_dimension_pop_06_above.js` (`WALK`), `linesOfReel` in `scripts/voice.mjs`.
+- Where: `films/fourth_dimension_pop/clips/06_above.js` (`WALK`), `linesOfReel` in `scripts/voice.mjs`.
 
 ### A shape's width cannot follow a value (2026-11-27)
 - Wanted / got: a body that thins as it stretches; "width takes a number, got 'w'".
 - Now: a thick stroke whose `opacity` follows the value over a thin one. Still missing: `width` as a value.
-- Where: the falling body in `films/fourth_dimension_pop_10_more.js`.
+- Where: the falling body in `films/fourth_dimension_pop/clips/10_more.js`.
 
 ### A bench whose before refuses the new knob (2026-11-27)
 - Wanted / got: `bench.mjs page --against HEAD --set` with the new `gridFrontPhotons` in it, to price the

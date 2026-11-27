@@ -1,0 +1,23 @@
+{
+  "title": "The Fourth Dimension",
+  "about": "A published film: a reel of six clips paced by a narration, on where a fourth direction would point.",
+  "kind": "reel",
+  "film": "fourth_dimension.json",
+  "made": [
+    {
+      "model": "claude-fable-5-2",
+      "at": "2026-11-26",
+      "did": "Add a narrated film of the fourth-dimension hypothesis",
+      "commits": 5,
+      "from": "git"
+    },
+    {
+      "model": "claude-opus-5-5",
+      "at": "2026-11-26",
+      "did": "Keep what The Fourth Dimension was published on YouTube with",
+      "commits": 3,
+      "last": "2026-11-27",
+      "from": "git"
+    }
+  ]
+}

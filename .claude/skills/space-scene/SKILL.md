@@ -116,8 +116,9 @@ object; anything longer is a script that plays it forward. Several films joined 
 
 1. Read `space_guide` once: the format, the script language, reels and recipes.
 2. Run the loop for every effect the film shows. Its tracers' settings become the film's.
-3. Write the film: a project film goes to `films/`, a throwaway to a temp folder. Before a film longer than
-   one shot read [references/films.md](references/films.md): cut it into shots, and give the particles of
+3. Write the film: a project film is a folder of `films/` with its `meta.json` (`node scripts/films.mjs new`;
+   films.md, section 7, says how, and that your model's id goes into it), a throwaway goes to a temp folder.
+   Before a film longer than one shot read [references/films.md](references/films.md): cut it into shots, and give the particles of
    each shot a look (its section "The particle field: a look for every shot").
 4. `space_preview` with no seconds draws one frame of every shot (the storyboard) and prints the timeline
    the film was understood as; ask for the seconds where something changes as well. Done when every shot's
@@ -143,9 +144,9 @@ Without the `space_*` tools the same commands run from anywhere in the repositor
 node .claude/skills/space-scene/scripts/space.mjs guide
 node .claude/skills/space-scene/scripts/space.mjs describe orbit
 node .claude/skills/space-scene/scripts/space.mjs still out/tracer.json out/tracer.jpg 1
-node .claude/skills/space-scene/scripts/space.mjs preview films/waltz.json out/waltz.jpg 4,12,29.5,31
-node .claude/skills/space-scene/scripts/space.mjs check films/language.js
-node .claude/skills/space-scene/scripts/space.mjs render films/waltz.json films/waltz.mp4 high
+node .claude/skills/space-scene/scripts/space.mjs preview films/waltz/waltz.json out/waltz.jpg 4,12,29.5,31
+node .claude/skills/space-scene/scripts/space.mjs check films/language/language.js
+node .claude/skills/space-scene/scripts/space.mjs render films/waltz/waltz.json films/waltz/out/waltz.mp4 high
 ```
 
 Several films go through one call; films.md, "Checking before rendering", says how. The server and the

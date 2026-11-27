@@ -41,6 +41,7 @@ import { execFileSync, execSync, spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { takeTurn } from './turn.mjs'
 import { removeTree } from './worktree.mjs'
+import { filmFiles, filmsDir, readMeta } from './films.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const args = process.argv.slice(2)
@@ -235,23 +236,24 @@ async function page (builds) {
   }
 }
 
-// The films compared when none is named: every film of the scene in films/, which leaves out the zooms
-// into the Mandelbrot set, by their names, and the reels, by their clips: a reel is named as its maker
-// likes, and its clips are compared as the films they are
-const SCENE_FILM = /\.(json|js)$/
-const OTHER_FILM = /mandelbrot|reel/
+// The films compared when none is named: every film of the scene in films/ and every part of one (a clip, a
+// poster, a take: films.mjs, filmFiles), which leaves out the zooms into the Mandelbrot set, by their folder's
+// kind, and the reels, by their clips: a reel's clips are compared as the films they are
 const isReel = film => typeof film === 'object' && Array.isArray(film.clips)
+const isFractal = file => {
+  const folder = path.join(filmsDir, file.split('/')[0])
+  return file.includes('/') && fs.existsSync(path.join(folder, 'meta.json')) && readMeta(folder).kind === 'fractal'
+}
 
 function readFilms (files) {
-  const folder = path.join(root, 'films')
   const read = file => {
     const text = fs.readFileSync(file, 'utf8')
     return { name: path.relative(root, file).replaceAll(path.sep, '/'), film: file.endsWith('.json') ? JSON.parse(text) : text }
   }
   if (files.length > 0) return files.map(file => read(path.resolve(file)))
-  return fs.readdirSync(folder)
-    .filter(name => SCENE_FILM.test(name) && !OTHER_FILM.test(name))
-    .map(name => read(path.join(folder, name)))
+  return filmFiles()
+    .filter(file => !isFractal(file) && !/mandelbrot/.test(file))
+    .map(file => read(path.join(filmsDir, file)))
     .filter(({ film }) => !isReel(film))
 }
 

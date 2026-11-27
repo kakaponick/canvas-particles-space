@@ -738,14 +738,14 @@ particles alone barely show them. The plane's precession needs a spin on either 
   `gridWaveLift` 30 while `companionDistance` leaves 6, down to 1.6 and 11 as it reaches 0. Held high to
   the end, the sheet round the merger breaks into spikes. Frame it wide and plain: `blackHoleSize` 3.5,
   square cells (`gridCell` 3, `gridRings` 0), `gridTilt` 60, no particles
-  (`films/fourth_dimension_ripple.js`).
+  (`films/fourth_dimension/clips/03_ripple.js`).
 - Crests seen while the pair still circles far apart: the crest's spacing follows the orbit's pace, so a
   slow pair sends long, low crests no lift raises without folding the wells first. A pair 4 radii apart on
   wells 1.5 deep, `companionSpeed` 3 and `gridCell` 3 at `gridTilt` 66, `companionWaves` 6 and
   `gridWaveLift` 3.5, the clearing 1.6 out to 4.2, ripples the whole sheet; on cells of 2 with the orbit at
   2 the same lift showed nothing away from the pair, a wider pair (5.5 or 6) at lift 5 folded white
   creases between the holes, and a lower camera (74 or 76) did not bring the crests out (shot "small" of
-  `films/fourth_dimension_pop_08_ripple.js`). Close the clearing to 1.04 while the pair closes, over the
+  `films/fourth_dimension_pop/clips/08_ripple.js`). Close the clearing to 1.04 while the pair closes, over the
   last 2.5 s before the merger: closed after it, a black pit stands round the merged hole.
 - A wave comes from something that moved: fire `ringdown` or `gravityWave` where a pair has just merged or
   a hole has just formed, and let a ripple in a film come from a pair closing in, ending in the ringing of
@@ -848,7 +848,7 @@ straight-on (section 11).
 - `gridWellWidth` 1 is the real well: its wall stands vertical at the shadow's edge and the dent falls as
   1 / r, so round a compact star it reads as a narrow tube under the star, whatever `gridDepth` is. The
   textbook's wide bowl with a star resting on its bottom is `gridWellWidth` 2.5, `gridDepth` 4 and
-  `gridLift` 0.62 at `gridTilt` 66 (`films/infographic_style.js`). A deep well lifted far (`gridLift` above
+  `gridLift` 0.62 at `gridTilt` 66 (`films/infographic_style/infographic_style.js`). A deep well lifted far (`gridLift` above
   about 0.7 with `gridDepth` 8 or more) raises the sheet past the flat camera, which then sees its near half
   from below, so make the bowl wider rather than deeper.
 - `gridWell2Bottom` 1 sinks a second hole's well exactly to where that hole stands: a hole on the sheet's
@@ -1069,7 +1069,7 @@ line of flight).
   one side of 45 and carry the move in pitch and a small `cameraMoveIn` too, the near half drawn
   (`gridLatticeNear` below 1, `threeDFrontDepth` above 0) and the far half dimmed (`gridLatticeFar` 0.25):
   the near cells slide past the far ones (shots "us" and "chair" of
-  `films/fourth_dimension_pop_07_creature.js`).
+  `films/fourth_dimension_pop/clips/07_creature.js`).
 - With `blackHoleSize` 0 the lattice is a plain cage of space, its cells multiples of `gridLatticeUnit`.
 
 ### The horizon grid
