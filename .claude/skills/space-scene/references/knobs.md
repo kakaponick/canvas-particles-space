@@ -901,7 +901,8 @@ Gate: `nebula` above 0, and the `stars` layer shown.
   is (section 13) with numbers of their own: at the dust's values (`nebulaScale` = `dustScale`,
   `nebulaSparseness` = `dustThreshold`, the rest at its defaults) the two are the same clouds.
 - `nebulaSparseness` low fills the sky with clouds and narrow dark gaps, high leaves a few wisps.
-  `nebulaWarp` 0 leaves round blotches; `nebulaGrain` near 1 shows the square cells the noise is built on.
+  `nebulaWarp` 0 leaves round blotches, 5 ribbons, 15 thin folded loops;
+  `nebulaGrain` near 1 shows the square cells the noise is built on.
 - At a low sparseness most of the sky is thick, so raise `nebulaCoreFrom` with it, or the core colour
   washes over everything.
 - It adds light, so a dark background (`backgroundR`..`backgroundB`) deepens the gaps between the clouds.
