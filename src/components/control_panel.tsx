@@ -218,8 +218,8 @@ function ControlPanel () {
             SETTINGS
           </SheetTitle>
           <SheetDescription className="sr-only">
-            Adjust particle simulation parameters. Escape or the Settings button at the top right closes this panel.
-            Shift+F10 on a setting opens its menu with a reset to the default.
+            Escape or the Settings button at the top right closes this panel. Shift+F10 on a setting opens its
+            menu with a reset to the default.
           </SheetDescription>
         </SheetHeader>
         <PreparedSettings host={settingsHost} />

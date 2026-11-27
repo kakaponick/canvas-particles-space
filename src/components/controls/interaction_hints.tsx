@@ -35,26 +35,31 @@ function InteractionHints () {
   const orbit = threeD && !used.orbit && (isTouchScreen ? 'SWIPE TO CIRCLE THE HOLE' : 'DRAG TO CIRCLE THE HOLE')
   const hints = isTouchScreen
     // In 3D a swipe turns the camera instead of changing the speed
-    ? [orbit, !used.drag && 'DRAG THE BLACK HOLE', !threeD && !used.scroll && 'SWIPE TO CHANGE SPEED']
-    // Only an anchored black hole can be dragged, so that hint waits for the first click
+    ? [orbit, !used.drag && 'DRAG THE HOLE', !threeD && !used.scroll && 'SWIPE TO CHANGE SPEED']
+    // Only an anchored black hole can be dragged, so those hints wait for the first click
     : [
       orbit,
       !used.move && 'MOVE TO BEND LIGHT',
       !used.click && 'CLICK TO ANCHOR',
-      used.click && !used.drag && 'DRAG IT TO MOVE · DOUBLE-CLICK TO CENTER',
+      used.click && !used.drag && 'DRAG THE HOLE',
+      used.click && !used.drag && 'DOUBLE-CLICK TO CENTER',
       !used.scroll && 'SCROLL TO CHANGE SPEED'
     ]
-  const keys = threeD ? 'ARROWS CIRCLE THE HOLE · + − ZOOM · HOME RESETS' : '+ − ZOOM · ARROWS PAN WHEN ZOOMED · HOME RESETS'
-  const label = keyboard ? keys : hints.filter(Boolean).join(' · ')
+  const keys = threeD
+    ? ['ARROWS CIRCLE THE HOLE', '+ − ZOOM', 'HOME RESETS']
+    : ['+ − ZOOM', 'ARROWS PAN WHEN ZOOMED', 'HOME RESETS']
+  const phrases = keyboard ? keys : hints.filter((hint): hint is string => Boolean(hint))
 
   return (
     <div
-      className={`interaction-hints fixed bottom-20 sm:bottom-8 left-1/2 -translate-x-1/2 z-30 w-[min(84vw,640px)] text-center
-        font-orbitron text-[11px] leading-relaxed text-neon-cyan tracking-[1px] text-balance
-        pointer-events-none transition-opacity duration-700 ease-out ${introComplete && label ? 'opacity-100' : 'opacity-0'}`}
+      className={`interaction-hints fixed bottom-20 sm:bottom-8 left-1/2 -translate-x-1/2 z-30 flex w-[min(84vw,640px)] flex-wrap justify-center gap-x-5
+        font-orbitron text-[11px] leading-relaxed text-neon-cyan tracking-[1px]
+        pointer-events-none transition-opacity duration-700 ease-out ${introComplete && phrases.length > 0 ? 'opacity-100' : 'opacity-0'}`}
       style={{ marginBottom: 'var(--intro-dock-height, 0px)', textShadow: '0 0 10px #00ffff' }}
     >
-      {label}
+      {/* A line breaks between phrases, never inside one, and the gap alone parts them, so no separator is
+          left hanging at the end of a line */}
+      {phrases.map(phrase => <span key={phrase} className="whitespace-nowrap">{phrase}</span>)}
     </div>
   )
 }

@@ -265,16 +265,17 @@ function SettingsBody () {
           <SettingSlider field="gravityDepth" />
         </div>
         <FollowCursorRow />
-        <SettingSlider field="followFrequency" />
         <SettingSlider field="blackHoleX" setter="setBlackHoleX" />
         <SettingSlider field="blackHoleY" setter="setBlackHoleY" />
-        <SettingSlider field="cameraZoom" />
-        <SettingSlider field="cameraX" />
-        <SettingSlider field="cameraY" />
-        <SettingSlider field="cameraPair" />
+        <div className="mt-3 flex flex-col gap-1">
+          <SettingSlider field="cameraZoom" />
+          <SettingSlider field="cameraX" />
+          <SettingSlider field="cameraY" />
+        </div>
         <SettingsFine id="black-hole">
           {/* How the pull falls, then the spin's drag: its sweep, its push along the sight, its fall, and the
-              axis it gives the swirl, then what counts as a cut of the camera */}
+              axis it gives the swirl, then how the hole follows the cursor, then the camera between a pair and
+              what counts as its cut */}
           <SettingSlider field="gravityFalloff" />
           <SettingSlider field="gravityDepthBell" />
           <div className="mt-3 flex flex-col gap-1">
@@ -285,6 +286,10 @@ function SettingsBody () {
             <SettingSlider field="orbitalSpinFollowCurve" />
           </div>
           <div className="mt-3 flex flex-col gap-1">
+            <SettingSlider field="followFrequency" />
+          </div>
+          <div className="mt-3 flex flex-col gap-1">
+            <SettingSlider field="cameraPair" />
             <SettingSlider field="cameraCutZoom" />
             <SettingSlider field="cameraCutShift" />
           </div>
