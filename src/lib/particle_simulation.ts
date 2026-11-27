@@ -11,6 +11,10 @@ export const REFERENCE_FPS = 60
 
 // Longest step one frame may advance, so a stall does not teleport the field
 const MAX_FRAME_SCALE = 6
+// The range of the FPS Limit (frameRateCap): below 10 a frame would take more than the longest step and the
+// scene would slow; 500 is about as fast as displays refresh, and a limit above the display's rate is no limit
+export const FRAME_RATE_CAP_MIN = REFERENCE_FPS / MAX_FRAME_SCALE
+export const FRAME_RATE_CAP_MAX = 500
 // A stroke's record in an orbit's trace: x0, y0, x1, y1, width, opacity, packed rgba
 export const INSTANCE_FLOATS = 7
 

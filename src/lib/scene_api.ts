@@ -18,6 +18,7 @@ import {
   parseIntroValue, parseSettings, pickKeys, sliderName, unknownKey, type Patch
 } from './agent_values'
 import { FILM_GUIDE, planFilm } from './film'
+import { FRAME_RATE_CAP_MAX, FRAME_RATE_CAP_MIN } from './particle_simulation'
 import { FRACTAL_SCRIPT_GUIDE, SCRIPT_GUIDE, writeFilm, writeFractal } from './film_script'
 import { cancelFilm, filmProgress, previewFilm, renderFilm, type PreviewOptions, type RenderOptions } from './film_render'
 import { FRACTAL_GUIDE } from './fractal'
@@ -91,7 +92,7 @@ function describeSettings (filter?: string) {
   const other = [
     { key: 'colorPalette', value: state.colorPalette, description: 'Star colours: array of { r, g, b (0-255), enabled, percent }.' },
     { key: 'backgroundR', value: state.backgroundR, description: 'Background red, 0-255 (also backgroundG, backgroundB).' },
-    { key: 'frameRateCap', value: state.frameRateCap, description: 'Frame rate limit in FPS, 30-240; 0 is no limit (per device, not in presets).' }
+    { key: 'frameRateCap', value: state.frameRateCap, description: `Frame rate limit in FPS, ${FRAME_RATE_CAP_MIN}-${FRAME_RATE_CAP_MAX}; 0 is no limit (per device, not in presets).` }
   ].filter(entry => matches(filter, entry.key, entry.description))
   return { sliders, toggles, colors, other }
 }

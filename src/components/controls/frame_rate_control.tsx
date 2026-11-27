@@ -1,10 +1,14 @@
 import { cn } from '@/lib/utils'
+import { FRAME_RATE_CAP_MAX, FRAME_RATE_CAP_MIN } from '@/lib/particle_simulation'
 import { useParticleStore } from '../../store/particle_store'
 import { SettingsRow, SettingsSwitch } from './settings_section'
 import SliderControl from './slider_control'
 
-const MIN_FRAME_RATE = 30
-const MAX_FRAME_RATE = 240
+const MIN_FRAME_RATE = FRAME_RATE_CAP_MIN
+const MAX_FRAME_RATE = FRAME_RATE_CAP_MAX
+// The track holds the range as the square of the way along it (SliderControl's curve), so the rates displays
+// run at, 30 to 240, keep most of it
+const TRACK_CURVE = 2
 // The slider's last stop, one past the highest limit, is no limit at all (a cap of 0): the scene
 // follows the display's refresh rate
 const AUTO_POSITION = MAX_FRAME_RATE + 1
@@ -36,6 +40,7 @@ function FrameRateSlider () {
       min={MIN_FRAME_RATE}
       max={AUTO_POSITION}
       step={1}
+      curve={TRACK_CURVE}
       formatValue={formatPosition}
       onChange={(position) => setFrameRateCap(position >= AUTO_POSITION ? 0 : position)}
       resetValue={AUTO_POSITION}

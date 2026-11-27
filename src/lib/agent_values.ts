@@ -5,6 +5,7 @@ import type { ParticleColor, ParticleState } from '../store/particle_store'
 import { SIMULATION_SETTING_KEYS, isHexColor } from './simulation_presets'
 import { SIMULATION_COLOR_SPECS, SIMULATION_SETTING_SPECS, type SimulationColorSpec, type SimulationSettingSpec } from './simulation_specs'
 import { DEFAULT_INTRO_PARAMS, INTRO_PARAM_SPECS, cssToColor, type IntroParamKey } from './intro_params'
+import { FRAME_RATE_CAP_MAX, FRAME_RATE_CAP_MIN } from './particle_simulation'
 
 export type Patch = Record<string, unknown>
 
@@ -137,7 +138,7 @@ export function parseSettings (patch: unknown, known: readonly string[]) {
       next[key] = asChannel(key, value)
     } else if (key === 'frameRateCap') {
       const fps = Math.round(asNumber(key, value))
-      next.frameRateCap = fps <= 0 ? 0 : clamp(fps, 30, 240)
+      next.frameRateCap = fps <= 0 ? 0 : clamp(fps, FRAME_RATE_CAP_MIN, FRAME_RATE_CAP_MAX)
     } else {
       unknownKey(key, known)
     }
