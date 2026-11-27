@@ -32,7 +32,10 @@ preview, a sheet or a render of a film or of a new look, it puts it on the opera
 one page, `http://127.0.0.1:5199/`, that the operator keeps open in T3 Code's own browser. It shows what an
 agent last put on it under one line from the left edge, read as a sentence: what is shown, who showed it,
 how long ago, and master or the branch it comes from (the film and the exact time on hover); the clock
-button at the left lists what was shown before, to go back to. A shell is all an agent needs; no browser tool of its own.
+button at the left lists what was shown before, to go back to. A show from a worktree that is gone (or
+whose port now serves another worktree) plays from the main checkout's dev server if master has its film,
+which the screen starts when needed, and is marked "удалено" otherwise; so a `_lab_` film can be gone back
+to only while its worktree lives. A shell is all an agent needs; no browser tool of its own.
 
 1. A film not yet in `films/` goes there as `films/_lab_<name>.js`; `films/_lab_*` is in the repository's
    `.git/info/exclude`, so it never joins a commit.

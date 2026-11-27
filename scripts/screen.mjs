@@ -12,7 +12,9 @@
 // The screen itself is http://127.0.0.1:5199/, a small server this script starts the first time it is
 // needed and leaves running. Its page asks every second what to show and puts it in a frame that fills it,
 // with one line above, pressed to the left: who shows what, when, from which branch and film, and a button
-// that lists the last few things shown to go back to. The
+// that lists the last few things shown to go back to. A film a worktree showed is played from that worktree's
+// dev server while it runs; once the worktree is gone (or its port serves another worktree) it is played from
+// the main checkout's, if master has that film, and otherwise the page says it can no longer be shown. The
 // state lives in the temporary folder, so a screen started again shows what it showed.
 import fs from 'node:fs'
 import os from 'node:os'
@@ -106,20 +108,20 @@ async function show (address, label, by) {
   console.log(`The screen (${SCREEN}/) shows ${address}${started ? '; the screen was started now, so open it once in T3 Code\'s browser' : ''}`)
 }
 
-// This worktree's dev server: the one it started before if it still answers, else a new one
-async function devServer () {
+// A checkout's dev server (this worktree's unless named): the one started before if it still answers, else a new one
+async function devServer (checkout = root) {
   const state = readState()
-  const known = state.servers[root]
+  const known = state.servers[checkout]
   if (known && alive(known.pid) && await answers(known.port)) return known.port
   const taken = new Set(Object.values(state.servers).map(server => server.port))
   const port = await freePort(taken)
-  const vite = path.join(root, 'node_modules', 'vite', 'bin', 'vite.js')
+  const vite = path.join(checkout, 'node_modules', 'vite', 'bin', 'vite.js')
   if (!fs.existsSync(vite)) throw new Error(`No ${vite}: run pnpm install --offline --frozen-lockfile in this worktree first (CLAUDE.md, "Working here")`)
-  const child = spawn(process.execPath, [vite, '--port', String(port), '--strictPort', '--host', '127.0.0.1'], { cwd: root, detached: true, stdio: 'ignore', windowsHide: true })
+  const child = spawn(process.execPath, [vite, '--port', String(port), '--strictPort', '--host', '127.0.0.1'], { cwd: checkout, detached: true, stdio: 'ignore', windowsHide: true })
   child.unref()
-  if (!(await waitFor(port, 30))) throw new Error(`The dev server of ${root} did not come up on port ${port}`)
+  if (!(await waitFor(port, 30))) throw new Error(`The dev server of ${checkout} did not come up on port ${port}`)
   const next = readState()
-  next.servers[root] = { port, pid: child.pid }
+  next.servers[checkout] = { port, pid: child.pid }
   writeState(next)
   return port
 }
@@ -190,6 +192,9 @@ const PAGE = `<!doctype html>
   iframe { flex: 1; width: 100%; border: 0; background: var(--ground) }
   #empty { flex: 1; display: grid; place-items: center; color: var(--muted); font-size: 13px; line-height: 1.6; text-align: center }
   #empty code { color: var(--text); font: 12px ui-monospace, Consolas, monospace }
+  #gone { position: absolute; inset: 27px 0 0; display: grid; place-items: center; padding: 24px; background: var(--ground); color: var(--muted); font-size: 13px; line-height: 1.6; text-align: center }
+  #gone[hidden] { display: none }
+  .item-gone { flex: none; margin-left: auto; padding-left: 12px; color: var(--muted); font-style: italic }
 </style></head>
 <body>
 <header>
@@ -205,6 +210,7 @@ const PAGE = `<!doctype html>
   <button id="newer" type="button" hidden></button>
   <ul id="history" hidden aria-label="Что показывали раньше"></ul>
 </header>
+<div id="gone" hidden role="status"></div>
 <div id="empty">Пока ничего не показано.<br>Агент выводит сюда симуляцию командой <code>node scripts/screen.mjs live &lt;фильм&gt; "&lt;что&gt;" --by "&lt;кто&gt;"</code></div>
 <script>
   let current = null
@@ -254,11 +260,23 @@ const PAGE = `<!doctype html>
     source.textContent = sourceOf(entry)
     source.title = 'Фильм ' + (filmOf(entry) || '—') + (entry.from ? ', рабочая копия ' + entry.from : '')
   }
+  // What the server says a show plays from now: its own worktree, master once that worktree is gone, or nothing
+  const gone = document.getElementById('gone')
   function put (entry) {
     if (!entry) return
     facts(entry)
-    if (entry.url === current) return
-    current = entry.url
+    if (entry.moved) document.getElementById('source').textContent = 'master (ветки ' + entry.branch + ' больше нет)'
+    if (!entry.play) {
+      gone.textContent = entry.starting
+        ? 'Запускаю master, чтобы показать этот фильм…'
+        : 'Эту симуляцию больше не показать: её рабочую копию удалили, а в master фильма ' + (filmOf(entry) || '') + ' нет.'
+      gone.hidden = false
+      current = null
+      return
+    }
+    gone.hidden = true
+    if (entry.play === current) return
+    current = entry.play
     let frame = document.querySelector('iframe')
     if (!frame) {
       document.getElementById('empty').remove()
@@ -267,14 +285,14 @@ const PAGE = `<!doctype html>
       frame.title = 'Симуляция'
       document.body.append(frame)
     }
-    frame.src = entry.url
+    frame.src = entry.play
   }
   function fill () {
     list.replaceChildren(...history.map(entry => {
       const item = document.createElement('li')
       const button = document.createElement('button')
       button.type = 'button'
-      button.setAttribute('aria-current', String(entry.url === current))
+      button.setAttribute('aria-current', String(entry.play === current && current !== null))
       const time = document.createElement('time')
       time.textContent = clock(entry.at)
       const what = document.createElement('span')
@@ -287,7 +305,12 @@ const PAGE = `<!doctype html>
         by.textContent = entry.by
         button.append(by)
       }
-      if (entry.url === current) {
+      if (!entry.play && !entry.starting) {
+        const lost = document.createElement('span')
+        lost.className = 'item-gone'
+        lost.textContent = 'удалено'
+        button.append(lost)
+      } else if (entry.play === current) {
         const now = document.createElement('span')
         now.className = 'item-now'
         now.textContent = 'на экране'
@@ -314,6 +337,7 @@ const PAGE = `<!doctype html>
     try {
       const state = await (await fetch('/state')).json()
       history = state.history
+      if (pinned) pinned = history.find(entry => entry.url === pinned.url && entry.at === pinned.at) ?? pinned
       put(pinned ?? state.shown)
       fresh()
     } catch {}
@@ -323,6 +347,47 @@ const PAGE = `<!doctype html>
 </script>
 </body></html>`
 
+// The main checkout, the first of git's worktrees: its dev server plays what master has
+let mainCheckout = null
+function main () {
+  if (mainCheckout) return mainCheckout
+  try {
+    const first = execFileSync('git', ['worktree', 'list', '--porcelain'], { cwd: root, encoding: 'utf8' }).split(/\r?\n/).find(line => line.startsWith('worktree '))
+    mainCheckout = path.resolve(first.slice('worktree '.length))
+  } catch {
+    mainCheckout = root
+  }
+  return mainCheckout
+}
+
+const sameDir = (a, b) => path.resolve(a).toLowerCase() === path.resolve(b).toLowerCase()
+const serverOf = (state, dir) => Object.entries(state.servers).find(([checkout]) => sameDir(checkout, dir))?.[1]
+let mainStarting = null
+
+// Where a show plays from now. A film a worktree's dev server played (?live= or ?film= on this machine) is
+// played from that worktree's server as it runs now, on whatever port; once the worktree is gone or its
+// server is down, from the main checkout's if master has the film (started here the first time it is
+// needed); otherwise from nowhere, and the page says so. Any other address plays as it was given
+function resolve (state, entry) {
+  let address
+  try {
+    address = new URL(entry.url)
+  } catch {
+    return { ...entry, play: entry.url }
+  }
+  const film = address.searchParams.get('live') || address.searchParams.get('film')
+  if (!film || address.hostname !== '127.0.0.1' || !entry.from) return { ...entry, play: entry.url }
+  const at = port => { const moved = new URL(entry.url); moved.port = String(port); return moved.toString() }
+  const own = serverOf(state, entry.from)
+  if (fs.existsSync(entry.from) && own && alive(own.pid)) return { ...entry, play: at(own.port) }
+  const master = main()
+  if (!fs.existsSync(path.join(master, 'films', film))) return { ...entry, play: null }
+  const server = serverOf(state, master)
+  if (server && alive(server.pid)) return { ...entry, play: at(server.port), moved: !sameDir(entry.from, master) }
+  mainStarting ??= devServer(master).catch(() => {}).finally(() => { mainStarting = null })
+  return { ...entry, play: null, starting: true }
+}
+
 function serve () {
   const server = createServer((request, response) => {
     if (request.method === 'GET' && (request.url === '/' || request.url.startsWith('/?'))) {
@@ -331,7 +396,9 @@ function serve () {
     } else if (request.method === 'GET' && request.url === '/state') {
       const state = readState()
       response.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' })
-      response.end(JSON.stringify({ shown: state.shown, history: state.history }))
+      const history = state.history.map(entry => resolve(state, entry))
+      const shown = state.shown && (history.find(entry => entry.url === state.shown.url && entry.at === state.shown.at) ?? resolve(state, state.shown))
+      response.end(JSON.stringify({ shown, history }))
     } else if (request.method === 'POST' && request.url === '/show') {
       let body = ''
       request.on('data', chunk => { body += chunk })
