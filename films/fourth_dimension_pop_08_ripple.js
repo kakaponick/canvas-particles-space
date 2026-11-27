@@ -48,19 +48,21 @@ const keep = (text, seconds, more = {}) => caption(text, seconds, { at: [0.5, 0.
 const leave = () => { to({ fade: 1 }, 0.8) }
 // ---- end of the kit ----
 
-// What falls toward the hole on the sheet: swung round as it comes, a whirl that drains down the well's wall
+// What falls toward the hole on the sheet: swung round as it comes, a whirl that drains down the well's wall.
+// It is a flow laid on the sheet, said from the first frame: the particle field laid there draws only still
+// dots on the flat and leaves the wall bare. Its band and count were swept at this shot's framing (tilt 66,
+// depth 3 to 8): from 9 radii wide 6 it was a carpet over the whole flat at 5000 and more; from 5.5 wide 3,
+// 2500 lined the wall thinly and 5000 lines it with the grid's lines still seen through
 const WHIRL = {
-  gravityInertia: 0.75, orbitalStrength: 80, gravityStrength: 4, gravityReach: 16, gravityDepth: 100, baseSpeed: 0, speedGlowKnee: 0.03, trailIntensity: 0.15,
-  depthFade: 0, minOpacity: 0.1, particleSize: 2, particleSizeMin: 2, baseBrightness: 0.3
+  fieldEnabled: false, flowA: 1.3, flowACount: 5000, flowAFrom: 5.5, flowATo: 0.8, flowASpread: 3, flowASwirl: 0.7, flowALife: 8, flowATrail: 0.6, flowASize: 1.2,
+  flowAColor: '#cfe6ff'
 }
 const GRID = '#4de3ff'
 
 film({
   fps: 60,
   seed: 8,
-  warmup: 10,
   settings: {
-    numParticles: 20000,
     lensingEnabled: false,
     nebula: 0.6,
     nebulaScale: 700,
@@ -74,18 +76,14 @@ film({
     gridColor: GRID,
     gridSheet: 0.85,
     gridSpokes: 24,
-    gridSpan: 0.6,
+    // The sheet reaches past the frame's foot, so no bare sky shows under the well
+    gridSpan: 1.1,
     gridFade: 0.3,
     gridDepth: 3,
     gridRings: 40,
     gridCell: 4,
     gridTilt: 66,
     gridRide: 1,
-    // The whole column lies on the sheet: a share of the ride fading with depth left the matter the hole
-    // gathers hanging between where it flies and the surface, a white ball over the shadow. Laid wholly,
-    // it crowds the steep throat, so half as many particles, dimmer, let the wall show through it
-    gridRideSoft: 0.01,
-    fieldAtHole: 1,
     blackHoleSize: 8,
     blackHoleY: 0.64,
     companionSize: 0,
@@ -131,7 +129,7 @@ const STRETCHED = { gridDepth: 8, blackHoleY: 0.72 }
 const stretched = laySheet(66, STRETCHED.gridDepth, STRETCHED.blackHoleY)
 // W runs down the left wall of the well, along its spoke from the flat sheet to the throat's bottom: laid on the
 // sheet, it sinks with the well as it deepens
-const W_LINE = [4.6, 3.6, 2.8, 2.2, 1.8, 1.5, 1.3, 1.15].map(away => ({ sheet: [-away, 0] }))
+const W_LINE = [4.6, 3.6, 2.8, 2.2, 1.8, 1.5, 1.3, 1.15, 1.05, 1.02].map(away => ({ sheet: [-away, 0] }))
 const W_LABEL = (() => { const [x, y] = stretched(-1.9, 0); return { hole: [part(x - 1.5), part(y)] } })()
 
 shot('stretch', () => {
@@ -148,7 +146,7 @@ shot('stretch', () => {
   at(stretches - 0.3, () => {
     caption('hypothesis: mass *{stretches} space', end - now(), { at: [0.78, 0.3], width: 0.34, size: 0.04, font: 'noto', accent: W, plate: 0.5 })
     // The well deepens along W, and W is drawn down its wall, sinking with it
-    meanwhile(() => { to({ ...STRETCHED, gravityStrength: 6 }, 3, 'out') })
+    meanwhile(() => { to(STRETCHED, 3, 'out') })
     draw({ kind: 'line', points: W_LINE, smooth: true, arrow: 'end', color: W, width: 0.0065, draw: 0.8, fade: 0.4 }, end - now())
   })
   // Its name stands beside the wall once the well has nearly settled
@@ -159,8 +157,8 @@ shot('stretch', () => {
 // The pair on a wide sheet of fine square cells with nothing on it, seen low so the crests stand up: the
 // ripple is the whole picture
 const PAIR = {
-  blackHoleSize: 3.5, blackHoleY: 0.5, gridRings: 0, gridCell: 1.6, gridTilt: 66, gridDepth: 3, gridSpan: 1.8, gridFade: 0.5, gridRide: 0, gridSheet: 1, gridLine: 1.5, nebula: 0.4,
-  baseBrightness: 0, companionSize: 0.8, companionDistance: 6, companionWaves: 6, gridWaveLift: 8,
+  blackHoleSize: 3.5, blackHoleY: 0.5, gridRings: 0, gridCell: 2, gridTilt: 66, gridDepth: 3, gridSpan: 1.8, gridFade: 0.5, gridRide: 0, gridSheet: 1, gridLine: 1.5, nebula: 0.4,
+  flowA: 0, companionSize: 0.8, companionDistance: 6, companionWaves: 6, gridWaveLift: 8,
   // The wave is strongest right at the wells, where it folds the steep throats into needles at any strength
   // that reads farther out: the sheet's lines fade in from the shadow over a few radii, so the wells read as
   // dark pits and the crests are drawn only where the sheet stays a surface
@@ -223,16 +221,20 @@ shot('proton', () => {
   const spoken = say('proton')
   const end = start + spoken + 0.6
   status('known', spoken + 0.4)
-  // The ringing has died: the sheet closes round the one hole again, its throat drawn to the shadow
-  meanwhile(() => { to({ baseBrightness: 0.15, gridClearing: 1.04, gridClearingEdge: 1.2 }, 2) })
-  // The detector's arm: a bar, and its stretch, all above the merged hole
+  // The ringing has died: the wave is gone first, since on the steep throats it folds the sheet into white
+  // needles, and then the sheet closes round the one hole again, its throat drawn to the shadow
+  meanwhile(() => {
+    to({ gridWaveLift: 0, companionWaves: 0 }, 1)
+    to({ gridClearing: 1.04, gridClearingEdge: 1.2 }, 2)
+  })
+  // The detector's arm: a bar, and its stretch, all above the merged hole and clear of its throat
   at(start + heard('proton', 'kilometre', 0.4) - 0.2, () => {
-    draw({ kind: 'line', points: [[0.2, 0.2], [0.8, 0.2]], color: INK, width: 0.008, draw: 0.8, fade: 0.4 }, end - now())
-    caption('4 km detector arm', end - now(), { at: [0.5, 0.15], size: 0.03, font: 'unbounded', color: INK, fade: 0.4, plate: 0.5 })
+    draw({ kind: 'line', points: [[0.2, 0.13], [0.8, 0.13]], color: INK, width: 0.008, draw: 0.8, fade: 0.4 }, end - now())
+    caption('4 km detector arm', end - now(), { at: [0.5, 0.08], size: 0.03, font: 'unbounded', color: INK, fade: 0.4, plate: 0.5 })
   })
   at(start + heard('proton', 'thousandth', 0.55) - 0.2, () => {
-    caption('ΔL ≈ 10^{-18} m', end - now(), { at: [0.5, 0.29], size: 0.07, font: 'unbounded', color: GOLD, fade: 0.4, plate: 0.5 })
-    caption('a thousandth of a proton', end - now(), { at: [0.5, 0.37], size: 0.034, font: 'noto', color: GOLD, fade: 0.4, plate: 0.5 })
+    caption('ΔL ≈ 10^{-18} m', end - now(), { at: [0.5, 0.22], size: 0.07, font: 'unbounded', color: GOLD, fade: 0.4, plate: 0.5 })
+    caption('a thousandth of a proton', end - now(), { at: [0.5, 0.295], size: 0.034, font: 'noto', color: GOLD, fade: 0.4, plate: 0.5 })
   })
   at(start + heard('proton', 'caught', 0.95) - 0.3, () => { keep('and we *{caught} it', end - now()) })
   wait(spoken + 0.6)

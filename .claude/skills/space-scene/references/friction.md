@@ -97,6 +97,17 @@ the friction cannot happen any more.
   particles with shorter trails, so the axes and figures read over it.
 - Where: films.md section 1; `films/fourth_dimension_pop_02_ladder.js`.
 
+### Matter falling in from every side in 3D (2026-11-27)
+- Wanted / got: matter falling into the hole from all round; the field with `baseSpeed` 0.25 to refill it
+  drew parallel streaks across the whole frame as the camera turned, rain with nothing falling in.
+- Cause: the drift moves every particle the same way, and a turning camera streaks the field's trails.
+- Now: three flows tipped 0, 60 and 120 degrees, each `Thick` 0.5 with `Bell` 1, `Swirl` 0, falling from 5.5
+  radii (`Spread` 3) to 0.9, field off: a ball of strokes all pointing at the hole, lines of the scene that a
+  turn does not smear. A flow's band matters as much as its count: from 9 or 10 radii wide 6 or 7 the near
+  matter carpets the flat or streaks the frame like a starburst at any count; narrow the band to the part
+  of the frame the shot is about first, then sweep the count.
+- Where: `FALL` in `films/fourth_dimension_pop_07_creature.js`, `WHIRL` in `fourth_dimension_pop_08_ripple.js`.
+
 ### One recipe's particle count copied into every clip (2026-11-27)
 - Wanted / got: a count fitted to each shot; got `numParticles` 20000 with the same size, brightness and
   opacity in four clips of the pop film framed differently, and 10000 with `flowACount` 9000 in two more.
@@ -162,6 +173,18 @@ the friction cannot happen any more.
 - Now: bring such a hole in 3D with a traced disc (`flowTrace`).
 
 ## The grid
+
+### The lattice as a blurred cross, and a turn that showed nothing (2026-11-27)
+- Wanted / got: the 3D lattice arriving as the clip turns 3D; got a thick blurred "+" through the hole at
+  the change, and a camera yaw from 34 to 70 degrees whose first and last frames looked alike.
+- Cause: the cross is the lattice seen down the line of flight while `threeDEase` eases the camera in (its
+  rows pile up there), not the lens opening: setting `lensingRadius` and `gridLatticeWarp` at once did not
+  remove it. A cube of cells is its own mirror image across yaw 45, so a yaw through 45 reads as no change.
+- Now: keep `gridLattice` at 0 until about 1.9 s into a 2.6 s ease, then bring it up. Turn on one side of 45
+  and carry the move in pitch and a small `cameraMoveIn` too, with the near half drawn (`gridLatticeNear`
+  below 1, `threeDFrontDepth` above 0) and the far half dimmed (`gridLatticeFar` 0.25): the near cells slide
+  past the far ones.
+- Where: shots "us" and "chair" of `films/fourth_dimension_pop_07_creature.js`.
 
 ### Equal-radius rings made the sheet unreadable (2026-11-27)
 - Wanted / got: cells of the flat sheet to show stretching; `gridRingSpacing` 1 at 72 rings filled the frame
