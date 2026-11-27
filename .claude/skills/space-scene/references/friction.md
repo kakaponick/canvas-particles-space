@@ -27,6 +27,16 @@ Once the missing piece exists (a knob, a fix in code, a sentence in `knobs.md`, 
   only when it moves the still toward the reference. What is missing is a review step that shows the
   reviewer the reference beside each tile.
 - Where: `films/infographic_style.js`, the well (`gridDepth`, `gridLift`).
+### A script read for pictures and never for what it says (2026-11-27)
+- Wanted / got: a narration where every line carries the argument; the operator found stock lines one by one
+  ("And that is where it gets weird", "Here is the uncomfortable part", "Only one survives"), a line pointing
+  back at a tesseract chapter 3 no longer had, and chapter 8 offering gravitational waves as following from
+  the hypothesis's "stretch" though general relativity predicted them in 1916.
+- Cause: three review rounds read the frames and the cues; nobody read the lines as text, and a rewritten
+  chapter left references to it in later chapters.
+- Now: before a film's voice is recorded, read the whole script as text once. Each line answers what it adds
+  to the argument; a line any film could say goes; a known result is never offered as support for the
+  hypothesis; after a chapter is rewritten, search the later chapters for what it used to show.
 
 ### An experiment that sounded like science fiction (2026-11-27)
 - Wanted / got: the test of the hypothesis; got "a wire many kilometres long, wound into a coil" and a
