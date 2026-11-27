@@ -42,10 +42,12 @@ button at the left lists what was shown before, to go back to. A shell is all an
    the clip and the change ("клип 6: лампа и стена"), who as the agent's job, not its folder ("фиксер
    клипов 5–8"). It starts
    that worktree's dev server once (a port from 5200 up, detached; later calls reuse it), starts the screen
-   if it is not up, and shows `?live=<film>` there.
-3. Then the agent's own stills. The report says what it put on the screen.
-4. The dev server runs until the worktree goes: `node scripts/screen.mjs stop` from the worktree before it
-   is removed. `node scripts/screen.mjs status` lists what the screen shows and the servers it knows.
+   if it is not up, and shows `?live=<film>` there. Master moves every half hour or so: before each call,
+   stash, `git rebase master`, `git stash pop`, and `pnpm build` when `src/` moved.
+3. Then the agent's own stills, chained after the screen with `&&`, never `;`, so none renders while the
+   screen still shows the last clip. The report says what it put on the screen.
+4. The dev server runs until the worktree goes; `node scripts/worktree.mjs drop` stops it.
+   `node scripts/screen.mjs status` lists what the screen shows and the servers it knows.
 
 `?live=` plays that film of `films/` inside the page's own scene, looping: each frame its tracks move the
 settings and layers, and its graphics, captions and fade are drawn over the frame, so the operator sees what

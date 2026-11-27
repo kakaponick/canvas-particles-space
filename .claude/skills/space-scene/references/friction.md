@@ -1,7 +1,10 @@
 # Friction log: where the scene, its tools and its instructions fought an agent
 
-Each entry is time some agent already lost and nothing else yet prevents. `CLAUDE.md`, "Working here", says
-when to write one. An entry, newest first within its section:
+Each entry is time some agent already lost and nothing else yet prevents. One is due, before the report, when
+the scene, a knob, a tool or the machine forced a detour; when the instructions (the `space-scene` skill and
+its `references/`, `space_guide`, `describe`, the `space` server's text) cost a step: a prediction the tracer
+contradicted, a missing gate or trap, two sources that disagree, a fact found only in the code; or when the
+operator sends back a defect you could have caught. An entry, newest first within its section:
 
 ```
 ### <what you were trying to do, in a few words> (YYYY-MM-DD)
@@ -27,53 +30,6 @@ Once the missing piece exists (a knob, a fix in code, a sentence in `knobs.md`, 
   only when it moves the still toward the reference. What is missing is a review step that shows the
   reviewer the reference beside each tile.
 - Where: `films/infographic_style.js`, the well (`gridDepth`, `gridLift`).
-### A script read for pictures and never for what it says (2026-11-27)
-- Wanted / got: a narration where every line carries the argument; the operator found stock lines one by one
-  ("And that is where it gets weird", "Here is the uncomfortable part", "Only one survives"), a line pointing
-  back at a tesseract chapter 3 no longer had, and chapter 8 offering gravitational waves as following from
-  the hypothesis's "stretch" though general relativity predicted them in 1916.
-- Cause: three review rounds read the frames and the cues; nobody read the lines as text, and a rewritten
-  chapter left references to it in later chapters.
-- Now: before a film's voice is recorded, read the whole script as text once. Each line answers what it adds
-  to the argument; a line any film could say goes; a known result is never offered as support for the
-  hypothesis; after a chapter is rewritten, search the later chapters for what it used to show.
-
-### An experiment that sounded like science fiction (2026-11-27)
-- Wanted / got: the test of the hypothesis; got "a wire many kilometres long, wound into a coil" and a
-  spinning spiral: the operator heard an unbuildable machine and saw a cheap animation.
-- Cause: the script reached for the longest ruler instead of the instrument labs already build.
-- Now: say the real instrument and draw it plainly: two mirrors on a block a few centimetres apart (an
-  optical cavity), round trips of light counted in an atomic clock's second, the same count on Earth and on
-  a satellite. Before writing an experiment, ask whether a lab has one on a bench today, and name it so.
-- Where: clip 10 of the pop film, `films/fourth_dimension_pop_10_test.js`.
-
-### The Shapiro delay's formula, one way or there and back (2026-11-27)
-- Wanted / got: the light front's delay checked against 2 rs ln(4 rF rP / b²), as the brief gave it; the
-  field and traced rays came out at half that.
-- Cause: 2 rs ln(4 rF rP / b²) (4GM/c³ ln…) is Shapiro's radar echo, the round trip. One way, as the
-  front runs, is rs ln(4 rF rP / b²), and it holds only while rF and rP are far beyond b and the ray
-  bends little; a ray at 1.5 b_c bends past the line through the hole within 2 radii of it.
-- Now: say "one way" and use rs ln(4 rF rP / b²) in a caption or a check; `node
-  scripts/light_front_check.mjs <rF> <b>` prints the field, the traced ray and both formulas.
-- Where: chapter 5 of the pop film, `gridFront`.
-
-### Saying the physics exactly (2026-11-27)
-- Wanted / got: "the ruler's pieces are equal"; the operator: the pieces are not equal, the space in them is.
-- Now: pieces deep in a well are shorter on the surface and hold the same amount of space: draw unequal
-  lengths with the same count of dots in each. Check a claim's wording against the physics before drawing it.
-
-## The film script
-
-### A rewritten line still timed by its old take (2026-11-27)
-- Wanted / got: "predicted by Einstein · 1916" after "a ripple of space"; with the reel's input the ripple
-  caption came at 4.45 s, the old take's "ripple" near its end, and the 1916 caption, at its word-count share,
-  came before it.
-- Cause: a reel's `input` keeps the cues of the take it was spoken from until the line is voiced again, so a
-  rewritten line's old cue words, where they survive, land at their old seconds.
-- Now: where two captions must keep an order, key the second to `Math.max(its word, the first + a beat)`;
-  voice a rewritten line before judging its timing.
-- Where: shot "small" of `films/fourth_dimension_pop_08_ripple.js`.
-
 ## The scene
 
 ### A body that fades in or out over a hole showed the hole through it (2026-11-27)
@@ -90,18 +46,6 @@ Once the missing piece exists (a knob, a fix in code, a sentence in `knobs.md`, 
   missing: a word of the chapter kit for "the picture comes up after the title", so no clip needs a rect.
 - Where: the ball's draws at the head of `films/fourth_dimension_pop_06_above.js` to `_08_ripple.js`, and at
   "mass" in `_05_sheet.js`.
-
-### A textbook ball hanging under the sheet's throat (2026-11-27)
-- Wanted / got: a mass sitting in a dent; got a ball of 1.05 radii at `{ hole: [0, 0] }` under the tip of a
-  narrow funnel, a ball on a stalk (pop film 2:55 to 4:04). A shallower `gridDepth` did not help.
-- Cause: the sheet's dent is a black hole's well, standing vertical at the shadow's edge (1 radius) at any
-  depth, and there is no knob for a wider bowl: a ball as wide as the shadow always ends the throat.
-- Now: a ball wider than the throat, lifted into the well so it still covers the shadow (lift + 1 below its
-  radius): radius 1.9 at `{ hole: [0, 0.8] }` on depth 4 at tilt 68 lies in the bowl with the walls round its
-  upper half; at depth 8 the throat stood over it like a stalk again, and at tilt 66 from depth 3 the neck
-  shows from 4.6 on (4.3 still holds). Seen from straight above, slide the lift to 0 while the camera rises.
-  A ball over a hole hides the throat's crowded rings inside its radius.
-- Where: `BALL`, `LIFT` in `films/fourth_dimension_pop_05_sheet.js` to `_08_ripple.js`.
 
 ### A pair's ripple not seen until the merger (2026-11-27)
 - Wanted / got: crests running out over the sheet from a circling pair; got a flat-looking sheet until the
@@ -127,28 +71,6 @@ Once the missing piece exists (a knob, a fix in code, a sentence in `knobs.md`, 
   missing is a bench that stops on a refused set, or sends the before only the keys it knows.
 - Where: `scripts/bench.mjs` (`window.space.set` in `page`), the photons' change (light-photons).
 
-### Twelve stills for one question (2026-11-27)
-- Wanted / got: the shape of a well; ran sweeps of six stills, twice, and the operator called it out: one
-  render of the film answers it.
-- Cause: a sweep across a knob whose law I had not thought through, where the reason the picture is wrong
-  (here the near sheet passing the camera, the vertical wall round a compact star) is found by reading one
-  frame, not by tiling many.
-- Now: one still of the film per step; read it, say why it is wrong, change the one knob that cause names,
-  draw again. Sweep only a knob whose law gives no prediction.
-- Where: `films/infographic_style.js`, the bowl.
-
-### Master moved three times under one task (2026-11-27)
-- Wanted / got: a still of a changed clip after putting it on the screen; got "is behind master: rebase it
-  first" from `screen.mjs live` three times in one task, and each rebase of a branch that carries friction
-  entries stopped on a conflict in this file, since master was rewriting its sections meanwhile.
-- Cause: the screen refuses a branch behind master (live_page.md, "On the operator's screen"), and other
-  sessions merge into master every half hour or so; a branch of several commits replays each one.
-- Now: stash, `git rebase master`, then `git stash pop`, then `pnpm build` when `src/` moved, before each
-  `screen.mjs live`; chain the stills after the screen with `&&`, never `;`, or they render (and tempt a
-  look) while the screen still shows the last clip. Keep a conflict in this file by both sides' entries,
-  dropping those master closed.
-- Where: `scripts/screen.mjs`; the pop film's fixer branch `review3-05-08`.
-
 ### Reading a contact sheet's tiles as one frame (2026-11-27)
 - Wanted / got: compare two stills stacked side by side; read the right tile's coordinates as the whole
   picture's and "saw" the camera jump. A reviewer reported a blocker in the pop film's clips 6 to 8: "<" and
@@ -159,21 +81,6 @@ Once the missing piece exists (a knob, a fix in code, a sentence in `knobs.md`, 
   bends exactly on a tile's edge is two frames. Still missing: a dark gutter between the tiles of a preview
   sheet, which would end this misreading for reviewers too.
 
-### A narration that ran the reel past 600 s (2026-11-27)
-- Wanted / got: the Russian and en2 reels rendered; got "the reel is 613 s long; 600 s is the most".
-- Now: render the reel in two halves (a copy of the reel JSON with the first and the last clips, run from the
-  repo root so its `films/...` paths resolve), then join them with `~/.space-film/ffmpeg.exe -f concat` and
-  lay the whole narration over (`-map 0:v -map 1:a -c:v copy`). ffmpeg is a Windows program: the list file
-  names `C:/...` paths, never Git Bash's `/c/...`.
-
-### Removing a worktree with linked node_modules (2026-11-27)
-- Wanted / got: `git worktree remove`; got a hook blocking the walk through `node_modules` junctions that
-  point into the main checkout, and a half-removed folder once.
-- Now: unlink the junctions first, from PowerShell: `cmd /c rmdir <worktree>\node_modules` (and any nested
-  `node_modules` junction), then `git worktree remove --force <worktree>`. `rmdir` on a junction removes
-  the link, not the main checkout's packages.
-
-### Subagents (2026-11-27)
-- Review agents return findings as text and do not write files: the coordinator saves them.
+### Delegating a task with its own worktree (2026-11-27)
 - A delegated task with worktree isolation fails when the parent thread's folder is not a git checkout:
   delegate to the project with shared isolation and have the child make its own worktree.

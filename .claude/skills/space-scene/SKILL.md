@@ -28,8 +28,8 @@ These words carry the rest of this skill, of `references/` and of the guides.
   whatever a shot says moves (matter, light, space itself) is shown by them. A particle's brightness is its
   own speed across the screen: at `baseSpeed` 0 only what gravity moves is lit, a particle that stands
   still draws nothing, and a camera that moves streaks the trails without lighting them.
-- **radii**: every length round the hole is in black hole radii, so `blackHoleSize` alone scales the hole;
-  knobs.md, "The unit everything is measured in", converts them to Schwarzschild radii.
+- **radii**: black hole radii, the unit of every length round the hole (CLAUDE.md); knobs.md, "The unit
+  everything is measured in", converts them to Schwarzschild radii.
 - **the real thing** (**1×**): a knob whose 1 is nature's value; its description says so. knobs.md,
   "Nature and its stand-ins", tells the laws at nature's values from the ones a stand-in draws.
 
@@ -86,7 +86,8 @@ shadow, with the streaks farther out swinging into it:
 ### The sweep
 
 A sweep is the tracer for how a knob feels: when the request leaves a value to taste (how strong, how wide,
-how fast), run one before choosing. The knob steps over 3 to 5 values on a track with `hold`, and one
+how fast), run one before choosing. A picture that is wrong is not swept: read one still, name the cause,
+change the one knob it names and draw again; sweep only a knob whose law gives no prediction. The knob steps over 3 to 5 values on a track with `hold`, and one
 preview shows a frame at the end of each step. Inertia, the share of the speed gravity gives that a
 particle keeps, swept over the ring above:
 

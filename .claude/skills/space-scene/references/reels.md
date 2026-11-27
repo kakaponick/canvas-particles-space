@@ -20,3 +20,10 @@ A JSON object with `clips`; the same tools take it wherever they take a film, an
   with the same place and size.
 - The frame and the rate are the reel's: a clip written for another frame is drawn in the reel's, so place
   each clip's captions for the reel's frame.
+- A reel is at most 600 s. A narrated reel that runs past it is rendered in two halves (copies of the reel
+  JSON with the first and the last clips, run from the repo root so their `films/...` paths resolve), joined
+  with `~/.space-film/ffmpeg.exe -f concat`, and the whole narration laid over (`-map 0:v -map 1:a -c:v
+  copy`). ffmpeg is a Windows program: the list file names `C:/...` paths, never Git Bash's `/c/...`.
+- A reel's `input` keeps the cues of the take each line was spoken from until the line is voiced again, so a
+  rewritten line's surviving cue words land at their old seconds. Voice a rewritten line before judging its
+  timing; where two captions must keep an order, key the second to `Math.max(its word, the first + a beat)`.

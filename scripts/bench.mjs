@@ -40,6 +40,7 @@ import { createHash } from 'node:crypto'
 import { execFileSync, execSync, spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { takeTurn } from './turn.mjs'
+import { removeTree } from './worktree.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const args = process.argv.slice(2)
@@ -66,24 +67,6 @@ const USAGE = 'node scripts/bench.mjs page [<dist> ...] [--against <commit>] [--
 // The temporary folder by its long name: git records a worktree's path as given, and Windows hands out
 // the short form (KAKAPO~1) that git then cannot match
 const temp = fs.realpathSync.native(os.tmpdir())
-
-// Takes a folder away without following a link or a junction inside it: pnpm's node_modules is full of
-// junctions, and a removal that walks one empties the folder it points at
-function removeTree (target) {
-  const stat = fs.lstatSync(target, { throwIfNoEntry: false })
-  if (!stat) return
-  if (stat.isSymbolicLink()) {
-    try {
-      fs.unlinkSync(target)
-    } catch {
-      fs.rmdirSync(target)
-    }
-    return
-  }
-  if (!stat.isDirectory()) return fs.unlinkSync(target)
-  for (const name of fs.readdirSync(target)) removeTree(path.join(target, name))
-  fs.rmdirSync(target)
-}
 
 // A commit checked out beside this one, with its own dependencies, for the "before" of a measurement
 function checkout (commit) {

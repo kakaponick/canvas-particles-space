@@ -49,16 +49,11 @@ const PROGRESS_EVERY_MS = 1000
 const BROWSER_LEAVES_MS = 2000
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 
-const INSTRUCTIONS = 'Makes 1-180 s videos of a black-hole particle scene from a "film": one JSON object, or a short ' +
-  'script that plays the film forward. The scene runs on physical laws, and every effect asked for is one of them: ' +
-  'find its law in .claude/skills/space-scene/references/knobs.md (the knobs that take part and the gate without which ' +
-  'it does not show), say what it will change in the frame and where, and test that with a tracer before writing the ' +
-  'film: a 2 s film with "size": "720p" and "intro": false, drawn by space_preview as one still. That loop, the tracer ' +
-  'and the sweep of one knob are in .claude/skills/space-scene/SKILL.md. space_guide tells the film format, the script ' +
-  'language and recipes; space_describe each setting\'s range and meaning; space_preview draws frames and prints the ' +
-  'timeline the film was understood as; space_check reads that timeline without drawing; space_render writes the mp4. ' +
-  'A film with "clips" is a reel: several films and fractal films cut, faded or dissolved into one video of up to 600 s. ' +
-  'The space_fractal_ tools make a zoom into the Mandelbrot set the same way, as deep as asked: space_fractal_guide first.'
+// Sent to every session that has this server, on every turn: the how lives in the space-scene skill
+const INSTRUCTIONS = 'Makes 1-180 s videos of a black-hole particle scene from a "film" (one JSON object or a short ' +
+  'script), and reels of them up to 600 s. Load the space-scene skill (.claude/skills/space-scene/SKILL.md) before ' +
+  'the first call: it finds the law behind an effect and tests it with a one-still tracer before the film is written. ' +
+  'space_guide gives the format; the space_fractal_ tools zoom into the Mandelbrot set, space_fractal_guide first.'
 
 // A film comes one of two ways, and every tool that takes a film takes either
 const FILM_INPUT = {

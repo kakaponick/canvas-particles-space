@@ -93,8 +93,8 @@ the point the field flies out of, fastest near the camera and toward the frame's
 speed / (speed + `speedGlowKnee`), raised to `speedGlow`. This is the gate most often missed:
 
 - A particle that stands still draws nothing, at any brightness setting.
-- `baseSpeed` 0 leaves lit only what gravity moves: the field goes dark and the hole draws with its own
-  pull, brightest where the fall is fastest, close to the shadow.
+- `baseSpeed` 0 leaves lit only what gravity moves, which keeps its strength at any flight speed: the field
+  goes dark and the hole draws with its own pull, brightest where the fall is fastest, close to the shadow.
 - A 3D camera that turns or moves streaks the trails (each stroke starts where the particle was seen last
   frame) and lights nothing: the light comes from the particle's own move, seen through this frame's
   camera.
@@ -137,8 +137,6 @@ the trails that stay (`trailIntensity`), its brightness the speed.
 - The trail is the fade of the picture, not part of the particle. `trailIntensity` 0 never fades: a long
   exposure, every stroke a particle has drawn kept. With `baseSpeed` 0 beside it the frame is the map of
   the hole's pull, drawn over seconds.
-- Gravity keeps its strength at any flight speed: a slow flight shows the same pull, and at `baseSpeed` 0
-  the particles gravity moves stay lit.
 - The field is born round the centre of the frame and flies out of it. A hole placed off the centre is
   then fed from the side with more frame: what falls in gathers on one side, and a swirl winds that side
   round. `fieldAtHole` 1 centres the field on the hole: matter comes in from every side alike, and a hole
@@ -173,8 +171,8 @@ A, B and C, beside the field or without it.
 What a flow's particle does: it appears at a radius in the band round `flowAFrom`, travels to `flowATo` in
 `flowALife` seconds along the path `flowAFall` gives, turning at `flowASwirl` as `flowAFalloff` thins it
 outward, then appears again elsewhere in the band. Its place is worked out from its clock, so gravity,
-inertia, the spin's drag, the horizon and the second hole leave it on its path; the lens bends it as it
-bends everything behind the hole, and `gridRide` lays it on the sheet. Its stroke is the stretch of that
+inertia, the spin's drag, the horizon and the second hole leave it on its path; only the lens and
+`gridRide` act on it (below). Its stroke is the stretch of that
 same path behind it (`flowATrail`), lit by the flow's brightness rather than by its speed.
 
 | What | Keys |
@@ -238,8 +236,8 @@ same path behind it (`flowATrail`), lit by the flow's brightness rather than by 
 - `flowSeed` above 0 picks another set of starting places, the same each time it is named, whatever the
   film's seed; no flow's shape changes.
 - `gridRide` lays the flows on the sheet from their places in the scene: a flow in the equator lies on it
-  whole, a ring round the mouth of the well and a fall down its wall, from the first frame. The sheet's
-  setup is films.md, section 16.
+  whole, a ring round the mouth of the well and a fall down its wall, from the first frame (films.md, "On
+  the sheet").
 - A flow round the main hole (`flowAPair` -1) whose `flowATo` lies inside `horizonScale` lights the photon
   ring while `ringFeedEnabled` is on: each particle leaves what a captured particle of the field does
   (`ringFeedCapture`), times `flowRingFeed`, shared round unevenly by `flowRingFlicker`. A dense, fast
@@ -265,14 +263,14 @@ same path behind it (`flowATrail`), lit by the flow's brightness rather than by 
   colour toward `ringColorApproaching` and `ringColorReceding`: 1 turns it wholly at twice or half, 0
   keeps a flow its own colour. The disc turns the way its brightest flow does, and flows that turn the
   other way are shifted as if they turned with it. It needs `lensingTraced` and the lens on; without
-  them, and for a tilted flow (`flowATilt` or `flowAFace` above 0), a flow round the second hole
-  (`flowAPair` above -1 with a second hole) or one on the sheet, the flows are drawn as strokes. The
+  them, and for a flow it does not take (`flowATilt` or `flowAFace` above 0, `flowAPair` above -1 with a
+  second hole, on the sheet), the flows are drawn as strokes. The
   disc lies over everything the lens shows, the photon ring's line too; the 3D layer in front of the
   holes is laid over it. A second hole's lens does not bend it. A spinning hole's disc is traced as if the hole did not
   spin (its shadow's outline does not match it exactly), and with spin and `orbitalSpinFollow` the
   equator itself turns to face the spin's axis. Flat, the equator faces the camera and the disc is a
   face-on ring with the lens's mirrored copy. `flowAThick` does not reach the map: a traced disc is flat.
-  A disc of the recipe in films.md, section 16, is NASA's picture.
+  Its framing, NASA's picture: films.md, "Flows: a look that is said".
 
 ## 3. Gravity on the particles
 
@@ -421,13 +419,13 @@ and `frameDrag` above 0 and particles within a few radii; the sky's lean needs `
 - The orbiting stars feel the spin (Lense-Thirring) about its axis as it stands in the scene, at any
   `spinTilt`: a tipped orbit's plane turns about that axis, on its own multiple `orbitDrag` (section 7).
 - Two holes that merge leave one spinning about the axis of their orbit, which takes over as the shadows
-  join, and keeps each hole's own spin (`blackHoleSpin`, `companionOwnSpin`) by the square of its share of
+  join, plus each hole's own spin (`blackHoleSpin`, `companionOwnSpin`) by the square of its share of
   the mass (section 8).
 - The ring's bright side: `ringSpinFollow` 1 takes the side and the contrast from the spin as the camera
   sees it, so the tilt, the axis, every move of the 3D camera and a merger's spin keep the ring right with
   no track for it. At 0, the default, `ringSide` and `ringDoppler` are what is set, and a film drives them
-  along the tilt (films.md, section 10): the approaching side lies at 180° plus `spinAxis`, and the
-  contrast a real hole shows grows as the sine of `spinTilt`. A hole without spin keeps the settings.
+  along the tilt (films.md, "Films to start from", kerr_around): the approaching side lies at 180° plus
+  `spinAxis`, and the contrast a real hole shows grows as the sine of `spinTilt`. A hole without spin keeps the settings.
   Under Follow Spin the contrast is still `ringDoppler` times that sine: at the default 0.2 the ring of a
   fast-spinning hole stays nearly even, and about 0.9 shows a bright and a dim side. Raised from the start
   of a film it lights the sides of holes that do not spin yet, so a merger raises it along a track.
@@ -480,9 +478,8 @@ should reach the shadow's edge is drawn with `lensingEnabled` false (or under th
   the Einstein ring, the mirrored image inside it and the thin photon rings come from the physics, and
   `lensingRadius` (where the camera stands) and `lensingAbsorption` are its only knobs. The other lens keys
   shape the stylized lens; a film that moves them under the traced lens gets a note saying so.
-- The physically faithful setup is the `Schwarzschild` preset: no light taken from round the shadow,
-  capture at the shadow's edge, no swirl of the particles, and a point mass for its stylized keys.
-  `Default` traces the lens too and tunes the rest for the look.
+- The physically faithful setup is the `Schwarzschild` preset (section 15 says what it sets). `Default`
+  traces the lens too and tunes the rest for the look.
 - For a real hole `lensingRadius` says how far away the camera is (describe gives the conversion): a near
   camera sees a small ring and a very wide field around the hole, a far one a wide ring. Its top, 30, is
   about 3 000 Schwarzschild radii, the farthest the traced lens of a hole that does not spin draws cleanly;
@@ -500,6 +497,13 @@ should reach the shadow's edge is drawn with `lensingEnabled` false (or under th
   hole. `gridSky` (section 9) shows exactly what the lens does; for the Einstein ring and its mirrored
   image in the sky itself, a nebula (`nebula` about 0.6) behind denser, larger stars (`starCell` about 14,
   `starsSize` about 2, `starsBrightness` about 2.5) draws its arcs.
+- What lights the photon rings under `lensingTraced` is whatever lies right round the hole in the picture
+  behind it: each ring is the whole sky squeezed, and only a bright thing near the hole survives the
+  squeeze. The lensed grid and the stars turn to an even speckle there; orbiting stars with long traces
+  (`orbitCount` 40, `orbitSize` 2.5, `orbitTrail` 20) give every ring a copy of their loops, as a real
+  hole's rings hold its disc. The drawn photon ring sits on top of the traced ones, so turn it off for a
+  look at them. The stylized lens at a high zoom on the shadow's edge folds where it reads past the
+  picture's edge: compare the two lenses away from the shadow's edge.
 - `lensingBubble` shapes the bubble that `lensingReach` 0 shows: higher keeps the warp close round the ring
   and folds more rings inside it, which `lensingMaxBend` still caps; lower spreads it over the sky. The
   ring stays where it is. The second hole's lens takes the stylized shape at `companionLensStyle` above 0.
@@ -674,8 +678,7 @@ particles alone barely show them. The plane's precession needs a spin on either 
   farther from the centre.
 - `companionOwnSpin` spins the second hole about the axis `companionSpinTilt` and `companionSpinAxis` set:
   its shadow flattens, its ring follows the outline, `frameDrag` and `frameDragSweep` carry the particles
-  near it round. As the two merge, the hole they leave keeps each own spin by the square of its share of
-  the mass, beside the spin of the orbit.
+  near it round. What the merged hole keeps of each spin: section 4, Spin.
 - `companionPrecession` turns the orbit's plane and both spins about their total angular momentum, widest
   at close range. The real rate turns the plane once in tens of orbits, so a short film raises it many
   times over. The plane carries the waves, the oval and the merged hole's spin with it, and the main
@@ -766,8 +769,8 @@ straight-on (section 11).
   a sheet seen from straight above and on one with no depth, and `gridThroatCurve` above 1 holds it to the
   throat's wall. `gridLight` adds `gridLightColor` from the hole as it stands at the well's bottom, falling
   to half `gridLightReach` shadow radii away and as the square of the distance beyond: the light of the
-  matter round the hole, or of a body drawn over it (films.md), on the surface it sits in. A second hole
-  glows and lights the sheet by its own radii. Both add to `gridColor` and each channel stops at full, so
+  matter round the hole, or of a body drawn over it (films.md, the recipe "A body over a hole"), on the
+  surface it sits in. A second hole glows and lights the sheet by its own radii. Both add to `gridColor` and each channel stops at full, so
   high values turn the throat white; 0 for both draws the sheet in its one colour.
 - `gridFront` is a flash of light spreading across the sheet, drawn by its own lines lighting up where the
   front is (`gridFrontColor`, added to their colour: no line, no light). Its gate is `gridFront` above 0 and
@@ -781,7 +784,11 @@ straight-on (section 11).
   round, lags by the Shapiro delay of the rays that pass close (about 2 radii behind the hole for a flash
   10 radii away, under the default band's width of 3), and its two halves close behind the hole a little
   late with a notch, the cusp on the line from the flash through the hole, which narrows as the front runs
-  on. `gridDepth` draws the well and does not change the light.
+  on. `gridDepth` draws the well and does not change the light. The front runs one way, so its delay is
+  rs ln(4 rF rP / b²), half of Shapiro's radar echo 2 rs ln(…), which is the round trip, and only while rF
+  and rP are far beyond b and the ray bends little (a ray at 1.5 b_c bends past the line through the hole
+  within 2 radii of it): a caption or a check says "one way" and uses that. `node
+  scripts/light_front_check.mjs <rF> <b>` prints the field, the traced ray and both formulas.
   The lag shows best from straight above (3D `cameraPitch` 0, or the flat mode's `gridTilt` 0) with a
   narrow band: `gridFrontWidth` 1 and `gridCell` 1, framed a few radii round the hole. A second hole is not
   in the field: the front runs over its well as if it were not there (its lines are still cut at its
@@ -837,7 +844,9 @@ straight-on (section 11).
 
 ### Particles on the sheet: the vectors of space
 
-Gate: `gridRide` above 0, and the setup of films.md, section 16, which makes the well fill and read.
+Gate: `gridRide` above 0, and the setup that makes the well fill and read, each knob with its cause
+(`gridRideSoft` 0.01, `baseSpeed` 0, `lensingEnabled` false, `fieldAtHole` 1, `particleSizeMin` raised to
+`particleSize`): films.md, "On the sheet".
 
 | What | Keys |
 |---|---|
@@ -850,14 +859,6 @@ Gate: `gridRide` above 0, and the setup of films.md, section 16, which makes the
   above the same matter is the disc round the shadow. Only where they are drawn changes; their motion is
   set as without the sheet. With `gridRide` 0 they stay in the plane of the screen and float in front of a
   tilted sheet.
-- The neighbours that decide whether it reads, each for its own cause (films.md, section 16): gravity
-  gathers matter at the hole from every depth of the column, and at the default `gridRideSoft` each
-  particle rides only the share its depth leaves, so that matter hangs between where it flies and the
-  surface, a white ball over the shadow from the side, so `gridRideSoft` 0.01; the flat
-  flight runs outward along the sheet, so `baseSpeed` 0; the lens bends the particles round the hole on the
-  screen, off the surface, so `lensingEnabled` false; a tilted sheet is framed with the hole low and fills
-  on one side, so `fieldAtHole` 1; what the hole took returns at the far end of the field as a hairline,
-  so `particleSizeMin` raised to `particleSize` keeps the well full.
 - The steep throat is where a small step toward the hole is a long fall down the wall, and seen from
   above that wall is foreshortened into a thin ring round the shadow. `gridRideStretch` 1 spreads each
   stroke's light over the length the sheet gives it, so the matter on the sheet is bright and fades down
@@ -867,19 +868,19 @@ Gate: `gridRide` above 0, and the setup of films.md, section 16, which makes the
 - In the flat mode `gridTilt` is the camera: tilting it streaks the trails as a camera move does. In 3D
   the particles stand on the sheet where it lies, and every move of the camera sees the two together.
   There the field's gravity ends at a sphere, so the field lines only a band round the well's mouth; a flow
-  lines the wall (films.md, section 16).
+  lines the wall (films.md, "On the sheet").
 - `gridRideDepth` decides which particles ride: those within it of the equator, wholly in the plane and
   fading to none at its edge (`gridRideSoft` shapes that fade, `gridRideFar` the depth behind the plane).
   The default reaches the whole column, but at the default `gridRideSoft` only what flies in the plane
   rides wholly: the rest is drawn part of the way between its flight and the surface, a dusting over the
-  flat part that, where gravity gathers it at the hole, is the white ball above. `gridRideSoft` 0.01 lays
-  the whole slab on the surface, and the gathered matter then streaks the well's wall. A low value
-  rides only the matter near the hole's depth, and the flight streams across the sheet and hides it: lower
-  it only for a shot about a thin disc. It is in hole radii, so a small hole (`blackHoleSize` 4) has a thin
+  flat part that, where gravity gathers it at the hole from every depth, hangs as a white ball over the
+  shadow from the side. `gridRideSoft` 0.01 lays the whole slab on the surface, and the gathered matter
+  then streaks the well's wall. A low value (2) rides only the matter near the hole's depth, and the
+  flight streams across the sheet and hides it: lower it only for a shot about a thin disc. It is in hole radii, so a small hole (`blackHoleSize` 4) has a thin
   slab and its gathered matter hangs as a cloud off the well: raise it to 400, with `gridRideSoft` 0.01.
-- `gridRideWave` 1 lifts the riders with the sheet's waves by `gridWaveLift`, and their motion on the
-  moving surface lights them, so a ringdown sweeps a bright ring across the matter; 0 holds them on a
-  still sheet while it ripples beneath them.
+- `gridRideWave` 1, the default, lifts the riders (the field's and the flows') with the sheet's waves by
+  `gridWaveLift`, and their motion on the moving surface lights them, so a ringdown sweeps a bright ring
+  across the matter; 0 holds them on a still sheet while it ripples beneath them.
 - `gridRideCut` 1 cuts each ridden stroke at the sheet camera's near plane, so the matter runs right up to
   the camera; 0 drops every stroke that crosses it, a ragged edge.
 
@@ -966,8 +967,8 @@ needs `gridHorizonPace` above 0 and the shift `gridHorizonShift` above 0.
   Without spin it is a globe seen through its own lens; a spinning hole drags the rays and twists the grid
   into spirals round the pole that faces the camera. Its longitudes stand in the scene, so a 3D camera
   circling the hole sees it from all sides. It is seen from the Ray Traced lens's camera (`lensingRadius`,
-  `lensingFromCamera`) under either lens. The ergosphere round a spinning horizon lies within the shadow
-  too, and the grid is the nearest picture of it the scene draws: the horizon it encloses.
+  `lensingFromCamera`) under either lens. It is the nearest picture of the ergosphere the scene draws
+  (section 4, Spin).
 - A spinning horizon turns, the way the particles are dragged, at the pace `gridHorizonPace` sets; light
   from the far side left earlier, which twists the grid at any pace. Caption it as the horizon's own map,
   since no light leaves a real horizon.
@@ -1068,8 +1069,8 @@ layers); `cameraZoom` above 1 for a pan (`cameraX`, `cameraY`, `cameraPair`), an
 | What counts as a cut of the camera, where the trails start afresh: a zoom, a move of the picture and, in 3D, a turn, each in one frame | `cameraCutZoom`, `cameraCutShift`, `cameraCutTurn` |
 | What stands in front of the holes in 3D (the subsection below) | `threeDFrontDepth`, `threeDFrontCurve`, `threeDFrontBend`, `threeDFrontBetween`, `threeDFrontReach`, `threeDFrontReachBare`, `threeDFrontLetGo`, `threeDFrontAdd`, `threeDFrontWaves` |
 
-The camera's rules (the craft of a slow push and of keeping the hole off the frame's edge is films.md,
-section 4):
+The camera's rules (the craft of a slow push and of keeping the hole off the frame's edge: films.md, "The
+camera"):
 
 - Setting a position anchors the hole. A film has no cursor: the hole rests at its position and tracks
   move it through the same spring, so a low `followFrequency` makes it heavy and late.
@@ -1094,12 +1095,9 @@ section 4):
   below them the trails streak. A pan or a 3D move is a track like any other: ease it for a glide, give it
   the hold ease for a cut. Raised to their tops the thresholds never cut, and a jump smears every particle
   across the frame, a whip pan; at 0 any move starts the trails afresh and nothing streaks.
-- `threeD` is another law of gravity, not only another view. The flat mode pulls a particle where it lands
-  on the screen, in a layer of depth (`gravityDepth`), and its horizon takes whatever covers the hole at
-  any depth. In 3D the hole is a point in space: gravity follows the true distance and ends at the sphere
-  of `gravityReach`, the swirl turns about the line of flight or the spin's axis (`orbitalSpinFollow`), the
-  horizon is a sphere, the opening reveals the field in a sphere that grows from the blast, and
-  `gravityInertia` keeps speed along all three axes. Fewer particles fall in.
+- `threeD` is another law of gravity, not only another view: section 3, "Flat and 3D are two laws", and
+  section 4, the horizon a sphere, so fewer particles fall in. The opening, too, reveals the field in a
+  sphere that grows from the blast.
 - The camera distance: the 3D camera circles the point at `blackHoleDepth` on the line of flight, half the
   frame's long side over the shadow's radius away: about 11 radii at the default size in a wide or a
   vertical frame, about 6 in a square one, nearer for a larger hole. `cameraMoveIn` near that distance is
@@ -1127,7 +1125,7 @@ section 4):
 - In a film a camera key's default ease is a camera operator's (the circle, the head, the moves, the roll,
   `cameraZoom`, `cameraX`, `cameraY`, `cameraPair` and `gridTilt`): a move starts and lands with no jolt, and
   moves of one key that follow each other the same way flow through the key between them; the camera rests
-  only where it holds or turns back. films.md section 4 says how to write a path that uses it.
+  only where it holds or turns back. A path that uses it: films.md, "The camera".
 - The circle is where the camera starts; six keys take it anywhere from there, all at 0 the circle alone.
   `cameraRoll` turns the whole picture about the middle of the screen, the ring's bright side (`ringSide`)
   with it; the circle and the head move `ringSide` and `ringDoppler` only through `ringSpinFollow`.
@@ -1140,11 +1138,10 @@ section 4):
   `cameraLookYaw` turning to keep the hole in frame; it turns up to 180, so once the camera has passed the
   hole it looks back at it, shadow, lens and all.
 
-The sheet seen by the 3D camera. In 3D the sheet of section 9 lies across the line of flight while the
-hole does not spin, `gridDepth` radii nearer a camera looking down the flight than the hole, its well
-running from there down to the hole; the circle, the head, the moves and the roll all act on it, with the
-parallax of its near and far parts, and switching `threeD` on turns it over `threeDEase` from the flat
-mode's tilted view to where it lies. What each place of the camera shows:
+The sheet seen by the 3D camera. In 3D the scene's camera sees the sheet where section 9 lays it; the
+circle, the head, the moves and the roll all act on it, with the parallax of its near and far parts, and
+switching `threeD` on turns it over `threeDEase` from the flat mode's tilted view to where it lies. What
+each place of the camera shows:
 
 - Straight on (`cameraYaw` 0, `cameraPitch` 0): the sheet face on, rings round the shadow, the well going
   straight away; the flat mode's `gridTilt` 0.

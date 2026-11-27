@@ -1,6 +1,6 @@
 ---
 name: postiz
-description: Postiz is a tool to schedule social media and chat posts to 28+ channels X, LinkedIn, LinkedIn Page, Reddit, Instagram, Facebook Page, Threads, YouTube, Google My Business, TikTok, Pinterest, Dribbble, Discord, Slack, Kick, Twitch, Mastodon, Bluesky, Lemmy, Farcaster, Telegram, Nostr, VK, Medium, Dev.to, Hashnode, WordPress, ListMonk
+description: Schedule or publish posts through the Postiz CLI to 28+ social and chat channels (YouTube, Telegram, X, Reddit, TikTok, Instagram, VK, Discord and more); use when a film or text is to be posted.
 homepage: https://docs.postiz.com/public-api/introduction
 metadata: {"openclaw":{"emoji":"🌎","requires":{"bins":[],"env":["POSTIZ_API_URL"]}}}
 ---
