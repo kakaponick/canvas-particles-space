@@ -4,8 +4,10 @@
 //   DRAMA3_SERVERS=<url>,<url> node films/fourth_dimension_pop_voice.mjs   speaks the lines not yet spoken
 //   node films/fourth_dimension_pop_voice.mjs verify                       shows where the words heard differ
 //   node films/fourth_dimension_pop_voice.mjs mix                          writes films/fourth_dimension_pop.wav
+//   node films/fourth_dimension_pop_voice.mjs plan                         lists the lines not yet spoken
 // A second word names another voice of VOICES below ("speak omnivoice", "mix omnivoice"); "speak ru" writes the
-// reel paced by the Russian narration, films/fourth_dimension_pop_ru.json, and "mix ru" its sound.
+// reel paced by the Russian narration, films/fourth_dimension_pop_ru.json, and "mix ru" its sound; the Russian
+// voices usachev and surdin pace films/fourth_dimension_pop_usachev.json and _surdin.json the same way.
 import fs from 'node:fs'
 import process from 'node:process'
 import { linesOfReel, voiceFilm } from '../scripts/voice.mjs'
@@ -110,6 +112,33 @@ const VOICES = {
     lines: ru.LINES,
     cues: ruCues,
     profile: 'YouTube · QxkFrDTCKxg_3594f32f'
+  },
+  // Two Russian narrations in the same settings, a test of Drama 3's cloning, not for publishing. usachev
+  // clones the operator's VoiceStudio profile "Руслан Усачев" (its recording and its words); surdin clones
+  // 12.2 s of "Неземной подкаст" on the James Webb telescope (the feed's first episode, from 1:07), cut into
+  // films/voice/ (ignored by git) with its words written word for word
+  usachev: {
+    engine: 'drama3',
+    fields: { options: { top_p: 0.97 } },
+    say: sayRu,
+    servers: process.env.DRAMA3_SERVERS?.split(',') ?? [],
+    language: 'Russian',
+    lines: ru.LINES,
+    cues: ruCues,
+    profile: 'Руслан Усачев'
+  },
+  surdin: {
+    engine: 'drama3',
+    fields: { options: { top_p: 0.97 } },
+    say: sayRu,
+    servers: process.env.DRAMA3_SERVERS?.split(',') ?? [],
+    language: 'Russian',
+    lines: ru.LINES,
+    cues: ruCues,
+    sample: {
+      audio: 'films/voice/surdin_sample.wav',
+      text: 'Ничего подобного мы даже не представляли себе, что можно запустить в космос. Дело в том, что для запуска телескоп должен быть небольшим, компактным, чтобы его можно было всунуть под обтекатель ракеты.'
+    }
   },
   // The English narration in the same settings, cloning the English speaker of the VoiceStudio profile
   // "YouTube · sQUILVdbo4Y_55637575" from its recording copied out of git (films/voice/en2_sample.wav): the

@@ -466,9 +466,21 @@ export async function voiceFilm ({ film, lines: FILM_LINES, cues: FILM_CUES, hea
     console.log(`Wrote ${out}: ${order.length} lines over ${duration.toFixed(1)} s`)
   }
 
+  // The lines this voice has not spoken yet and their words, asking no server: what a rented machine would be
+  // given, to count before it is rented
+  async function plan () {
+    const profile = await profileId()
+    const left = Object.entries(LINES).filter(([, text]) => !fs.existsSync(takeFile(profile, text)))
+    const count = text => text.split(/\s+/).filter(Boolean).length
+    const total = left.reduce((sum, [, text]) => sum + count(text), 0)
+    console.log(`${VOICE_NAME}: ${left.length} of ${Object.keys(LINES).length} lines to speak, ${total} words`)
+    for (const [name, text] of left) console.log(`  ${name} (${count(text)}): ${text}`)
+  }
+
   const job = process.argv[2] ?? 'speak'
   if (job === 'speak') await speak()
   else if (job === 'verify') await verify()
   else if (job === 'mix') await mix()
-  else throw new Error('speak (the default), verify or mix')
+  else if (job === 'plan') await plan()
+  else throw new Error('speak (the default), verify, mix or plan')
 }
