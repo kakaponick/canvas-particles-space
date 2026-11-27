@@ -601,6 +601,7 @@ export const compositeFragmentShaderSource = `
   uniform vec3 u_neutronVein;
   uniform vec4 u_neutronPlasma;  // its veins' layers, how much each grows out of the last (branching), how far their brightest runs to the hot core, how much the underlayer stirs the plasma
   uniform vec3 u_neutronCore;    // the colour its veins run to where they are brightest
+  uniform vec2 u_neutronFlow;    // how far its plasma has flowed, in cells of the coarsest veins; how much its layers flow against one another
   uniform vec3 u_ringApproaching;
   uniform vec3 u_ringReceding;
   uniform float u_ringGlow;      // strength of the soft light around the line; 0 leaves the bare line
@@ -902,7 +903,11 @@ ${DENT_GLSL}
   // veins read on the ball, so they turn with it and crowd toward the limb as a sphere's markings do.
   // The veins are a ridged multifractal: each layer of noise is twice as fine as the last and grows only in
   // the broad band round the ridge the layer before drew (Branching), so the fine veins run on beside the
-  // coarse ones as streaks and swirls of current rather than lie in their own cells. A slower noise bends the place they are
+  // coarse ones as streaks and swirls of current rather than lie in their own cells. The plasma flows: each
+  // layer drifts through its noise along a direction of its own, faster the finer it is, and Flow Cross
+  // turns every other layer against the one before, so where their ridges cross the veins keep meeting,
+  // merging and parting, the interference of currents that pass through one another; the slow noise that
+  // bends the veins drifts too, so their paths change as they flow. A slower noise bends the place they are
   // read at (Vein Wander), so they wander. Where a vein is brightest its colour runs to the hot core's
   // (Hot Core), and between the veins a turbulent underlayer stirs the plasma (Turbulence). Its face
   // darkens toward the limb, the limb itself is lit, and a glow falls off round it as the square of the
@@ -922,7 +927,8 @@ ${DENT_GLSL}
     float c = cos(u_neutron.w);
     float s = sin(u_neutron.w);
     vec3 q = vec3(c * n.x + s * n.z, n.y, c * n.z - s * n.x) * u_neutronVeins.x;
-    vec3 slow = valueNoise33(q * 0.5);
+    float flowed = u_neutronFlow.x;
+    vec3 slow = valueNoise33(q * 0.5 + vec3(0.31, 0.83, -0.47) * flowed * 0.35);
     if (u_neutronShade.z > 0.0) q += u_neutronShade.z * 2.0 * (slow - 0.5);
     float veins = 0.0;
     float weight = 1.0;
@@ -932,7 +938,12 @@ ${DENT_GLSL}
     float cell = u_neutron.y / max(u_neutronVeins.x, 0.001) / px;
     for (int layer = 0; layer < NEUTRON_LAYERS; layer++) {
       if (float(layer) >= u_neutronPlasma.x) break;
-      float broad = 1.0 - abs(2.0 * valueNoise3(q) - 1.0);
+      // The layer's own direction of flow, its speed growing with how fine it is, every other one turned
+      // against the last by Flow Cross
+      float f = float(layer) + 1.0;
+      vec3 way = normalize(vec3(sin(f * 2.4), cos(f * 1.7), sin(f * 3.1 + 1.0)));
+      float side = mod(float(layer), 2.0) < 0.5 ? 1.0 : 1.0 - 2.0 * u_neutronFlow.y;
+      float broad = 1.0 - abs(2.0 * valueNoise3(q + way * side * flowed * (1.0 + 0.6 * float(layer))) - 1.0);
       veins += share * pow(broad, u_neutronVeins.y) * weight * smoothstep(4.0, 12.0, cell);
       // The next layer grows in the broad band round this one's ridge, not in its thin line alone, so its
       // veins run on beside the ridge as lines rather than show through it as dots

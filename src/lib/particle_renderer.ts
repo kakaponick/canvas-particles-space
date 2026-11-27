@@ -222,6 +222,9 @@ export interface CompositeSettings {
   neutronBranch: number
   neutronCore: number
   neutronStir: number
+  // How far its plasma has flowed, in cells of the coarsest veins, and how much its layers flow against one another
+  neutronFlowed: number
+  neutronCross: number
   neutronColor: SceneColor
   neutronVeinColor: SceneColor
   neutronCoreColor: SceneColor
@@ -812,7 +815,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     'titleSpeck', 'titleWinkRest', 'titleWind', 'titleBurnShape', 'titleBurnRimWidth', 'titleFallShape', 'titleDustShape', 'titleDustCut', 'titleBurnEdge',
     'echoShape', 'echoSwell', 'dustMotion', 'dustFlare', 'dustNoise', 'dustWarp', 'echoTintEase', 'starFlareRate', 'remnantShape', 'vignetteSpan', 'knee',
     'skyGrid', 'gridCell', 'skyGridLine', 'orbits', 'front', 'nebula', 'nebulaColor', 'nebulaColorDeep', 'nebulaColorCore', 'nebulaShape', 'nebulaLook', 'nebulaPatch', 'nebulaDrift', 'nebulaSpace', 'nebulaNoise', 'nebulaNorm', 'gridPull', 'gridColor', 'gridHaze', 'gridShape',
-    'colorFlash', 'colorLight', 'colorDust', 'colorTitle', 'colorEmber', 'neutron', 'neutronVeins', 'neutronShade', 'neutronColor', 'neutronVein', 'neutronPlasma', 'neutronCore',
+    'colorFlash', 'colorLight', 'colorDust', 'colorTitle', 'colorEmber', 'neutron', 'neutronVeins', 'neutronShade', 'neutronColor', 'neutronVein', 'neutronPlasma', 'neutronCore', 'neutronFlow',
     'cameraZoom', 'zoomCenter', 'layerZoom', 'shake', 'lensFringe', 'lensFringeEase', 'vignette', 'filmGrain', 'letterbox'
   ] as const
   const compositeUniforms = getUniforms(gl, compositeProgram, COMPOSITE_UNIFORMS)
@@ -1650,6 +1653,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
       setUniform3f(gl, u.neutronVein, settings.neutronVeinColor.r, settings.neutronVeinColor.g, settings.neutronVeinColor.b)
       setUniform4f(gl, u.neutronPlasma, settings.neutronLayers, settings.neutronBranch, settings.neutronCore, settings.neutronStir)
       setUniform3f(gl, u.neutronCore, settings.neutronCoreColor.r, settings.neutronCoreColor.g, settings.neutronCoreColor.b)
+      setUniform2f(gl, u.neutronFlow, settings.neutronFlowed, settings.neutronCross)
     }
     setUniform3f(gl, u.ringApproaching, settings.ringApproaching.r, settings.ringApproaching.g, settings.ringApproaching.b)
     setUniform3f(gl, u.ringReceding, settings.ringReceding.r, settings.ringReceding.g, settings.ringReceding.b)

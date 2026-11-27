@@ -30,6 +30,8 @@ import { createSceneColor, readSceneColor } from './scene_color'
 // The crumbling title follows the black hole's gravity: at these settings (the defaults) the dust
 // travels Dust Pull and turns by this many radians at Dust Swirl 1
 const TITLE_REFERENCE_GRAVITY = 2.5
+// Where a neutron star's flowed plasma wraps, in cells of its coarsest veins (see neutronFlowed)
+const FLOW_WRAP = 4096
 const TITLE_REFERENCE_ORBIT = 40
 const TITLE_SWIRL_RADIANS = 0.35
 // The camera's shake: two sines a side, the second slower (its weight is Shake Undertone, its pace a multiple
@@ -259,6 +261,10 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
   let shakeLead = 0
   // How far the neutron star has turned, in radians: its turns a second, run up on the scene's clock
   let neutronTurned = 0
+  // How far its plasma has flowed, in cells of its coarsest veins: Plasma Flow run up on the scene's clock,
+  // wrapped at FLOW_WRAP, where the GPU's hash of a noise cell still keeps its precision (a wrap jumps
+  // the pattern once in hours at the default flow)
+  let neutronFlowed = 0
   let undertoneLead = 0
 
   const intro = createIntroFrame()
@@ -457,6 +463,8 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       neutronBranch: 0,
       neutronCore: 0,
       neutronStir: 0,
+      neutronFlowed: 0,
+      neutronCross: 0,
       neutronColor: createSceneColor(),
       neutronVeinColor: createSceneColor(),
       neutronCoreColor: createSceneColor(),
@@ -2045,6 +2053,9 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       composite.neutronBranch = state.neutronBranch
       composite.neutronCore = state.neutronCore
       composite.neutronStir = state.neutronStir
+      neutronFlowed = (neutronFlowed + dt * state.neutronFlow) % FLOW_WRAP
+      composite.neutronFlowed = neutronFlowed
+      composite.neutronCross = state.neutronCross
       readSceneColor(composite.neutronColor, state.neutronColor)
       readSceneColor(composite.neutronVeinColor, state.neutronVeinColor)
       readSceneColor(composite.neutronCoreColor, state.neutronCoreColor)

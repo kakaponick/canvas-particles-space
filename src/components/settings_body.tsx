@@ -311,6 +311,8 @@ function SettingsBody () {
             <SettingSlider field="neutronBranch" />
             <SettingSlider field="neutronCore" />
             <SettingSlider field="neutronStir" />
+            <SettingSlider field="neutronFlow" />
+            <SettingSlider field="neutronCross" />
             <SettingSlider field="neutronLimb" />
             <SettingSlider field="neutronShade" />
             <SettingSlider field="neutronGlow" />
