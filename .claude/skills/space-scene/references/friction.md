@@ -93,7 +93,7 @@ the friction cannot happen any more.
 - Cause: the scene's nebula is off by default and its default colours are teal and blue; agents picked violet
   themselves and the block travelled from clip to clip.
 - Now: films.md section 1 says where colours come from and starts the sky at stars on black. The pop film's
-  clips 1, 2, 3 and 12 dropped the nebula; clips 2 and 3 keep their field white and pale blue, 12000
+  clips 1, 2, 3, 5, 6 and 12 dropped the nebula; clips 2 and 3 keep their field white and pale blue, 12000
   particles with shorter trails, so the axes and figures read over it.
 - Where: films.md section 1; `films/fourth_dimension_pop_02_ladder.js`.
 

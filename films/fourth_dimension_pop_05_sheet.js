@@ -89,11 +89,7 @@ film({
     flowAColor: '#ffe9c8',
     lensingEnabled: false,
     lensingRadius: 0,
-    nebula: 0.45,
-    nebulaScale: 700,
-    nebulaSparseness: 0.4,
-    nebulaColor: '#6a2cc0',
-    nebulaColorDeep: '#0f7a9a',
+    // Stars on black, no nebula: its violet and pink read as stock space, and its dust muddied the frame
     starsBrightness: 1.2,
     starDensity: 0.22,
     gridColor: '#4de3ff',
