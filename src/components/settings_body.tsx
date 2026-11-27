@@ -167,6 +167,8 @@ function SettingsBody () {
           {/* Where the camera stands and looks beyond its circle, the column, how the lens takes over what lies
               behind the holes and how what stands in front of them is laid over them, then how the camera
               gets to its place and what counts as its cut */}
+          <SettingSlider field="cameraFloat" />
+          <SettingSlider field="cameraBank" />
           <SettingSlider field="cameraRoll" />
           <SettingSlider field="cameraLookYaw" />
           <SettingSlider field="cameraLookPitch" />

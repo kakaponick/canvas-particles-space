@@ -967,6 +967,7 @@ layers); `cameraZoom` above 1 for a pan (`cameraX`, `cameraY`, `cameraPair`), an
 | The field as a volume, seen from around the hole | `threeD` |
 | Where the 3D camera stands: around the hole, above or below it, and how fast it circles on its own | `cameraYaw`, `cameraPitch`, `cameraSpin` |
 | The 3D camera off its circle: its roll, its head turned right and up from the hole, and its move right, up and in, in radii | `cameraRoll`, `cameraLookYaw`, `cameraLookPitch`, `cameraMoveRight`, `cameraMoveUp`, `cameraMoveIn` |
+| A hand on the 3D camera: the degrees it sways, and how far it leans into a swing round the hole | `cameraFloat`, `cameraBank` |
 | How much of the 3D column fades at each of its ends, as a share of `farZ` | `threeDEndFade` |
 | The 3D camera: seconds it takes into and out of 3D, and the nearest point it circles, as a share of `farZ` | `threeDEase`, `threeDNearest` |
 | What counts as a cut of the camera, where the trails start afresh: a zoom, a move of the picture and, in 3D, a turn, each in one frame | `cameraCutZoom`, `cameraCutShift`, `cameraCutTurn` |
@@ -1023,6 +1024,15 @@ section 4):
   ahead. A hole without spin looks the same from every side. A spinning hole's axis stands in the scene
   (`spinTilt` and `spinAxis` as seen straight on), so as the camera circles, the shadow's flat side and
   the leaning rings turn with the view.
+- The camera is never dead still and leans into its turns: `cameraFloat` (0.3° by default) sways its roll
+  and head slowly, as a hand-held camera does, on the scene's own clock, so a film draws the same frames
+  each time; `cameraBank` (0.08 by default) rolls it that many degrees for each degree a second it swings
+  round the hole, smoothed over 0.4 s. Both are added to the keys' own roll and head. 0 gives the locked-off
+  tripod; raise `cameraFloat` to 1 for a nervous, close shot, `cameraBank` to 0.2 for a drone's swoop.
+- In a film a camera key's default ease is a camera operator's (the circle, the head, the moves, the roll,
+  `cameraZoom`, `cameraX`, `cameraY`, `cameraPair` and `gridTilt`): a move starts and lands with no jolt, and
+  moves of one key that follow each other the same way flow through the key between them; the camera rests
+  only where it holds or turns back. films.md section 4 says how to write a path that uses it.
 - The circle is where the camera starts; six keys take it anywhere from there, all at 0 the circle alone.
   `cameraRoll` turns the whole picture about the middle of the screen, the ring's bright side (`ringSide`)
   with it; the circle and the head move `ringSide` and `ringDoppler` only through `ringSpinFollow`.

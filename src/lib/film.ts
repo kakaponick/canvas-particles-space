@@ -204,6 +204,55 @@ export interface FilmTrack {
   values: number[]
   // How the value arrives at each key from the one before
   eases: Ease[]
+  // A camera's key glides: the speed it passes each key at, in units a second (glideSlopes); absent for
+  // every other key, whose "ease" starts and ends each move at rest
+  slopes?: number[]
+}
+
+// The keys that move the camera. Their "ease" is a camera operator's: a move starts and lands with no jolt
+// (no step in acceleration), and moves that follow one another the same way flow through the key between
+// them instead of stopping on it; the camera rests only where it holds or turns back
+export const CAMERA_KEYS = new Set([
+  'cameraYaw', 'cameraPitch', 'cameraRoll', 'cameraLookYaw', 'cameraLookPitch', 'cameraMoveRight', 'cameraMoveUp',
+  'cameraMoveIn', 'cameraZoom', 'cameraX', 'cameraY', 'cameraPair', 'gridTilt'
+])
+
+// How fast a key leaves the end of a segment whose ease is not "ease", in units a second: its own slope there
+function edgeSlope (ease: Ease, slope: number, end: 'start' | 'end') {
+  if (ease === 'linear') return slope
+  if (ease === 'in') return end === 'end' ? 2 * slope : 0
+  if (ease === 'out') return end === 'start' ? 2 * slope : 0
+  return 0
+}
+
+/**
+ * The speeds a camera's track passes its keys at. Between two "ease" segments that go the same way the speed
+ * is the weighted harmonic mean of their slopes (Fritsch and Butland), which never overshoots a key; where
+ * they turn back, or one of them holds, it is 0. Next to a segment of another ease it takes that segment's
+ * own speed at the key, held to three times the "ease" segment's slope so that one does not overshoot
+ * either. The track starts and ends at rest.
+ */
+export function glideSlopes (times: number[], values: number[], eases: Ease[]) {
+  const count = times.length
+  const slopes = new Array<number>(count).fill(0)
+  const slope = (k: number) => (values[k + 1] - values[k]) / Math.max(times[k + 1] - times[k], 1e-9)
+  for (let k = 1; k < count - 1; k++) {
+    const before = slope(k - 1)
+    const after = slope(k)
+    const easeBefore = eases[k]
+    const easeAfter = eases[k + 1]
+    if (easeBefore === 'ease' && easeAfter === 'ease') {
+      if (before * after <= 0) continue
+      const h0 = times[k] - times[k - 1]
+      const h1 = times[k + 1] - times[k]
+      slopes[k] = 3 * (h0 + h1) / ((2 * h1 + h0) / before + (h1 + 2 * h0) / after)
+    } else if (easeBefore === 'ease' || easeAfter === 'ease') {
+      const own = easeBefore === 'ease' ? edgeSlope(easeAfter, after, 'start') : edgeSlope(easeBefore, before, 'end')
+      const eased = easeBefore === 'ease' ? before : after
+      if (own * eased > 0) slopes[k] = Math.sign(own) * Math.min(Math.abs(own), 3 * Math.abs(eased))
+    }
+  }
+  return slopes
 }
 
 // Events of the opening played again at this second of the film
@@ -383,7 +432,8 @@ function readTracks (source: unknown, duration: number, notes: string[], attempt
     const slider = SLIDERS[key]
     if (slider) {
       const read = (value: unknown) => inRange(`tracks.${key}`, value, slider.min, slider.max, notes)
-      return { key, target: 'settings' as const, color: false, toggle: false, ...readKeyframes(`tracks.${key}`, keyframes, duration, read) }
+      const keys = readKeyframes(`tracks.${key}`, keyframes, duration, read)
+      return { key, target: 'settings' as const, color: false, toggle: false, ...keys, ...(CAMERA_KEYS.has(key) ? { slopes: glideSlopes(keys.times, keys.values, keys.eases) } : {}) }
     }
     if (TRACK_SWITCHES.includes(key)) {
       return { key, target: 'settings' as const, color: false, toggle: true, ...readKeyframes(`tracks.${key}`, keyframes, duration, value => asBoolean(`tracks.${key}`, value) ? 1 : 0) }
@@ -1113,7 +1163,20 @@ export function trackValue (track: FilmTrack, time: number) {
   while (times[next] < time) next++
   if (track.toggle) return time < times[next] ? values[next - 1] : values[next]
   const span = times[next] - times[next - 1]
-  const share = easeShare(span > 0 ? (time - times[next - 1]) / span : 1, eases[next])
+  const along = span > 0 ? (time - times[next - 1]) / span : 1
+  // A camera's "ease": a cubic through the two keys at the speeds it passes them, or, from rest to rest,
+  // the quintic whose acceleration is 0 at both ends too, so the move neither jolts away nor lands with a bump
+  if (track.slopes && eases[next] === 'ease') {
+    const from = values[next - 1]
+    const to = values[next]
+    const leave = track.slopes[next - 1] * span
+    const arrive = track.slopes[next] * span
+    if (leave === 0 && arrive === 0) return from + (to - from) * along * along * along * (along * (6 * along - 15) + 10)
+    const square = along * along
+    const cube = square * along
+    return (2 * cube - 3 * square + 1) * from + (cube - 2 * square + along) * leave + (3 * square - 2 * cube) * to + (cube - square) * arrive
+  }
+  const share = easeShare(along, eases[next])
   return track.color
     ? mixColor(values[next - 1], values[next], share)
     : values[next - 1] + (values[next] - values[next - 1]) * share
@@ -1181,6 +1244,8 @@ comes to this same object: see "A film as a script" below. Names and ranges are 
   "tracks": { "blackHoleSize": [[0, 6], [4, 14], [9, 14, "linear"]] },
                              keyframes [seconds, value, ease?] for any numeric setting or intro parameter;
                              ease is how the value arrives: ease (default) | linear | in | out | hold.
+                             A camera key's ease glides: no jolt at either end, and moves that follow
+                             each other the same way flow through the key between them.
                              A switch takes true or false and flips at its second; a colour (describe lists
                              them) takes '#rrggbb' and moves channel by channel. "cameraZoom" here is the
                              Zoom setting; the opening's own camera of that name is set in intro.params

@@ -61,6 +61,12 @@ const NEAR_DEPTH = 1
 const STAR_SIZE = 1.55
 const STAR_SPREAD = 0.6
 const FULL_TURN = Math.PI * 2
+// Camera Bank: seconds over which the swing it leans into is smoothed, and the fastest swing it leans into
+// (degrees a second), so a whip leans no further than a fast turn
+const BANK_LAG = 0.4
+const MAX_SWING = 90
+// Camera Float's sway: two sines a little out of step, at most 1 in size, slow enough to read as a hand
+const sway = (seconds: number, rate: number, phase: number) => (Math.sin(rate * seconds + phase) + 0.5 * Math.sin(2.3 * rate * seconds + 2 * phase)) / 1.5
 
 // The longitude of the camera's meridian on a horizon whose axis the camera sees along (right, up, toward), a
 // unit vector, counted from a meridian that stands in the scene: the one toward the scene's right, or its up
@@ -278,7 +284,9 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
   // The 3D camera: how far it has eased from the flat view (0) to its place (1), the radians it has turned
   // on its own, the pose the field was last stepped with, and whether that step was in 3D
   const view = {
-    blend: 0, spin: 0, yaw: 0, pitch: 0, roll: 0, lookYaw: 0, lookPitch: 0, moveRight: 0, moveUp: 0, moveIn: 0, stepped: false
+    blend: 0, spin: 0, yaw: 0, pitch: 0, roll: 0, lookYaw: 0, lookPitch: 0, moveRight: 0, moveUp: 0, moveIn: 0, stepped: false,
+    // Camera Bank: the circle's angle last frame (degrees, -1e9 before the first) and how fast it swings, smoothed
+    circle: -1e9, swing: 0
   }
   // The camera's pose, which sees the scene (cameraPose)
   const pose = new Float64Array(POSE_SLOTS)
@@ -1013,9 +1021,22 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       eased = view.blend * view.blend * (3 - 2 * view.blend)
       yaw = eased * (state.cameraYaw * DEGREE + view.spin)
       pitch = eased * state.cameraPitch * DEGREE
-      roll = eased * state.cameraRoll * DEGREE
-      lookYaw = eased * state.cameraLookYaw * DEGREE
-      lookPitch = eased * state.cameraLookPitch * DEGREE
+      // Camera Bank: the camera leans into a swing round the hole, by degrees for each degree a second it
+      // swings, the swing smoothed over BANK_LAG seconds; a turn of more than Cut at Turn in one frame is a
+      // cut and leans nothing
+      const circle = state.cameraYaw + view.spin / DEGREE
+      if (dt > 0 && view.circle > -1e8) {
+        const turn = circle - view.circle
+        const swing = Math.abs(turn * DEGREE) > state.cameraCutTurn ? 0 : Math.max(-MAX_SWING, Math.min(turn / dt, MAX_SWING))
+        view.swing += (swing - view.swing) * Math.min(dt / BANK_LAG, 1)
+      }
+      view.circle = circle
+      // Camera Float: a hand on the camera, a slow sway of its roll and head of about this many degrees that
+      // does not repeat within a film, on the scene's own clock; still under reduced motion
+      const hand = reducedMotion ? 0 : state.cameraFloat
+      roll = eased * (state.cameraRoll + state.cameraBank * view.swing + hand * sway(scene.time, 0.6, 1)) * DEGREE
+      lookYaw = eased * (state.cameraLookYaw + 0.7 * hand * sway(scene.time, 0.45, 2)) * DEGREE
+      lookPitch = eased * (state.cameraLookPitch + 0.5 * hand * sway(scene.time, 0.7, 0.5)) * DEGREE
       // The moves are in radii of the hole at its full size, or of the lattice's stand-in without one
       const moveUnit = eased * (shadowRadius > 0 ? shadowRadius : state.gridLatticeUnit * shortSide) * pivot / Math.max(centerX, centerY)
       moveRight = state.cameraMoveRight * moveUnit
@@ -1027,6 +1048,8 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       }
     } else {
       view.spin = 0
+      view.circle = -1e9
+      view.swing = 0
     }
 
     // Flat Depth: the flat mode draws that share of a tilted orbit's depth, in perspective round the pair's

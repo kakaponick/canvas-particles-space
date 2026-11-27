@@ -16,7 +16,7 @@ export const SIMULATION_SETTING_KEYS = [
   'starsPlacement', 'starsPerCell', 'starsNeighbors', 'starsCellWarp', 'starsSkyEven', 'skyCenter', 'skySize', 'skyEaseBend',
   'blackHoleSize', 'horizonScale', 'blackHoleSpin', 'spinTilt', 'spinAxis', 'frameDrag', 'frameDragSweep', 'frameDragFalloff', 'frameDragSight', 'gravityReach', 'gravityStrength', 'gravityFalloff', 'gravityDepthBell', 'orbitalStrength', 'orbitalSpinFollow', 'orbitalSpinFollowCurve', 'gravityInertia', 'followFrequency',
   'blackHoleFollowing', 'blackHoleX', 'blackHoleY', 'cameraZoom', 'cameraX', 'cameraY', 'cameraPair', 'cameraCutZoom', 'cameraCutShift',
-  'threeD', 'cameraYaw', 'cameraPitch', 'cameraSpin', 'cameraRoll', 'cameraLookYaw', 'cameraLookPitch',
+  'threeD', 'cameraYaw', 'cameraPitch', 'cameraSpin', 'cameraFloat', 'cameraBank', 'cameraRoll', 'cameraLookYaw', 'cameraLookPitch',
   'cameraMoveRight', 'cameraMoveUp', 'cameraMoveIn', 'threeDEndFade', 'threeDFrontDepth', 'threeDFrontCurve', 'threeDFrontBend',
   'threeDFrontBetween', 'threeDFrontReach', 'threeDFrontReachBare', 'threeDFrontLetGo', 'threeDFrontAdd', 'threeDFrontWaves', 'threeDEase', 'threeDNearest', 'cameraCutTurn',
   'companionSize', 'companionDistance', 'companionSpeed', 'companionWaves', 'companionTilt', 'companionNode', 'companionClosest', 'companionSpin', 'companionOval', 'companionHandover',

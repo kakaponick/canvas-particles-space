@@ -44,6 +44,16 @@ the friction cannot happen any more.
 
 ## The camera
 
+### Every camera move looked stiff (2026-11-27)
+- Wanted / got: a camera that moves like an operator's; got moves that each started and stopped dead, one
+  axis at a time, and held shots frozen still. The operator asked twice (GRS 1915's film, then the pop film).
+- Cause: a film's default ease was a smooth step from rest to rest, per key and per move, with a jolt of
+  acceleration at both ends, and nothing moved the camera between moves. The first fix was a hand-written
+  spline in one film (`films/grs1915.js`), which no other film got.
+- Now: the engine does it by default. Camera keys glide (no jolt, consecutive moves flow through the key
+  between them), `cameraFloat` sways a held camera, `cameraBank` leans it into swings. Write a path as
+  back-to-back `to()` calls and overlap axes (films.md section 4).
+
 ### "Fly the camera to the grid" done with a zoom (2026-11-27)
 - Wanted / got: the camera approaching the well; `cameraZoom` gave a magnified picture with nothing moving,
   and the operator asked for a real camera.

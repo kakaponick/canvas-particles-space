@@ -72,6 +72,19 @@ long as it takes to read twice.
 
 The rules of zoom, pan and cut are knobs.md section 11; this is how to use them.
 
+- Shoot it as a camera operator would, which is what the engine does by default: the camera's keys glide
+  (no jolt at the start or the landing of a move, and consecutive moves the same way flow through the key
+  between them), the hand-held sway (`cameraFloat`) keeps a held shot alive, and the camera leans into its
+  swings (`cameraBank`). What is left to the film:
+  - Move several axes together and overlap them: start the next move before the last has landed (a
+    `meanwhile` for one axis while another moves), and let the turn lead the travel by a beat.
+  - Write a long move as one path of back-to-back `to()` calls through poses, not as moves with waits
+    between them; a wait is a held shot, and it is meant.
+  - Keep the subject a little off centre while the camera travels and let it settle in the frame as the
+    move lands; a slight overshoot and settle (`spring`) sells a whip.
+  - Approach by moving the camera (`cameraMoveIn`, in 3D), not by `cameraZoom`: a zoom is a longer lens.
+    `films/grs1915_free.js` is a camera that never stops.
+
 - The zoom redraws the scene: at 4x the ring is still a hairline and the traces still sharp. Push in on
   the particles, the ring, the orbits and the grids; frame the opening's title and dust at zoom 1, since
   those two soften when magnified.

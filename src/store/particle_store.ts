@@ -409,6 +409,10 @@ export interface ParticleState extends FlowState {
   cameraYaw: number
   cameraPitch: number
   cameraSpin: number
+  // A hand on the 3D camera: about how many degrees it sways, and degrees it leans for each degree a second it
+  // swings round the black hole
+  cameraFloat: number
+  cameraBank: number
   // Where the 3D camera stands and looks beyond its circle: degrees it rolls (positive turns the picture
   // anticlockwise), degrees its head turns right and up from the black hole, and black hole radii it moves
   // right, up and in toward what it circles
@@ -693,6 +697,8 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   cameraYaw: 40,
   cameraPitch: 20,
   cameraSpin: 0,
+  cameraFloat: 0.3,
+  cameraBank: 0.08,
   cameraRoll: 0,
   cameraLookYaw: 0,
   cameraLookPitch: 0,
