@@ -236,7 +236,7 @@ A small black hole beside words, quiet: the field at `baseSpeed` 0 lights only a
 since its light is its speed. One flow falling in and winding instead (`flowA` 1.8, From 7, To 0.8, Spread
 4, Swirl 0.8, the field off), its count swept at the framing: 3000 read as a spiral round the shadow, 5000
 and up a disc that pulls the eye. A ring flow (From equal to To) beside it draws a solid tube.
-`films/fourth_dimension_pop_11_known.js`.
+`films/fourth_dimension_pop_12_known.js`.
 
 The opening in slow motion: `lightCrossTime` at its top, `matterSpeed` low, and every later moment
 (`remnantAt`, `horizonAt`, `dissolveAt`, `releaseAt`, `introEnd`) moved out to match, so the light takes
@@ -452,21 +452,21 @@ kind.
   sheet through `gridTilt`, the zoom and the 3D camera, so a ruler down a spoke stays on the spoke while the
   camera comes down to it. The spokes are every 360 / `gridSpokes` degrees; the rings are the well's
   contour lines (`gridRingSpacing` 0), ring k of n at `0.3849 / ((1 - c * c) * c)` radii with
-  `c = 1 - k / (n + 1) / 2.3660254`. `films/fourth_dimension_pop_10_test.js` lays a ruler on them. A path
+  `c = 1 - k / (n + 1) / 2.3660254`. `films/fourth_dimension_pop_11_test.js` lays a ruler on them. A path
   up the well and back (light climbing the wall and falling back) is a smooth run of `{ sheet }` points on
   the near wall, its radius rising and falling along it; the angle about -90 faces the camera.
 - A device the eye must read (a clock, a pair of mirrors) drawn in the hole's radii shrinks with the scene:
   a light clock on the Earth came out 40 px tall once the 3D camera pulled back. Draw it, and anything too
   small to read at its place, large on the frame's empty side with a dashed lead and a dot to its place,
   lead and dot in the accent colour, width about 0.0024, since a thin pale lead vanishes over a lit field;
-  the light clocks of `films/fourth_dimension_pop_10_test.js` point so at the Earth and at the flat.
+  the light clocks of `films/fourth_dimension_pop_11_test.js` point so at the Earth and at the flat.
   Far out on the flat a `{ sheet }` point
   lands away from where a flat guess puts it: probe with a few labelled dots in a throwaway still before
-  aiming a lead (`clockBody`, `clockLead`, `inset` in `films/fourth_dimension_pop_10_test.js`).
+  aiming a lead (`clockBody`, `clockLead`, `inset` in `films/fourth_dimension_pop_11_test.js`).
 - A shape leaves the scene for the frame through `{ between: [place, place], share: 'lift' }`: the place
   that share of the way from the first to the second on the frame, the share a value of the shape keyed
   from 0 to 1. Give every point the same two kinds of place and the shape lifts off whole: the ruler of
-  `films/fourth_dimension_pop_10_test.js` leaves the sheet and lies straight across the frame. The same
+  `films/fourth_dimension_pop_11_test.js` leaves the sheet and lies straight across the frame. The same
   form with `share` a number holds a shape that part of the way, and a light dot keyed back and forth
   between two mirrors bounces between them.
 - `shift: [dx, dy]` on a scene place moves it by that many of the place's own units (y up) without leaving

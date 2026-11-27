@@ -187,7 +187,7 @@ shot('need', () => {
     draw({ kind: 'circle', center: [x, ROW], radius: 0.042, color: GOLD, width: 0.004, draw: 0.5, fade: 0.3 }, left)
     draw({ kind: 'circle', center: [x, ROW], radius: 0.034, fill: '#000000', color: '#000000', width: 0.001, fade: 0.3 }, left)
   })
-  // Two mirrors standing on a block, a dot of light between them: the light clock of clip 10
+  // Two mirrors standing on a block, a dot of light between them: the light clock of clip 11
   sign('mirrors', 0.9, 0.7, 'two mirrors', (x, left) => {
     const half = 0.022
     for (const side of [-1, 1]) line([[+(x + side * half).toFixed(4), ROW - 0.032], [+(x + side * half).toFixed(4), ROW + 0.02]], left, '#e6eeff')

@@ -1,7 +1,7 @@
-// The fourth dimension as popular science, clip 10 of films/fourth_dimension_pop.json: the test: a light clock, two mirrors with light between them, counted against an atomic clock deep in Earth's well and higher up.
+// The fourth dimension as popular science, clip 11 of films/fourth_dimension_pop.json: the test: a light clock, two mirrors with light between them, counted against an atomic clock deep in Earth's well and higher up.
 // The narration sets the pace: LINES is what is said, say() marks where a line starts, and until a voice has
 // spoken the lines each takes what its words would (input.lines and input.cues bring a voice's own seconds).
-//   node .claude/skills/space-scene/scripts/space.mjs preview films/fourth_dimension_pop_10_test.js out.jpg -
+//   node .claude/skills/space-scene/scripts/space.mjs preview films/fourth_dimension_pop_11_test.js out.jpg -
 /* global film, set, to, wait, shot, caption, draw, mark, now, at, meanwhile, input */
 const LINES = {
   fail: 'A nice story is not science until it can fail. So how could this one fail?',
@@ -186,7 +186,7 @@ film({
   }
 })
 set({ letterbox: 0, filmGrain: 0 })
-chapter('10', 'HOW TO PROVE IT WRONG')
+chapter('11', 'HOW TO PROVE IT WRONG')
 
 // The Earth, NASA's Apollo 17 photograph, stands over the hole for the whole clip. The hole is the scene's
 // way of giving the Earth a well and a pull, and is never to be seen as one: the photograph comes up with

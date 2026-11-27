@@ -1,7 +1,7 @@
-// The fourth dimension as popular science, clip 11 of films/fourth_dimension_pop.json: what is known, what is a guess and what is open, and the century of tests any new idea has to match.
+// The fourth dimension as popular science, clip 12 of films/fourth_dimension_pop.json: what is known, what is a guess and what is open, and the century of tests any new idea has to match.
 // The narration sets the pace: LINES is what is said, say() marks where a line starts, and until a voice has
 // spoken the lines each takes what its words would (input.lines and input.cues bring a voice's own seconds).
-//   node .claude/skills/space-scene/scripts/space.mjs preview films/fourth_dimension_pop_11_known.js out.jpg -
+//   node .claude/skills/space-scene/scripts/space.mjs preview films/fourth_dimension_pop_12_known.js out.jpg -
 /* global film, set, to, wait, shot, caption, draw, mark, now, at, meanwhile, input */
 const LINES = {
   straight: "Let's be straight about what is known here, and what is a guess.",
@@ -77,7 +77,7 @@ film({
     gridSky: 0
   }
 })
-chapter('11', 'WHAT WE ACTUALLY KNOW')
+chapter('12', 'WHAT WE ACTUALLY KNOW')
 
 // Three columns: what was measured, what is guessed, what is open
 const COLUMNS = { known: 0.05, guess: 0.39, open: 0.66 }

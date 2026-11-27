@@ -20,6 +20,19 @@ Once the missing piece exists (a knob, a fix in code, a sentence in `knobs.md`, 
 
 ## Telling the film
 
+### A galaxy laid on a black hole's well (2026-11-27)
+- Wanted / got: a spinning galaxy on the sheet; got the operator's "what are these crooked settings?": the
+  disc a solid record at 9000 particles, its core a lit ball at the bottom of a narrow throat, hanging under
+  the galaxy, and the size-8 hole's black shadow sticking out above and below the core like a saucer.
+- Cause: the sheet's dent is a black hole's throat at any depth, and the core was laid on the hole, which
+  sits at the throat's bottom; a shadow of 1 radius is taller than a flattened core.
+- Now: a galaxy sits in a shallow dish: the hole small (size 3) and its well widened as many times (Well
+  Width), depth 1.2 of the old radii; the core a soft oval in the disc's plane wider and taller than the
+  shadow; seen from 76 degrees, so a mass under the sheet hangs clear below the disc instead of projecting
+  onto its near edge; the disc's count swept at the framing (2500). Still missing: a body that dents the
+  sheet into a dish with no hole in it.
+- Where: the third picture of `films/fourth_dimension_pop_10_more.js`.
+
 ### Matching a reference by the reviewer's notes, not by the reference (2026-11-27)
 - Wanted / got: the infographic's funnel as the reference draws it; the film-review agent called the well
   too flat, then too narrow, then sagging, and each fix followed the last note. The operator sent the well
@@ -30,7 +43,29 @@ Once the missing piece exists (a knob, a fix in code, a sentence in `knobs.md`, 
   only when it moves the still toward the reference. What is missing is a review step that shows the
   reviewer the reference beside each tile.
 - Where: `films/infographic_style.js`, the well (`gridDepth`, `gridLift`).
+
 ## The scene
+
+### Rings at equal steps along the well's surface (2026-11-27)
+- Wanted / got: two cells of one well, a wide one and a thin one, the same length along the surface; the
+  scene's rings are contour lines (equal steps of depth) or, with Ring Spacing, equal radii, and between two
+  contour lines a cell is as long as the depth step where the wall is steep and longer everywhere else, so no
+  wide and thin cell is ever equal, and no Ring Spacing between the two gives equal surface steps.
+- Now: the film rules its own rings as shapes on `{ sheet }` points, one every equal step along the surface
+  (a walked table of radius against surface length), leaves the scene's spokes on with Sheet Rings 1 and
+  tunes the step so one ring lies on that one ring. Still missing: a Ring Spacing that lays the rings at
+  equal steps along the surface, which would also clear them round the shadow as the scene's lines are.
+- Where: "cells" in `films/fourth_dimension_pop_06_above.js` (`RINGS`, `WALK`).
+
+### Hiding the hole took every place on the scene to its middle (2026-11-27)
+- Wanted / got: galaxies on a flat sheet with the hole hidden (`hide('hole')`); every `{ hole }` and
+  `{ sheet }` place, and every radius given in hole radii, collapsed to the frame's middle: no galaxies, the
+  labels piled on one point.
+- Cause: places on the scene are measured in the shadow's radius as it is drawn, and a hidden shadow has none.
+- Now: keep the hole and make it a speck (Black Hole Size 1) under something drawn over it, and give the
+  places in the speck's radii. Still missing: places that keep their unit while the hole is hidden, or a
+  note in the guide.
+- Where: the second picture of `films/fourth_dimension_pop_10_more.js` (`SPECK`, `SCALE`).
 
 ### A body that fades in or out over a hole showed the hole through it (2026-11-27)
 - Wanted / got: the textbook's ball coming up with the picture and going with it; got a see-through ball with
@@ -59,6 +94,25 @@ Once the missing piece exists (a knob, a fix in code, a sentence in `knobs.md`, 
 - Where: `PAIR`, `WAVES` in `films/fourth_dimension_pop_08_ripple.js`.
 
 ## The tools and the machine
+
+### A screen call piped into tail (2026-11-27)
+- Wanted / got: stills drawn after the operator's screen showed the clip; `screen.mjs live ... | tail -1 &&
+  space.mjs still ...` drew them although the screen had refused ("is behind master"), since the pipe's exit
+  is tail's.
+- Now: never pipe `screen.mjs live`; chain it bare with `&&`, or read its line before drawing.
+
+### A clip that computes too long to have its lines read (2026-11-27)
+- Wanted / got: the reel's lines read by `linesOfReel`; got "could not be read for its lines: Script execution
+  timed out after 5000ms" for a clip whose script integrated the well's surface anew inside a bisection.
+- Cause: `scripts/voice.mjs` runs each clip in a sandbox with 5 s to play; `space.mjs check` has no such
+  limit, so the clip checked clean.
+- Now: build a table once and look values up; time a clip's script with `linesOfReel` after adding sums to it.
+- Where: `films/fourth_dimension_pop_06_above.js` (`WALK`), `linesOfReel` in `scripts/voice.mjs`.
+
+### A shape's width cannot follow a value (2026-11-27)
+- Wanted / got: a body that thins as it stretches; "width takes a number, got 'w'".
+- Now: a thick stroke whose `opacity` follows the value over a thin one. Still missing: `width` as a value.
+- Where: the falling body in `films/fourth_dimension_pop_10_more.js`.
 
 ### A bench whose before refuses the new knob (2026-11-27)
 - Wanted / got: `bench.mjs page --against HEAD --set` with the new `gridFrontPhotons` in it, to price the

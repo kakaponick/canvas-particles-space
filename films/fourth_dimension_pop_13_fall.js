@@ -1,7 +1,7 @@
-// The fourth dimension as popular science, clip 12 of films/fourth_dimension_pop.json: back to the ball: down, or a direction nobody can point to; then the credits.
+// The fourth dimension as popular science, clip 13 of films/fourth_dimension_pop.json: back to the ball: down, or a direction nobody can point to; then the credits.
 // The narration sets the pace: LINES is what is said, say() marks where a line starts, and until a voice has
 // spoken the lines each takes what its words would (input.lines and input.cues bring a voice's own seconds).
-//   node .claude/skills/space-scene/scripts/space.mjs preview films/fourth_dimension_pop_12_fall.js out.jpg -
+//   node .claude/skills/space-scene/scripts/space.mjs preview films/fourth_dimension_pop_13_fall.js out.jpg -
 /* global film, set, to, wait, shot, caption, draw, mark, now, at, meanwhile, input */
 const LINES = {
   back: 'So, back to the ball. Which way does it fall?',
@@ -46,7 +46,7 @@ const keep = (text, seconds, more = {}) => caption(text, seconds, { at: [0.5, 0.
 const leave = () => { to({ fade: 1 }, 0.8) }
 // ---- end of the kit ----
 
-// The Earth stands over the hole, as in fourth_dimension_pop_10_test.js: NASA's photograph, a little wider
+// The Earth stands over the hole, as in fourth_dimension_pop_11_test.js: NASA's photograph, a little wider
 // than the shadow it covers, with the lens and the ring off and space falling in on it from every side. The
 // scene is in 3D from the start, so that the camera can really go down into the Earth's well: it starts
 // near, face on to the Earth (the photograph as large as a hole of SEEN would be), backs off and turns down
@@ -126,7 +126,7 @@ film({
   }
 })
 set({ letterbox: 0, filmGrain: 0 })
-chapter('12', 'SO, WHICH WAY IS DOWN?')
+chapter('13', 'SO, WHICH WAY IS DOWN?')
 
 // The clip's seconds, laid out first
 const tBack = now()

@@ -48,18 +48,22 @@
       "input": {"lines":{"bottom":10.02,"deeper":4.07,"dark":8.54,"thing":11.63,"bold":9.94},"cues":{"bottom":{"neutron":3.9,"half":5.12,"twenty":7.62},"deeper":{"mass":0.42,"deeper":1.76},"dark":{"light":2.44,"dark":5.36,"black":6.98},"thing":{"hole":1.64,"tear":3.12,"object":4.46,"bottom":9.48},"bold":{"singularity":0.66,"wormhole":3.1,"white":4.32,"way":8.34}}}
     },
     {
+      "name": "what else would it explain?",
+      "film": "films/fourth_dimension_pop_10_more.js"
+    },
+    {
       "name": "how to prove it wrong",
-      "film": "films/fourth_dimension_pop_10_test.js",
+      "film": "films/fourth_dimension_pop_11_test.js",
       "input": {"lines":{"fail":4.95,"clock":9.26,"ruler":11.32,"mirrors":18.16,"count":13.27,"verdict":13.21},"cues":{"fail":{"fail":2.38},"clock":{"clocks":6,"millimetre":8.6},"ruler":{"rulers":7.37,"trust":10.67},"mirrors":{"mirrors":2.42,"bouncing":7.9,"ruler":15.2},"count":{"atomic":3.9,"satellite":9.88,"shallower":12.12},"verdict":{"Einstein":0,"hypothesis":3.66,"number":9.64}}}
     },
     {
       "name": "what we actually know",
-      "film": "films/fourth_dimension_pop_11_known.js",
+      "film": "films/fourth_dimension_pop_12_known.js",
       "input": {"lines":{"straight":3.82,"facts":10.84,"guess":6.83,"unanswered":8.42,"century":10.96},"cues":{"straight":{"known":1.82,"guess":3.04},"facts":{"dimension":0.74,"gravity":3.04,"black":6.62,"ripples":10.28},"guess":{"dent":0.94,"W":3.7},"unanswered":{"shrinks":2.22,"unanswered":7.66},"century":{"General":0.82,"test":3.32,"match":8.84}}}
     },
     {
       "name": "so, which way is down?",
-      "film": "films/fourth_dimension_pop_12_fall.js",
+      "film": "films/fourth_dimension_pop_13_fall.js",
       "input": {"lines":{"which":3.99,"back":2.97,"maybe":5.79,"edge":10.59},"cues":{"which":{"which":1.36},"back":{"which":1.26},"maybe":{"down":0.51,"direction":1.81},"edge":{"well":5.92,"falling":7.26}}}
     }
   ]
