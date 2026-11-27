@@ -17,9 +17,9 @@ const cues = input.cues ?? {}
 const X = '#ffb347'
 const Y = '#5dff9b'
 const Z = '#4da3ff'
-const W = '#ff3b5c'
+const W = '#ff3b30'
 const INK = '#eef2ff'
-const SOFT = '#aab6d8'
+const SOFT = '#b4c2c8'
 const GOLD = '#ffd27a'
 // Until a voice has spoken a line it takes what its words would at 155 a minute
 const long = name => lines[name] ?? +(LINES[name].split(/\s+/).length * 60 / 155).toFixed(1)

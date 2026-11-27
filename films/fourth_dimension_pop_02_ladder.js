@@ -20,9 +20,9 @@ const cues = input.cues ?? {}
 const X = '#ffb347'
 const Y = '#5dff9b'
 const Z = '#4da3ff'
-const W = '#ff3b5c'
+const W = '#ff3b30'
 const INK = '#eef2ff'
-const SOFT = '#aab6d8'
+const SOFT = '#b4c2c8'
 const GOLD = '#ffd27a'
 // Until a voice has spoken a line it takes what its words would at 155 a minute
 const long = name => lines[name] ?? +(LINES[name].split(/\s+/).length * 60 / 155).toFixed(1)
@@ -206,7 +206,7 @@ shot('fourth', () => {
   const from = word('fourth', 'fourth', 0.3)
   // A fourth arrow that finds nowhere to point: it swings round the cube and settles nowhere, and the field whirls
   // The camera stays inside the field as it swings, so the frame stays full of streaks
-  at(from - 0.3, () => { to({ cameraYaw: 100, cameraPitch: 20, baseSpeed: 1.8 }, 2.5) })
+  at(from - 0.3, () => { to({ cameraYaw: 90, cameraPitch: 0, baseSpeed: 1.8 }, 2.5) })
   const swing = s => 0.7 + 2.4 * s + 0.9 * Math.sin(2.6 * s)
   at(from, () => {
     draw(stroke([middle, ['tipX', 'tipY']], W, {

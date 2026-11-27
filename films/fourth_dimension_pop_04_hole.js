@@ -19,9 +19,9 @@ const cues = input.cues ?? {}
 const X = '#ffb347'
 const Y = '#5dff9b'
 const Z = '#4da3ff'
-const W = '#ff3b5c'
+const W = '#ff3b30'
 const INK = '#eef2ff'
-const SOFT = '#aab6d8'
+const SOFT = '#b4c2c8'
 const GOLD = '#ffd27a'
 // Until a voice has spoken a line it takes what its words would at 155 a minute
 const long = name => lines[name] ?? +(LINES[name].split(/\s+/).length * 60 / 155).toFixed(1)
@@ -131,7 +131,8 @@ shot('suspect', () => {
   const spoken = say('suspect')
   const end = start + spoken + 0.6
   arrives = end + heard('strongest', 'strongest', 0.45)
-  status('known', spoken + 0.6)
+  // Gravity named as the thing that points inward like the fourth direction is the hypothesis, as in chapter 01
+  status('idea', spoken + 0.6)
   // Arrows from every side to the one centre the matter falls to, on the scene round the speck of a hole
   // (30 to 12 of its radii), held over the line after until the hole arrives there
   at(start + heard('suspect', 'inward', 0.45), () => {
@@ -152,11 +153,12 @@ shot('strongest', () => {
   const start = now()
   const spoken = say('strongest')
   status('known', spoken + 0.6)
+  // The infall thins over the line toward the hole's arrival, so the matter left in flight drains to the centre
+  // instead of vanishing at once
+  at(start, () => { to({ flowB: 0 }, Math.max(arrives - start + 1.2, 2.5)) })
   // The hole arrives where everything was falling to, on "where it is strongest", and is grown by "A black hole"
   at(arrives, () => {
     together(
-      // The infall gives way to the disc before the growing hole spreads its radii out over the frame
-      () => { to({ flowB: 0 }, 0.8) },
       () => { to({ blackHoleSize: 8, gravityReach: 30, gravityStrength: 5, lensingRadius: 2.5, ringBrightness: 1.5, orbitalStrength: 20, gravityInertia: 0.6, starsBrightness: 2.2 }, 2.4, 'ease') },
       // The field's long trails are cut short before the camera moves, or the move smears them into rain
       () => { to({ trailIntensity: 0.6, baseBrightness: 0.4 }, 0.6); to({ baseBrightness: 0.12 }, 1.4) },
