@@ -644,9 +644,10 @@ with the field off, as `films/flows.json` films them:
   round the second and a wide ring round both were seen on one frame.
 - Matter falling in from every side in 3D is flows, never the field with a drift to refill it: the drift
   moves every particle one way, and a turning camera streaks it into parallel rain. Three flows tipped 0,
-  60 and 120 degrees, each `Thick` 0.5 with `Bell` 1 and `Swirl` 0, falling from 5.5 radii (`Spread` 3) to
+  60 and 120 degrees, each `Thick` 0.5 with `Bell` 1 and `Swirl` 0, falling from 4.5 radii (`Spread` 1.5) to
   0.9 with the field off, are a ball of strokes all pointing at the hole, lines of the scene a turn does
-  not smear (`FALL` in `films/fourth_dimension_pop_07_creature.js`). The band matters as much as the
+  not smear (`FALL` in `films/fourth_dimension_pop_07_creature.js`); from 5.5 wide 3 the outer strokes
+  still raked the frame's sides once the camera came in 2 to 3 radii. The band matters as much as the
   count: from 9 or 10 radii wide 6 or 7 the near matter carpets the flat or streaks the frame like a
   starburst at any count, so narrow the band to the part of the frame the shot is about, then sweep the
   count.

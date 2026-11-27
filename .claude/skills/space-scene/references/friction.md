@@ -58,12 +58,40 @@ Once the missing piece exists (a knob, a fix in code, a sentence in `knobs.md`, 
 - Now: pieces deep in a well are shorter on the surface and hold the same amount of space: draw unequal
   lengths with the same count of dots in each. Check a claim's wording against the physics before drawing it.
 
+## The scene
+
+### A textbook ball hanging under the sheet's throat (2026-11-27)
+- Wanted / got: a mass sitting in a dent; got a ball of 1.05 radii at `{ hole: [0, 0] }` under the tip of a
+  narrow funnel, a ball on a stalk (pop film 2:55 to 4:04). A shallower `gridDepth` did not help.
+- Cause: the sheet's dent is a black hole's well, standing vertical at the shadow's edge (1 radius) at any
+  depth, and there is no knob for a wider bowl: a ball as wide as the shadow always ends the throat.
+- Now: a ball wider than the throat, lifted into the well so it still covers the shadow (lift + 1 below its
+  radius): radius 1.9 at `{ hole: [0, 0.8] }` on depth 4 at tilt 68 lies in the bowl with the walls round its
+  upper half; at depth 8 the throat stood over it like a stalk again. Seen from straight above, slide the
+  lift to 0 while the camera rises. A ball over a hole hides the throat's crowded rings inside its radius.
+- Where: `BALL`, `LIFT` in `films/fourth_dimension_pop_05_sheet.js` to `_08_ripple.js`.
+
+### A pair's ripple not seen until the merger (2026-11-27)
+- Wanted / got: crests running out over the sheet from a circling pair; got a flat-looking sheet until the
+  merger, and raising `gridWaveLift` folded the throats into bright needles beside the pair (pop film 5:02).
+- Cause: the spiral wave grows as 1 over the pair's distance and its crests lengthen with a slow orbit, so 6
+  radii apart it is long and low; it is strongest at the pair's middle, where the steep wells fold first.
+- Now: a closer pair (4 radii), shallow wells (`gridDepth` 1.5), `companionWaves` 10 with `gridWaveLift` 9,
+  ramped in over 1.5 s, and a wide clearing (`gridClearing` 3.6, `gridClearingEdge` 8) so the middle is one
+  dark pit; at lift 13 needles came back at any clearing tried. Start closing the clearing at the merger.
+- Where: `PAIR`, `WAVES` in `films/fourth_dimension_pop_08_ripple.js`.
+
 ## The tools and the machine
 
 ### Reading a contact sheet's tiles as one frame (2026-11-27)
 - Wanted / got: compare two stills stacked side by side; read the right tile's coordinates as the whole
-  picture's and "saw" the camera jump.
-- Now: measure inside a tile, or render single stills (`space.mjs still`) when positions matter.
+  picture's and "saw" the camera jump. A reviewer reported a blocker in the pop film's clips 6 to 8: "<" and
+  ">" kinks belonging to no spoke or ring at x 0.22 and 0.78 of the frame. No single frame has them.
+- Cause: the tiles of a preview and of `review.mjs` sheets touch with no gap, so the spokes and long lines
+  of one frame meet those of the frame above, below or beside it at the shared edge and read as one zigzag.
+- Now: measure inside a tile, or render single stills (`space.mjs still`) when positions matter; a line that
+  bends exactly on a tile's edge is two frames. Still missing: a dark gutter between the tiles of a preview
+  sheet, which would end this misreading for reviewers too.
 
 ### A narration that ran the reel past 600 s (2026-11-27)
 - Wanted / got: the Russian and en2 reels rendered; got "the reel is 613 s long; 600 s is the most".

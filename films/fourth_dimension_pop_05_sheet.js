@@ -52,13 +52,21 @@ const leave = () => { to({ fade: 1 }, 0.8) }
 // with nothing on it until the mass arrives. Its matter lies on it (gridRide), and the lens is off: the
 // textbook picture has none
 const TILT = 68
-const HOLE_Y = 0.68
-const DEEP = 6
-// The textbook's mass is a ball, drawn over the hole: it drops onto the flat sheet and sinks with the dent
+// The textbook's dent is a bowl the mass sits in, not a black hole's throat: at depth 6 the funnel was deep
+// and narrower than the ball, which hung under its tip like a ball on a stalk (review, 3:26). At depth 3 the
+// flat sheet stands 2.8 radii above the hole and the ball of 1.05 radii lies inside the bowl
+const HOLE_Y = 0.7
+const DEEP = 4
+// The textbook's mass is a ball, drawn over the hole: it drops onto the flat sheet and sinks with the dent.
+// The sheet's throat stands vertical at the shadow's edge (1 radius) at any depth, so a ball of 1.05 radii
+// at the hole always hung under the throat's tip. This one is wider than the throat and lies LIFT radii up
+// in the bowl, its walls rising round its upper half, and still covers the shadow (LIFT + 1 < BALL)
 const MASS = '#ffc861'
-// Before the dent the hole stands where the flat sheet will stay, the rim of the dent to come (5.646 radii
+const BALL = 1.9
+const LIFT = 0.8
+// Before the dent the hole stands where the flat sheet will stay, the rim of the dent to come (3.735 radii
 // above the hole once it has sunk, by laySheet below), so the sheet holds still and only the mass goes down
-const RIM_Y = 0.2283
+const RIM_Y = 0.4
 // What lies on the sheet rolls toward the dent, swung round as it goes: flow A laid on the sheet, born 2 to 7
 // radii out round the mouth and falling down the wall into the well, winding as it goes, lingering near the
 // hole (Fall Power 0.8) so the wall is lined, warm white against the cyan sheet. The particle field laid on
@@ -66,7 +74,7 @@ const RIM_Y = 0.2283
 // sheet"), so the field is off and the flow is all the matter there is. It comes on with the mass, as the
 // dent sinks. Born 6 to 12 radii out (films.md's row) it was a faint haze on the flat with the wall bare
 const MATTER = 2.5
-// Flow A Count swept at this shot's framing (the sunk dent, tilt 68, depth 6), a second a step: 3000 reads as
+// Flow A Count swept at this shot's framing (the sunk dent, tilt 68), a second a step: 3000 reads as
 // streaks winding down the wall with the grid through them, 6000 richer, 12000 and 24000 a white disc that
 // hides the orbit drawn on the sheet
 const COUNT = 5000
@@ -169,15 +177,16 @@ shot('textbook', () => {
   // sinks, the ball with it, while the sheet round it stays where it was. The ball stays to the clip's end
   const lands = start + heard('textbook', 'mass', 0.84)
   at(lands - 0.45, () => {
-    draw({ kind: 'circle', center: [0.5, 'y'], radius: 0.084, fill: MASS, color: '#ffe3a8', width: 0.002, glow: 0.03, fade: 0, values: { y: [[now(), -0.1], [lands, RIM_Y, 'in']] } }, lands - now())
+    // The same ball in shares of the short side: a radius is 0.08 of it
+    draw({ kind: 'circle', center: [0.5, 'y'], radius: part(0.08 * BALL), fill: MASS, color: '#ffe3a8', width: 0.002, glow: 0.03, fade: 0, values: { y: [[now(), -0.2], [lands, part(RIM_Y - 0.08 * LIFT), 'in']] } }, lands - now())
   })
   at(lands, () => {
     show('hole')
     show('ring')
     const clipEnd = start + spoken + 0.6 + long('roll') + 1.4 + long('axes') + 0.6 + long('metaphor') + 0.6 + long('whatif') + 0.6 + 0.8
     // Shapes lie over the fade, so the ball goes dark with the picture as the clip leaves
-    draw({ kind: 'circle', center: { hole: [0, 0] }, radius: 1.05, fill: MASS, color: '#ffe3a8', width: 0.002, glow: 0.03, fade: 0, opacity: 'lit', values: { lit: [[now(), 1], [clipEnd - 0.8, 1], [clipEnd, 0]] } }, clipEnd - now())
-    label('a mass', 3.4, { hole: [2.8, 0.3] }, { color: GOLD })
+    draw({ kind: 'circle', center: { hole: [0, LIFT] }, radius: BALL, fill: MASS, color: '#ffe3a8', width: 0.002, glow: 0.03, fade: 0, opacity: 'lit', values: { lit: [[now(), 1], [clipEnd - 0.8, 1], [clipEnd, 0]] } }, clipEnd - now())
+    label('a mass', 3.4, { hole: [3.6, LIFT + 0.4] }, { color: GOLD })
     // The dent sinks and the matter on the sheet comes up with it, already running down into it
     to({ gridDepth: DEEP, blackHoleY: HOLE_Y, flowA: MATTER * 0.6 }, 2.4)
   })
@@ -202,14 +211,18 @@ shot('roll', () => {
   })
   // "your falling apple": a small ball runs down a spoke into the dent
   at(start + heard('roll', 'apple', 0.72) - 0.2, () => {
-    // It reaches the mass in 1.4 s and goes under it; the apple and its word leave together just after
-    const away = s => 5.2 - 4.08 * Math.min(1, s / 1.4) ** 2
-    draw({ kind: 'circle', center: { sheet: ['ax', 'ay'] }, radius: 0.28, fill: '#ff6b5c', color: '#ff6b5c', fade: 0.3, values: { ax: s => part(away(s) * Math.cos(Math.PI / 6)), ay: s => part(away(s) * Math.sin(Math.PI / 6)) } }, 1.7)
-    label('apple', 1.7, onSheet(6.2, 30), { size: 0.026, color: INK, plate: 0.4 })
+    // It reaches the mass's edge (1.6 radii out on this spoke) in 1.4 s, its word riding beside it, and the two
+    // leave together just after; drawn after the ball, it would roll on over its face
+    const away = s => 5.2 - 3.6 * Math.min(1, s / 1.4) ** 2
+    const ax = s => part(away(s) * Math.cos(Math.PI / 6))
+    const ay = s => part(away(s) * Math.sin(Math.PI / 6))
+    draw({ kind: 'circle', center: { sheet: ['ax', 'ay'] }, radius: 0.28, fill: '#ff6b5c', color: '#ff6b5c', fade: 0.3, values: { ax, ay } }, 1.7)
+    label('apple', 1.7, { sheet: ['lx', 'ly'] }, { size: 0.026, color: INK, plate: 0.4, values: { lx: s => part(ax(s) + 0.9), ly: s => part(ay(s) + 0.9) } })
   })
   // "your weight": the push down the wall of the dent
   at(start + heard('roll', 'weight', 0.92) - 0.2, () => {
-    draw({ kind: 'line', points: [4.4, 3.2, 2.3, 1.7, 1.35, 1.15].map(away => onSheet(away, 230)), smooth: true, arrow: 'end', draw: 0.5, ...look, width: 0.0055, glow: 0.008 }, end - now())
+    // Down the wall to the mass's edge, which it meets 2.7 radii out on this spoke
+    draw({ kind: 'line', points: [5.4, 4.6, 3.9, 3.3, 2.95, 2.7].map(away => onSheet(away, 230)), smooth: true, arrow: 'end', draw: 0.5, ...look, width: 0.0055, glow: 0.008 }, end - now())
     label('weight', end - now(), onSheet(5.6, 235), { size: 0.026, color: INK, plate: 0.4 })
   })
   wait(end - start)

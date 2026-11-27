@@ -104,14 +104,15 @@ film({
     gridLine: 2,
     gridCell: 4,
     gridTilt: 68,
-    gridDepth: 6,
+    // Chapter 05's bowl, the ball lying in it
+    gridDepth: 4,
     gridRings: 0,
     gridSpokes: 24,
     gridSpan: 1.6,
     gridFade: 0.4,
     // The flow lies on the sheet
     gridRide: 1,
-    blackHoleY: 0.68
+    blackHoleY: 0.7
   }
 })
 // The hole itself stays: without it the sheet has no well and no rings. The mass covers its shadow, and its
@@ -149,7 +150,7 @@ function laySheet (tilt, radii, holeY) {
     return [x * scale / SHADOW, (down - (y * cos + deep * sin) * scale) / SHADOW]
   }
 }
-const DEPTH = 6
+const DEPTH = 4
 const above = laySheet(0, DEPTH, 0.5)
 const part = value => +value.toFixed(4)
 // A point of the sheet at a radius and an angle, on the screen
@@ -183,20 +184,25 @@ function hypercube (centre, size, seconds) {
 }
 
 const RISE = 4
-// Two neighbouring steps of the well that the circles pick out, clear of the matter round the shadow, and
-// the rim the arrows of the last line start from
-const R_OUT = 3.2
-const R_IN = 2.4
-const RIM = 3.7
+// Two steps of the well that the circles pick out, far enough apart that W between them reads as an arrow
+// (3.2 and 2.4 drew it tiny, review 3:47), and the rim the arrows of the last line start from
+const R_OUT = 4.6
+const R_IN = 2.5
+const RIM = 3.9
 const FLYUP = Math.max(long('flyup') + 0.6, heard('flyup', 'up', 0.45) - 0.3 + RISE + 0.2)
 
 // The mass over the hole: it comes up with the picture under the chapter card's last second and stays to the
-// clip's end, going dark with the picture as the clip leaves (shapes lie over the fade)
+// clip's end, going dark with the picture as the clip leaves (shapes lie over the fade). It is chapter 05's
+// ball, wider than the throat and lying LIFT radii up in the bowl; seen from straight above it lies over the
+// hole's middle, so it slides there while the camera rises
+const BALL = 1.9
+const LIFT = 0.8
+const RISES = now() + heard('flyup', 'up', 0.45) - 0.3
 {
   const card = now() - 1.2
   const clipEnd = now() + FLYUP + long('flat') + 0.6 + long('rings') + 0.6 + long('same') + 0.6 + long('points') + 0.6 + 0.8
   at(card, () => {
-    draw({ kind: 'circle', center: { hole: [0, 0] }, radius: 1.05, fill: MASS, color: '#ffe3a8', width: 0.002, glow: 0.03, fade: 0, opacity: 'lit', values: { lit: [[card, 0], [card + 1.2, 1], [clipEnd - 0.8, 1], [clipEnd, 0]] } }, clipEnd - card)
+    draw({ kind: 'circle', center: { hole: [0, 'up'] }, radius: BALL, fill: MASS, color: '#ffe3a8', width: 0.002, glow: 0.03, fade: 0, opacity: 'lit', values: { lit: [[card, 0], [card + 1.2, 1], [clipEnd - 0.8, 1], [clipEnd, 0]], up: [[card, LIFT], [RISES, LIFT], [RISES + RISE, 0]] } }, clipEnd - card)
   })
 }
 
@@ -205,19 +211,9 @@ shot('flyup', () => {
   const spoken = say('flyup')
   status('math', spoken + 0.4)
   // "Fly up": the camera rises from the side of the sheet to straight above it
-  const rises = start + heard('flyup', 'up', 0.45) - 0.3
-  at(rises, () => {
+  at(RISES, () => {
     meanwhile(() => { to({ gridTilt: 0, gridDepth: DEPTH, blackHoleY: 0.5, flowACount: COUNT }, RISE) })
     caption('*{look down}', RISE, { at: [0.5, 0.12], size: 0.04, font: 'unbounded', accent: W, fade: 0.4 })
-  })
-  // Halfway up the sheet is ruled again for what comes: it dips out for a moment and comes back as spokes
-  // round the hole, with one ring, which lies under the mass (the outermost ring stands half as many radii
-  // out as there are rings), so "rings" only paints rings onto it. Switched there, at the first ring, the
-  // square grid flipped to a wheel in one frame (review, 3:41)
-  at(rises + RISE * 0.45, () => {
-    to({ gridSheet: 0 }, 0.3)
-    set({ gridRings: 1 })
-    to({ gridSheet: 1 }, 0.3)
   })
   wait(FLYUP)
 })
@@ -226,7 +222,8 @@ shot('flat', () => {
   const start = now()
   const spoken = say('flat')
   status('math', spoken + 0.4)
-  // From above the well is gone: a square grid, as flat as paper
+  // From above the well is gone: the same square cells, as flat as paper. They stay through the line: ruled
+  // as spokes already, the sheet read as a starburst round the ball, not as flat paper (review, 3:35)
   at(start + heard('flat', 'flat', 0.85), () => {
     caption('flat?', spoken - heard('flat', 'flat', 0.85) + 0.6, { at: [0.5, 0.14], size: 0.07, font: 'unbounded', color: INK, fade: 0.3 })
   })
@@ -237,6 +234,15 @@ shot('rings', () => {
   const start = now()
   const spoken = say('rings')
   status('math', spoken + 0.4)
+  // "But the depth is not gone": the sheet is ruled again for what comes. It dips out for a moment and comes
+  // back as spokes round the hole, with one ring, which lies under the mass (the outermost ring stands half
+  // as many radii out as there are rings), so "paint a ring" only paints rings onto it. Switched at the
+  // first ring, the square grid flipped to a wheel in one frame (review, 3:41)
+  at(start, () => {
+    to({ gridSheet: 0 }, 0.3)
+    set({ gridRings: 1 })
+    to({ gridSheet: 1 }, 0.3)
+  })
   // "Paint a ring": one ring for every step of the well's depth, painted in over two seconds
   at(start + heard('rings', 'ring', 0.4), () => {
     meanwhile(() => { to({ gridRings: 40 }, 2, 'linear') })
@@ -261,12 +267,14 @@ shot('same', () => {
     draw({ kind: 'circle', center: { hole: [0, 0] }, radius: part(above(R_IN, 0)[0]), color: INK, width: 0.004, draw: 0.6, fade: 0.4 }, end - now())
   })
   at(start + heard('same', 'w', 0.45), () => {
-    draw({ kind: 'line', points: [onTop(R_OUT, Math.PI), onTop(R_IN, Math.PI)], arrow: 'end', color: W, width: 0.0065, draw: 0.6, fade: 0.4 }, end - now())
+    draw({ kind: 'line', points: [onTop(R_OUT, Math.PI), onTop(R_IN, Math.PI)], arrow: 'end', color: W, width: 0.008, draw: 0.6, fade: 0.4 }, end - now())
     const [x] = above(-(R_OUT + R_IN) / 2, 0)
-    caption('W', end - now(), { at: { hole: [part(x), 0.7] }, size: 0.04, font: 'unbounded', color: W, fade: 0.4 })
+    caption('W', end - now(), { at: { hole: [part(x), 0.9] }, size: 0.05, font: 'unbounded', color: W, fade: 0.4, plate: 0.5 })
   })
-  // "The cube inside the cube": the rhyme, drawn small beside the picture
+  // "The cube inside the cube": the rhyme, drawn small beside the picture on a dark card of its own, so the
+  // spokes do not run through it
   at(start + heard('same', 'cube', 0.75), () => {
+    draw({ kind: 'rect', center: [0.86, 0.5], size: [0.42, 0.68], round: 0.012, color: '#46525a', width: 0.0012, fill: '#05070a', fillOpacity: 0.82, fade: 0.4 }, end - now())
     hypercube([0.86, 0.33], 0.2, end - now())
     draw({ kind: 'circle', center: [0.86, 0.6], radius: 0.06, color: INK, width: 0.003, draw: 0.6, fade: 0.4 }, end - now())
     draw({ kind: 'circle', center: [0.86, 0.6], radius: 0.025, color: INK, width: 0.003, draw: 0.6, fade: 0.4 }, end - now())
@@ -282,12 +290,16 @@ shot('points', () => {
   const end = start + spoken + 0.6
   status('idea', spoken + 0.4)
   // With nothing to swing it round, the matter goes straight in along the spokes: the depth points inward.
-  // The winding flow gives way to flow B, the same matter with no swirl, over two seconds
-  meanwhile(() => { to({ flowA: 0, flowB: MATTER }, 2) })
+  // The winding flow gives way to flow B, the same matter with no swirl: B comes up before A goes, so the
+  // matter does not thin out in the middle of the handover (review, 4:00)
+  meanwhile(() => {
+    to({ flowB: MATTER }, 1.2)
+    to({ flowA: 0 }, 1.2)
+  })
   at(start + heard('points', 'points', 0.6), () => {
     for (let index = 0; index < 8; index++) {
       const angle = index * Math.PI / 4
-      draw({ kind: 'line', points: [onTop(RIM, angle), onTop(1.7, angle)], arrow: 'end', color: W, width: 0.006, draw: 0.6, fade: 0.4 }, end - now())
+      draw({ kind: 'line', points: [onTop(RIM, angle), onTop(BALL + 0.3, angle)], arrow: 'end', color: W, width: 0.006, draw: 0.6, fade: 0.4 }, end - now())
     }
   })
   at(start + heard('points', 'inward', 0.9) - 0.4, () => {
