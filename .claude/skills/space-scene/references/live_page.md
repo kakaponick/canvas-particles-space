@@ -24,26 +24,29 @@ What the page needs:
   task.
 - The live scene has a random seed and a cursor. A picture that must come out the same twice is a film.
 
-## In the operator's browser
+## On the operator's screen
 
 The operator sees every simulation first (CLAUDE.md, "Working here"): before an agent draws a still, a
-preview, a sheet or a render of a film or of a new look, it opens it in the operator's own browser. A shell
-is all it takes; no browser tool of the agent's.
+preview, a sheet or a render of a film or of a new look, it puts it on the operator's screen. The screen is
+one page, `http://127.0.0.1:5199/`, that the operator keeps open in T3 Code's own browser; it shows what an
+agent last put on it, with a bar naming what it shows, the worktree and when, and a list to go back to the
+last few. A shell is all an agent needs; no browser tool of its own.
 
-1. A dev server from the agent's own worktree, on a port nobody uses:
-   `node node_modules/vite/bin/vite.js --port 5181 --strictPort --host 127.0.0.1`, run in the background.
-   It serves that worktree's `src/` and `films/`, so an engine change shows as it is saved.
-2. A film not yet in `films/` goes there as `films/_lab_<name>.js`; `films/_lab_*` is in the repository's
+1. A film not yet in `films/` goes there as `films/_lab_<name>.js`; `films/_lab_*` is in the repository's
    `.git/info/exclude`, so it never joins a commit.
-3. Open `http://127.0.0.1:5181/?live=<film>` in the operator's default browser:
-   `Start-Process 'http://127.0.0.1:5181/?live=<film>'` in PowerShell, or
-   `powershell -NoProfile -Command "Start-Process 'http://127.0.0.1:5181/?live=<film>'"` from Git Bash.
-   `?live=` plays that film of `films/` inside the page's own scene, looping: its tracks are written into
-   the settings every frame, the operator can still turn the camera, and a reload of the page (every save
-   of the code) starts it again. Only settings move: captions, graphics and cues show in the film mode,
-   `/?film=<film>`. A later change to the same film needs no new tab: the page reloads itself on save.
-4. Then the agent's own stills. The report names the address, and the server stays up while the
-   operator may still be watching; the agent stops it when its task ends.
+2. From the worktree: `node scripts/screen.mjs live <film> "<what it shows>"`. It starts that worktree's
+   dev server once (a port from 5200 up, detached; later calls reuse it), starts the screen if it is not
+   up, and shows `?live=<film>` there. `?live=` plays that film of `films/` inside the page's own scene,
+   looping: its tracks are written into the settings every frame, the operator can still turn the camera,
+   and a save of the code or the film reloads the page and starts it again, so a change to the same film
+   needs no second call. Only settings move: captions, graphics and cues show in the film mode; to show
+   that, `node scripts/screen.mjs show http://127.0.0.1:<port>/?film=<film> "<what>"`.
+3. Then the agent's own stills. The report says what it put on the screen.
+4. The dev server runs until the worktree goes: `node scripts/screen.mjs stop` from the worktree before it
+   is removed. `node scripts/screen.mjs status` lists what the screen shows and the servers it knows.
+
+The page drives its film by the browser's frames, so a hidden tab holds it still; it runs on as soon as the
+operator looks.
 
 On the page, `window.space.film.live(film, { from?, loop?, input? })` plays a film, its script or a name in
 `films/` the same way, `film.liveTime()` says where it is, and `film.liveStop()` stops it and puts back the
