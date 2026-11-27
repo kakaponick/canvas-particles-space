@@ -129,7 +129,7 @@ shot('strongest', () => {
     to({ blackHoleSize: 8, gravityReach: 30, gravityStrength: 5, lensingRadius: 2.5, ringBrightness: 1.5, orbitalStrength: 20, gravityInertia: 0.6, starsBrightness: 2.2 }, 2.4, 'ease')
     // The disc lights as the field it grew out of dims, so the shadow reads black, and the camera climbs to
     // the equator: the disc turns from a ring round the shadow to the edge-on disc with its arch
-    to({ flowA: 0.7, baseBrightness: 0.5 }, 3)
+    to({ flowA: 0.7, baseBrightness: 0.12 }, 3)
     to({ cameraPitch: 78 }, 5, 'ease')
   })
   until(start + spoken + 0.6)

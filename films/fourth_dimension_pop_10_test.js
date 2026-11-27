@@ -141,6 +141,14 @@ film({
     gridTilt: 62,
     gridSpokes: 24,
     gridRide: 1,
+    // The whole column lies on the sheet: at the default Ride Edge the matter the well gathers from every
+    // depth hung part of the way between where it flies and the surface, a cloud under the Earth
+    gridRideSoft: 0.01,
+    // and the slab reaches the whole column: Ride Depth is in hole radii, and this hole is half the default
+    // size, so at the default slab half the column flew free round the Earth, a cloud in front of the well
+    gridRideDepth: 400,
+    // The Earth's well is a billionth of a black hole's: no redshift to see near it
+    gravityRedshift: 0,
     fieldAtHole: 1,
     gridFade: 0.3
   }
@@ -148,8 +156,12 @@ film({
 set({ letterbox: 0, filmGrain: 0 })
 chapter('10', 'HOW TO PROVE IT WRONG')
 
-// The Earth, NASA's Apollo 17 photograph, stands over the hole for the whole clip
-draw({ kind: 'image', src: 'films/fourth_dimension_earth.png', center: { hole: [0, 0] }, width: 2.62 }, END - now())
+// The Earth, NASA's Apollo 17 photograph, stands over the hole for the whole clip. The hole is the scene's
+// way of giving the Earth a well and a pull, and is never to be seen as one: the photograph comes up with
+// the picture as the chapter's card leaves, covering the shadow from the card's last second on
+at(1.6, () => {
+  draw({ kind: 'image', src: 'films/fourth_dimension_earth.png', center: { hole: [0, 0] }, width: 2.62, fade: 1.2 }, END - now())
+})
 
 shot('fail', () => {
   const start = now()
