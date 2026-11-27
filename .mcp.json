@@ -4,7 +4,10 @@
       "command": "cmd",
       "args": [
         "/c", "npx", "-y", "chrome-devtools-mcp@1",
+        "--headless",
         "--viewport", "1600x900",
+        "--chromeArg=--use-angle=d3d11",
+        "--chromeArg=--ignore-gpu-blocklist",
         "--chromeArg=--disable-backgrounding-occluded-windows",
         "--chromeArg=--disable-renderer-backgrounding",
         "--chromeArg=--disable-background-timer-throttling",

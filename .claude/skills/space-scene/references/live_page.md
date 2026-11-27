@@ -3,7 +3,7 @@
 `window.space` reads and changes every setting and intro parameter and drives the opening's timeline. It is
 loaded in development and on any build opened with `?agent`; `window.space.help()` lists its commands.
 
-1. Open the page with a browser tool. The `chrome-devtools` MCP server of this repository opens its own
+1. Open the page with a browser tool. The `chrome-devtools` MCP server of this repository opens its own headless
    Chrome with its own profile: `navigate_page` to `http://localhost:5173/` (the dev server, `pnpm dev`)
    or to `https://space.xn--c6t.net/?agent`.
 2. `evaluate_script` with `() => window.space.set({ blackHoleSize: 12 })`, and the same way for every
