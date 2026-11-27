@@ -2318,6 +2318,7 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
         grid.frontPulseGap = Math.max(state.gridFrontPulseGap, 0.1)
         grid.frontStrength = Math.max(state.gridFrontStrength, 1)
         grid.frontField = Math.max(state.gridFrontField, 0)
+        grid.frontFieldEven = Math.min(Math.max(state.gridFrontFieldEven, 0), 1)
         readSceneColor(grid.frontColor, state.gridFrontColor)
       }
     }

@@ -802,6 +802,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   let fieldFloor = -1
   let fieldStrength = 1
   let fieldZone = 0
+  let fieldEven = 0
   let fieldSolved = false
 
   const fadeUniforms = getUniforms(gl, fadeProgram, ['fade'] as const)
@@ -1817,14 +1818,15 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     const reach = Math.pow(2, Math.ceil(Math.log2(Math.max(corner, 2)) * 4) / 4)
     const floor = grid.star >= 1 ? grid.star : 0
     if (frontField && Math.abs(flash - fieldFlash) <= flash * 1e-5 && reach === fieldReach && floor === fieldFloor &&
-      grid.frontStrength === fieldStrength && grid.frontField === fieldZone) return fieldSolved
+      grid.frontStrength === fieldStrength && grid.frontField === fieldZone && grid.frontFieldEven === fieldEven) return fieldSolved
     if (!frontField) frontField = createFrontField()
     fieldFlash = flash
     fieldReach = reach
     fieldFloor = floor
     fieldStrength = grid.frontStrength
     fieldZone = grid.frontField
-    fieldSolved = frontField.solve(flash, reach, floor, grid.frontStrength, grid.frontField)
+    fieldEven = grid.frontFieldEven
+    fieldSolved = frontField.solve(flash, reach, floor, grid.frontStrength, grid.frontField, grid.frontFieldEven)
     if (fieldSolved) {
       gl.activeTexture(gl.TEXTURE0 + FLASH_TEXTURE_UNIT)
       gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, FRONT_FIELD_RADII, FRONT_FIELD_ANGLES, gl.RED, gl.FLOAT, frontField.delay)

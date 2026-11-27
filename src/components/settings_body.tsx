@@ -596,6 +596,7 @@ function SettingsBody () {
             <SettingSlider field="gridFrontPulseGap" />
             <SettingSlider field="gridFrontStrength" />
             <SettingSlider field="gridFrontField" />
+            <SettingSlider field="gridFrontFieldEven" />
             <SettingSlider field="gridFrontFieldLine" />
             <SettingSlider field="gridPhotonCount" />
             <SettingSlider field="gridPhotonTrail" />

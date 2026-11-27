@@ -50,10 +50,13 @@ export function frontIndex (rho: number): number {
 
 // The index Light Front solves in: the hole's own, its excess over 1 made `strength` times stronger (1: the
 // real hole; above, a field for light drawn as the textbook draws it, larger than life) and, with a zone
-// (`zone` throat radii, 0: none), easing to nothing over its outer tenth, so outside it light runs free
-export function zoneIndex (rho: number, strength: number, zone: number): number {
-  const excess = frontIndex(rho) - 1
+// (`zone` throat radii, 0: none), easing to nothing over its outer tenth, so outside it light runs free. With a
+// zone, `even` (0 to 1) spreads that share of the slowing evenly across it, at the excess the hole has halfway
+// out: light slows as soon as it enters, as through a ball of glass, which is how the textbook draws it
+export function zoneIndex (rho: number, strength: number, zone: number, even = 0): number {
+  let excess = frontIndex(rho) - 1
   if (!(zone > 0)) return 1 + strength * excess
+  if (even > 0) excess += even * (frontIndex(0.5 * zone) - 1 - excess)
   const share = Math.min(Math.max((rho - 0.9 * zone) / (0.1 * zone), 0), 1)
   return 1 + strength * excess * (1 - share * share * (3 - 2 * share))
 }
@@ -69,9 +72,9 @@ export interface FrontField {
   flash: number
   // Solves the field for a flash `flash` throat radii from the hole, out to `reach` and in to `floor` (a
   // star's surface, which takes the light that meets it; the photon sphere's floor at least), in the index
-  // zoneIndex gives for `strength` and `zone` (1 and 0: the real hole). False, with no field, when the flash
+  // zoneIndex gives for `strength`, `zone` and `even` (1, 0 and 0: the real hole). False, with no field, when the flash
   // is not outside the floor
-  solve: (flash: number, reach: number, floor: number, strength?: number, zone?: number) => boolean
+  solve: (flash: number, reach: number, floor: number, strength?: number, zone?: number, even?: number) => boolean
   // The arrival time at a place of the plane given from the hole, in throat radii, the flash on the first
   // axis, read between the nodes as the shader reads it: for checks
   arrival: (x: number, y: number) => number
@@ -246,8 +249,8 @@ export function createFrontField (radii = FRONT_FIELD_RADII, angles = FRONT_FIEL
     inner: 0,
     outer: 1,
     flash: 0,
-    solve (flash, reach, floor, strength = 1, zone = 0) {
-      const index = (rho: number) => zoneIndex(rho, strength, zone)
+    solve (flash, reach, floor, strength = 1, zone = 0, even = 0) {
+      const index = (rho: number) => zoneIndex(rho, strength, zone, even)
       const innermost = Math.max(floor, FIELD_FLOOR)
       field.flash = 0
       if (!(flash > innermost * 1.05)) return false

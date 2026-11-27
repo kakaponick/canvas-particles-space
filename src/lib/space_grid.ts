@@ -84,6 +84,8 @@ export interface GridSettings {
   // radii (0: none)
   frontStrength: number
   frontField: number
+  // The share of the zone's slowing spread evenly across it
+  frontFieldEven: number
   frontColor: SceneColor
   // The share of the sheet behind the holes drawn into the layer the lens reads, the rest over the frame
   lensed: number
@@ -162,6 +164,7 @@ export function createGridSettings (): GridSettings {
     frontPulseGap: 2,
     frontStrength: 1,
     frontField: 0,
+    frontFieldEven: 0,
     frontColor: createSceneColor(),
     lensed: 0,
     wave: new Float32Array(SHEET_WAVE_FLOATS),
