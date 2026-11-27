@@ -62,11 +62,12 @@ film({
     gravityStrength: 8,
     speedGlowKnee: 0.02,
     minOpacity: 0.3,
-    gravityReach: 40,
+    // The pull reaches past the frame's far edge, so the field thins toward the left with no edge of its own
+    gravityReach: 90,
     gravityInertia: 0.6,
     orbitalStrength: 80,
     trailIntensity: 0.15,
-    baseBrightness: 2.5,
+    baseBrightness: 1,
     starsBrightness: 0.8,
     starDensity: 0.15,
     gridSky: 0
@@ -131,7 +132,7 @@ shot('unanswered', () => {
   const start = now()
   status('open', spoken + 0.3)
   at(start + heard('unanswered', 'shrinks', 0.3), () => item('does matter shrink\nin a well?', COLUMNS.open, 0, spoken + 0.6 - (now() - start)))
-  at(start + heard('unanswered', 'unanswered', 0.85), () => caption('unanswered', spoken + 0.6 - (now() - start), { at: [COLUMNS.open, HEAD_Y + 0.1 + ROW * 1.6], size: 0.022, font: 'unbounded', color: SOFT, align: 'left', fade: 0.4 }))
+  at(start + heard('unanswered', 'author', 0.6), () => caption('unanswered', spoken + 0.6 - (now() - start), { at: [COLUMNS.open, HEAD_Y + 0.1 + ROW * 1.6], size: 0.028, font: 'unbounded', color: SOFT, align: 'left', fade: 0.4 }))
   wait(spoken + 0.6)
 })
 
@@ -149,7 +150,7 @@ shot('century', () => {
     const seconds = life - (now() - start)
     draw({ kind: 'line', points: [[left, y], [right, y]], arrow: 'end', color: SOFT, width: 0.0026, draw: 1.2, fade: 0.4 }, seconds)
     caption('1915', seconds, { at: [left, y + 0.06], size: 0.024, font: 'unbounded', color: GOLD, fade: 0.4 })
-    caption('general relativity', seconds, { at: [left + 0.01, y - 0.2], size: 0.022, font: 'unbounded', color: SOFT, align: 'left', fade: 0.4 })
+    caption('general relativity', seconds, { at: [left + 0.01, y + 0.11], size: 0.022, font: 'unbounded', color: SOFT, align: 'left', fade: 0.4 })
     caption('today', seconds, { at: [right + 0.035, y], size: 0.024, font: 'unbounded', color: INK, align: 'left', fade: 0.4 })
   })
   const tests = [

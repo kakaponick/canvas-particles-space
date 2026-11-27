@@ -198,9 +198,12 @@ chapter('10', 'HOW TO PROVE IT WRONG')
 
 // The Earth, NASA's Apollo 17 photograph, stands over the hole for the whole clip. The hole is the scene's
 // way of giving the Earth a well and a pull, and is never to be seen as one: the photograph comes up with
-// the picture as the chapter's card leaves, covering the shadow from the card's last second on
+// the picture as the chapter's card leaves, covering the shadow from the card's last second on, and is
+// drawn a little wider than elsewhere, since the camera that flies down to the well sees the shadow's
+// edge round the photograph's at the default width
 at(1.6, () => {
-  draw({ kind: 'image', src: 'films/fourth_dimension_earth.png', center: { hole: [0, 0] }, width: 2.62, fade: 1.2 }, END - now())
+  // its light keyed to the picture's own fade in and out, so the hole under it never shows through
+  draw({ kind: 'image', src: 'films/fourth_dimension_earth.png', center: { hole: [0, 0] }, width: 2.9, opacity: 'lit', fade: 0, values: { lit: [[1.6, 0], [2.8, 1], [END - 0.8, 1], [END, 0]] } }, END - now())
 })
 
 shot('fail', () => {
@@ -221,7 +224,7 @@ shot('clock', () => {
   // The space falls faster for a moment: gravity, the thing that slows time
   at(start, () => { to({ gravityStrength: 5 }, 1.5) })
   // Two clocks, one a millimetre above the other: the upper counts a little faster
-  at(start + heard('clock', 'clocks', 0.35) - 0.4, () => {
+  at(start + heard('clock', 'time', 0.12), () => {
     const rest = life - (now() - start)
     const born = now()
     for (const [y, rate, name] of [[0.34, 1, 'higher'], [0.48, 0.96, 'lower']]) {
@@ -272,10 +275,11 @@ const onSheet = (away, angle) => {
 // out on the flat to ring `last` just above the Earth, every `every` rings: each piece between two marks
 // holds the same amount of space, the same steps along W, and the deeper it lies the shorter it is on the surface. A mark is a piece of
 // its ring, `half` of the well's radii either side of the spoke
-const RULER = { angle: 60, first: 5, last: 29, every: 2, half: 0.22 }
+const RULER = { angle: 60, first: 5, last: 25, every: 4, half: 0.22 }
 const RULER_LENGTH = surface(ring(RULER.first), ring(RULER.last))
 // Lifted off the sheet the ruler lies straight across the top of the frame, its flat end at the right and
-// its deep end at the left, every piece as long as it was on the surface
+// its deep end at the left, every piece as long as it was on the surface: from 0.47 of the frame out on the
+// flat to 0.047 deep in the well, room for three separate dots in the shortest
 const STRAIGHT = { right: 0.93, left: 0.07, y: 0.3, tick: 0.022 }
 const straightAt = away => [part(STRAIGHT.right - (STRAIGHT.right - STRAIGHT.left) * surface(ring(RULER.first), away) / RULER_LENGTH), STRAIGHT.y]
 // A place of the ruler `lift` of the way from the sheet to the straight ruler (a value's name)
@@ -300,20 +304,23 @@ const rulerMark = (k, lift) => {
 }
 // The same amount of space in every piece: DOTS dots spread evenly along each
 const DOTS = 3
+// W, the way down the well, is shown down the spoke at this angle: on the near wall
+const W_SPOKE = -60
 
 shot('ruler', () => {
   const start = now()
   const spoken = say('ruler')
   const life = spoken + 0.6 + RULER_HOLD
-  status('idea', spoken)
+  // above the Earth's photograph, which the camera brings down to the frame's lower left
+  caption(STATUS.idea[0], life - 0.2, { at: [0.5, 0.06], size: 0.022, font: 'unbounded', color: STATUS.idea[1], fade: 0.4 })
   // The camera flies down to the sheet beside the Earth's well, and back as the shot ends
   at(start, () => {
     to({ gravityStrength: 3 }, 1.5)
-    to({ cameraMoveIn: 15, cameraPitch: -42, cameraLookPitch: 12 }, 2.4, 'ease')
+    to({ cameraMoveIn: 15, cameraPitch: -42, cameraLookPitch: 8 }, 2.4, 'ease')
     // and the falling space dims, so the ruler and the rings it is read by stand out
     to({ flowA: 0.6 }, 2.4)
   })
-  at(start + life - 1.6, () => { to({ cameraMoveIn: 0, cameraPitch: -62, cameraLookPitch: 0 }, 1.6, 'ease'); to({ flowA: 1.6 }, 1.6) })
+  at(start + life - 1.6, () => { to({ cameraMoveIn: 0, cameraPitch: -62, cameraLookPitch: 0 }, 1.6, 'ease'); to({ flowA: 1.6, gridSheet: 0.8 }, 1.6) })
   const gone = start + life - 1.4
   const rulerFrom = start + heard('ruler', 'rulers', 0.4) - 2.6
   const squeezeFrom = start + heard('ruler', 'squeezed', 0.55)
@@ -321,6 +328,8 @@ shot('ruler', () => {
   const liftFrom = squeezeFrom + 1.4
   const LIFT = 1.6
   const lift = [[liftFrom, 0], [liftFrom + LIFT, 1]]
+  // The sheet and the falling space step back as the ruler lifts off, so the straight ruler reads on the dark
+  at(liftFrom, () => { to({ gridSheet: 0.25, flowA: 0.25 }, 0.8) })
   // The ruler laid down the spoke, its marks lit ring by ring from the flat down to the Earth
   at(rulerFrom, () => {
     const rest = gone - now()
@@ -337,8 +346,9 @@ shot('ruler', () => {
   // W is the way the well goes down: an arrow along the next spoke, down to the Earth, while the ruler lies there
   at(squeezeFrom - 0.5, () => {
     const rest = liftFrom - now()
-    sketch({ kind: 'line', points: [60, 50, 40, 30, 20, 10, 0].map(share => onSheet(1.3 + 2.9 * share / 60, RULER.angle + 30)), smooth: true, arrow: 'end', color: W, width: 0.0042, fade: 0.3, draw: 0.9 }, rest)
-    cap('*{W}', rest, { at: onSheet(2.4, RULER.angle + 44), size: 0.036, font: 'unbounded', accent: W, fade: 0.3 })
+    // down the near wall, the side facing the camera, from out on the flat to the Earth's edge
+    sketch({ kind: 'line', points: [0, 1, 2, 3, 4, 5, 6, 7, 8].map(step => onSheet(3.6 - 2.45 * step / 8, W_SPOKE)), smooth: true, arrow: 'end', color: W, width: 0.0042, fade: 0.3, draw: 0.9 }, rest)
+    cap('*{W}', rest, { at: onSheet(2.6, W_SPOKE - 16), size: 0.036, font: 'unbounded', accent: W, fade: 0.3 })
     cap('squeezed along *{W}', rest, { at: [0.5, 0.18], size: 0.03, font: 'unbounded', color: SOFT, accent: W, fade: 0.3 })
   })
   // Laid straight, the pieces are not the same length, and each holds the same space: as many dots in each
@@ -350,12 +360,12 @@ shot('ruler', () => {
       for (let dot = 0; dot < DOTS; dot++) {
         const late = 0.8 * (k - RULER.first) / (RULER.last - RULER.first)
         at(now() + late, () => {
-          sketch({ kind: 'circle', center: [part(near + (deep - near) * (dot + 0.5) / DOTS), STRAIGHT.y - 0.04], radius: 0.005, color: INK, width: 0, fill: INK, fillOpacity: 1, fade: 0.2 }, rest - late)
+          sketch({ kind: 'circle', center: [part(near + (deep - near) * (dot + 0.5) / DOTS), STRAIGHT.y - 0.04], radius: 0.004, color: INK, width: 0, fill: INK, fillOpacity: 1, fade: 0.2 }, rest - late)
         })
       }
     }
-    cap('out on the flat', rest, { at: [STRAIGHT.right - 0.04, STRAIGHT.y + 0.05], size: 0.022, font: 'unbounded', color: SOFT, fade: 0.3 })
-    cap('deep in the well', rest, { at: [STRAIGHT.left + 0.04, STRAIGHT.y + 0.05], size: 0.022, font: 'unbounded', color: SOFT, fade: 0.3 })
+    cap('out on the flat', rest, { at: [STRAIGHT.right - 0.06, STRAIGHT.y + 0.055], size: 0.028, font: 'unbounded', color: SOFT, fade: 0.3 })
+    cap('deep in the well', rest, { at: [STRAIGHT.left + 0.06, STRAIGHT.y + 0.055], size: 0.028, font: 'unbounded', color: SOFT, fade: 0.3 })
     at(now() + 0.8, () => {
       cap('the same *{space} in every step', gone - now(), { at: [0.5, STRAIGHT.y - 0.1], size: 0.034, font: 'unbounded', color: SOFT, accent: INK, fade: 0.3 })
     })

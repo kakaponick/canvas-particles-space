@@ -102,7 +102,7 @@ chapter('09', 'WHAT A BLACK HOLE IS')
 
 // The star as a drawing over the hole: a white-hot ball and its glow, dark once light cannot climb out
 const HOT = '#f3f8ff'
-const ball = (color, radius, glow, seconds) => draw({ kind: 'circle', center: { hole: [0, 0] }, radius, fill: color, color, width: 0.001, opacity: 'glow', fade: 0, values: { glow } }, seconds)
+const ball = (color, radius, glow, seconds) => draw({ kind: 'circle', center: { hole: [0, 0] }, radius, fill: color, color, width: 0.001, opacity: 'glow', fade: 1.2, values: { glow } }, seconds)
 let dark = 0
 
 shot('bottom', () => {
@@ -111,18 +111,25 @@ shot('bottom', () => {
   const end = start + spoken + 0.6
   // The star shines until the line after next says "dark"
   dark = end + long('deeper') + 0.6 + heard('dark', 'dark', 0.7)
-  const total = dark + 1.5 - start
-  for (let layer = 0; layer < 6; layer++) {
-    const glow = +(0.1 * (1 - layer / 7)).toFixed(3)
-    ball(HOT, +(1.12 + layer * 0.2).toFixed(2), [[start, glow], [dark - 2.5, glow], [dark, 0]], total)
-  }
-  ball(HOT, 1.02, [[start, 1], [dark - 2.5, 1], [dark - 1.2, 0.5], [dark, 0]], total)
-  status('known', spoken + 0.4)
+  // The star comes up with the picture under the chapter's card, so the hole is never seen bare before it
+  const lit = start - 1.2
+  at(lit, () => {
+    const total = dark + 1.5 - lit
+    for (let layer = 0; layer < 6; layer++) {
+      const glow = +(0.1 * (1 - layer / 7)).toFixed(3)
+      ball(HOT, +(1.12 + layer * 0.2).toFixed(2), [[lit, glow], [dark - 2.5, glow], [dark, 0]], total)
+    }
+    ball(HOT, 1.02, [[lit, 1], [dark - 2.5, 1], [dark - 1.2, 0.5], [dark, 0]], total)
+  })
+  // One status over the three shots of measured physics
+  status('known', spoken + 0.6 + long('deeper') + 0.6 + long('dark') + 0.4)
+  // The mass stays on into the next shot, where its counter climbs from it
+  const counted = end + heard('deeper', 'mass', 0.2) + (long('deeper') + 0.6 - heard('deeper', 'mass', 0.2)) / 5
   at(start + heard('bottom', 'neutron', 0.47) - 0.2, () => {
     caption('neutron star', end - now(), { at: 'hole', angle: 25, size: 0.03, font: 'unbounded', color: INK })
   })
   at(start + heard('bottom', 'half', 0.66), () => {
-    caption('1.4 M_{☉}', end - now(), { at: [0.24, 0.3], size: 0.07, font: 'unbounded', color: GOLD })
+    caption('1.4 M_{☉}', counted + 0.05 - now(), { at: [0.24, 0.3], size: 0.07, font: 'unbounded', color: GOLD })
   })
   at(start + heard('bottom', 'twenty', 0.85), () => {
     caption('20 km', end - now(), { at: [0.76, 0.3], size: 0.07, font: 'unbounded', color: GOLD })
@@ -133,13 +140,14 @@ shot('bottom', () => {
 shot('deeper', () => {
   const start = now()
   const spoken = say('deeper')
-  status('known', spoken + 0.4)
   // The mass counter climbs and the well deepens and steepens with it
   const masses = ['1.4', '1.8', '2.2', '2.6', '3']
   const from = start + heard('deeper', 'mass', 0.2)
   const span = spoken + 0.6 - heard('deeper', 'mass', 0.2)
   const step = span / masses.length
+  // 1.4 is the last shot's caption, still on
   masses.forEach((mass, index) => {
+    if (index === 0) return
     at(from + index * step, () => {
       caption(`${mass} M_{☉}`, +(step + 0.05).toFixed(2), { at: [0.24, 0.3], size: 0.07, font: 'unbounded', color: index ? INK : GOLD, fade: 0.05 })
     })
@@ -155,7 +163,6 @@ shot('dark', () => {
   const start = now()
   const spoken = say('dark')
   const end = start + spoken + 0.6
-  status('known', spoken + 0.4)
   caption('3 M_{☉}', end - start, { at: [0.24, 0.3], size: 0.07, font: 'unbounded', color: INK })
   // Light climbs the wall and falls back: each ray lies on the near wall of the well, leaves the star, rises
   // as far as it can and turns back down to it a little further round. A place on the sheet is the well's
@@ -188,7 +195,8 @@ shot('thing', () => {
   const start = now()
   const spoken = say('thing')
   const end = start + spoken + 0.6
-  status('idea', spoken + 0.4)
+  // One status over this shot and the next, until "nobody has proved it"
+  status('idea', spoken + 0.6 + heard('bold', 'nobody', 0.8))
   at(start + heard('thing', 'hole', 0.22) - 0.2, () => {
     caption('a hole', end - now(), { at: [0.36, 0.2], size: 0.05, font: 'unbounded', color: SOFT })
   })
@@ -199,10 +207,10 @@ shot('thing', () => {
     caption('*{an object}', end - now(), { at: [0.64, 0.2], size: 0.05, font: 'unbounded', accent: W })
   })
   at(start + heard('thing', 'bottom', 0.85) - 0.3, () => {
-    draw({ kind: 'circle', center: { hole: [0, 0] }, radius: 1.5, color: W, width: 0.003, fade: 0.3 }, end - now())
+    draw({ kind: 'circle', center: { hole: [0, 0] }, radius: 1.3, color: W, width: 0.003, fade: 0.3 }, end - now())
     caption('the object', end - now(), { at: 'hole', angle: 25, size: 0.03, font: 'unbounded', color: W })
   })
-  keep('Not a hole in space: *{an object} at the bottom of a well.', spoken + 0.4)
+  keep('Not a hole in space: *{an object} at the bottom of a well.', spoken + 0.4, { at: [0.5, 0.91] })
   wait(spoken + 0.6)
 })
 
@@ -211,7 +219,6 @@ shot('bold', () => {
   const spoken = say('bold')
   const end = start + spoken + 0.6
   const nobody = start + heard('bold', 'nobody', 0.8)
-  status('idea', nobody - start)
   at(nobody - 0.1, () => { status('open', end - now()) })
   const named = (word, share, text, row, width) => {
     const y = 0.3 + row * 0.1
