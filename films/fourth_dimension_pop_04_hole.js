@@ -1,4 +1,4 @@
-// The fourth dimension as popular science, clip 4 of films/fourth_dimension_pop.json: gravity points inward, and a black hole is where it is strongest: everything falls into it from every side, and we have photographed two.
+// The fourth dimension as popular science, clip 4 of films/fourth_dimension_pop.json: gravity points inward, and a black hole is where it is strongest: everything falls into it from every side.
 // The narration sets the pace: LINES is what is said, say() marks where a line starts, and until a voice has
 // spoken the lines each takes what its words would (input.lines and input.cues bring a voice's own seconds).
 //   node .claude/skills/space-scene/scripts/space.mjs preview films/fourth_dimension_pop_04_hole.js out.jpg -
@@ -6,8 +6,7 @@
 const LINES = {
   suspect: 'So is there anything in nature that points inward like that? There is one obvious suspect. Gravity.',
   strongest: 'And if you want to understand gravity, go where it is strongest. A black hole.',
-  inward: 'Near it, everything falls inward, from every side at once. Not even light finds its way back out.',
-  photographed: 'And this part is not a guess. We have photographed two of them.'
+  inward: 'Near it, everything falls inward, from every side at once. Not even light finds its way back out.'
 }
 
 // ---- the film's kit: the same text in every clip of films/fourth_dimension_pop.json ----
@@ -197,20 +196,6 @@ shot('inward', () => {
   at(start + heard('inward', 'light', 0.7) - 0.2, () => {
     to({ ringBrightness: 4 }, 1)
     keep('not even light gets back out', end - now())
-  })
-  until(end)
-})
-
-shot('photographed', () => {
-  const start = now()
-  const spoken = say('photographed')
-  const end = start + spoken + 0.6
-  status('known', spoken + 0.6)
-  // The two photographs are named above the picture, and the picture says it is a simulation, not one of them
-  at(start + heard('photographed', 'photographed', 0.7), () => {
-    caption('Event Horizon Telescope photographed', end - now(), { at: [0.5, 0.12], size: 0.03, font: 'unbounded', color: SOFT, fade: 0.4 })
-    caption('M87* · 2019     Sagittarius A* · 2022', end - now(), { at: [0.5, 0.19], size: 0.04, font: 'unbounded', color: GOLD, fade: 0.4 })
-    caption('this picture: a simulation', end - now(), { at: [0.85, 0.94], size: 0.026, font: 'unbounded', color: INK, plate: 0.35, fade: 0.4 })
   })
   until(end)
 })
