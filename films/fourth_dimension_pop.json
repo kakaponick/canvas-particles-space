@@ -20,7 +20,7 @@
     {
       "name": "gravity at full power",
       "film": "films/fourth_dimension_pop_04_hole.js",
-      "input": {"lines":{"suspect":6.58,"strongest":4.75,"inward":6.57,"photographed":3.94,"light":17.52},"cues":{"strongest":{"strongest":2.66},"suspect":{"inward":1.79,"Gravity":5.95},"inward":{"inward":1.36,"light":4.7},"photographed":{"photographed":2.44},"light":{"Outside":4.38,"behind":8.8}}}
+      "input": {"lines":{"suspect":6.58,"strongest":4.75,"inward":6.57,"light":17.52},"cues":{"strongest":{"strongest":2.66},"suspect":{"inward":1.79,"Gravity":5.95},"inward":{"inward":1.36,"light":4.7},"light":{"Outside":4.38,"behind":8.8}}}
     },
     {
       "name": "the textbook picture",
