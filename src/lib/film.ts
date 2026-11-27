@@ -1242,7 +1242,8 @@ Recipes
                            (a grown look: inertia keeps the speed gravity gives, the swirl turns it, and near passes
                            close into a bright ring round the shadow; the warm-up gathers it before the first frame)
   Matter on the sheet:     "intro": false, "warmup": 10, "settings": { "gridSheet": 0.85, "gridTilt": 66, "gridDepth": 6,
-                             "blackHoleY": 0.7, "gridRide": 1, "fieldAtHole": 1, "lensingEnabled": false }
+                             "blackHoleY": 0.7, "gridRide": 1, "gridRideSoft": 0.01, "fieldAtHole": 1,
+                             "lensingEnabled": false }
                            (a grown look: the particles lie on the surface as the vectors of space; the setup that
                            keeps the well full and the motions on it are in
                            .claude/skills/space-scene/references/films.md, "On the sheet")

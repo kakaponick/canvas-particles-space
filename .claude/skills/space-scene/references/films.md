@@ -519,7 +519,8 @@ What decides whether a field look shows:
   beyond the default `gravityDepth`, as a dim hairline, so the look thins over a long shot; judge it at the
   shot's last second. Every particle alike (`gravityDepth` 100, `depthFade` 0, `particleSizeMin` raised to
   `particleSize`, all three) keeps it full, and heaps the whole depth's fall into a bright band at the
-  shadow's edge, on the Einstein ring with the lens on and at the well's bottom on the sheet; any two of the
+  shadow's edge, on the Einstein ring with the lens on (on the sheet, see "On the sheet": laid only part
+  of the way, it is a white ball over the shadow); any two of the
   three leave no band. Take every particle alike for a shot seen from afar, where the band reads as matter
   gathered at the hole; keep the defaults for a shot about what happens close to the shadow (frame
   dragging, the lens, a ring at a zoom), where the band would cover it.
@@ -542,14 +543,18 @@ round its throat, or held in a band. So a shot with a tilted sheet has its parti
 sentence says which way they go. This is the one home of the setup; the guide's recipe "Matter on the
 sheet" and knobs.md section 9 point here.
 
-The setup, as filmed in `films/fourth_dimension_well.js` and `fourth_dimension_ripple.js`, at `gridTilt`
+The setup, framed as in `films/fourth_dimension_well.js` and `fourth_dimension_ripple.js`, at `gridTilt`
 66 with `gridDepth` 5 to 10 and the hole at `blackHoleY` 0.6 to 0.78, and from above at `gridTilt` 0 with
 the hole at 0.5:
 
 - The surface: `gridSheet` 0.85, `gridRings` 40 with `gridSpokes` 24 and `gridCell` 4, the textbook's
   drawing, whose spokes are the lines a straight fall follows; `gridSpan` 0.6 with `gridFade` 0.3 ends the
   sheet before its near side runs under the hole.
-- The gate, four knobs beside `gridRide` 1, each with its cause:
+- The gate, five knobs beside `gridRide` 1, each with its cause:
+  - `gridRideSoft` 0.01: gravity gathers the column's matter at the hole from every depth, and at the
+    default (1) each particle rides only the share its depth leaves, so the gathered matter hangs between
+    where it flies and the surface: from the side a white ball over the shadow, which is no matter on the
+    well but half-laid particles;
   - `baseSpeed` 0: the flat flight would run outward along the sheet;
   - `lensingEnabled` false: the lens bends the particles round the hole on the screen, off the surface;
   - `fieldAtHole` 1: over a tilted sheet the hole stands low, and fed from the frame's centre the well
@@ -557,11 +562,12 @@ the hole at 0.5:
   - `particleSizeMin` raised to `particleSize`, both 2: what the hole took comes back at the far end of
     the field, drawn there as a hairline.
 - Every particle alike, so the well stays fed: `gravityDepth` 100, `depthFade` 0, `minOpacity` 0.1,
-  `speedGlowKnee` 0.03, `trailIntensity` 0.5, `baseBrightness` 0.6, `numParticles` 40000. A `warmup` of
-  10, the most there is, gathers the matter before the first frame. As in the field (above), this heaps
-  the fall into a bright mound round the well's throat: the matter the hole gathers, seen from afar.
-- `gridRideDepth` at its default lays the whole column on the sheet; lowered to 2, only the matter near the
-  hole's depth rides and the rest is drawn where it flies (knobs.md section 9).
+  `speedGlowKnee` 0.03. A `warmup` of 10, the most there is, gathers the matter before the first frame.
+  Laid wholly, the gathered matter crowds the throat, whose steep wall the tilt folds into a narrow strip
+  of the screen, and at 40000 bright particles it is a solid white tube that hides the sheet: `numParticles`
+  20000, `trailIntensity` 0.15 and `baseBrightness` 0.3 let the wall's lines show through the streaks.
+- `gridRideDepth` at its default reaches the whole column; lowered to 2, only the matter near the hole's
+  depth rides and the rest is drawn where it flies (knobs.md section 9).
 
 The motion is the sentence of the shot. Each row was seen in a tracer of the setup at `gridDepth` 6, from
 the side at `gridTilt` 66 with `blackHoleY` 0.7 and from above at `gridTilt` 0 with the hole at 0.5. The
@@ -570,11 +576,11 @@ round the mouth, are drawn by flows (the last two rows):
 
 | The matter | Law: cause -> stroke | Settings | Grown, warm-up | From the side | From above |
 |---|---|---|---|---|---|
-| falls inward along the spokes | No swirl and little speed kept: each particle goes straight in along its radius -> strokes down the spokes | `orbitalStrength` 0, `gravityInertia` 0.3, `gravityStrength` 6, `gravityReach` 14, `trailIntensity` 0.05, `speedGlowKnee` 0.02, `minOpacity` 0.2 | 10 s | Faint rays down the spokes over the flat part, heaped into a bright mound at the throat | A star of faint rays closing on a bright collar round the shadow |
-| drains into the throat | Some speed kept and a swirl: a particle spirals in rather than orbiting -> short curved strokes crowding the throat | `gravityInertia` 0.75, `orbitalStrength` 80, `gravityStrength` 4, `gravityReach` 16 | 10 s | A bright mound round the throat, the wall above it nearly empty; `orbitalStrength` -80 turns it the other way | A bright collar round the shadow |
-| circles low in the throat | More speed kept and a stronger swirl: the spiral slows into near-orbits deep down -> strokes round the throat | `gravityInertia` 0.82, `orbitalStrength` 100 | 10 s | A translucent band circling low in the throat | A thin ring close round the shadow |
-| orbits in the throat | Most of the speed kept: passes close into orbits a little farther out -> strokes round the throat from its mouth down | `gravityInertia` 0.9, `orbitalStrength` 90 | 10 s | A translucent tube of orbits filling the throat | A ring about one and a half radii out, dark between it and the shadow |
-| goes deeper with more mass | A deeper well lays the same fall over a longer throat, and the stronger pull speeds it | the drain with `gridDepth` up along a track to 10, `blackHoleY` to 0.78, `gravityStrength` 6, `baseBrightness` 0.8 | 10 s | The throat lengthens and the mound rides down with the hole | |
+| falls inward along the spokes | No swirl and little speed kept: each particle goes straight in along its radius -> strokes down the spokes | `orbitalStrength` 0, `gravityInertia` 0.3, `gravityStrength` 6, `gravityReach` 14, `trailIntensity` 0.05, `speedGlowKnee` 0.02, `minOpacity` 0.2 | 10 s | A faint veil down the throat from its mouth to the hole, the flat part nearly dark | A bright collar round the shadow |
+| drains into the throat | Some speed kept and a swirl: a particle spirals in rather than orbiting -> short curved strokes crowding the throat | `gravityInertia` 0.75, `orbitalStrength` 80, `gravityStrength` 4, `gravityReach` 16 | 10 s | Short streaks winding down the whole throat to the hole; `orbitalStrength` -80 turns them the other way | A wider collar round the shadow |
+| circles in the throat | More speed kept and a stronger swirl: the spiral slows into near-orbits -> strokes round the throat | `gravityInertia` 0.82, `orbitalStrength` 100 | 10 s | A translucent band circling high in the throat, its bottom empty | A thin ring close round the shadow, a dark gap inside it |
+| orbits at the mouth | Most of the speed kept: passes close into orbits a little farther out -> strokes round the mouth | `gravityInertia` 0.9, `orbitalStrength` 90 | 10 s | A ring lying round the mouth of the well, the throat below it empty | A ring about one and a half radii out, dark between it and the shadow |
+| goes deeper with more mass | A deeper well lays the same fall over a longer throat, and the stronger pull speeds it | the drain with `gridDepth` up along a track to 10, `blackHoleY` to 0.78, `gravityStrength` 6, `baseBrightness` 0.5 | 10 s | The throat lengthens, streaked from its mouth down to the hole | |
 | lines the wall from mouth to hole | A flow told to fall, laid on the sheet: its path runs down the surface -> strokes down the wall, wound by its swirl | `fieldEnabled` false, `gridTilt` 66, `gridDepth` 7, `blackHoleY` 0.7, `flowA` 1.5, `flowACount` 9000, `flowAFrom` 9, `flowATo` 0.8, `flowASpread` 6, `flowASwirl` 0.7, `flowALife` 8, `flowATrail` 0.6, `flowASize` 1.2 | said, 0 | The wall lined from the mouth to the hole, all the way round, turning as it goes | |
 | rings the mouth of the well | A flow told to circle at 4 radii, laid on the sheet -> strokes round the mouth | with the row above, `flowB` 1.5, `flowBCount` 3000, `flowBFrom` and `flowBTo` 4, `flowBSpread` 1, `flowBSwirl` 1, `flowBLife` 10, `flowBTrail` 0.9 | said, 0 | A bright ring lying on the sheet round the mouth | |
 

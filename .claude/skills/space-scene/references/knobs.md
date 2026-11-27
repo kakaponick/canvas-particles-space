@@ -744,7 +744,10 @@ Gate: `gridRide` above 0, and the setup of films.md, section 16, which makes the
   above the same matter is the disc round the shadow. Only where they are drawn changes; their motion is
   set as without the sheet. With `gridRide` 0 they stay in the plane of the screen and float in front of a
   tilted sheet.
-- The neighbours that decide whether it reads, each for its own cause (films.md, section 16): the flat
+- The neighbours that decide whether it reads, each for its own cause (films.md, section 16): gravity
+  gathers matter at the hole from every depth of the column, and at the default `gridRideSoft` each
+  particle rides only the share its depth leaves, so that matter hangs between where it flies and the
+  surface, a white ball over the shadow from the side, so `gridRideSoft` 0.01; the flat
   flight runs outward along the sheet, so `baseSpeed` 0; the lens bends the particles round the hole on the
   screen, off the surface, so `lensingEnabled` false; a tilted sheet is framed with the hole low and fills
   on one side, so `fieldAtHole` 1; what the hole took returns at the far end of the field as a hairline,
@@ -755,7 +758,10 @@ Gate: `gridRide` above 0, and the setup of films.md, section 16, which makes the
   lines the wall (films.md, section 16).
 - `gridRideDepth` decides which particles ride: those within it of the equator, wholly in the plane and
   fading to none at its edge (`gridRideSoft` shapes that fade, `gridRideFar` the depth behind the plane).
-  The default lays the whole column on the sheet, a dusting whose streaks point into the well. A low value
+  The default reaches the whole column, but at the default `gridRideSoft` only what flies in the plane
+  rides wholly: the rest is drawn part of the way between its flight and the surface, a dusting over the
+  flat part that, where gravity gathers it at the hole, is the white ball above. `gridRideSoft` 0.01 lays
+  the whole slab on the surface, and the gathered matter then streaks the well's wall. A low value
   rides only the matter near the hole's depth, and the flight streams across the sheet and hides it: lower
   it only for a shot about a thin disc.
 - `gridRideWave` 1 lifts the riders with the sheet's waves by `gridWaveLift`, and their motion on the
