@@ -55,15 +55,15 @@ const HOLE_Y = 0.68
 const DEEP = 6
 // What lies on the sheet is swung round as it falls: it rolls toward the dent and circles it
 const WHIRL = {
-  gravityInertia: 0.75, orbitalStrength: 80, gravityStrength: 4, gravityReach: 16, gravityDepth: 100, baseSpeed: 0, speedGlowKnee: 0.03, trailIntensity: 0.5,
-  depthFade: 0, minOpacity: 0.1, particleSize: 2, particleSizeMin: 2, baseBrightness: 0.6
+  gravityInertia: 0.75, orbitalStrength: 80, gravityStrength: 4, gravityReach: 16, gravityDepth: 100, baseSpeed: 0, speedGlowKnee: 0.03, trailIntensity: 0.15,
+  depthFade: 0, minOpacity: 0.1, particleSize: 2, particleSizeMin: 2, baseBrightness: 0.3
 }
 film({
   fps: 60,
   seed: 5,
   settings: {
     blackHoleSize: 8,
-    numParticles: 40000,
+    numParticles: 20000,
     lensingEnabled: false,
     lensingRadius: 0,
     nebula: 0.6,
@@ -82,6 +82,10 @@ film({
     gridSpan: 0.6,
     gridFade: 0.3,
     gridRide: 1,
+    // The whole column lies on the sheet: a share of the ride fading with depth left the matter the hole
+    // gathers hanging between where it flies and the surface, a white ball over the shadow. Laid wholly,
+    // it crowds the steep throat, so half as many particles, dimmer, let the wall show through it
+    gridRideSoft: 0.01,
     fieldAtHole: 1,
     blackHoleY: HOLE_Y,
     ...WHIRL,
@@ -152,7 +156,7 @@ shot('roll', () => {
   const spoken = say('roll')
   status('known', spoken + 0.6)
   // The dent's own move ends inside this line; then the pull grows and more of the sheet rolls in
-  at(start + 1.6, () => { to({ gravityStrength: 5, baseBrightness: 0.8 }, spoken - 1.6) })
+  at(start + 1.6, () => { to({ gravityStrength: 5, baseBrightness: 0.5 }, spoken - 1.6) })
   const word = (name, share, text, point) => {
     at(start + heard('roll', name, share), () => { label(text, start + spoken + 0.6 - now(), on(point), { size: 0.026, color: INK }) })
   }

@@ -39,3 +39,8 @@ when an agent writes one; the change that fixes the instruction deletes it. An e
 - Instruction: the timeline a preview prints, for a `set` made in the middle of a clip: "0-17.57 s gridRings: 0 > 40".
 - Cost: read as a ramp from second 0; the storyboard showed one step at 17.57 s.
 - Missing: a step printed as a step: "17.57 s gridRings: 40".
+
+## 27.11.2026 11:42 МСК the white ball over the shadow in the sheet clips of films/fourth_dimension_pop.json
+- Instruction: references/films.md, section 16, "On the sheet": "this heaps the fall into a bright mound round the well's throat: the matter the hole gathers, seen from afar", and its table's "A bright mound round the throat".
+- Cost: the user took the mound for an artifact, and it is one: three tracers showed it is matter laid only part of the way onto the sheet. `gridRideSoft` at its default 1 fades the ride with depth, so the column the flat field gathers at the hole hangs between where it flies and the surface, a ball over the shadow; `gridRideSoft` 0.01 lays it on the wall, where it fills the steep throat white until half the particles (20 000) and `trailIntensity` 0.15, `baseBrightness` 0.3 let the wall show through.
+- Missing: in the setup, "`gridRideSoft` 0.01: at the default the matter the hole gathers rides only part of the way and hangs over the shadow as a ball; laid wholly it crowds the throat, so 20 000 particles at `trailIntensity` 0.15 and `baseBrightness` 0.3", and the mound struck from the table.

@@ -50,8 +50,8 @@ const leave = () => { to({ fade: 1 }, 0.8) }
 
 // What falls toward the hole on the sheet: swung round as it comes, a whirl that drains down the well's wall
 const WHIRL = {
-  gravityInertia: 0.75, orbitalStrength: 80, gravityStrength: 4, gravityReach: 16, gravityDepth: 100, baseSpeed: 0, speedGlowKnee: 0.03, trailIntensity: 0.5,
-  depthFade: 0, minOpacity: 0.1, particleSize: 2, particleSizeMin: 2, baseBrightness: 0.6
+  gravityInertia: 0.75, orbitalStrength: 80, gravityStrength: 4, gravityReach: 16, gravityDepth: 100, baseSpeed: 0, speedGlowKnee: 0.03, trailIntensity: 0.15,
+  depthFade: 0, minOpacity: 0.1, particleSize: 2, particleSizeMin: 2, baseBrightness: 0.3
 }
 const GRID = '#4de3ff'
 
@@ -60,7 +60,7 @@ film({
   seed: 8,
   warmup: 10,
   settings: {
-    numParticles: 40000,
+    numParticles: 20000,
     lensingEnabled: false,
     nebula: 0.6,
     nebulaScale: 700,
@@ -81,6 +81,10 @@ film({
     gridCell: 4,
     gridTilt: 66,
     gridRide: 1,
+    // The whole column lies on the sheet: a share of the ride fading with depth left the matter the hole
+    // gathers hanging between where it flies and the surface, a white ball over the shadow. Laid wholly,
+    // it crowds the steep throat, so half as many particles, dimmer, let the wall show through it
+    gridRideSoft: 0.01,
     fieldAtHole: 1,
     blackHoleSize: 8,
     blackHoleY: 0.62,
