@@ -7,7 +7,7 @@ const LINES = {
   textbook: 'Now, how do you draw gravity? Every textbook does it the same way. Space is a stretched sheet, and a mass makes a dent in it.',
   roll: 'Things roll toward the dent. That is your orbit, your falling apple, your weight.',
   axes: "Look at the axes. Two of them, X and Y, are ordinary space. The third, the depth of the dent, is not. Let's call it W.",
-  metaphor: 'Physicists will tell you the dent is only a picture. Space does not really sag into anything.',
+  metaphor: 'Physicists will tell you the dent is only a picture. Space does not need to sag into anything.',
   whatif: 'This hypothesis asks: what if it does? What if W is a real direction, and the dent is really there?'
 }
 
@@ -121,15 +121,27 @@ hide('ring')
 chapter('05', 'THE TEXTBOOK PICTURE')
 
 const part = value => +value.toFixed(4)
-// The axes lie on the sheet once the dent has sunk. W runs down the dent's left wall, along the spoke, from
-// the flat sheet to the ball's edge (as chapter 08 draws it); drawn from the hole's middle straight down it
-// ran across the ball's face to its middle (review 4, 0:22). X and Y share its corner on the flat sheet,
-// square to each other: X out to the left, Y away
-const CORNER = [-4.6, 0]
-const W_PATH = [4.6, 3.6, 2.8, 2.2, 1.9].map(away => ({ sheet: [-away, 0] }))
-const X_TIP = { sheet: [-8.2, 0] }
-const Y_TIP = { sheet: [-4.6, 3.6] }
-const wSide = { sheet: [-5.6, -2.5] }
+// The axes lie on the sheet once the dent has sunk, and W must read as down. Run from the X/Y corner down the
+// dent's left wall along X's own spoke, X and W were one line with two heads and nothing pointed down (review 5,
+// 21.9 to 41.35 s). Two ways were put on the screen: W standing straight down from a corner on the left flat,
+// square to the sheet (laySheet's level, as chapter 06 places points), hung beside the dent under the flat
+// sheet, over the near lines, an arrow in the air that did not read as the dent's depth; W down the far wall,
+// which on the screen drops toward the ball, lies on the dent itself and reads as down at once. So W runs down
+// the far wall's spoke from a corner on the far flat to the ball's top, and X and Y open from that corner
+// up-left and up-right, square to each other on the sheet, so W continues neither
+const CORNER = [0, 6]
+const AXIS = 2.8
+const X_TIP = { sheet: [-AXIS, 6 + AXIS] }
+const Y_TIP = { sheet: [AXIS, 6 + AXIS] }
+const X_AT = { sheet: [-AXIS - 0.8, 6 + AXIS + 0.8] }
+const Y_AT = { sheet: [AXIS + 0.8, 6 + AXIS + 0.8] }
+// The corner mark between X and Y, lying on the sheet
+const MARK = (() => {
+  const c = 0.8 / Math.SQRT2
+  return [[-c, 6 + c], [0, 6 + 2 * c], [c, 6 + c]].map(s => ({ sheet: s }))
+})()
+const W_PATH = [6, 5, 4.2, 3.5, 3, 2.6, 2.3, 2.1, 1.9, 1.7, 1.55, 1.45].map(away => ({ sheet: [0, away] }))
+const wSide = { sheet: [4.4, 3.6] }
 const label = (text, seconds, place, more) => caption(text, seconds, { at: place, size: 0.03, font: 'unbounded', fade: 0.4, ...more })
 // A place on the sheet, `away` of the well's radii from its middle, `angle` degrees round from the right
 // toward the far side
@@ -178,25 +190,26 @@ shot('roll', () => {
   // The dent's own move ends inside this line; then the matter, brighter, rolls in
   at(start + 1.2, () => { to({ flowA: MATTER }, 1.2) })
   const look = { color: INK, width: 0.0035, fade: 0.4 }
-  // "your orbit": a path round the dent, lying on the sheet, its way told once. Only its far arc is drawn,
-  // the near side going behind the ball: drawn whole, the near side ran across the top of the ball while the
-  // ball covered the sheet in front of it (review 4, 0:14)
+  // "your orbit": a whole ring round the dent, lying on the sheet, its way told once. The near arc passes in
+  // front of the ball's lower half, as an orbit round a mass does; its far arc alone ended in mid-air left and
+  // right of the ball, a horseshoe (review 5, 13.2 to 17.5 s)
   at(start + heard('roll', 'orbit', 0.55) - 0.2, () => {
     const ring = []
-    for (let step = -2; step <= 20; step++) ring.push(onSheet(3.4, step * 10))
-    draw({ kind: 'line', points: ring, smooth: true, arrow: 'middle', draw: 0.8, ...look }, end - now())
+    for (let step = 0; step < 36; step++) ring.push(onSheet(3.4, step * 10))
+    draw({ kind: 'line', points: ring, smooth: true, close: true, arrow: 'middle', draw: 0.8, ...look }, end - now())
     label('orbit', end - now(), onSheet(5, 160), { size: 0.026, color: INK, plate: 0.4 })
   })
   // "your falling apple": a small ball runs down a spoke into the dent
   at(start + heard('roll', 'apple', 0.72) - 0.2, () => {
     // It reaches the mass's edge (1.6 radii out on this spoke) in 1.4 s and leaves just after; drawn after
-    // the ball, it would roll on over its face. Its word stands still outside the orbit, where the apple
-    // starts: riding beside it, it crossed the orbit's line (review 4, 0:15)
+    // the ball, it would roll on over its face. Its word stands where the apple starts, just outside it on its
+    // spoke, and is gone by the time the apple is halfway in: riding beside it, it crossed the orbit's line
+    // (review 4, 0:15), and left standing outside the orbit it was far from the apple (review 5)
     const away = s => 5.2 - 3.6 * Math.min(1, s / 1.4) ** 2
     const ax = s => part(away(s) * Math.cos(Math.PI / 6))
     const ay = s => part(away(s) * Math.sin(Math.PI / 6))
     draw({ kind: 'circle', center: { sheet: ['ax', 'ay'] }, radius: 0.28, fill: '#ff6b5c', color: '#ff6b5c', fade: 0.3, values: { ax, ay } }, 1.7)
-    label('apple', 1.7, onSheet(6.6, 22), { size: 0.026, color: INK, plate: 0.4 })
+    label('apple', 1.0, onSheet(6.4, 30), { size: 0.026, color: INK, plate: 0.4, fade: 0.25 })
   })
   // "your weight": the push down the wall of the dent
   at(start + heard('roll', 'weight', 0.92) - 0.2, () => {
@@ -218,18 +231,19 @@ shot('axes', () => {
   // Naming the picture's axes is geometry, not a claim about nature
   status('math', spoken + 0.6)
   axesEnd = start + spoken + 0.6 + long('metaphor') + 0.6 + long('whatif') + 0.6
-  // The matter dims while the axes are read on the wall, and comes back when the dent is asked to be real
-  at(start + 0.4, () => { to({ flowA: MATTER * 0.6 }, 1.2) })
+  // The matter dims while the axes are read on the wall, and comes back when the dent is asked to be real. Its
+  // band draws in to the mouth of the dent, so no streak runs over X and Y on the flat (it raked them in
+  // "whatif", review 5)
+  at(start + 0.4, () => { to({ flowA: MATTER * 0.6, flowAFrom: 3.6, flowASpread: 2.6 }, 1.2) })
   at(start + heard('axes', 'x', 0.3), () => {
     draw({ kind: 'line', points: [{ sheet: CORNER }, X_TIP], arrow: 'end', color: X, width: 0.006, draw: 0.5, fade: 0.5 }, axesEnd - now())
-    label('X', axesEnd - now(), { sheet: [-8.9, 0] }, { size: 0.034, color: X })
+    label('X', axesEnd - now(), X_AT, { size: 0.034, color: X })
   })
   at(start + heard('axes', 'y', 0.35), () => {
     draw({ kind: 'line', points: [{ sheet: CORNER }, Y_TIP], arrow: 'end', color: Y, width: 0.006, draw: 0.5, fade: 0.5 }, axesEnd - now())
-    label('Y', axesEnd - now(), { sheet: [-4.6, 4.6] }, { size: 0.034, color: Y })
+    label('Y', axesEnd - now(), Y_AT, { size: 0.034, color: Y })
     // X and Y stand square on the sheet: a corner mark between them, lying on it
-    const c = 0.8
-    draw({ kind: 'line', points: [{ sheet: [CORNER[0] - c, 0] }, { sheet: [CORNER[0] - c, c] }, { sheet: [CORNER[0], c] }], color: INK, width: 0.0025, opacity: 0.8, draw: 0.3, fade: 0.5 }, axesEnd - now())
+    draw({ kind: 'line', points: MARK, color: INK, width: 0.0025, opacity: 0.8, draw: 0.3, fade: 0.5 }, axesEnd - now())
   })
   at(start + heard('axes', 'third', 0.6), () => {
     wAxis(start + spoken + 0.6 - now())

@@ -63,6 +63,10 @@ const MASS = '#ffc861'
 const MATTER = 2
 const COUNT_SIDE = 5000
 const COUNT = 2500
+// The matter falling straight in, for the last line, was sparse specks at 2500 (review 5, 31 to 36 s). Swept at
+// the frame of "points" (35.3 s): 5000 reads as streaks along the spokes with the rings clear, 8000 grows heavy
+// over the rings; a trail of 0.9 instead of 0.6 draws each stroke long enough to read as falling straight in
+const FALL_COUNT = 5000
 film({
   fps: 60,
   seed: 6,
@@ -82,14 +86,14 @@ film({
     flowAColor: '#ffe9c8',
     // The same matter falling straight in, for the last line; dark until then
     flowB: 0,
-    flowBCount: COUNT,
+    flowBCount: FALL_COUNT,
+    flowBTrail: 0.9,
     flowBFrom: 4.5,
     flowBFall: 0.8,
     flowBTo: 0.8,
     flowBSpread: 5,
     flowBSwirl: 0,
     flowBLife: 5,
-    flowBTrail: 0.6,
     flowBSize: 1.4,
     flowBColor: '#ffe9c8',
     lensingEnabled: false,
@@ -163,10 +167,11 @@ const ASPECT = 9 / 16
 
 const RISE = 4
 // Two steps of the well that the circles pick out, far enough apart that W between them reads as an arrow
-// (3.2 and 2.4 drew it tiny, review 3:47), and the rim the arrows of the last line start from
+// (3.2 and 2.4 drew it tiny, review 3:47), and the rim the arrows of the last line start from: from 3.9 the
+// lowest arrow's tail nearly touched the caption at the foot of the frame (review 5, 34.5 to 36.4 s)
 const R_OUT = 4.6
 const R_IN = 2.5
-const RIM = 3.9
+const RIM = 3.5
 const FLYUP = Math.max(long('flyup') + 0.6, heard('flyup', 'up', 0.45) - 0.3 + RISE + 0.2)
 
 // The mass over the hole: it comes up with the picture under the chapter card's last second and stays to the
@@ -177,16 +182,21 @@ const BALL = 1.9
 const LIFT = 0.8
 const RISES = now() + heard('flyup', 'up', 0.45) - 0.3
 // An opaque black disc lies under the ball for its whole life: dimmed alone, the ball went see-through and
-// the bare hole's shadow and throat showed inside it (review 4, 4:33 and 5:07). It comes up once the chapter's
-// title is gone (the title lay over it), over the black disc
+// the bare hole's shadow and throat showed inside it (review 4, 4:33 and 5:07).
+// The picture stays black under the chapter's title and comes up with the ball once the title is gone: coming
+// up under the title, the black disc under the ball showed alone on the lit sheet, a bare black hole, and the
+// title lay over a half-lit ball (review 5, 1.6 to 2.6 s). A black sheet over the whole frame, under the
+// captions, holds it dark
+const TITLED = 2.4
+const LIGHTS = 0.6
 {
   const card = now() - 1.2
-  const titled = 2.05
   const clipEnd = now() + FLYUP + long('flat') + 0.6 + long('rings') + 0.6 + long('same') + 0.6 + long('points') + 0.6 + 0.8
   at(card, () => {
     const up = [[card, LIFT], [RISES, LIFT], [RISES + RISE, 0]]
+    draw({ kind: 'rect', center: [0.5, 0.5], size: [1.9, 1.05], color: '#000000', width: 0, fill: '#000000', fade: 0, opacity: 'dark', values: { dark: [[card, 1], [TITLED, 1], [TITLED + LIGHTS, 0]] } }, TITLED + LIGHTS - card)
     draw({ kind: 'circle', center: { hole: [0, 'up'] }, radius: BALL, fill: '#000000', color: '#000000', width: 0, fade: 0, values: { up } }, clipEnd - card)
-    draw({ kind: 'circle', center: { hole: [0, 'up'] }, radius: BALL, fill: MASS, color: '#ffe3a8', width: 0.002, glow: 0.03, fade: 0, opacity: 'lit', values: { lit: [[card, 0], [titled, 0], [titled + 0.5, 1], [clipEnd - 0.8, 1], [clipEnd, 0]], up } }, clipEnd - card)
+    draw({ kind: 'circle', center: { hole: [0, 'up'] }, radius: BALL, fill: MASS, color: '#ffe3a8', width: 0.002, glow: 0.03, fade: 0, opacity: 'lit', values: { lit: [[card, 0], [TITLED, 0], [TITLED + LIGHTS, 1], [clipEnd - 0.8, 1], [clipEnd, 0]], up } }, clipEnd - card)
   })
 }
 

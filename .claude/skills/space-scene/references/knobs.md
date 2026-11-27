@@ -642,6 +642,14 @@ particles alone barely show them. The plane's precession needs a spin on either 
   the end, the sheet round the merger breaks into spikes. Frame it wide and plain: `blackHoleSize` 3.5,
   square cells (`gridCell` 3, `gridRings` 0), `gridTilt` 60, no particles
   (`films/fourth_dimension_ripple.js`).
+- Crests seen while the pair still circles far apart: the crest's spacing follows the orbit's pace, so a
+  slow pair sends long, low crests no lift raises without folding the wells first. A pair 4 radii apart on
+  wells 1.5 deep, `companionSpeed` 3 and `gridCell` 3 at `gridTilt` 66, `companionWaves` 6 and
+  `gridWaveLift` 3.5, the clearing 1.6 out to 4.2, ripples the whole sheet; on cells of 2 with the orbit at
+  2 the same lift showed nothing away from the pair, a wider pair (5.5 or 6) at lift 5 folded white
+  creases between the holes, and a lower camera (74 or 76) did not bring the crests out (shot "small" of
+  `films/fourth_dimension_pop_08_ripple.js`). Close the clearing to 1.04 while the pair closes, over the
+  last 2.5 s before the merger: closed after it, a black pit stands round the merged hole.
 - A wave comes from something that moved: fire `ringdown` or `gravityWave` where a pair has just merged or
   a hole has just formed, and let a ripple in a film come from a pair closing in, ending in the ringing of
   their merger.

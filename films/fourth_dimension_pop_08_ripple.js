@@ -4,7 +4,7 @@
 //   node .claude/skills/space-scene/scripts/space.mjs preview films/fourth_dimension_pop_08_ripple.js out.jpg -
 /* global film, set, to, wait, shot, caption, draw, mark, now, at, meanwhile, input, hide, show */
 const LINES = {
-  stretch: 'If this is right, mass does not curve space, the way Einstein put it. It stretches space, along W.',
+  stretch: 'If this is right, mass curves space, as Einstein said, by stretching it along W.',
   small: "In Einstein's theory, curved space can also ripple. He predicted those ripples in nineteen sixteen.",
   shake: 'In twenty fifteen, two detectors in the United States felt space itself shake.',
   source: 'The source: two black holes, each about thirty times heavier than the Sun, colliding one point three billion light years away.',
@@ -103,15 +103,19 @@ hide('ring')
 chapter('08', 'SPACE CAN RIPPLE')
 // The cut to the pair: black from this second
 const CUT = now() + long('stretch') + 1.4 + heard('small', 'curved', 0.18) - 0.6 + 0.35
-// The ball comes up as the chapter's title goes (the title lay over it), over an opaque black disc that lies
-// under it for its whole life: dimmed alone, it went see-through and the bare hole's shadow and throat showed
-// inside it (review 4)
+// The ball lies over an opaque black disc for its whole life: dimmed alone, it went see-through and the bare
+// hole's shadow and throat showed inside it (review 4). The picture stays black under the chapter's title and
+// comes up with the ball once the title is gone: coming up under the title, the black disc showed alone on the
+// lit sheet, a bare black hole with the matter whirling round it, and the title lay over a half-lit ball
+// (review 5, 1.6 to 2.6 s). A black sheet over the whole frame holds it dark, under the captions
+const TITLED = 2.4
+const LIGHTS = 0.6
 {
   const card = now() - 1.2
-  const titled = 2.3
   at(card, () => {
+    draw({ kind: 'rect', center: [0.5, 0.5], size: [1.9, 1.05], color: '#000000', width: 0, fill: '#000000', fade: 0, opacity: 'dark', values: { dark: [[card, 1], [TITLED, 1], [TITLED + LIGHTS, 0]] } }, TITLED + LIGHTS - card)
     draw({ kind: 'circle', center: { hole: [0, LIFT] }, radius: BALL, fill: '#000000', color: '#000000', width: 0, fade: 0 }, CUT - card)
-    draw({ kind: 'circle', center: { hole: [0, LIFT] }, radius: BALL, fill: MASS, color: '#ffe3a8', width: 0.002, glow: 0.03, fade: 0, opacity: 'lit', values: { lit: [[card, 0], [titled, 0], [titled + 0.45, 1]] } }, CUT - card)
+    draw({ kind: 'circle', center: { hole: [0, LIFT] }, radius: BALL, fill: MASS, color: '#ffe3a8', width: 0.002, glow: 0.03, fade: 0, opacity: 'lit', values: { lit: [[card, 0], [TITLED, 0], [TITLED + LIGHTS, 1]] } }, CUT - card)
   })
 }
 
@@ -146,42 +150,50 @@ function laySheet (tilt, radii, holeY) {
 }
 const part = value => +value.toFixed(4)
 const stretched = laySheet(66, STRETCHED.gridDepth, STRETCHED.blackHoleY)
-// W runs down the left wall of the well, along its spoke from the flat sheet to the mass's top: laid on the
-// sheet, it sinks with the well as it deepens
-const W_LINE = [4.6, 3.6, 2.8, 2.2, 1.8, 1.5, 1.3, 1.2].map(away => ({ sheet: [-away, 0] }))
-const W_LABEL = (() => { const [x, y] = stretched(-1.9, 0); return { hole: [part(x - 1.5), part(y)] } })()
+// W runs down the left wall of the well, along its spoke from the flat sheet to where the spoke meets the
+// ball's outline: laid on the sheet, it sinks with the well as it deepens. Run on to 1.2 radii its last stretch
+// and head lay on the ball's face (review 5, 7.1 to 11.17 s); probed with dots on a still at depth 4.3, the
+// spoke meets the outline at 1.4 radii (2.0 stops well short on the steep wall), so the head ends at 1.45.
+// Its name stands above the line's middle, clear of its tail
+const W_LINE = [4.6, 3.6, 2.8, 2.3, 2.0, 1.75, 1.6, 1.45].map(away => ({ sheet: [-away, 0] }))
+const W_LABEL = (() => { const [x, y] = stretched(-3.2, 0); return { hole: [part(x), part(y + 1.1)] } })()
 
 shot('stretch', () => {
   const start = now()
   const spoken = say('stretch')
-  const einstein = start + heard('stretch', 'Einstein', 0.45)
-  const stretches = start + heard('stretch', 'stretches', 0.72)
+  // The hypothesis does not deny curvature, which the clip then shows confirmed: it says how mass curves space
+  // (the old line, "mass does not curve space", set it against general relativity, review 5)
+  const curves = start + heard('stretch', 'curves', 0.37)
+  const stretching = start + heard('stretch', 'stretching', 0.75)
   // The line holds a beat after it is said, so that W down the deepened well is read
   const end = start + spoken + 1.4
   status('idea', end - start - 0.2)
   // The first caption has faded out before the second comes in (they lay on each other for 0.3 s, review 4),
-  // and both are wide enough that "space" does not wrap alone
-  at(einstein - 0.9, () => {
-    caption('Einstein: mass *{curves} space', stretches - 0.75 - now(), { at: [0.78, 0.3], width: 0.42, size: 0.04, font: 'noto', accent: GRID, plate: 0.5, fade: 0.4 })
+  // and is up long enough to read, 1.5 s whole between its fades (0.7 s was review 5's finding); both are wide
+  // enough that a word does not wrap alone
+  const einstein = curves - 0.3
+  const hypothesis = Math.max(stretching - 0.4, einstein + 2.3)
+  at(einstein, () => {
+    caption('Einstein: mass *{curves} space', hypothesis - now(), { at: [0.76, 0.3], width: 0.46, size: 0.04, font: 'noto', accent: GRID, plate: 0.5, fade: 0.4 })
   })
-  at(stretches - 0.3, () => {
-    caption('hypothesis: mass *{stretches} space', end - now(), { at: [0.78, 0.3], width: 0.42, size: 0.04, font: 'noto', accent: W, plate: 0.5, fade: 0.4 })
+  at(hypothesis, () => {
+    caption('hypothesis: by *{stretching} it along W', end - now(), { at: [0.76, 0.3], width: 0.46, size: 0.04, font: 'noto', accent: W, plate: 0.5, fade: 0.4 })
     // The well deepens along W, and W is drawn down its wall, sinking with it
     meanwhile(() => { to(STRETCHED, 3, 'out') })
     draw({ kind: 'line', points: W_LINE, smooth: true, arrow: 'end', color: W, width: 0.0065, draw: 0.8, fade: 0.4 }, end - now())
   })
   // Its name stands beside the wall once the well has nearly settled
-  at(stretches + 1.2, () => { caption('W', end - now(), { at: W_LABEL, size: 0.05, font: 'unbounded', color: W, fade: 0.4 }) })
+  at(hypothesis + 1.5, () => { caption('W', end - now(), { at: W_LABEL, size: 0.05, font: 'unbounded', color: W, fade: 0.4 }) })
   wait(end - start)
 })
 
-// The pair on a wide sheet of fine square cells with nothing on it, seen low so the crests stand up: the
+// The pair on a wide sheet of square cells with nothing on it, seen low so the crests stand up: the
 // ripple is the whole picture. The wave was not seen until the merger (review, 5:02): 6 radii apart the pair
 // sends long, low crests, and on wells 3 deep any lift that raised them folded the throats. Swept a few
 // seconds a step at this framing: 4 radii apart, on wells 1.5 deep, waves 10 lifted 9 or 10 run spiral crests
 // across the whole sheet; lifted 13 or 14 they fold needles at the pair's middle at any clearing tried
 const PAIR = {
-  blackHoleSize: 3.5, blackHoleY: 0.5, gridRings: 0, gridCell: 2, gridTilt: 66, gridDepth: 1.5, gridSpan: 1.8, gridFade: 0.5, gridRide: 0, gridSheet: 1, gridLine: 1.5,
+  blackHoleSize: 3.5, blackHoleY: 0.5, gridRings: 0, gridCell: 3, gridTilt: 66, gridDepth: 1.5, gridSpan: 1.8, gridFade: 0.5, gridRide: 0, gridSheet: 1, gridLine: 1.5,
   flowA: 0, companionSize: 0.8, companionDistance: 4, companionWaves: 0, gridWaveLift: 0,
   // The wave is strongest right at the wells, where it folds the sheet into needles, so the sheet's lines fade
   // in from each shadow. The wide clearing that hid the needles (3.6 out to 8) left the pair in a large soft
@@ -191,9 +203,22 @@ const PAIR = {
   // the holes; 1.5 to 3.2 at lift 4, waves 6 a crease beside the pair; 1.6 to 3.6 at lift 3, waves 5 no void,
   // no needle and only a faint pinch beside the middle. The throats glow a little more, so the middle reads
   // as two wells
-  gridClearing: 1.6, gridClearingEdge: 3.6, gridThroatGlow: 2
+  gridClearing: 1.6, gridClearingEdge: 3.6, gridThroatGlow: 2,
+  // A faster orbit and coarser cells: the crests come closer together, so the same low lift bends each cell
+  // line visibly and the spiral reads across the sheet (SWEPT, below)
+  companionSpeed: 3
 }
-const WAVES = { companionWaves: 5, gridWaveLift: 3 }
+// "A ripple of space" and "space itself shook" each need a crest the eye sees: at lift 3 on cells of 2 with the
+// orbit at 2 the spiral was faint and nothing rippled for 15 s under those words (review 5, 11.8 to 27 s).
+// SWEPT on frames at 15, 20 and 25 s: a wider pair (5.5 or 6 apart) at lift 5, waves 6, clearing 1.3 to 2.5
+// folded white creases between the holes at every frame, with the camera at 74 too; waves 3 at lift 4 or 5
+// and the camera at 74 or 76 with cells of 3 kept clean wells but no crest read away from the pair; an orbit
+// at 4 on cells of 2 neither. The orbit at 3 on cells of 3 ripples the whole sheet: at lift 4 a crease of
+// pinched lines stood beside the pair at 15 and 20 s (clearing 1.6 out to 3.6 or 4.2, or 2 out to 4.5, which
+// also merged the two wells into one dark patch at 25 s), at lift 3 the far crests went faint again; lift 3.5
+// with the clearing's edge at 4.2 keeps the crests and softens the crease to a few converging lines
+const LOUD = { companionDistance: 4, companionWaves: 6, gridWaveLift: 3.5, gridClearing: 1.6, gridClearingEdge: 4.2 }
+const WAVES = { companionWaves: LOUD.companionWaves, gridWaveLift: LOUD.gridWaveLift }
 
 shot('small', () => {
   const start = now()
@@ -207,7 +232,7 @@ shot('small', () => {
   at(cut, () => {
     to({ fade: 1 }, 0.35)
     status('known', start + spoken + 0.4 - now())
-    set(PAIR)
+    set({ ...PAIR, ...LOUD, companionWaves: 0, gridWaveLift: 0 })
     show('ring')
     meanwhile(() => { to(WAVES, 1.5) })
     to({ fade: 0 }, 0.5)
@@ -219,6 +244,9 @@ shot('small', () => {
   // ripple's caption whatever the voice's seconds
   at(Math.max(start + heard('small', 'predicted', 0.55), ripple + 0.6), () => {
     caption('predicted by Einstein · 1916', start + spoken + 0.6 - now(), { at: [0.5, 0.245], size: 0.032, font: 'noto', color: INK, fade: 0.4, plate: 0.5 })
+    // What the ripple tests, quietly, so that the hypothesis is not taken to be what was confirmed. It stays a
+    // little into "shake", whose captions leave its row free
+    caption("a test of Einstein's theory, not of W", start + spoken + 1.8 - now(), { at: [0.5, 0.3], size: 0.024, font: 'noto', color: SOFT, fade: 0.4, plate: 0.45 })
   })
   wait(spoken + 0.6)
 })
@@ -233,7 +261,7 @@ shot('shake', () => {
   at(start + heard('shake', 'detectors', 0.4), () => {
     caption('LIGO · two detectors', start + spoken + 0.6 - now(), { at: [0.5, 0.245], size: 0.032, font: 'noto', color: INK, fade: 0.4, plate: 0.5 })
   })
-  at(start + heard('shake', 'shake', 0.95) - 0.2, () => { keep('space itself *{shook}', spoken * 0.3 + 0.6) })
+  at(start + heard('shake', 'shake', 0.95) - 0.2, () => { keep('space itself *{shook}', spoken * 0.3 + 0.6, { accent: GOLD }) })
   wait(spoken + 0.6)
 })
 
@@ -243,12 +271,14 @@ shot('source', () => {
   const end = start + spoken + 0.6
   status('known', spoken + 0.4)
   // The two close in slowly, then fast, and merge before the line ends; the waves run out over the sheet
+  const merger = start + spoken - 0.8
   meanwhile(() => { to({ companionDistance: 0 }, spoken - 0.8, 'in') })
   // The wave grows by itself as they close; its strengths come down against it, or the merger tears the sheet
   meanwhile(() => { to({ gridWaveLift: 2, companionWaves: 3 }, spoken - 0.8, 'in') })
-  // From the merger the one hole needs less clearing than the pair's middle did: it closes in at once and
-  // fast, so no dark pit is left standing after the merger (review 4, 5:26)
-  at(start + spoken - 0.8, () => { to({ gridClearing: 1.04, gridClearingEdge: 1.6 }, 0.8) })
+  // The clearing closes while the pair closes, so the one hole has its throat drawn to the shadow at the
+  // merger: closed after it, a soft black pit three ring-widths wide stood round the merged hole until 30.6 s
+  // (review 5, 28.4 to 30.7 s)
+  at(merger - 2.5, () => { to({ gridClearing: 1.04, gridClearingEdge: 1.6 }, 2.5) })
   at(start + heard('source', 'thirty', 0.3), () => {
     caption('36 + 29 M_{☉}', end - now(), { at: [0.18, 0.2], size: 0.05, font: 'unbounded', color: GOLD, fade: 0.4, plate: 0.5 })
     caption('two black holes', end - now(), { at: [0.18, 0.275], size: 0.028, font: 'noto', color: INK, fade: 0.4, plate: 0.5 })
@@ -305,7 +335,7 @@ shot('proton', () => {
     caption('stretch drawn 10^{20}× larger', seconds, { at: [0.79, 0.765], size: 0.02, font: 'noto', color: SOFT, fade: 0.4 })
   })
   // Said from "And we still...", so that it is up long enough to be read before the clip leaves
-  at(start + heard('proton', 'caught', 0.95) - 0.9, () => { keep('and we *{caught} it', end - now()) })
+  at(start + heard('proton', 'caught', 0.95) - 0.9, () => { keep('and we *{caught} it', end - now(), { accent: GOLD }) })
   wait(spoken + 0.6)
 })
 

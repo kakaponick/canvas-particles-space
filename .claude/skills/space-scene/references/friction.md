@@ -89,9 +89,11 @@ Once the missing piece exists (a knob, a fix in code, a sentence in `knobs.md`, 
 - Cause: a shape's `opacity` dims its fill too, and shapes lie over the fade, so a half-lit ball shows what
   is under it at full strength.
 - Now: lay an opaque black disc of the body's size under it for the body's whole life (same centre and
-  values) and ramp only the body; start the ramp as the title's last 0.4 s fade out (about 2.05 s, 2.3 s
-  where the body is under the title). A black disc on a fully lit scene reads as a bare hole: keep its
-  bare stretch within the fade-in.
+  values) and ramp only the body. At an opening, the chapter kit fades the picture in under the title, so
+  the black disc showed alone on the lit sheet for 0.7 s, a bare black hole (review 5), whatever the ball's
+  ramp: hold the whole frame black under the captions with a black rect (`size` [1.9, 1.05], its opacity
+  1 until the title is gone at 2.4 s, then 0 over 0.6 s) and ramp the ball over the same 0.6 s. Still
+  missing: a word of the chapter kit for "the picture comes up after the title", so no clip needs a rect.
 - Where: the ball's draws at the head of `films/fourth_dimension_pop_06_above.js` to `_08_ripple.js`, and at
   "mass" in `_05_sheet.js`.
 
@@ -112,17 +114,25 @@ Once the missing piece exists (a knob, a fix in code, a sentence in `knobs.md`, 
   merger, and raising `gridWaveLift` folded the throats into bright needles beside the pair (pop film 5:02).
 - Cause: the spiral wave grows as 1 over the pair's distance and its crests lengthen with a slow orbit, so 6
   radii apart it is long and low; it is strongest at the pair's middle, where the steep wells fold first.
-- Now: a closer pair (4 radii) on shallow wells (`gridDepth` 1.5). The wide clearing that hid the needles at
-  lift 9 (3.6 out to 8) left the pair in a large black void with creases at its sides and a needle under it,
-  the next review's blocker. Clearing 1.6 out to 3.6, `gridWaveLift` 3, `companionWaves` 5 and
-  `gridThroatGlow` 2 show two wells, no void, no needle; lift 4 to 6 brought creases or needles back at every
-  clearing from 1.3 to 2. Close the clearing to 1.04 within 0.8 s of the merger.
-- Still missing: crests that read before the merger without folding the throats. At lift 3 the spiral is
-  faint in a still, and the ripple reads from the merger's rings on; a lift that falls off near the wells
-  (a knob) would let the far crests stand up.
+- Now: knobs.md, the pair's waves, "Crests seen while the pair still circles far apart": a faster orbit and
+  coarser cells, not more lift, make the crests read. Four rounds of review went to lift and clearing alone.
+- Still missing: a lift that falls off near the wells (a knob). At lift 3.5 a few pinched lines still
+  converge beside the pair's middle; any lift that raises the far crests more folds them into a crease.
 - Where: `PAIR`, `WAVES` in `films/fourth_dimension_pop_08_ripple.js`.
 
 ## The tools and the machine
+
+### Master moved three times under one task (2026-11-27)
+- Wanted / got: a still of a changed clip after putting it on the screen; got "is behind master: rebase it
+  first" from `screen.mjs live` three times in one task, and each rebase of a branch that carries friction
+  entries stopped on a conflict in this file, since master was rewriting its sections meanwhile.
+- Cause: the screen refuses a branch behind master (live_page.md, "On the operator's screen"), and other
+  sessions merge into master every half hour or so; a branch of several commits replays each one.
+- Now: stash, `git rebase master`, then `git stash pop`, then `pnpm build` when `src/` moved, before each
+  `screen.mjs live`; chain the stills after the screen with `&&`, never `;`, or they render (and tempt a
+  look) while the screen still shows the last clip. Keep a conflict in this file by both sides' entries,
+  dropping those master closed.
+- Where: `scripts/screen.mjs`; the pop film's fixer branch `review3-05-08`.
 
 ### Reading a contact sheet's tiles as one frame (2026-11-27)
 - Wanted / got: compare two stills stacked side by side; read the right tile's coordinates as the whole
