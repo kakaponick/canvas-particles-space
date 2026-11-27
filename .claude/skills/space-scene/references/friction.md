@@ -243,6 +243,13 @@ the friction cannot happen any more.
 - Now: rebase the branch on master right before the merge, build again, and render only from a checkout
   nothing is merging into.
 
+### A narration that ran the reel past 600 s (2026-11-27)
+- Wanted / got: the Russian and en2 reels rendered; got "the reel is 613 s long; 600 s is the most".
+- Now: render the reel in two halves (a copy of the reel JSON with the first and the last clips, run from the
+  repo root so its `films/...` paths resolve), then join them with `~/.space-film/ffmpeg.exe -f concat` and
+  lay the whole narration over (`-map 0:v -map 1:a -c:v copy`). ffmpeg is a Windows program: the list file
+  names `C:/...` paths, never Git Bash's `/c/...`.
+
 ### Removing a worktree with linked node_modules (2026-11-27)
 - Wanted / got: `git worktree remove`; got a hook blocking the walk through `node_modules` junctions that
   point into the main checkout, and a half-removed folder once.
