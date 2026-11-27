@@ -52,7 +52,7 @@ export interface SimulationPreset {
 
 export const PRESET_NAME_MAX_LENGTH = 32
 // The top of the Event Horizon slider (simulation_specs.ts)
-export const HORIZON_SCALE_MAX = 8
+export const HORIZON_SCALE_MAX = 40
 
 // The settings as they are, sharing the palette, so a subscriber sees a change only when one happened
 export function selectSimulationSettings (source: SimulationSettings): SimulationSettings {

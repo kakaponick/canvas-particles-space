@@ -56,7 +56,7 @@ stand-in shows is a picture of the idea. Know which of the two a shot is made of
 
 | Law | Nature's value | Stand-in, and what it replaces |
 |---|---|---|
-| The pull | `gravityFalloff` 2 (Newton), `threeD` for the true distance | `gravityReach` ends gravity, which has no edge (40, its most, comes nearest); the flat mode's layer (`gravityDepth`) stands in for distance along the line of sight |
+| The pull | `gravityFalloff` 2 (Newton), `threeD` for the true distance | `gravityReach` ends gravity, which has no edge (200, its most, comes nearest: in 3D the wake behind the hole stops changing from about there); the flat mode's layer (`gravityDepth`) stands in for distance along the line of sight |
 | Keeping speed | `gravityInertia` 1 (Newton's first law) | below 1 a share of the speed is lost every 60th of a second; 0 moves a particle only while it is pushed |
 | The swirl | none: `orbitalStrength` 0 | Orbital Force, for the angular momentum infalling gas brings with it |
 | Frame dragging | `frameDrag` 1, `frameDragFalloff` 1, `frameDragSight` 1; orbits' planes `orbitDrag` 1 | |
@@ -68,7 +68,7 @@ stand-in shows is a picture of the idea. Know which of the two a shot is made of
 | A particle's light | | its speed on the screen: a drawing rule, so the eye reads motion |
 
 The field on nature's values alone, `threeD`, `gravityInertia` 1, `gravityFalloff` 2, `orbitalStrength` 0,
-`gravityReach` 40 and a flight, shows what gravity does to a stream of matter flying past a hole: the
+`gravityReach` 200 and a flight, shows what gravity does to a stream of matter flying past a hole: the
 streams bend toward it, the near ones swing round it, and behind it they cross into a narrow wake,
 gravitational focusing (seen in a tracer at `gravityStrength` 6, 8 s of warm-up). No disc forms, as none
 would in nature: a disc needs angular momentum, and a straight flight brings none. A disc in this scene is
