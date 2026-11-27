@@ -467,6 +467,18 @@ kind.
   false. The hole under it still makes the well and pulls the particles, and the picture rides the hole,
   the zoom and the pan. `films/fourth_dimension_experiment.js` stands the Earth so: NASA's photograph cut
   out on a clear ground, its disc 0.78 of the half side, drawn 2.62 radii wide.
+- A thing the scene cannot draw (an observatory, a spacecraft, a planet's surface) is a generated picture,
+  cut out on a clear ground. The ai-service makes one: `POST https://r.xn--c6t.net/service/v1/images`
+  with `{ prompt, model: "chatgpt", aspect: "1:1" }`, then `GET /v1/jobs/<id>` until `done`,
+  `GET /v1/jobs/<id>/result` and the image's `url` (the key is `AI_SERVICE_TOKEN`: run the script under
+  `withsecret AI_SERVICE_TOKEN --`, which hands it over as `SECRET_AI_SERVICE_TOKEN`, sent as
+  `Authorization: Bearer`; the full contract is `docs/api/ai-service.md` in the sibling repo ads.ren.net).
+  Asked for "an isolated object on a fully transparent background, PNG with alpha", `chatgpt` returns an
+  RGBA PNG whose ground is truly clear (about 30 s, a limit of about 25 a day); check the alpha before use.
+  Light it in the prompt as the scene lights it (the star's colour, its side), scale it to about 800 px
+  wide, and where the picture's border cut the object off (a rock running to its edge), fade the alpha
+  over that border, or put that border off the frame. `films/infographic_style.js` stands its observatory
+  so, its dome's slit where the light ends.
 - Lay an arrow over a stream the particles already draw: the arrow names the motion, the particles show it.
 - Shapes lie over `fade` and under the captions, so a chart can stand on black.
 

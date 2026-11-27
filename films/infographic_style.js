@@ -3,7 +3,7 @@
 // physics in the middle, leader lines to what the words name, a legend and an inset on quiet plates.
 // The recipe is in .claude/skills/space-scene/references/films.md, "An infographic look".
 //   node .claude/skills/space-scene/scripts/space.mjs still films/infographic_style.js out.jpg 6
-/* global film, set, wait, caption, draw, meanwhile, to */
+/* global film, set, wait, caption, draw, to */
 film({
   seed: 3,
   settings: {
@@ -43,36 +43,41 @@ const closest = { sheet: [-2.4, 0] }
 const observer = { sheet: [-1, -6] }
 draw({ kind: 'line', points: [source, observer], color: '#ffffff', width: 0.002, dash: [0.012, 0.008], opacity: 0.8 })
 draw(sphere({ hole: [0, 0] }, 1.15, 0.05))
+// The observer: an observatory on a rock (a generated picture, cut out on a clear ground), its dome's slit
+// where the light ends, the rock running off the frame's bottom. It rides the hole, which the still sheet
+// keeps in one place under the observer
+const OBSERVATORY = { center: { hole: [-1.44, -4.62] }, width: 4 }
+draw({ kind: 'image', src: 'films/infographic_observatory.png', ...OBSERVATORY })
 draw({
   kind: 'line', smooth: true, arrow: 'middle', color: WARM, width: 0.0035, glow: 0.012, draw: 3,
   points: [source, { sheet: [-1.63, 4] }, { sheet: [-2.14, 2] }, closest, { sheet: [-2.14, -2] }, { sheet: [-1.63, -4] }, observer]
 })
 draw({ kind: 'circle', center: source, radius: 0.08, fill: '#ffd9a0', color: '#ffd9a0', glow: 0.02 })
-draw({ kind: 'circle', center: observer, radius: 0.08, fill: '#ffffff', color: '#ffffff', glow: 0.012 })
 
 to({ fade: 0 }, 1)
 
 // The axis it turns about, rising from its pole, and the way it turns
-draw({ kind: 'line', arrow: 'end', points: [{ hole: [0, 1.15] }, { hole: [0, 2.8] }], color: QUIET, width: 0.0018 })
-// Its stub under the star, dashed, so the arrow reads as an axis through the star and not a line on the sheet
-draw({ kind: 'line', points: [{ hole: [0, -1.15] }, { hole: [0, -1.9] }], color: QUIET, width: 0.0018, dash: [0.006, 0.006] })
+draw({ kind: 'line', arrow: 'end', points: [{ hole: [0, 1.15] }, { hole: [0, 2.8] }], color: '#ffffff', width: 0.0028 })
+// Its stub under the star, faint, so the arrow reads as an axis through the star and not a line on the sheet; solid,
+// since a dash means the path without lensing here
+draw({ kind: 'line', points: [{ hole: [0, -1.15] }, { hole: [0, -1.9] }], color: '#ffffff', width: 0.0028, opacity: 0.45 })
 draw({ kind: 'circle', center: { hole: [0, 0] }, radius: 1.5, radiusY: 0.92, arc: [-40, 35], arrow: 'end', color: '#ffffff', width: 0.0025 })
 caption('Ω', { at: { hole: [0.35, 2.9] }, font: 'noto', size: 0.04, italic: true })
 
 // Words: the title against the top-left margin, labels beside what they name, a legend and an inset in the corners
 wait(0.3)
 caption('Light bent by a neutron star', text({ at: [0, 0.07], size: 0.045 }))
-caption('(schematic; bend exaggerated)', text({ at: [0, 0.135], size: 0.034, color: '#c6cfdc', weight: 400, plate: 0.5 }))
+caption('(schematic; not to scale, bend exaggerated)', text({ at: [0, 0.135], size: 0.034, color: '#c6cfdc', weight: 400, plate: 0.5 }))
 caption('Neutron star\n(rapid rotation)', { at: 'hole', angle: -60, radius: 1.2, font: 'noto', size: 0.026, plate: 0.5 })
 // The two ends are named where they are, on the sheet, so their words go wherever the sheet takes them
 caption('Distant light source', { at: { sheet: [-1.4, 6.5] }, font: 'noto', size: 0.026, anchor: 'right' })
-caption('Observer', { at: { sheet: [-0.4, -6] }, font: 'noto', size: 0.026, anchor: 'left' })
+caption('Observer', { at: { hole: [0.45, -3.4] }, font: 'noto', size: 0.026, anchor: 'left' })
 
 // Once the path has drawn itself in: the legend that names it
 wait(2)
 
 // The legend: a plate whose left edge is the frame's margin, its samples and their words in two columns
-draw(plate([0.231, 0.86], [0.7, 0.2]))
+draw(plate([0.18, 0.86], [0.52, 0.2]))
 draw({ kind: 'line', points: [[0.05, 0.8], [0.1, 0.8]], color: WARM, width: 0.0035, glow: 0.008 })
 draw({ kind: 'line', points: [[0.05, 0.86], [0.1, 0.86]], color: '#ffffff', width: 0.002, dash: [0.012, 0.008], opacity: 0.8 })
 draw({ kind: 'line', points: [[0.05, 0.92], [0.1, 0.92]], color: '#8fa6c8', width: 0.0022 })
@@ -86,7 +91,7 @@ caption('Spacetime curvature (grid)', text({ at: [0.115, 0.92] }))
 const INSET = [0.83, 0.2]
 // A frame place is a share of the width and of the height; this keeps a ring round on a 16:9 frame
 const WIDE = 9 / 16
-draw(plate(INSET, [0.48, 0.32]))
+draw(plate(INSET, [0.48, 0.34]))
 caption('Frame dragging', text({ at: [0.71, 0.075], size: 0.028 }))
 // Each ring is taller than the star, so no ring or its dot crosses the star's face
 draw(sphere(INSET, 0.022, 0.02))
@@ -109,7 +114,6 @@ rings.forEach(([across, tall], index) => {
 })
 draw({ kind: 'line', arrow: 'end', points: [[INSET[0], 0.178], [INSET[0], 0.112]], color: '#ffffff', width: 0.0016 })
 caption('Ω', text({ at: [INSET[0] + 0.012, 0.108], size: 0.024, italic: true }))
-caption('Rotation twists spacetime\naround the star · rate ∝ 1/r³', { at: [INSET[0], 0.31], font: 'noto', size: 0.022, italic: true, color: '#c6cfdc' })
+caption('Rotation twists spacetime\naround the star · rate ∝ 1/r³', { at: [INSET[0], 0.31], font: 'noto', size: 0.026, italic: true, color: '#dfe6f0' })
 
-meanwhile(() => { to({ gridTilt: 55 }, 6) })
 wait(6)
