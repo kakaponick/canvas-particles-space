@@ -157,16 +157,23 @@ shot('dark', () => {
   const end = start + spoken + 0.6
   status('known', spoken + 0.4)
   caption('3 M_{☉}', end - start, { at: [0.24, 0.3], size: 0.07, font: 'unbounded', color: INK })
-  // Light climbs the wall and falls back: each stroke rises from the star and bends back down
+  // Light climbs the wall and falls back: each ray lies on the near wall of the well, leaves the star, rises
+  // as far as it can and turns back down to it a little further round. A place on the sheet is the well's
+  // radii from its middle, `angle` degrees round from the right toward the far side, so -90 faces the camera
   const light = start + heard('dark', 'light', 0.35)
-  for (let index = 0; index < 4; index++) {
-    const side = index % 2 ? 1 : -1
-    const high = index >> 1
-    const reach = 0.06 + 0.04 * high
+  const RAYS = [[-120, 1.7], [-60, 2.2], [-100, 2.8], [-75, 1.5]]
+  RAYS.forEach(([angle, reach], index) => {
+    const points = []
+    for (let step = 0; step <= 24; step++) {
+      const share = step / 24
+      const away = 1.04 + (reach - 1.04) * Math.sin(Math.PI * share)
+      const turn = (angle + 22 * (share - 0.5)) * Math.PI / 180
+      points.push({ sheet: [+(away * Math.cos(turn)).toFixed(4), +(away * Math.sin(turn)).toFixed(4)] })
+    }
     at(light - 0.4 + index * 0.35, () => {
-      draw({ kind: 'line', points: [[0.5 + side * 0.04, 0.84], [0.5 + side * reach, 0.64 - 0.05 * high], [0.5 + side * (reach + 0.05), 0.82]], color: HOT, width: 0.004, draw: 1.2, fade: 0.5 }, 2.6)
+      draw({ kind: 'line', points, smooth: true, color: HOT, width: 0.0035, draw: 1.2, fade: 0.5 }, 2.6)
     })
-  }
+  })
   at(light, () => {
     caption('light falls back', dark - 0.3 - now(), { at: [0.76, 0.3], size: 0.04, font: 'unbounded', color: INK })
   })
