@@ -30,8 +30,8 @@ What the page needs:
 The operator sees every simulation first (CLAUDE.md, "Working here"): before an agent draws a still, a
 preview, a sheet or a render of a film or of a new look, it puts it on the operator's screen. The screen is
 one page, `http://127.0.0.1:5199/`, that the operator keeps open in T3 Code's own browser. It shows what an
-agent last put on it under one line that says who shows what and when; a click on that line lists the last
-few things shown to go back to. A shell is all an agent needs; no browser tool of its own.
+agent last put on it under one line pressed to the left: who shows it, what, when (and how long ago),
+and from which branch and film; its History button lists the last few things shown to go back to. A shell is all an agent needs; no browser tool of its own.
 
 1. A film not yet in `films/` goes there as `films/_lab_<name>.js`; `films/_lab_*` is in the repository's
    `.git/info/exclude`, so it never joins a commit.
