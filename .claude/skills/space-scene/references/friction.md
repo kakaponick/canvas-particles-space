@@ -47,17 +47,6 @@ Once the missing piece exists (a knob, a fix in code, a sentence in `knobs.md`, 
   a satellite. Before writing an experiment, ask whether a lab has one on a bench today, and name it so.
 - Where: clip 10 of the pop film, `films/fourth_dimension_pop_10_test.js`.
 
-### Light drawn by an analogy while the scene already traces light (2026-11-27)
-- Wanted / got: the Shapiro delay as a flash spreading over the sheet; got a `gridFront` whose rays were
-  straight lines measured along the dent, with a capture radius picked by eye and a dark wedge behind the
-  hole. The operator asked why the scene's own physics of light was not used. The sheet's flash now runs
-  on the eikonal of the hole's medium (`src/lib/light_front.ts`).
-- Cause: the work started from the textbook sheet; nobody asked what the scene already knows about light.
-- Now: a look that shows light takes light's laws from the start, the scale fixed by the shadow (the
-  critical impact parameter, 3√3/2 rs). Ask what the scene already computes before drawing a picture of
-  physics. Still missing: a particle law for photons on null geodesics.
-- Where: the pop film's chapter 5.
-
 ### The Shapiro delay's formula, one way or there and back (2026-11-27)
 - Wanted / got: the light front's delay checked against 2 rs ln(4 rF rP / b²), as the brief gave it; the
   field and traced rays came out at half that.
@@ -126,6 +115,17 @@ Once the missing piece exists (a knob, a fix in code, a sentence in `knobs.md`, 
 - Where: `PAIR`, `WAVES` in `films/fourth_dimension_pop_08_ripple.js`.
 
 ## The tools and the machine
+
+### A bench whose before refuses the new knob (2026-11-27)
+- Wanted / got: `bench.mjs page --against HEAD --set` with the new `gridFrontPhotons` in it, to price the
+  photons; the HEAD build answered `set: refused: Unknown key` and was measured on the default scene while
+  this checkout drew the photons' scene, two scenes timed against each other, and the run went on.
+- Cause: `--set` goes to both builds whole; a key the before does not have makes it refuse the lot, and the
+  script prints the refusal and measures anyway.
+- Now: measure the change's scene without the new key against HEAD (the cost of the knob at 0), then this
+  checkout alone with it (`bench.mjs page --set ...` without `--against`) and read its frame rate. What is
+  missing is a bench that stops on a refused set, or sends the before only the keys it knows.
+- Where: `scripts/bench.mjs` (`window.space.set` in `page`), the photons' change (light-photons).
 
 ### Twelve stills for one question (2026-11-27)
 - Wanted / got: the shape of a well; ran sweeps of six stills, twice, and the operator called it out: one

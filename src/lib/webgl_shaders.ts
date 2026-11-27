@@ -52,7 +52,7 @@ const DENT_GLSL = `  // How deep the sheet lies at a distance from a black hole 
 // in the plane's units, along its two directions; the surface lies that deep in the wells along the way the
 // plane faces; the pose takes it into the space of the camera that sees the sheet (right, down, ahead) and
 // draws it there. Lengths are in the plane's units (space_grid.ts), screen places in CSS pixels
-const SHEET_GLSL = `  uniform vec4 u_sheetU;      // the sheet's pose: where its camera sends the plane's first direction, its focal length
+export const SHEET_GLSL = `  uniform vec4 u_sheetU;      // the sheet's pose: where its camera sends the plane's first direction, its focal length
   uniform vec4 u_sheetV;      // where it sends the second, the nearest it draws
   uniform vec4 u_sheetN;      // where it sends the way the wells go down, the x of its picture's centre
   uniform vec4 u_sheetO;      // where the plane's place over the main hole stands, the y of its picture's centre; the hole is at its well's bottom
@@ -267,7 +267,7 @@ ${BEHIND_GLSL}
 
 // The programs that fade and stamp strokes are GLSL ES 3.00, where a fragment can write two targets at
 // once. Their vertex shaders are written as the others are and read as 3.00 through these two words
-const MODERN_VERTEX = '#version 300 es\n#define attribute in\n#define varying out\n'
+export const MODERN_VERTEX = '#version 300 es\n#define attribute in\n#define varying out\n'
 
 // Two triangles covering clip space; the particle program reuses them as segment corners
 // The most layers of noise a nebula is made of (the top of Nebula Detail), the most stars a cell of the sky

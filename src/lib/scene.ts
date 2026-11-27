@@ -15,6 +15,8 @@ import { renderTitleSprite, waitForTitleFont, type TitleSprite, type TitleStyle 
 export type { TitleSprite } from './title_sprite'
 import { clearRingEnergy, createRingEnergy, feedRing, stepRingEnergy } from './ring_energy'
 import { layFlatSheet, laySpaceSheet, orbitOnSheet, placeSheet, waveSheet } from './space_grid'
+import { createPhotonSettings } from './photon_program'
+import { createPhotonTrace, followFlash } from './photons'
 import { LATTICE_LINES_PER_SIDE, createLatticeSettings, latticeAnchor } from './space_lattice'
 import { FLOW_KEYS, createFlowSettings, leanPlane, resetFlow, shareFlow, stepFlow, turnFlow } from './flows'
 import { LIGHT_SPEED, SHADOW_RADII, clearOrbiters, createOrbitTuning, createOrbiters, stepOrbiters } from './orbiters'
@@ -250,6 +252,8 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
   let flashAnchorY = 0
   let flashPlaceX = NaN
   let flashPlaceY = NaN
+  // Where the flash's photons are traced from (photons.ts), moved on with every frame
+  const photonTrace = createPhotonTrace()
   // Seconds the shake's clock is ahead of the scene's, and its undertone's ahead of that
   let shakeLead = 0
   // How far the neutron star has turned, in radians: its turns a second, run up on the scene's clock
@@ -624,6 +628,7 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     flows: FLOW_KEYS.map(() => createFlowSettings()),
     flowSeed: 0,
     bloom: { strength: 0, threshold: 0.3, knee: 0.25, reach: 0.08, tail: 0.85, color: createSceneColor() },
+    photons: createPhotonSettings(),
     step: settings
   }
 
@@ -714,6 +719,8 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     cue.title = false
     fadeBacklog = 0
     flashPlaceX = NaN
+    photonTrace.x = NaN
+    photonTrace.lastX = NaN
     shakeLead = 0
     undertoneLead = 0
     view.spin = 0
@@ -1526,7 +1533,8 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     const grid = frame.grid
     const onSheet = state.gridRide > 0 && horizon > 0
     const wellWidth = Math.max(state.gridWellWidth, 0.01)
-    if (state.gridSheet > 0 || onSheet) {
+    // The flash's photons ride the sheet too, drawn or not
+    if (state.gridSheet > 0 || onSheet || state.gridFrontPhotons > 0) {
       const shared = threeD ? eased : 0
       // Wave Turn: the second hole along its orbit laid flat onto each layout's plane, the flat one the
       // scene's x and y, the 3D one the equator
@@ -2234,6 +2242,26 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     composite.skyGridLine = state.gridSkyLine
     composite.gridSphere = state.gridSkySphere
     composite.gridSlant = state.gridSkySlant
+    // The flash on the sheet, which Light Front's band and the photons both run from: its place from the
+    // main hole in the plane's units, against the plane's second direction as sheetPoint takes it. It is read
+    // from the hole while Front Run is 0 and then held on the sheet: the anchor (where the sheet's fixed point
+    // stood from the hole, grid.anchorX/Y) is taken again while the run is 0, while neither draws and when the
+    // place changes, and every place fixed on the sheet moves against the hole as its fixed point does
+    const flashing = (state.gridSheet > 0 && state.gridFront > 0) || state.gridFrontPhotons > 0
+    let flashX = 0
+    let flashY = 0
+    if (flashing) {
+      if (state.gridFrontRun <= 0 || state.gridFrontX !== flashPlaceX || state.gridFrontY !== flashPlaceY) {
+        flashAnchorX = grid.anchorX
+        flashAnchorY = grid.anchorY
+        flashPlaceX = state.gridFrontX
+        flashPlaceY = state.gridFrontY
+      }
+      flashX = state.gridFrontX * grid.throat + grid.anchorX - flashAnchorX
+      flashY = -state.gridFrontY * grid.throat + grid.anchorY - flashAnchorY
+    } else {
+      flashPlaceX = NaN
+    }
     // The sheet was laid out before the particles were stepped (above); here is what only its drawing reads
     grid.brightness = state.gridSheet
     if (state.gridSheet > 0) {
@@ -2253,30 +2281,36 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       readSceneColor(grid.lightColor, state.gridLightColor)
       grid.front = state.gridFront
       if (state.gridFront > 0) {
-        if (state.gridFrontRun <= 0 || state.gridFrontX !== flashPlaceX || state.gridFrontY !== flashPlaceY) {
-          flashAnchorX = grid.anchorX
-          flashAnchorY = grid.anchorY
-          flashPlaceX = state.gridFrontX
-          flashPlaceY = state.gridFrontY
-        }
-        // Its place from the main hole in the plane's units, against the plane's second direction as
-        // sheetPoint takes it: every place fixed on the sheet moves against the hole as its fixed point does
-        grid.frontX = state.gridFrontX * grid.throat + grid.anchorX - flashAnchorX
-        grid.frontY = -state.gridFrontY * grid.throat + grid.anchorY - flashAnchorY
+        grid.frontX = flashX
+        grid.frontY = flashY
         grid.frontRun = state.gridFrontRun
         const width = Math.max(state.gridFrontWidth, 0.01)
         const lead = Math.min(Math.max(state.gridFrontLead, 0), 1)
         grid.frontLead = width * lead
         grid.frontTail = width * (1 - lead)
         readSceneColor(grid.frontColor, state.gridFrontColor)
-      } else {
-        flashPlaceX = NaN
       }
-    } else {
-      flashPlaceX = NaN
     }
-    // The sheet's waves, which the grid program draws and the particles on the sheet ride, from the sky's
-    if (state.gridSheet > 0 || (settings.ride > 0 && state.gridRideWave > 0)) waveSheet(grid, composite)
+    // The flash's photons (photons.ts), at the flash's place and run, riding the sheet as its lit lines do
+    const photons = frame.photons
+    photons.brightness = state.gridFrontPhotons
+    // A frame with no photons, or a sheet with no throat, starts their trace afresh
+    followFlash(photonTrace, flashX / Math.max(grid.throat, 1e-6), flashY / Math.max(grid.throat, 1e-6),
+      state.gridFrontPhotons > 0 && grid.throat > 0 ? state.gridFrontRun : 0)
+    if (state.gridFrontPhotons > 0) {
+      photons.count = state.gridPhotonCount
+      photons.x = photonTrace.lastX
+      photons.y = photonTrace.lastY
+      photons.traceX = photonTrace.x
+      photons.traceY = photonTrace.y
+      photons.run = state.gridFrontRun
+      photons.trail = state.gridPhotonTrail
+      photons.width = state.gridPhotonWidth
+      photons.fade = state.gridPhotonFade
+      readSceneColor(photons.color, state.gridPhotonColor)
+    }
+    // The sheet's waves, which the grid program draws and the particles and photons on the sheet ride, from the sky's
+    if (state.gridSheet > 0 || (settings.ride > 0 && state.gridRideWave > 0) || state.gridFrontPhotons > 0) waveSheet(grid, composite)
 
     // The lattice stands in the scene around the black hole and is seen by the 3D camera, or straight on
     // in the flat mode. Its cells are counted in the hole's full radius, so it is there before the hole

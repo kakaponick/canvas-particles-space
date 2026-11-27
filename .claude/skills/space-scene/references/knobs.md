@@ -721,6 +721,7 @@ straight-on (section 11).
 | The sheet in the picture: the share of it behind the holes drawn through the lens, and how its pose turns while 3D eases in | `gridLensed`, `gridEaseTurn` |
 | The sheet's light: how many times brighter a line is at a throat and how close to it that glow keeps; the light the holes shed on it, where it falls to half, and its colour | `gridThroatGlow`, `gridThroatCurve`, `gridLight`, `gridLightReach`, `gridLightColor` |
 | A flash running over the sheet's lines: its band's brightness (0 is off), where it flashed (the main well's radii, x right, y away, as a film's sheet places), how long its light has run, the band's width and its rising share, and its colour | `gridFront`, `gridFrontX`, `gridFrontY`, `gridFrontRun`, `gridFrontWidth`, `gridFrontLead`, `gridFrontColor` |
+| The flash's light as photons on the paths of light past the hole: their brightness (0 is off), how many, how far their trails reach back (radii of run), the strokes' width, the run a fallen photon fades over, and their colour | `gridFrontPhotons`, `gridPhotonCount`, `gridPhotonTrail`, `gridPhotonWidth`, `gridPhotonFade`, `gridPhotonColor` |
 
 - The sheet is a surface of the scene: a piece of the main hole's equator (the plane matter, the flows and
   the orbiting stars follow; across the line of flight while the hole does not spin), dented where the
@@ -793,6 +794,26 @@ straight-on (section 11).
   out: square cells (`gridRings` 0) draw its whole shape. Added to the sheet's blue the default warm white
   turns white at any strength; a stronger warm colour reads warm: `gridFrontColor` #ffa040 at `gridFront`
   1.2 over `gridSheet` 0.35.
+- `gridFrontPhotons` draws the same flash as light itself: photons sent evenly in angle from `gridFrontX`,
+  `gridFrontY`, each where light has run `gridFrontRun` along its own ray, the null geodesic of the medium
+  Light Front's band is solved in (`src/lib/photons.ts` takes its index and scale from `src/lib/light_front.ts`), so
+  the band's leading edge and the photons' front are one front: at runs 5 to 30 from (-10, 1.5) the field's
+  arrival time at a photon is the run to 0.02 radii (median; 0.04 for 99 of 100). Its gate is
+  `gridFrontPhotons` above 0 and `gridFrontRun` moved on a track; `gridFront` and `gridSheet` may be 0, the
+  photons ride the sheet's surface either way. At `gridDepth` 4, `blackHoleSize` 3, a run 0 to 30 over 12
+  s: the rays bend round the hole, the front lags over it, its two halves cross behind it (past the band's
+  cusp the photons fly on through each other: the caustic where the Einstein ring begins, which the band,
+  a first arrival, does not draw), a sparse ring of photons that wound round the photon sphere streams out
+  from the hole in every direction behind the front, and the photons aimed inside fall to the middle and
+  fade over `gridPhotonFade`. The photon sphere lies at 0.36 throat radii and the horizon at 0.1, so the
+  winding and the falling are drawn inside the shadow: a close look needs `cameraZoom` 8 on the hole and
+  `gridPhotonTrail` about 1. The paths are traced on the main thread when the flash's place from the hole
+  or `gridPhotonCount` changes, about 0.05 ms a photon (0.1 s at the default 2048), and only while the light
+  has run; while the place keeps moving (a hole moved after the flash, 3D easing in) they are drawn moved
+  with the flash as last traced and traced again on the first frame it stands still, so a moving place
+  bends them round where the hole stood at the last trace. A second hole is not traced: its well
+  neither bends nor takes them; a star (`neutronSurface`) is taken as a hole. 2048 photons close the front
+  and catch the echo; `gridPhotonTrail` 1 draws the front as a line, 3 and more as rays.
 - `gridEaseTurn` 1 turns the sheet's pose as a camera turns while 3D eases in (`threeDEase`), the plane
   flat and square; 0 squeezes it midway and slides its lines across the screen. The well's bottom stays on
   the hole either way.

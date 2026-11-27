@@ -7,6 +7,7 @@ import { GRID_LINES_PER_SIDE } from './space_grid'
 import { LATTICE_LINES_PER_SIDE } from './space_lattice'
 import { FLOW_CAPACITY, FLOW_KEYS, type FlowColorKey, type FlowSharedKey, type FlowSliderKey } from './flows'
 import { LONGEST_TRACE, MAX_ORBITERS } from './orbiters'
+import { MAX_PHOTONS } from './photons'
 
 export interface SimulationSettingSpec {
   label: string
@@ -597,6 +598,16 @@ export const SIMULATION_SETTING_SPECS = {
     'How wide the band of Light Front is along the light\'s run, in radii of the main hole\'s shadow: a short rise at its leading edge (Front Lead of it) and a longer tail fading behind it. A narrow band reads as a thin ring sweeping the lines; a wide one as a glow that trails it. Without Light Front it does nothing.'), 'Sheet Front Width'), 2),
   gridFrontLead: spoken(spec('Front Lead', 0, 1, 0.01, percentOfOne, 'Share of the band rising at its front',
     'The share of Front Width over which the band of Light Front rises at its leading edge, smoothly from dark to full; the rest is the tail, fading behind it as the square of what is left of it. 0 starts it at full with a hard edge; 100% rises over all of it and leaves no tail. Without Light Front it does nothing.'), 'Sheet Front Lead'),
+  gridFrontPhotons: curved(spoken(spec('Photons', 0, 8, 0.05, fixed(2, '×'), 'Light of the flash as photons; 0 = none',
+    'The flash of Light Front as light itself: photons sent from the flash (Front Place X and Y) evenly in every direction, each flying at the speed of light along the real path of light past the main hole, drawn as short strokes on the sheet in Photon Color with a trail back along its own path. Each stands where light has run Front Run along its own path, in coordinate time, so the rays bend round the hole, the photons\' front lags over the well (the Shapiro delay), its two halves cross behind the hole (the caustic where the Einstein ring begins), a few photons wind round the photon sphere and those aimed inside it fall in and fade. The physics is Light Front\'s, exact for a static hole: in isotropic coordinates light obeys Fermat\'s principle with the index n = (1 + rs/4ρ)³ / (1 − rs/4ρ), the sheet\'s plane is that plane, scaled so the throat is the critical impact parameter, 3√3/2 rs, and each photon follows the ray (the null geodesic) whose first arrival Light Front\'s band draws, so the photons\' front and the lit band are one front. The paths are traced on the main processor when the flash\'s place from the hole or Photon Count changes, about 0.05 ms a photon; while the place keeps moving (a hole moved after the flash, which leaves the flash where it went off on the sheet) they are drawn moved with the flash as last traced, and traced again on the first frame it stands still. A second hole is not traced: its well neither bends nor takes them; a star (Star Surface) is taken as a hole. The value is their brightness, a multiple of their colour. Light Front need not be on; the sheet need not be drawn, they ride its surface either way. 0 traces and draws nothing.'), 'Sheet Light Front Photons'), 2),
+  gridPhotonCount: curved(spoken(spec('Photon Count', 64, MAX_PHOTONS, 64, count, 'How many photons the flash sends',
+    'How many photons the flash of Photons sends, evenly in angle. More draw the front as a closed line and catch more of the few that wind round the photon sphere; their paths are traced on the main thread when the count or the flash\'s place changes, about 0.05 ms a photon, so a count on a track retraces every frame it moves. Without Photons it does nothing.'), 'Sheet Photon Count'), 2),
+  gridPhotonTrail: curved(spoken(spec('Photon Trail', 0, 30, 0.05, fixed(2, ' r'), 'Trail behind each photon, in radii',
+    'How far back along its own path a photon\'s trail reaches, in the main well\'s radii of light travel (the same measure as Front Run), fading toward its end. A short trail draws the front as a ring of dashes; a long one draws the rays themselves, bending round the hole. Without Photons it does nothing.'), 'Sheet Photon Trail'), 2),
+  gridPhotonWidth: curved(spoken(spec('Photon Width', 0.25, 8, 0.05, fixed(2, ' px'), 'Width of a photon\'s stroke',
+    'Width of a photon\'s stroke and trail, in screen pixels, the same near and far. Below a pixel it is drawn a pixel wide and dimmed. Without Photons it does nothing.'), 'Sheet Photon Width'), 2),
+  gridPhotonFade: curved(spoken(spec('Photon Fade', 0.05, 20, 0.05, fixed(2, ' r'), 'Run a fallen photon fades over',
+    'How long a photon the hole has taken keeps showing, in radii of run: it stays where it reached the horizon, its trail drawing into it, and fades out over this much of Front Run. Without Photons it does nothing.'), 'Sheet Photon Fade'), 2),
   gridLatticeLine: curved(spoken(spec('Lattice Line', 0.25, 12, 0.05, fixed(2, ' px'), 'Width of the lattice\'s lines',
     'Width of the lattice\'s lines, in screen pixels, the same near and far and at any zoom.'), 'Lattice Line Width'), 2),
   gridLatticeGain: spoken(spec('Lattice Gain', 0, 8, 0.05, fixed(2, '×'), 'Lattice brightness, × the grids\' color',
@@ -720,6 +731,9 @@ export const SIMULATION_COLOR_SPECS = {
   gridFrontColor: color('Light Front Color', 'Color of the flash running over the sheet',
     'The color of the band of Light Front, added to the sheet\'s own Grid Color on the lines it lights, at Light Front times its strength: a warm white reads as a flash of light over the grid\'s blue.',
     'Sheet Light Front Color'),
+  gridPhotonColor: color('Photon Color', 'Color of the flash\'s photons',
+    'The color of the photons of Photons and their trails, at Photons times its strength; each channel stops at full. The front\'s warm white by default, so the photons read as the same light as the lit band.',
+    'Sheet Photon Color'),
   neutronColor: color('Star Color', 'Color of the neutron star\'s plasma',
     'The deep color of the neutron star\'s plasma between its veins.', 'Neutron Star Color'),
   neutronVeinColor: color('Vein Color', 'Color of its veins, limb and glow',

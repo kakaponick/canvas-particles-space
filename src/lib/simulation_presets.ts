@@ -32,6 +32,7 @@ export const SIMULATION_SETTING_KEYS = [
   'neutronVeinLight', 'neutronLimb', 'neutronShade', 'neutronGlowLight', 'neutronWarp', 'neutronColor', 'neutronVeinColor', 'gridEaseTurn',
   'gridThroatGlow', 'gridThroatCurve', 'gridLight', 'gridLightReach', 'gridLightColor',
   'gridFront', 'gridFrontX', 'gridFrontY', 'gridFrontRun', 'gridFrontWidth', 'gridFrontLead', 'gridFrontColor',
+  'gridFrontPhotons', 'gridPhotonCount', 'gridPhotonTrail', 'gridPhotonWidth', 'gridPhotonFade', 'gridPhotonColor',
   'bloom', 'bloomThreshold', 'bloomKnee', 'bloomReach', 'bloomTail', 'bloomColor',
   'gridHorizon', 'gridHorizonCells', 'gridHorizonPace', 'gridHorizonLine', 'gridHorizonHaze',
   'gridHorizonHazeFrom', 'gridHorizonHazeTo', 'gridHorizonCellsAround', 'gridHorizonShift', 'gridHorizonCompanion',

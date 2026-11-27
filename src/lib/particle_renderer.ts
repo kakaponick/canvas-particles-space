@@ -35,6 +35,7 @@ import { FLOW_CAPACITY, FLOW_CORNER_FLOATS, FLOW_SEED_FLOATS, FLOW_VERTEX_COUNT,
 import { DISC_MAP_SIZE } from './disc_trace'
 import { CRITICAL_IMPACT } from './lens_trace'
 import { createFrontField, FRONT_FIELD_ANGLES, FRONT_FIELD_RADII, type FrontField } from './light_front'
+import { createPhotonDrawer, type PhotonDrawer, type PhotonSettings } from './photon_program'
 
 const STRETCH_STRIDE = STRETCH_FLOATS * 4
 const INSTANCED_ATTRIBUTES = [ATTRIBUTE_LOCATIONS.segment, ATTRIBUTE_LOCATIONS.style, ATTRIBUTE_LOCATIONS.color]
@@ -606,6 +607,8 @@ export interface FrameInput extends FieldInput {
   flowSeed: number
   // The halo a camera spreads round whatever is bright, laid over the finished frame and the sheet
   bloom: BloomSettings
+  // The photons of the sheet's flash (photons.ts), drawn on the sheet over it
+  photons: PhotonSettings
 }
 
 // The bloom (Bloom, Bloom Threshold, Bloom Knee, Bloom Reach, Bloom Tail, Bloom Color): 0 strength draws
@@ -767,6 +770,8 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     return null
   }
   const field: FieldFeedback = madeField
+  // The photons' program and table, built the first time Photons is above 0 (null: it did not build)
+  let photonDrawer: PhotonDrawer | null | undefined
   // Whether the composite pass reads the ring's light from the field this frame
   let ringLit = false
   // The flash's delay field, made the first time a flash is drawn, and what it was last solved for: the
@@ -2008,6 +2013,11 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     }
     composite(frame.composite, frame.title, frame.background)
     if (frame.grid.brightness > 0) drawGrid(frame.grid, frame.composite, sheetFront(frame), false)
+    if (frame.photons.brightness > 0 && frame.photons.count > 0 && frame.grid.throat > 0) {
+      if (photonDrawer === undefined) photonDrawer = createPhotonDrawer(gl)
+      const c = frame.composite
+      photonDrawer?.draw(frame.photons, frame.grid, c.zoomX, c.zoomY, Math.max(c.cameraZoom, 0.05), c.shakeX, c.shakeY, width, height, ratio)
+    }
     if (bloomed) bloom(frame.bloom, frame.composite.letterbox)
   }
 
@@ -2121,6 +2131,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   }
 
   function dispose () {
+    photonDrawer?.dispose()
     for (const location of INSTANCED_ATTRIBUTES) gl.vertexAttribDivisor(location, 0)
     gl.vertexAttribDivisor(ATTRIBUTE_LOCATIONS.gridLine, 0)
     gl.vertexAttribDivisor(ATTRIBUTE_LOCATIONS.latticeLine, 0)
