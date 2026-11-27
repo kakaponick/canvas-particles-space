@@ -142,12 +142,13 @@ function stop () {
 const PAGE = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>Operator's screen</title>
 <style>
-  html, body { margin: 0; height: 100%; background: #000; color: #cfd8dc; font: 13px/1.3 ui-monospace, Consolas, monospace }
+  html, body { margin: 0; height: 100%; background: #000; color: #cfd8dc; font: 11px/20px ui-monospace, Consolas, monospace }
   body { display: flex; flex-direction: column }
-  header { display: flex; gap: 14px; align-items: center; padding: 6px 10px; background: #0b0f12; border-bottom: 1px solid #1d2a30 }
-  #label { color: #fff; font-weight: 600 }
-  #from, #at { color: #7f9aa3 }
-  select { margin-left: auto; background: #0b0f12; color: #cfd8dc; border: 1px solid #1d2a30; font: inherit }
+  /* One line, always: the label gives way with an ellipsis, the rest keeps its width */
+  header { flex: none; display: flex; gap: 8px; align-items: center; height: 20px; padding: 0 6px; background: #0b0f12; border-bottom: 1px solid #1d2a30; white-space: nowrap; overflow: hidden }
+  #label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: #fff }
+  #from, #at { flex: none; color: #7f9aa3 }
+  select { flex: none; width: 22px; height: 16px; padding: 0; background: #0b0f12; color: #7f9aa3; border: 1px solid #1d2a30; font: inherit; cursor: pointer }
   iframe { flex: 1; width: 100%; border: 0; background: #000 }
   #empty { flex: 1; display: grid; place-items: center; color: #7f9aa3 }
 </style></head>
@@ -157,6 +158,7 @@ const PAGE = `<!doctype html>
 <script>
   let current = null
   let pinned = null
+  const clock = at => new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
   const frame = () => document.querySelector('iframe')
   function put (entry) {
     if (!entry || entry.url === current) return
@@ -169,15 +171,17 @@ const PAGE = `<!doctype html>
       document.body.append(element)
     }
     element.src = entry.url
-    document.getElementById('label').textContent = entry.label || entry.url
-    document.getElementById('from').textContent = entry.from ? entry.from.split(/[\\\\/]/).pop() : ''
-    document.getElementById('at').textContent = new Date(entry.at).toLocaleTimeString()
+    const label = document.getElementById('label')
+    label.textContent = entry.label || entry.url
+    label.title = entry.label || entry.url
+    document.getElementById('from').textContent = entry.from ? entry.from.split(/[\\\\/]/).pop().replace(/^canvas-particles-space-?/, '') || 'main' : ''
+    document.getElementById('at').textContent = clock(entry.at)
   }
   async function poll () {
     try {
       const state = await (await fetch('/state')).json()
       const select = document.getElementById('history')
-      const options = state.history.map((entry, index) => '<option value="' + index + '">' + new Date(entry.at).toLocaleTimeString() + ' · ' + (entry.label || entry.url).replace(/</g, '&lt;') + '</option>')
+      const options = state.history.map((entry, index) => '<option value="' + index + '">' + clock(entry.at) + ' · ' + (entry.label || entry.url).replace(/</g, '&lt;') + '</option>')
       if (select.dataset.count !== String(state.history.length) || select.dataset.top !== String(state.history[0] && state.history[0].at)) {
         select.innerHTML = options.join('')
         select.dataset.count = String(state.history.length)
