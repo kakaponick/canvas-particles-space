@@ -112,6 +112,8 @@ the trails that stay (`trailIntensity`), its brightness the speed.
 | What point it is born around | `fieldAtHole` |
 | How fast | `baseSpeed`, `speedVariance` |
 | What a particle looks like | `particleSize`, `particleSizeMin`, `trailIntensity`, `speedGlow`, `speedGlowKnee`, `baseBrightness` |
+| How much the particles differ from each other: in width, in their own light | `particleSizeSpread`, `particleLightSpread` |
+| The light lost climbing out of a hole's well (1 = nature) | `gravityRedshift` |
 | How depth changes it | `depthFade`, `minOpacity`, `maxOpacity` |
 | Twinkle | `pulseIntensity`, `pulseSpeedMultiplier` |
 | Colours | `colorPalette`, `backgroundR`, `backgroundG`, `backgroundB` |
@@ -121,7 +123,17 @@ the trails that stay (`trailIntensity`), its brightness the speed.
   with distance between `minOpacity` and `maxOpacity`. Raise the size floor to the size and the field is
   strokes of one width, a flat graphic look, and the far end of the field stays visible; at 0 the far
   field thins away. This matters wherever the hole has taken particles: they are reborn at the far end,
-  where at the default floor they are hairlines.
+  where at the default floor they are hairlines. One the far end cannot hold outside the horizon (the flat
+  mode at `baseSpeed` 0, where the far end is a speck at the vanishing point) comes back anywhere out to
+  the frame's corners, evenly, and falls in again from there: the field thickens toward the hole by itself.
+- No two particles are alike: `particleSizeSpread` draws each wider or thinner than its distance gives,
+  `particleLightSpread` gives each a light of its own with the mean kept, a few bright and most dim. The
+  strokes are stamped brighter-of-two, so without the light spread a place crowded enough is lit by its
+  brightest particle alike: a flat white mass with a hard edge where the crowd thins. With it a crowd shows
+  its grain and brightens smoothly with how many it holds.
+- `gravityRedshift` 1 dims matter by (1 - r_s / r)^2 as it nears a hole, as redshift and time dilation do:
+  infall fades toward the shadow instead of heaping into a white band at its edge. 0 lights every distance
+  alike.
 - The trail is the fade of the picture, not part of the particle. `trailIntensity` 0 never fades: a long
   exposure, every stroke a particle has drawn kept. With `baseSpeed` 0 beside it the frame is the map of
   the hole's pull, drawn over seconds.
@@ -738,6 +750,7 @@ Gate: `gridRide` above 0, and the setup of films.md, section 16, which makes the
 |---|---|
 | The share of the way the particles are moved onto the sheet (0 leaves them where they fly), and the half thickness in radii of the slab round the equator whose particles are | `gridRide`, `gridRideDepth` |
 | The slab: the share it fades over, its depth on the far side, the share of the sheet's waves its particles go with, the most of a stroke cut at the near plane rather than dropped | `gridRideSoft`, `gridRideFar`, `gridRideWave`, `gridRideCut` |
+| How far a stroke the sheet stretches or squeezes keeps the light of its own move | `gridRideStretch` |
 
 - `gridRide` makes the particles the sheet's vectors: each stroke lies on the surface and shows where
   matter, or space, goes on it. What falls goes down the well's wall, what circles wraps its mouth, and from
@@ -752,6 +765,12 @@ Gate: `gridRide` above 0, and the setup of films.md, section 16, which makes the
   screen, off the surface, so `lensingEnabled` false; a tilted sheet is framed with the hole low and fills
   on one side, so `fieldAtHole` 1; what the hole took returns at the far end of the field as a hairline,
   so `particleSizeMin` raised to `particleSize` keeps the well full.
+- The steep throat is where a small step toward the hole is a long fall down the wall, and seen from
+  above that wall is foreshortened into a thin ring round the shadow. `gridRideStretch` 1 spreads each
+  stroke's light over the length the sheet gives it, so the matter on the sheet is bright and fades down
+  the wall in a gradient, the throat's grid showing through, instead of a tube of long white strokes that
+  stands out of the sheet at a hard line (from the side) or a solid white ring (from above). 0 is the
+  diagram's look, every stroke as bright as its own move.
 - In the flat mode `gridTilt` is the camera: tilting it streaks the trails as a camera move does. In 3D
   the particles stand on the sheet where it lies, and every move of the camera sees the two together.
   There the field's gravity ends at a sphere, so the field lines only a band round the well's mouth; a flow

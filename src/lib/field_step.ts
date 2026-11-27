@@ -44,7 +44,7 @@ const STEP_KEYS = [
   'pulseSpeedMultiplier', 'pulseIntensity', 'baseBrightness', 'minOpacity', 'maxOpacity', 'speedGlow', 'speedKnee', 'revealRadius', 'revealX',
   'revealY', 'revealFeather', 'opacityScale', 'threeD', 'holeWorldX', 'holeWorldY', 'holeWorldZ', 'companionWorldX',
   'companionWorldY', 'companionWorldZ', 'endFade', 'frontAway', 'frontDepth', 'frontReach', 'holeSeen', 'companionSeen', 'holeFront', 'companionFront',
-  'frontLetGo', 'frontPower', 'frontBend', 'frontBetween', 'holeEinstein', 'companionEinstein', 'spinShape', 'spinTurn'
+  'frontLetGo', 'frontPower', 'frontBend', 'frontBetween', 'holeEinstein', 'companionEinstein', 'spinShape', 'spinTurn', 'redshift', 'lightSpread', 'sizeSpread', 'rideStretch'
 ] as const satisfies readonly (keyof StepSettings)[]
 const DERIVED_KEYS = ['hasHole', 'ringFed', 'revealing', 'inertial', 'keep', 'gain', 'velocityGain', 'spawnRadius', 'speedVariance'] as const
 const STEP_NAMES: readonly string[] = [...STEP_KEYS, ...DERIVED_KEYS]
@@ -133,10 +133,9 @@ ${STEP_DEFINES}
   const float MIN_CLIP_MARGIN = 4.0;
   // Strokes are cut where they pass this close in front of the 3D camera, in scene units
   const float NEAR = 1.0;
-  // Random spawns tried for a captured particle before it is placed right outside the horizon, and how
-  // far outside, as a share of the capture radius
+  // Random spawns at the far end tried for a captured particle before it comes back across what is seen
+  // instead (a loop bound the shader's time holds)
   const int RESPAWN_TRIES = 4;
-  const float RESPAWN_RIM_SPREAD = 0.5;
   // How fast the space round a spinning hole carries a particle, against how fast the hole pulls it in
   const float DRAG_SHARE = 0.5;
   // A kept speed below a hundredth of a scene unit a second (squared, per 60 Hz frame) is let go
@@ -193,6 +192,22 @@ ${STEP_DEFINES}
     return drawn(seed);
   }
 
+  // The share of its light a particle at "dist" from a hole whose shadow is "shadow" across (the same unit)
+  // keeps on its way out of the hole's well: (1 - r_s / r)^2 for a body at rest there, to the power of
+  // Redshift. The shadow's radius is 2.6 Schwarzschild radii, nature's
+  float wellLight (float dist, float shadow) {
+    return pow(max(1.0 - shadow / (2.6 * max(dist, 0.000001)), 0.0), 2.0 * s_redshift);
+  }
+
+  // Numbers in [0, 1) of this particle alone, the same in every step, each from a word of its own: its own
+  // light (Light Spread) and its own width (Size Spread)
+  float ownLight () {
+    return drawn(uint(gl_VertexID) * 2654435761u + 2654435769u);
+  }
+  float ownWidth () {
+    return drawn(uint(gl_VertexID) * 3266489917u + 668265263u);
+  }
+
   // A number in [0, 1) of this particle alone, the same in every step: the share seen through the lens
   // past which it goes behind the holes, so in the band behind them the field thins from one layer into
   // the other and no particle flickers between the two
@@ -221,9 +236,14 @@ ${STEP_DEFINES}
         break;
       }
     }
+    // Matter does not appear at a horizon: one the far end cannot hold outside it comes back anywhere out
+    // to the edge of what is seen (the frame's corners flat, the birth disc in space), evenly by area, as
+    // new matter arriving from afar, and falls in from there. Put on the rim, it heaped into a ring of even
+    // brightness round the shadow with a hard outer edge
     if (!placed) {
       float angle = chance() * TWO_PI;
-      float radius = horizonRadius * (1.0 + chance() * RESPAWN_RIM_SPREAD);
+      float outer = max(inSpace ? s_spawnRadius : 0.5 * length(vec2(s_width, s_height)), horizonRadius * 2.0);
+      float radius = sqrt(mix(horizonRadius * horizonRadius, outer * outer, chance()));
       at = (horizonAt.xy + vec2(cos(angle), sin(angle)) * radius) / spawnScale;
     }
 
@@ -274,10 +294,16 @@ ${STEP_DEFINES}
   void stroke (vec2 start, vec2 end, vec2 away, float distanceFactor, vec3 inFrom, vec3 inTo, float shown, float own, float fromBlast) {
     float depthFactor = 1.0 - distanceFactor * s_depthFade;
     float lineWidth = max((1.0 - distanceFactor) * s_lineWidth, s_minLineWidth);
+    // Each particle is its own width, 2 to the power of Size Spread times its number between -1 and 1
+    if (s_sizeSpread > 0.0) lineWidth *= exp2(s_sizeSpread * (2.0 * ownWidth() - 1.0));
     float pulse = s_pulseIntensity != 0.0
       ? 1.0 + sin(s_time * look.y * s_pulseSpeedMultiplier + look.x) * s_pulseIntensity * distanceFactor
       : 1.0;
-    float opacity = max(min(depthFactor * drift.w * pulse * s_baseBrightness, s_maxOpacity), s_minOpacity) * s_opacityScale * shown;
+    // and its own light, (s + 1) u^s with s three times Light Spread: the mean is kept, a few shine and most
+    // are dim, so a crowd stamped brighter-of-two shows its grain instead of its brightest particle everywhere
+    float spread = 3.0 * s_lightSpread;
+    float lit = spread > 0.0 ? (spread + 1.0) * pow(ownLight(), spread) : 1.0;
+    float opacity = max(min(depthFactor * drift.w * pulse * s_baseBrightness * lit, s_maxOpacity), s_minOpacity) * s_opacityScale * shown;
 
     // Only particles within reach of the explosion are drawn (the opening's shockwave)
     if (s_revealing > 0.5) {
@@ -309,8 +335,14 @@ ${STEP_DEFINES}
             shareTo = mix(shareFrom, shareTo, cut);
           }
         }
+        float flown = length(end - start);
         start = laidOn(start, away.x, laidFrom, shareFrom);
         end = laidOn(end, away.y, laidTo, shareTo);
+        // A stroke the sheet stretches spreads the light of its own move over its length, and one it squeezes
+        // (a wall seen from above, foreshortened) crowds as many strokes into the place, so each keeps as
+        // much less: the sheet's surface stays as bright as the matter on it (Ride Keeps Light)
+        float laid = length(end - start);
+        if (s_rideStretch > 0.0 && laid != flown) opacity *= pow(min(flown, laid) / max(max(flown, laid), 0.000001), s_rideStretch);
         // A ridden stroke stands as far away as laidOn sets it
         away = vec2(mix(away.x, mix(away.x, laidFrom.z, u_ride.w), shareFrom), mix(away.y, mix(away.y, laidTo.z, u_ride.w), shareTo));
         // Both ends of a ridden stroke are seen through the sheet as it lies now, so its length is the move
@@ -532,7 +564,14 @@ ${STEP_DEFINES}
       rideFrom = vec3(start - hole, (startZ - s_holeDepth) * heightScale);
       rideTo = vec3(end - hole, (pz - s_holeDepth) * heightScale);
     }
-    strokeLook = vec2(pz / s_farZ, 1.0);
+    // Light from near a hole is seen dimmed by its climb out of the well, by the distance on the screen: the
+    // flat mode sees the field as if in the hole's plane
+    float light = 1.0;
+    if (hasHole && s_redshift > 0.0) {
+      light = wellLight(length(hole - end), s_holeRadius);
+      if (s_companionRadius > 0.0) light *= wellLight(length(vec2(s_companionX, s_companionY) - end), s_companionRadius);
+    }
+    strokeLook = vec2(pz / s_farZ, light);
     strokeMeasure = vec2(length(end - start), length(end - vec2(s_revealX, s_revealY)));
   }
 
@@ -683,6 +722,11 @@ ${STEP_DEFINES}
       vec3 toHole = (at - hole) / worldPerPixel;
       rideFrom = vec3(dot(u_equator[0], fromHole), dot(u_equator[1], fromHole), dot(u_equator[2], fromHole));
       rideTo = vec3(dot(u_equator[0], toHole), dot(u_equator[1], toHole), dot(u_equator[2], toHole));
+    }
+    // Light from near a hole is seen dimmed by its climb out of the well, by the true distance
+    if (hasHole && s_redshift > 0.0) {
+      shown *= wellLight(length(at - hole), radius);
+      if (s_companionRadius > 0.0) shown *= wellLight(length(at - vec3(s_companionWorldX, s_companionWorldY, s_companionWorldZ)), s_companionRadius * worldPerPixel);
     }
     strokeLook = vec2(min(seenTo.z / s_farZ, 1.0), shown);
     // The opening reveals the field by the true distance from the blast, which happened at the hole's depth

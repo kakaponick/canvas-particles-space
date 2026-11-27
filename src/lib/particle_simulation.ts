@@ -141,6 +141,13 @@ export interface StepSettings {
   // every moving particle in full), and the speed in CSS pixels that lights it half way
   speedGlow: number
   speedKnee: number
+  // The light a particle loses climbing out of the holes' wells, as a power of nature's (1 - r_s / r)^2;
+  // how much the particles differ in their own light, and in width
+  redshift: number
+  lightSpread: number
+  sizeSpread: number
+  // How far a stroke the sheet stretches keeps the light of its own move (Ride Keeps Light)
+  rideStretch: number
   // Only particles within this distance of the explosion are drawn (the intro shockwave): on the screen in
   // the flat step, in space from the blast's place at the hole's depth in the 3D one, in CSS pixels there
   revealRadius: number
@@ -405,6 +412,10 @@ export function createStepSettings (ringEnergy: RingEnergy | null = null): StepS
     maxOpacity: 0,
     speedGlow: 1,
     speedKnee: 0.15,
+    redshift: 0,
+    lightSpread: 0,
+    sizeSpread: 0,
+    rideStretch: 0,
     revealRadius: 0,
     revealX: 0,
     revealY: 0,

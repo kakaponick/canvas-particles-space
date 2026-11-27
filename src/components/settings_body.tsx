@@ -201,6 +201,7 @@ function SettingsBody () {
         </div>
         <div className="mt-3 flex flex-col gap-1">
           <SettingSlider field="particleSize" />
+          <SettingSlider field="particleSizeSpread" />
           <SettingSlider field="trailIntensity" />
         </div>
         <SettingsFine id="particles">
@@ -213,6 +214,8 @@ function SettingsBody () {
         {/* Brightness, then the opacity range, then the pulse */}
         <SettingSlider field="baseBrightness" />
         <SettingSlider field="speedGlow" />
+        <SettingSlider field="particleLightSpread" />
+        <SettingSlider field="gravityRedshift" />
         <SettingSlider field="depthFade" />
         <div className="mt-3 flex flex-col gap-1">
           <SettingSlider field="minOpacity" />
@@ -538,6 +541,7 @@ function SettingsBody () {
             <SettingSlider field="gridLensed" />
             <SettingSlider field="gridEaseTurn" />
             <SettingSlider field="gridRideSoft" />
+            <SettingSlider field="gridRideStretch" />
             <SettingSlider field="gridRideFar" />
             <SettingSlider field="gridRideWave" />
             <SettingSlider field="gridRideCut" />

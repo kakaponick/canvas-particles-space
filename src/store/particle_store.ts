@@ -187,6 +187,9 @@ export interface ParticleState extends FlowState {
   // Stroke width of the nearest particles and of the farthest, CSS pixels
   particleSize: number
   particleSizeMin: number
+  particleSizeSpread: number
+  particleLightSpread: number
+  gravityRedshift: number
   // Radius of the disc particles spawn in, world units
   spawnRadius: number
   fieldAtHole: number
@@ -257,6 +260,7 @@ export interface ParticleState extends FlowState {
   gridRideWave: number
   gridLensed: number
   gridRideSoft: number
+  gridRideStretch: number
   gridRideFar: number
   gridRideCut: number
   gridWell2Bottom: number
@@ -581,6 +585,9 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   flightTintFull: 12,
   particleSize: 3,
   particleSizeMin: 0.3,
+  particleSizeSpread: 0.5,
+  particleLightSpread: 0.6,
+  gravityRedshift: 1,
   spawnRadius: 700,
   fieldAtHole: 0,
   blackHoleDepth: 30,
@@ -625,6 +632,7 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   gridRideWave: 1,
   gridLensed: 0,
   gridRideSoft: 1,
+  gridRideStretch: 1,
   gridRideFar: 1,
   gridRideCut: 1,
   gridWell2Bottom: 1,

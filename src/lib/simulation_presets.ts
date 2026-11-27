@@ -6,7 +6,7 @@ import { FLOW_SETTING_KEYS } from './flows'
 
 export const SIMULATION_SETTING_KEYS = [
   'numParticles', 'fieldEnabled', 'baseSpeed', 'speedVariance', 'farZ', 'trailIntensity', 'speedGlow', 'speedGlowKnee',
-  'particleSize', 'particleSizeMin', 'spawnRadius', 'fieldAtHole', 'blackHoleDepth', 'gravityDepth', 'scrollSpeedStep',
+  'particleSize', 'particleSizeMin', 'particleSizeSpread', 'particleLightSpread', 'gravityRedshift', 'spawnRadius', 'fieldAtHole', 'blackHoleDepth', 'gravityDepth', 'scrollSpeedStep',
   'baseBrightness', 'depthFade', 'minOpacity', 'maxOpacity', 'pulseIntensity', 'pulseSpeedMultiplier',
   'flightTintAhead', 'flightTintEdge', 'flightTintBehind', 'flightTintGradient', 'flightTintLimit', 'flightTintFrom', 'flightTintFull',
   'starsBrightness', 'starDensity', 'starCell', 'nebula', 'nebulaColor', 'nebulaColorDeep', 'nebulaColorCore',
@@ -28,7 +28,7 @@ export const SIMULATION_SETTING_KEYS = [
   'lensingEnabled', 'lensingTraced', 'lensingRadius', 'lensingFromCamera', 'lensingRotation', 'lensingFalloff', 'lensingPivot', 'lensingCore', 'lensingMaxBend', 'lensingReach', 'lensingBubble', 'lensingTwistLimit', 'lensingAbsorption',
   'gridCell', 'gridSheet', 'gridTilt', 'gridDepth', 'gridRings', 'gridSpokes', 'gridRide', 'gridRideDepth', 'gridSky', 'gridSkyPull', 'gridColor', 'gridLattice', 'gridLatticeCell', 'gridLatticeWarp',
   'gridDistance', 'gridSpan', 'gridFade', 'gridWaveLift', 'gridWaveOrbit', 'gridLine', 'gridLineNear', 'gridNear', 'gridClearing', 'gridClearingEdge', 'gridSkyLine', 'gridSkyHaze', 'gridSkyHazeSpan', 'gridSkySphere', 'gridSkySlant',
-  'gridRingSpacing', 'gridRideWave', 'gridLensed', 'gridRideSoft', 'gridRideFar', 'gridRideCut', 'gridWell2Bottom', 'gridLift', 'gridEaseTurn',
+  'gridRingSpacing', 'gridRideWave', 'gridLensed', 'gridRideSoft', 'gridRideStretch', 'gridRideFar', 'gridRideCut', 'gridWell2Bottom', 'gridLift', 'gridEaseTurn',
   'gridHorizon', 'gridHorizonCells', 'gridHorizonPace', 'gridHorizonLine', 'gridHorizonHaze',
   'gridHorizonHazeFrom', 'gridHorizonHazeTo', 'gridHorizonCellsAround', 'gridHorizonShift', 'gridHorizonCompanion',
   'gridLatticeLine', 'gridLatticeGain', 'gridLatticeReach', 'gridLatticeFade', 'gridLatticeNear', 'gridLatticeFar', 'gridLatticeNearEdge', 'gridLatticeUnit',

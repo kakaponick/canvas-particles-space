@@ -1256,6 +1256,10 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     settings.maxOpacity = state.maxOpacity
     settings.speedGlow = state.speedGlow
     settings.speedKnee = state.speedGlowKnee
+    settings.redshift = state.gravityRedshift
+    settings.lightSpread = state.particleLightSpread
+    settings.sizeSpread = state.particleSizeSpread
+    settings.rideStretch = state.gridRideStretch
     // Flat, the opening reveals what lies within the front on the screen. In 3D it reveals a sphere round
     // the blast's place, which goes on growing after the front has left the screen, until it holds the
     // whole field
