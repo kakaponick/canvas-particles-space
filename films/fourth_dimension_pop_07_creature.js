@@ -112,10 +112,11 @@ film({
 })
 chapter('07', 'THE FLAT CREATURE')
 
-// The creature: a round body with two eyes, out on the sheet to the right of the well, in hole radii. Pale
-// violet, so it is not taken for the gold mass ball of clip 5
+// The creature: a round body with two eyes, out on the sheet to the right of the well, in hole radii
 const HOME = [5, 2]
-const CREATURE = '#cdb6ff'
+// Pale silver: apart from the gold mass of chapter 05, the axes' orange and green and the cyan sheet, and no
+// lilac, the stock colour of generated pictures
+const CREATURE = '#e3e8ef'
 const near = (dx, dy) => ({ hole: [HOME[0] + dx, HOME[1] + dy] })
 const creature = seconds => {
   draw({ kind: 'circle', center: near(0, 0), radius: 0.55, fill: CREATURE, color: CREATURE, fade: 0.5 }, seconds)

@@ -64,11 +64,7 @@ film({
   seed: 8,
   settings: {
     lensingEnabled: false,
-    nebula: 0.6,
-    nebulaScale: 700,
-    nebulaSparseness: 0.4,
-    nebulaColor: '#6a2cc0',
-    nebulaColorDeep: '#0f7a9a',
+    // Stars on black, no nebula: its violet and pink read as stock space, and its dust muddied the frame
     starsBrightness: 1.4,
     starDensity: 0.22,
     ringDoppler: 0.6,
@@ -157,7 +153,7 @@ shot('stretch', () => {
 // The pair on a wide sheet of fine square cells with nothing on it, seen low so the crests stand up: the
 // ripple is the whole picture
 const PAIR = {
-  blackHoleSize: 3.5, blackHoleY: 0.5, gridRings: 0, gridCell: 2, gridTilt: 66, gridDepth: 3, gridSpan: 1.8, gridFade: 0.5, gridRide: 0, gridSheet: 1, gridLine: 1.5, nebula: 0.4,
+  blackHoleSize: 3.5, blackHoleY: 0.5, gridRings: 0, gridCell: 2, gridTilt: 66, gridDepth: 3, gridSpan: 1.8, gridFade: 0.5, gridRide: 0, gridSheet: 1, gridLine: 1.5,
   flowA: 0, companionSize: 0.8, companionDistance: 6, companionWaves: 6, gridWaveLift: 8,
   // The wave is strongest right at the wells, where it folds the steep throats into needles at any strength
   // that reads farther out: the sheet's lines fade in from the shadow over a few radii, so the wells read as

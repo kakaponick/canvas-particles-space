@@ -66,17 +66,7 @@ film({
   warmup: 0,
   settings: {
     lensingEnabled: false,
-    nebula: 0.8,
-    nebulaScale: 700,
-    nebulaSparseness: 0.4,
-    nebulaEdge: 0.5,
-    nebulaContrast: 0.35,
-    nebulaGrain: 0.1,
-    nebulaWarp: 1.5,
-    nebulaColor: '#6a2cc0',
-    nebulaColorDeep: '#0f7a9a',
-    nebulaColorCore: '#ff7ab8',
-    nebulaCore: 0.5,
+    // Stars on black, no nebula: its violet and pink read as stock space, and its dust muddied the frame
     starsBrightness: 1.6,
     starDensity: 0.22,
     ringDoppler: 0.6,
