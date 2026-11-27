@@ -779,6 +779,8 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   const field: FieldFeedback = madeField
   // The photons' program and table, built the first time Photons is above 0 (null: it did not build)
   let photonDrawer: PhotonDrawer | null | undefined
+  // Where the main hole's shadow stands for the photons, filled each frame they are drawn
+  const photonShadow: [number, number, number, number] = [0, 0, 0, 0]
   // Whether the composite pass reads the ring's light from the field this frame
   let ringLit = false
   // The flash's delay field, made the first time a flash is drawn, and what it was last solved for: the
@@ -2028,7 +2030,14 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     if (frame.photons.brightness > 0 && frame.photons.count > 0 && frame.grid.throat > 0) {
       if (photonDrawer === undefined) photonDrawer = createPhotonDrawer(gl)
       const c = frame.composite
-      photonDrawer?.draw(frame.photons, frame.grid, c.zoomX, c.zoomY, Math.max(c.cameraZoom, 0.05), c.shakeX, c.shakeY, width, height, ratio)
+      const zoom = Math.max(c.cameraZoom, 0.05)
+      // The main hole's shadow where the composite pass put it, and the radii Hole Clearing clears, as drawGrid sends them
+      const radius = c.horizon * zoom * ratio
+      photonShadow[0] = (c.zoomX + (c.holeX - c.shakeX - c.zoomX) * zoom) * ratio
+      photonShadow[1] = (c.zoomY + (c.holeY - c.shakeY - c.zoomY) * zoom) * ratio
+      photonShadow[2] = radius * frame.grid.clearFrom
+      photonShadow[3] = radius * Math.max(frame.grid.clearTo, frame.grid.clearFrom)
+      photonDrawer?.draw(frame.photons, frame.grid, c.zoomX, c.zoomY, zoom, c.shakeX, c.shakeY, width, height, ratio, photonShadow, sheetFront(frame))
     }
     if (bloomed) bloom(frame.bloom, frame.composite.letterbox)
   }

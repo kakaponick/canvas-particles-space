@@ -24,12 +24,14 @@ const photonVertexShaderSource = MODERN_VERTEX + `
   uniform vec4 u_lens;        // the scene camera's zoom: the point it leaves in place, the zoom; unused
   uniform vec4 u_jolt;        // the scene camera's shake; unused
   uniform vec4 u_run;         // how far the light has run, the trail's length, both in throat radii of coordinate time, the run a taken photon fades out over, the stroke's width in CSS pixels
+  uniform vec4 u_hole;        // the nearer black hole's distance from the camera as a share of the main one's (0 = nothing is in front), as the sheet takes it
   uniform vec4 u_place;       // the throat's radius in the plane's units, how far the flash stands from where it was traced, in throat radii; unused
 ${SHEET_GLSL}
   out vec2 v_ends;            // distance along the piece from its start and from its end
   out float v_across;         // signed distance from its axis
   out float v_halfWidth;
   out float v_light;          // how bright, 0 to 1: the trail fades toward its tail, a taken photon as it fades out
+  out float v_front;          // 1 for a piece nearer the camera than the holes, which passes in front of the shadow
 
   const int PIECES = ${PHOTON_PIECES};
   const float PIECES_F = ${PHOTON_PIECES}.0;
@@ -63,6 +65,7 @@ ${SHEET_GLSL}
     v_across = 0.0;
     v_halfWidth = 0.0;
     v_light = 0.0;
+    v_front = 0.0;
     float run = u_run.x;
     float head = run - u_run.y * float(piece) / PIECES_F;
     float tail = max(run - u_run.y * float(piece + 1) / PIECES_F, 0.0);
@@ -76,6 +79,8 @@ ${SHEET_GLSL}
       gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
       return;
     }
+    // A piece nearer the camera than the holes passes in front of their shadow; one behind it is hidden by it
+    if (u_hole.x > 0.0 && first.z + last.z < 2.0 * u_hole.x * (u_sheetO.z + u_sheetN.z * u_sheetWell.z)) v_front = 1.0;
     // What lies nearer than the camera's near plane is cut off where the piece crosses it
     if (first.z < near || last.z < near) {
       vec3 cut = mix(first, last, (near - first.z) / (last.z - first.z));
@@ -115,17 +120,22 @@ const photonFragmentShaderSource = `#version 300 es
   precision highp float;
 
   uniform vec4 u_color;  // the photons' colour at their brightness; unused
+  uniform vec4 u_frame;  // drawing buffer size in device pixels; the rest unused here
+  uniform vec4 u_shadow; // where the composite pass put the main hole's shadow, in device pixels from the top left, and the radii inside which a trail is gone and beyond which it is whole (Hole Clearing)
 
   in vec2 v_ends;
   in float v_across;
   in float v_halfWidth;
   in float v_light;
+  in float v_front;
   out vec4 color;
 
   void main () {
     // Round caps, so the pieces of a trail join without a notch
     float beyondEnds = max(0.0, -min(v_ends.x, v_ends.y));
     float alpha = v_light * clamp(v_halfWidth + 0.5 - length(vec2(beyondEnds, v_across)), 0.0, 1.0);
+    // A photon behind the hole does not cross its shadow or its ring, as the sheet's lines do not
+    if (v_front < 0.5 && u_shadow.z > 0.0) alpha *= smoothstep(u_shadow.z + 1.0, u_shadow.w + 2.0, length(vec2(gl_FragCoord.x, u_frame.y - gl_FragCoord.y) - u_shadow.xy));
     color = vec4(u_color.rgb * alpha, 1.0);
   }
 `
@@ -168,9 +178,11 @@ interface Uniform {
 
 export interface PhotonDrawer {
   // Draws the photons over what is bound, through the sheet as `grid` lays it, at the scene camera's zoom
-  // (centre zoomX, zoomY, in CSS pixels) and shake. Traces them first when the flash's place or the count changed
+  // (centre zoomX, zoomY, in CSS pixels) and shake, hidden behind the main hole's shadow (where the frame has it
+  // and the radii the clearing takes, in device pixels; a radius of 0: no shadow) unless nearer the camera than
+  // the holes (front, as the sheet takes it). Traces them first when the flash's place or the count changed
   draw: (photons: PhotonSettings, grid: GridSettings, zoomX: number, zoomY: number, zoom: number, shakeX: number, shakeY: number,
-    width: number, height: number, pixelRatio: number) => void
+    width: number, height: number, pixelRatio: number, shadow: readonly [number, number, number, number], front: number) => void
   dispose: () => void
 }
 
@@ -178,7 +190,7 @@ export interface PhotonDrawer {
 export function createPhotonDrawer (gl: WebGL2RenderingContext): PhotonDrawer | null {
   const program = createProgram(gl, photonVertexShaderSource, photonFragmentShaderSource, { a_position: ATTRIBUTE_LOCATIONS.position })
   if (!program) return null
-  const names = ['table', 'frame', 'lens', 'jolt', 'run', 'place', 'color', ...SHEET_UNIFORMS] as const
+  const names = ['table', 'frame', 'lens', 'jolt', 'run', 'place', 'color', 'hole', 'shadow', ...SHEET_UNIFORMS] as const
   const u = {} as Record<(typeof names)[number], Uniform>
   for (const name of names) u[name] = { location: gl.getUniformLocation(program, `u_${name}`), x: NaN, y: NaN, z: NaN, w: NaN }
   // A uniform, every one a vec4, is sent only when its value changed
@@ -211,7 +223,7 @@ export function createPhotonDrawer (gl: WebGL2RenderingContext): PhotonDrawer | 
   let tracedCount = 0
 
   function draw (photons: PhotonSettings, grid: GridSettings, zoomX: number, zoomY: number, zoom: number, shakeX: number, shakeY: number,
-    width: number, height: number, pixelRatio: number) {
+    width: number, height: number, pixelRatio: number, shadow: readonly [number, number, number, number], front: number) {
     const count = Math.min(Math.max(Math.round(photons.count), 1), MAX_PHOTONS)
     // The scene says where to trace from (followFlash); the table here only follows it
     if (photons.run <= 0 || Number.isNaN(photons.traceX)) return
@@ -238,6 +250,8 @@ export function createPhotonDrawer (gl: WebGL2RenderingContext): PhotonDrawer | 
     set(u.frame, width, height, pixelRatio, 0)
     set(u.lens, zoomX, zoomY, zoom, 0)
     set(u.jolt, shakeX, shakeY, 0, 0)
+    set(u.shadow, shadow[0], shadow[1], shadow[2], shadow[3])
+    set(u.hole, front, 0, 0, 0)
     set(u.run, photons.run, Math.max(photons.trail, 0), photons.fade, Math.max(photons.width, 0))
     set(u.place, grid.throat, photons.x - x, photons.y - y, 0)
     const light = photons.brightness
