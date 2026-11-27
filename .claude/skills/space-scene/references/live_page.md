@@ -4,7 +4,7 @@
 loaded in development and on any build opened with `?agent`; `window.space.help()` lists its commands.
 
 1. Open the page with a browser tool. The `chrome-devtools` MCP server of this repository opens its own headless
-   Chrome with its own profile: `navigate_page` to `http://localhost:5173/` (the dev server, `pnpm dev`)
+   Chrome with a fresh profile each start: `navigate_page` to `http://localhost:5173/` (the dev server, `pnpm dev`)
    or to `https://space.xn--c6t.net/?agent`.
 2. `evaluate_script` with `() => window.space.set({ blackHoleSize: 12 })`, and the same way for every
    command `help()` lists. `set` and `intro.set` check every value, move it onto its slider's step and
@@ -22,6 +22,4 @@ What the page needs:
   the user turns on remote debugging at `chrome://inspect/#remote-debugging`); changes then land in their
   saved settings, so put back what you changed with `reset` and `intro.reset` unless the change was the
   task.
-- When the browser tool reports that its browser is already running, somebody else holds that profile:
-  make a film instead, which needs no shared browser.
 - The live scene has a random seed and a cursor. A picture that must come out the same twice is a film.
