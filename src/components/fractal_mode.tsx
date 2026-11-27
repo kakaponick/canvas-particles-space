@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import { Download, InfinityIcon, Pause, Play, RotateCcw, X } from 'lucide-react'
+import { Download, Pause, Play, RotateCcw, X } from 'lucide-react'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -29,28 +29,6 @@ const formatSpeed = (rate: number) => {
 }
 
 const canSaveVideo = typeof window !== 'undefined' && typeof window.VideoEncoder === 'function'
-
-// The toolbar button, the one place the mode opens and closes. A leaf: opening the mode re-renders this
-// button and nothing else of the toolbar
-export function FractalToggle ({ className }: { className: string }) {
-  const open = useFractalStore(state => state.open)
-  const setOpen = useFractalStore(state => state.setOpen)
-  return (
-    <Button
-      variant="outline"
-      size="icon"
-      data-mandelbrot-toggle=""
-      aria-label="Mandelbrot zoom"
-      aria-expanded={open}
-      aria-controls={open ? PANEL_ID : undefined}
-      title={open ? 'Close Mandelbrot zoom' : 'Mandelbrot zoom'}
-      onClick={() => setOpen(!open)}
-      className={className}
-    >
-      <InfinityIcon aria-hidden="true" className="h-4 w-4" />
-    </Button>
-  )
-}
 
 // How deep the camera is: its own leaf, the one part of the panel that changes as the camera falls
 function DepthReadout ({ describedBy }: { describedBy: string }) {

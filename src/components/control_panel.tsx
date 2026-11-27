@@ -17,7 +17,6 @@ import { useParticleStore } from '../store/particle_store'
 import { MeasuredFps } from './controls/frame_rate_control'
 import { INTRO_DOCK_ID, closeIntroDebugger, isInDock, toggleIntroDebugger } from '../lib/intro_dock'
 import HintMenu from './controls/hint_menu'
-import { FractalToggle } from './fractal_mode'
 import { FilmToggle } from './film_mode'
 import { useFractalStore } from '../store/fractal_store'
 import { useFilmStore } from '../store/film_store'
@@ -157,7 +156,6 @@ function ControlPanel () {
       <div role="group" aria-label="Scene controls" className="fixed right-3 top-3 z-[60] flex gap-2">
         <SceneFps />
         <FilmToggle className={SCENE_BUTTON} />
-        <FractalToggle className={SCENE_BUTTON} />
         <IntroDebuggerToggle />
         {/* The trigger toggles: it opens Settings and, pressed again, closes it */}
         <SheetTrigger asChild>

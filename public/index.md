@@ -14,7 +14,7 @@ The page then has `window.space`, and everything is done by running JavaScript i
 - `space.describe()` and `space.intro.describe()` list every setting with its range, default and meaning.
 - `space.set({ gravityStrength: 5 })`, `space.reset()` and `space.preset.apply('Schwarzschild')` change the scene.
 - `space.film.guide()` is the format of a film: the scene as an mp4 on a timeline. Every setting moves along keyframes, layers switch on and off, the opening's events (the flash, the light front, the ringing, the gravitational wave) are fired again at any second, time slows or stops, and captions lie over the picture. `space.film.check(film)` answers with the timeline it understood. A film is one JSON object, or a script: JavaScript text that plays the film forward (`wait`, `to`, `shot`, `caption`), given as a string wherever a film is taken; `space.film.script(text)` returns the JSON it writes.
-- `space.fractal.guide()` is the format of a fractal film: a zoom into the Mandelbrot set as an mp4, to any depth (10^100, 10^1000), on a timeline of its own (the pace, the turn and the colours along keyframes, captions, a fade), as JSON or as a script. `space.fractal.check`, `preview` and `render` take it as the film calls do. Visitors open the same zoom live with the ∞ button in the toolbar.
+- `space.fractal.guide()` is the format of a fractal film: a zoom into the Mandelbrot set as an mp4, to any depth (10^100, 10^1000), on a timeline of its own (the pace, the turn and the colours along keyframes, captions, a fade), as JSON or as a script. `space.fractal.check`, `preview` and `render` take it as the film calls do.
 
 With no browser of your own, write the calls for the person you work for: they open that address and paste them into the browser's console.
 
