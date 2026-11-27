@@ -268,6 +268,15 @@ The Fourth Dimension, a published film (`fourth_dimension_youtube.md` holds its 
   the spin's drag).
 - `fourth_dimension_credits.js`: credits that fall into the hole as dust.
 - `fourth_dimension_poster.js`, `_poster2.js`, `_poster3.js`: its three poster takes (poster.md).
+- `fourth_dimension_pop.json`: the same idea told as popular science, a reel of twelve chapters
+  (`fourth_dimension_pop_01_down.js` to `_12_fall.js`), each with its own `LINES` and the cue words its
+  picture asks for, and the kit of `say`, `long`, `heard` and the claim's status in the same text at the
+  head of every clip; `fourth_dimension_pop_voice.mjs` reads the lines and cues from the clips and speaks
+  them in Fish Audio Drama 3 on a rented machine.
+
+Narration: `scripts/voice.mjs` is what every `*_voice.mjs` calls (`voiceFilm`: speak, verify, mix;
+`linesOfReel` for a reel whose clips hold their own lines). A clip of a voiced reel is previewed in its
+voice's time with `--input films/voice/<film>_lines.json`.
 
 Mandelbrot zooms (`docs/fractal_films.md`): `mandelbrot.json`, `mandelbrot_loop.json`, `mandelbrot_story.js`.
 
