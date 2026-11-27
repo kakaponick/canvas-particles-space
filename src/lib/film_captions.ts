@@ -44,8 +44,10 @@ const LOWERED = 0.2
 const BEHIND = '"Noto Sans", "Noto Sans Math", "Noto Sans Symbols", system-ui, sans-serif'
 
 function captionFont (caption: FilmCaption, size: number) {
-  if (caption.font === 'system') return `500 ${size}px system-ui, sans-serif`
-  return caption.font === 'noto' ? `500 ${size}px ${BEHIND}` : `500 ${size}px "${TITLE_FONTS[caption.font].family}", ${BEHIND}`
+  // The bundled faces have no italic of their own, so the browser leans the upright one
+  const style = `${caption.italic ? 'italic ' : ''}${caption.weight} ${size}px`
+  if (caption.font === 'system') return `${style} system-ui, sans-serif`
+  return caption.font === 'noto' ? `${style} ${BEHIND}` : `${style} "${TITLE_FONTS[caption.font].family}", ${BEHIND}`
 }
 
 // Where the composite pass put a black hole on the frame, and how long one of its radii is there

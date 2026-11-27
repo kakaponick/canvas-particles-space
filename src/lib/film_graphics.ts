@@ -186,6 +186,12 @@ export function drawGraphics (
     ctx.lineJoin = 'round'
     ctx.lineCap = graphic.dash ? 'butt' : 'round'
     if (graphic.dash) ctx.setLineDash([graphic.dash[0] * shortSide, graphic.dash[1] * shortSide])
+    // A glow is the canvas's shadow, unmoved and blurred, in the shape's own colour: it lies round the stroke,
+    // the fill and an arrow's head alike
+    if (graphic.glow > 0) {
+      ctx.shadowColor = graphic.color
+      ctx.shadowBlur = graphic.glow * shortSide
+    }
 
     // A closed outline is filled whole and stroked as far as it is drawn
     const outline = (points: Point[], closed: boolean) => {
@@ -209,6 +215,14 @@ export function drawGraphics (
         const path = graphic.smooth ? smoothed(corners, graphic.close) : corners
         if (!graphic.arrow || graphic.close) {
           outline(path, graphic.close)
+        } else if (graphic.arrow === 'middle') {
+          // The whole stroke, and one head halfway along its length once the stroke has drawn that far
+          outline(path, false)
+          const half = partOf(path, 0.5)
+          if (drawn >= 0.5 && half.length > 1) {
+            ctx.setLineDash([])
+            arrowHead(ctx, half[half.length - 1], half[half.length - 2], Math.max(stroke * ARROW_WIDTHS, ARROW_LEAST * shortSide))
+          }
         } else if (drawn > 0) {
           const head = Math.max(stroke * ARROW_WIDTHS, ARROW_LEAST * shortSide)
           let shown = partOf(path, drawn)

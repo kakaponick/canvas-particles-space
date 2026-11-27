@@ -354,6 +354,8 @@ const marked = captionOf('a caption with every mark', {
   values: { own: [[0, 0], [4, 1, 'linear']] },
   accent: '#88ccff',
   plate: 0.5,
+  weight: 300,
+  italic: true,
   width: 0.5,
   radius: 1.5,
   at: 'hole'
@@ -466,7 +468,7 @@ for (const word of ['opening', 'slow', 'hide', 'show', 'fire', 'title']) {
 // from where a caption's is; a script's draw comes to the JSON it stands for; what will not show is told.
 // A new kind or key fails here until it has a value below, which is what keeps this list whole
 const SHAPE_VALUES = {
-  from: 0, to: 4, fade: 0.2, color: '#ffffff', opacity: 0.5, width: 0.004, dash: [0.01, 0.01], fill: '#000000', fillOpacity: 0.5,
+  from: 0, to: 4, fade: 0.2, color: '#ffffff', opacity: 0.5, width: 0.004, dash: [0.01, 0.01], glow: 0.01, fill: '#000000', fillOpacity: 0.5,
   values: { own: [[0, 0], [4, 1]] }, draw: 1,
   points: [[0.1, 0.1], { hole: [1, 0] }, { companion: [0, 1] }], smooth: true, close: true, arrow: 'both',
   center: { hole: ['own', 0] }, radius: 'own', radiusY: 2, arc: [0, 'own'], size: [0.2, 0.1], round: 0.01,

@@ -231,6 +231,8 @@ Tours and language:
   read from the film, a list that builds.
 - `graphics.js`: everything drawn over the picture: rings that mark radii, an arrow with a label, a chart
   with a walking dot, a second hole's orbit and a pan to it, a framed picture.
+- `infographic_style.js`: the infographic look of section 14 on one frame: a glowing star in its well, a
+  warm bent path with its straight dashed twin, a title in the corner, leader lines, a legend and an inset.
 - `reel.json`: a reel of `horizon.js`, a fractal clip and `graphics.js`.
 
 The Ray Traced lens and spin:
@@ -443,6 +445,35 @@ kind.
   out on a clear ground, its disc 0.78 of the half side, drawn 2.62 radii wide.
 - Lay an arrow over a stream the particles already draw: the arrow names the motion, the particles show it.
 - Shapes lie over `fade` and under the captions, so a chart can stand on black.
+
+### An infographic look
+
+The look of a scientific illustration: the scene a quiet stage, the one thing the film is about lit on it,
+the words at the edges. `films/infographic_style.js` puts every rule below on one frame.
+
+- **Cold stage, one warm accent.** The grids, the stars and a body stay blue (`gridColor`, a body's
+  `fill`); the subject of the sentence, a path, a ring, a term, takes one warm colour, the same in the shape
+  (`color`) and in the words (`accent` with `*{term}`). A second accent splits the eye: keep it one.
+- **Glow ranks what matters.** The subject glows (`glow` 0.01 on a line, 0.03 to 0.05 on a body), the stage
+  does not; the sheet's throat glows by itself (`gridThroatGlow`, `gridLight`, knobs.md section 9). A glow on
+  everything is a glow on nothing.
+- **Solid is what happens, dashed is what would without the effect.** The bent path solid in the accent,
+  the straight one beside it `dash` in thin white at 0.5 `opacity`; the gap between them is the effect, and
+  the legend says it in words. Draw the dashed twin first and a body over it, the subject over the body.
+- **The physics in the middle, the words in the corners.** A title top-left with a smaller grey subtitle
+  (`weight` 400, a grey `color`); a legend bottom-left; an inset top-right; labels beside what they name with
+  a leader line (`at: 'hole'`, `angle`, `radius`) or at a place of the scene. A caption at `[0, y]` stands
+  against the left margin, so a corner needs no measuring; any other `[x, y]` is the middle of the block,
+  and `align` lines up its lines inside it, so a column of rows is placed row by row by each one's middle.
+- **Plates are quiet.** A legend or an inset sits on a `rect` with `round` 0.012, a thin grey edge (`width`
+  0.0012) and a dark `fill` at about 0.7 `fillOpacity`; never a bright frame. Small italic words
+  (`italic: true`) under an inset say what it shows.
+- **A direction is told once, halfway.** `arrow: 'middle'` puts one head halfway along a path, the way it
+  runs, so the path keeps its ends for a source and an observer; a turn round an axis is an ellipse drawn as
+  a smooth line with an arrow (a script makes its points), with Ω beside it.
+- **The frame is a diagram, and says so.** The path is drawn, not traced: a path laid on the sheet
+  (`{ sheet: [x, y] }`) dips into the well, which is the textbook's picture of bending, not where light
+  goes. Say it in the words when a viewer could take it for the tracer's.
 
 ## 15. A reel: several films in one video
 

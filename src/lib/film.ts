@@ -61,7 +61,7 @@ export const CAPTION_ALIGNS = ['left', 'center', 'right'] as const
 // What a film draws over its picture besides words: lines and arrows, circles, boxes, small charts, pictures
 export const GRAPHIC_KINDS = ['line', 'circle', 'rect', 'plot', 'image'] as const
 export type GraphicKind = typeof GRAPHIC_KINDS[number]
-export const GRAPHIC_ARROWS = ['end', 'start', 'both'] as const
+export const GRAPHIC_ARROWS = ['end', 'start', 'both', 'middle'] as const
 // What a place rides with: the frame, one of the two black holes, or the space sheet
 export const GRAPHIC_ANCHORS = ['hole', 'companion', 'sheet'] as const
 
@@ -111,6 +111,8 @@ export interface FilmGraphic {
   width: number
   // Lengths of a dash and of the gap after it, shares of the short side; null is a solid stroke
   dash: readonly [number, number] | null
+  // Reach of the soft light it spreads round itself in its own colour, a share of the short side; 0 is none
+  glow: number
   fill: string | null
   fillOpacity: FilmNumber
   // Numbers of its own, each along keyframes
@@ -176,6 +178,9 @@ export interface FilmCaption {
   width: number
   // A dark plate behind the words, 0 (none) to 1 (solid), for words over a bright picture
   plate: number
+  // Weight of the letters, 100 (thin) to 900 (black), and whether they lean
+  weight: number
+  italic: boolean
   // The words arrive a letter, a word or a line at a time over revealOver seconds; null shows them at once
   reveal: typeof CAPTION_REVEALS[number] | null
   revealOver: number
@@ -289,7 +294,7 @@ function faceFor<Face extends string> (text: string, face: Face, where: string, 
 
 export const FILM_KEYS = ['duration', 'fps', 'size', 'width', 'height', 'scale', 'seed', 'preset', 'settings', 'intro', 'warmup', 'speed', 'fade', 'tracks', 'layers', 'cues', 'captions', 'graphics', 'shots']
 // What every shape takes, and what each kind takes besides
-export const GRAPHIC_COMMON = ['kind', 'from', 'to', 'fade', 'color', 'opacity', 'width', 'dash', 'fill', 'fillOpacity', 'values', 'draw']
+export const GRAPHIC_COMMON = ['kind', 'from', 'to', 'fade', 'color', 'opacity', 'width', 'dash', 'glow', 'fill', 'fillOpacity', 'values', 'draw']
 export const GRAPHIC_KEYS: Record<GraphicKind, readonly string[]> = {
   line: ['points', 'smooth', 'close', 'arrow'],
   circle: ['center', 'radius', 'radiusY', 'arc'],
@@ -299,9 +304,11 @@ export const GRAPHIC_KEYS: Record<GraphicKind, readonly string[]> = {
 }
 const GRAPHIC_WIDTH = 0.004
 const GRAPHIC_DASH = [0.012, 0.009] as const
+// The weight a caption's letters are drawn at when it names none
+export const CAPTION_WEIGHT = 500
 const CUE_KEYS = ['at', 'play', 'params', 'title', 'font', 'uppercase']
 const INTRO_FILM_KEYS = ['at', 'preset', 'params', 'title', 'font', 'uppercase', 'hide']
-const CAPTION_KEYS = ['text', 'from', 'to', 'at', 'angle', 'size', 'color', 'font', 'fade', 'accent', 'align', 'width', 'plate', 'reveal', 'revealOver', 'values', 'radius']
+const CAPTION_KEYS = ['text', 'from', 'to', 'at', 'angle', 'size', 'color', 'font', 'fade', 'accent', 'align', 'width', 'plate', 'weight', 'italic', 'reveal', 'revealOver', 'values', 'radius']
 // The switches a film can flip along its tracks; it has no cursor for the black hole to follow
 export const TRACK_SWITCHES = SETTING_KEYS.filter(key => key in TOGGLES && key !== 'blackHoleFollowing')
 
@@ -603,6 +610,8 @@ export function readCaptions (source: unknown, duration: number, notes: string[]
       align: oneOf('align', entry.align, CAPTION_ALIGNS),
       width: clamp(entry.width === undefined ? 1 : asNumber(`${where}.width`, entry.width), 0.1, 1),
       plate: clamp(entry.plate === undefined ? 0 : asNumber(`${where}.plate`, entry.plate), 0, 1),
+      weight: clamp(entry.weight === undefined ? CAPTION_WEIGHT : Math.round(asNumber(`${where}.weight`, entry.weight)), 100, 900),
+      italic: entry.italic === undefined ? false : asBoolean(`${where}.italic`, entry.italic),
       reveal,
       // Left out, the words take the first half of the caption's life to arrive, two seconds at most
       revealOver: clamp(entry.revealOver === undefined ? Math.min(2, (to - from) / 2) : asNumber(`${where}.revealOver`, entry.revealOver), 0.05, to - from),
@@ -658,6 +667,7 @@ function readGraphics (source: unknown, duration: number, notes: string[], attem
       opacity: number('opacity', 1),
       width: kind === 'image' ? 0 : clamp(entry.width === undefined ? GRAPHIC_WIDTH : asNumber(`${where}.width`, entry.width), 0, 0.1),
       dash,
+      glow: clamp(entry.glow === undefined ? 0 : asNumber(`${where}.glow`, entry.glow), 0, 0.2),
       fill: entry.fill === undefined ? null : colorOf('fill', entry.fill, ''),
       fillOpacity: number('fillOpacity', 1),
       values,
@@ -1215,7 +1225,8 @@ comes to this same object: see "A film as a script" below. Names and ranges are 
                              the signs of the sky (λ Δ ∞ ≈ √ → ☉ ⊕ ♃) are the same on every machine.
                              "reveal": ${CAPTION_REVEALS.join(' | ')} brings the words in one at a time over
                              "revealOver" seconds. "align": ${CAPTION_ALIGNS.join(' | ')}; "width", the share of
-                             the frame a line may take; "plate", 0-1, a dark plate behind the words; size,
+                             the frame a line may take; "plate", 0-1, a dark plate behind the words;
+                             "weight", 100-900 (500 when left out; orbitron has 400 alone), "italic": true; size,
                              color and accent '#rrggbb', fade; font: ${CAPTION_FONTS.join(' | ')}
                              (noto is a plain text face, for sentences and formulas). A line too long is
                              broken at its spaces; Cyrillic in a display face without it goes to unbounded.
@@ -1232,7 +1243,7 @@ comes to this same object: see "A film as a script" below. Names and ranges are 
                              or any number of the scene, so "radius": "lensingRadius" follows that setting
                              along its track.
                              line: "points" (two or more places), "smooth" (a curve through them), "close",
-                               "arrow": ${GRAPHIC_ARROWS.join(' | ')}
+                               "arrow": ${GRAPHIC_ARROWS.join(' | ')} (middle: one head halfway along, the way it runs)
                              circle: "center", "radius", "radiusY" (an ellipse), "arc": [from, to] in degrees,
                                0 to the right and 90 up
                              rect: "center", "size": [width, height], "round"
@@ -1246,8 +1257,9 @@ comes to this same object: see "A film as a script" below. Names and ranges are 
                                folder the server runs in. Read before the first frame
                              Every kind: from, to, fade, "color" and "fill" '#rrggbb', "opacity",
                              "fillOpacity", "width" (the stroke, a share of the short side, so a zoom does not
-                             thicken it), "dash": true or [dash, gap], "values", and "draw": seconds over
-                             which the stroke draws itself
+                             thicken it), "dash": true or [dash, gap], "glow": the reach of a soft light in its
+                             own colour round it (a share of the short side, 0.01 a halo, 0.03 a wide one),
+                             "values", and "draw": seconds over which the stroke draws itself
 }
 
 Everything but duration is optional. Start from describe to find setting keys.
@@ -1312,7 +1324,11 @@ Recipes
                              "values": { "r": [[2, 8], [12, 1, "linear"]] } }]
   A picture in a corner:   "graphics": [{ "kind": "image", "src": "films/photo.png", "center": [0.82, 0.24], "width": 0.3,
                              "from": 1, "to": 7 }]
-  Vertical short:          "size": "vertical", "settings": { "blackHoleY": 0.42 }
+  A glowing path, its twin: "graphics": [{ "kind": "line", "points": [[0.1, 0.4], [0.9, 0.55]], "dash": true, "opacity": 0.5 },
+                             { "kind": "line", "smooth": true, "arrow": "middle", "glow": 0.012, "color": "#ffb35c",
+                             "points": [[0.1, 0.4], [0.5, 0.62], [0.9, 0.55]], "draw": 2 }]
+                           (the infographic look, every rule of it: films.md, "An infographic look")
+  Vertical short:         "size": "vertical", "settings": { "blackHoleY": 0.42 }
   Matter told where to go: "intro": false, "warmup": 0, "settings": { "fieldEnabled": false, "flowA": 1.8, "flowACount": 3000,
                              "flowAFrom": 3.2, "flowATo": 3.2, "flowASpread": 1.6, "flowASwirl": 1.2, "flowALife": 10,
                              "flowATrail": 0.9, "flowASize": 1.3 }
