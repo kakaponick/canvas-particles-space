@@ -122,6 +122,16 @@ Once the missing piece exists (a knob, a fix in code, a sentence in `knobs.md`, 
 
 ## The tools and the machine
 
+### Twelve stills for one question (2026-11-27)
+- Wanted / got: the shape of a well; ran sweeps of six stills, twice, and the operator called it out: one
+  render of the film answers it.
+- Cause: a sweep across a knob whose law I had not thought through, where the reason the picture is wrong
+  (here the near sheet passing the camera, the vertical wall round a compact star) is found by reading one
+  frame, not by tiling many.
+- Now: one still of the film per step; read it, say why it is wrong, change the one knob that cause names,
+  draw again. Sweep only a knob whose law gives no prediction.
+- Where: `films/infographic_style.js`, the bowl.
+
 ### Master moved three times under one task (2026-11-27)
 - Wanted / got: a still of a changed clip after putting it on the screen; got "is behind master: rebase it
   first" from `screen.mjs live` three times in one task, and each rebase of a branch that carries friction

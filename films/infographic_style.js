@@ -14,15 +14,15 @@ film({
     // and a glow a radius wide
     blackHoleSize: 8.4, neutronStar: 1, neutronSurface: 1.4,
     neutronVeinLight: 1, neutronVeinSharp: 20, neutronWarp: 1.4, neutronLimb: 1, neutronGlow: 1, neutronGlowLight: 0.6,
-    // A sheet of large square cells seen at 64 degrees by a camera 4 long sides away, which sees the lifted
-    // sheet whole down to the frame's foot. The well is deep, 8 radii, so its walls open wide across the
-    // frame, and lifted 55% of the way the star sits on the round bottom of a star's well (no throat: inside
-    // its surface the sheet closes), the bowl's lit rim just under it. Lifted less, the bowl hangs far below
-    // the star; more, the near sheet passes the camera. The lines keep off the star's face. The well is lit
-    // by the slowing of time and by the star's own light, and the frame's bloom spreads it
-    gridSheet: 0.4, gridColor: '#8fb0ff', gridRings: 0, gridCell: 6, gridTilt: 64, gridDistance: 4, gridNear: 0.02, gridSpan: 0.8, gridFade: 0.6,
-    gridDepth: 8, gridLift: 0.55, gridClearing: 1.4, gridClearingEdge: 1.45,
-    gridThroatGlow: 2.5, gridThroatCurve: 1, gridLight: 3, gridLightReach: 8, gridLightColor: '#8fc6ff',
+    // A sheet of large square cells seen at 66 degrees, the textbook's rubber sheet: the well drawn 2.5 times
+    // wider than the real one (whose wall stands vertical round a compact star, a narrow tube), 4 radii deep
+    // and lifted 62% of the way, so the star rests on the round bottom of a star's well (no throat: inside its
+    // surface the sheet closes) and the bowl opens wide and smooth round it. A deeper well lifted further
+    // raises the sheet past its camera. The lines keep off the star's face. The well is lit by the slowing of
+    // time and by the star's own light, and the frame's bloom spreads it
+    gridSheet: 0.4, gridColor: '#8fb0ff', gridRings: 0, gridCell: 6, gridTilt: 66, gridDistance: 4, gridNear: 0.02, gridSpan: 0.8, gridFade: 0.6,
+    gridDepth: 4, gridLift: 0.62, gridWellWidth: 2.5, gridClearing: 1.4, gridClearingEdge: 1.45,
+    gridThroatGlow: 2.5, gridThroatCurve: 1, gridLight: 3, gridLightReach: 3, gridLightColor: '#8fc6ff',
     bloom: 2, bloomThreshold: 0.55, bloomReach: 0.05
   }
 })

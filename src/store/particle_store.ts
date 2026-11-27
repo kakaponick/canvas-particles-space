@@ -265,6 +265,7 @@ export interface ParticleState extends FlowState {
   gridRideCut: number
   gridWell2Bottom: number
   gridLift: number
+  gridWellWidth: number
   neutronSurface: number
   neutronStar: number
   neutronGlow: number
@@ -680,6 +681,7 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   gridRideCut: 1,
   gridWell2Bottom: 1,
   gridLift: 1,
+  gridWellWidth: 1,
   neutronSurface: 0,
   neutronStar: 0,
   neutronGlow: 0.35,

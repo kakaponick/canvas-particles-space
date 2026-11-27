@@ -717,7 +717,7 @@ straight-on (section 11).
 | The flat mode's sheet camera: its distance, and how near it the sheet is cut off; how far the sheet reaches and the share of that it fades over | `gridDistance`, `gridNear`, `gridSpan`, `gridFade` |
 | How high a gravitational wave lifts the sheet | `gridWaveLift` |
 | What a pair's spiral wave turns with: 0 the line between the wells, 1 the orbit laid flat | `gridWaveOrbit` |
-| The sheet's shape: where its rings stand (equal steps of depth to equal radii), the share of the well's depth it is lifted by, a star's round-bottomed well in place of the hole's throat, how far a second well reaches toward its own hole | `gridRingSpacing`, `gridLift`, `neutronSurface`, `gridWell2Bottom` |
+| The sheet's shape: where its rings stand (equal steps of depth to equal radii), the share of the well's depth it is lifted by, how much wider than the real one the main well is drawn, a star's round-bottomed well in place of the hole's throat, how far a second well reaches toward its own hole | `gridRingSpacing`, `gridLift`, `gridWellWidth`, `neutronSurface`, `gridWell2Bottom` |
 | The sheet in the picture: the share of it behind the holes drawn through the lens, and how its pose turns while 3D eases in | `gridLensed`, `gridEaseTurn` |
 | The sheet's light: how many times brighter a line is at a throat and how close to it that glow keeps; the light the holes shed on it, where it falls to half, and its colour | `gridThroatGlow`, `gridThroatCurve`, `gridLight`, `gridLightReach`, `gridLightColor` |
 | A flash running over the sheet's lines: its band's brightness (0 is off), where it flashed (the main well's radii, x right, y away, as a film's sheet places), how far it has run along the surface, the band's width and its rising share, the slope its way counts, the radius a hole takes a ray at, and its colour | `gridFront`, `gridFrontX`, `gridFrontY`, `gridFrontRun`, `gridFrontWidth`, `gridFrontLead`, `gridFrontSlope`, `gridFrontCapture`, `gridFrontColor` |
@@ -746,10 +746,13 @@ straight-on (section 11).
   middle, the well is the hole's; within it the sheet follows the slowing of time inside a ball of even
   density and closes in a round bottom instead of ending at the horizon's ring: the well of a neutron star
   (section 4, which draws one there), about 1.4 for a typical star. `gridLift` then lifts by a share of the
-  round bottom: below 1 the bottom shows under the star, a bowl it sits in. To sit the star on the bowl's
-  rim, as an infographic draws it, lift about halfway (`gridDepth` 8, `gridLift` 0.55 at `gridTilt` 64);
-  lifted less, the bowl hangs far below the star, and lifted more, the near sheet passes the flat camera,
-  so stand that camera farther (`gridDistance` 4, `gridNear` 0.02).
+  round bottom: below 1 the bottom shows under the star, a bowl it sits in.
+- `gridWellWidth` 1 is the real well: its wall stands vertical at the shadow's edge and the dent falls as
+  1 / r, so round a compact star it reads as a narrow tube under the star, whatever `gridDepth` is. The
+  textbook's wide bowl with a star resting on its bottom is `gridWellWidth` 2.5, `gridDepth` 4 and
+  `gridLift` 0.62 at `gridTilt` 66 (`films/infographic_style.js`). A deep well lifted far (`gridLift` above
+  about 0.7 with `gridDepth` 8 or more) raises the sheet past the flat camera, which then sees its near half
+  from below, so make the bowl wider rather than deeper.
 - `gridWell2Bottom` 1 sinks a second hole's well exactly to where that hole stands: a hole on the sheet's
   far side digs a deep well, one on the near side none. At 0 each well is `gridDepth` of its own radii, the
   two add up, and the second well's bottom misses its hole.

@@ -1516,6 +1516,7 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     // the other with it, the bottom kept on the hole
     const grid = frame.grid
     const onSheet = state.gridRide > 0 && horizon > 0
+    const wellWidth = Math.max(state.gridWellWidth, 0.01)
     if (state.gridSheet > 0 || onSheet) {
       const shared = threeD ? eased : 0
       // Wave Turn: the second hole along its orbit laid flat onto each layout's plane, the flat one the
@@ -1529,8 +1530,10 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
           orbitX = turned[0]
           orbitY = turned[1]
         }
+        // Well Width draws the main well as a hole that many times larger would dent it, its depth still in the
+        // hole's own radii
         layFlatSheet(
-          state.gridTilt, state.gridDepth, viewportWidth, viewportHeight, holeX, holeY, horizon * holeScale,
+          state.gridTilt, state.gridDepth / wellWidth, viewportWidth, viewportHeight, holeX, holeY, horizon * holeScale * wellWidth,
           settings.companionX, settings.companionY, companionRadius * companionScale, centreX, centreY, pair.mergedPhase,
           state.gridDistance, state.gridNear, orbitX, orbitY, state.gridLift, state.gridWell2Bottom, state.neutronSurface
         )
@@ -1549,7 +1552,7 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
         }
         laySpaceSheet(
           pose, pivot, settings.focal, settings.vanishX, settings.vanishY, worldPerPixel, NEAR_DEPTH, equator,
-          settings.holeWorldX, settings.holeWorldY, settings.holeWorldZ, horizon, state.gridDepth,
+          settings.holeWorldX, settings.holeWorldY, settings.holeWorldZ, horizon * wellWidth, state.gridDepth / wellWidth,
           settings.companionWorldX, settings.companionWorldY, settings.companionWorldZ, companionRadius,
           (hole.x - settings.vanishX) * worldPerPixel, (hole.y - settings.vanishY) * worldPerPixel, pivot,
           pairPlane[0] * ringCos + pairPlane[3] * ringSin, pairPlane[1] * ringCos + pairPlane[4] * ringSin,

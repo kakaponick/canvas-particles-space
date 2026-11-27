@@ -566,6 +566,7 @@ function SettingsBody () {
             <SettingSlider field="gridRideDepth" />
             <SettingSlider field="gridRingSpacing" />
             <SettingSlider field="gridLift" />
+            <SettingSlider field="gridWellWidth" />
             <SettingSlider field="gridWell2Bottom" />
             <SettingSlider field="gridLensed" />
             <SettingSlider field="gridEaseTurn" />
