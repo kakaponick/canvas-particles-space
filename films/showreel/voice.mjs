@@ -11,6 +11,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
+import { attachAudio } from '../../scripts/films.mjs'
 
 const STUDIO = process.env.VOICESTUDIO_URL ?? 'http://127.0.0.1:3900'
 const ENGINE = 'omnivoice'
@@ -225,3 +226,5 @@ if (loudest > 0.97) {
 const out = path.join(here, 'out', 'showreel_voiced.wav')
 writeWav(out, left, right)
 console.log(`Wrote ${out}: ${LINES.length} lines, peak ${Math.min(loudest, 0.97).toFixed(2)}`)
+// The same sound for the page, which plays it under the film: two channels, the music's
+console.log(`Wrote ${attachAudio({ film: 'showreel', sound: out })}: the sound the page plays under showreel.json`)

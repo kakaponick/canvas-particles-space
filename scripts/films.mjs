@@ -15,12 +15,18 @@
 //   node scripts/films.mjs made <film>[/<take>] --model <id> --did "<what>" [--agent "<name>"]
 //                                                     one more line in the film's record of who made it
 //   node scripts/films.mjs where <film>               the path of the film's own file
+//   node scripts/films.mjs audio <film>[/<take>] <sound file> [--for <file>] [--mono]
+//                                                     the film's sound for the page: the file (a wav, an mp3...)
+//                                                     made into audio/<name>.m4a, named in meta.json's "audio"
+//                                                     for the film's own file or the one --for names
+//                                                     (voices/ru.json); --mono for a voice alone
 //   node scripts/films.mjs tidy [--dry]               moves the renders left loose in films/ into the out/ of
 //                                                     the film they are named after
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import process from 'node:process'
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -31,7 +37,11 @@ const NOT_FILMS = new Set(['voice', 'out'])
 // The folders of a film that hold parts of it to play: a reel's clips, the reels another voice paces, posters
 const PARTS = ['clips', 'voices', 'posters']
 export const KINDS = ['film', 'reel', 'fractal']
-const META_KEYS = ['title', 'about', 'kind', 'film', 'made', 'brief', 'scores']
+const META_KEYS = ['title', 'about', 'kind', 'film', 'made', 'brief', 'scores', 'audio']
+// The sound a film plays on the page: AAC in an MP4 box, which every current browser streams and decodes, its
+// index at the head so it plays before it is all there. Speech alone in one channel; a voice over music in two
+export const AUDIO_FILE = /\.m4a$/i
+const AUDIO_BITRATE = { mono: '64k', stereo: '128k' }
 const MADE_KEYS = ['model', 'agent', 'at', 'did', 'commits', 'last', 'from']
 const RENDERS = /\.(mp4|webm|mov|wav|mp3|jpe?g)$/i
 const FILM_FILE = /\.(json|js)$/i
@@ -181,6 +191,17 @@ function checkFolder (folder, where, isTake, problems) {
     problems.push(`${where}/meta.json: "brief" names a file of the folder, the task every take is given`)
   }
   if (meta.scores !== undefined && !Array.isArray(meta.scores)) problems.push(`${where}/meta.json: "scores" is a list`)
+  if (meta.audio !== undefined) {
+    if (typeof meta.audio !== 'object' || meta.audio === null || Array.isArray(meta.audio)) {
+      problems.push(`${where}/meta.json: "audio" maps a file of the folder to its sound: { "<film>.json": "audio/<name>.m4a" }`)
+    } else {
+      for (const [file, sound] of Object.entries(meta.audio)) {
+        if (!FILM_FILE.test(file) || !fs.existsSync(path.join(folder, file))) problems.push(`${where}/meta.json: "audio" names ${file}, which is not a film of the folder`)
+        if (typeof sound !== 'string' || !AUDIO_FILE.test(sound)) problems.push(`${where}/meta.json: the sound of ${file} is an .m4a file (node scripts/films.mjs audio)`)
+        else if (!fs.existsSync(path.join(folder, sound))) problems.push(`${where}/meta.json: the sound of ${file}, ${sound}, is not in the folder`)
+      }
+    }
+  }
   checkMade(meta.made, `${where}/meta.json`, problems)
 }
 
@@ -321,6 +342,41 @@ function made (name, named) {
   console.log(`${slash(path.relative(root, folder))}/meta.json: ${meta.made.length} lines in "made"`)
 }
 
+// The ffmpeg the film server uses: SPACE_FFMPEG, ~/.space-film, or the PATH
+function findFfmpeg () {
+  const exe = process.platform === 'win32' ? '.exe' : ''
+  if (process.env.SPACE_FFMPEG) return process.env.SPACE_FFMPEG
+  return [path.join(os.homedir(), '.space-film'), ...(process.env.PATH ?? '').split(path.delimiter)]
+    .map(dir => path.join(dir, `ffmpeg${exe}`)).find(file => fs.existsSync(file)) ?? null
+}
+
+// Makes `sound` (any file ffmpeg reads) the sound of `file`, a film of the folder `film` ("fourth_dimension_pop",
+// or "<film>/<take>"): audio/<name>.m4a beside it, AAC at the bitrate its channels ask (`mono` for a voice
+// alone, whose wav repeats one channel in two), named in the folder's meta.json under "audio". Returns the path
+// written. scripts/voice.mjs calls it after every mix, so the page plays the narration the mix made
+export function attachAudio ({ film, file, sound, mono = false }) {
+  const folder = folderOf(film)
+  const meta = readMeta(folder)
+  const own = file ?? meta.film
+  if (!fs.existsSync(path.join(folder, own))) throw new Error(`${own} is not a film of ${slash(path.relative(root, folder))}`)
+  if (!fs.existsSync(sound)) throw new Error(`No sound at ${sound}`)
+  const ffmpeg = findFfmpeg()
+  if (!ffmpeg) throw new Error('No ffmpeg: set SPACE_FFMPEG, or put it in ~/.space-film or on the PATH')
+  const name = `audio/${path.basename(own).replace(FILM_FILE, '')}.m4a`
+  const out = path.join(folder, name)
+  fs.mkdirSync(path.dirname(out), { recursive: true })
+  const made = spawnSync(ffmpeg, [
+    '-hide_banner', '-loglevel', 'error', '-y', '-i', sound, '-vn',
+    ...(mono ? ['-ac', '1'] : []), '-c:a', 'aac', '-b:a', AUDIO_BITRATE[mono ? 'mono' : 'stereo'],
+    // The index first, so the page plays it as it comes; no encoder's name or date, so the same sound is the same bytes
+    '-movflags', '+faststart', '-map_metadata', '-1', '-fflags', '+bitexact', '-flags:a', '+bitexact', out
+  ], { encoding: 'utf8' })
+  if (made.status !== 0) throw new Error(`ffmpeg could not make ${name}: ${made.stderr.trim()}`)
+  meta.audio = { ...(meta.audio ?? {}), [slash(own)]: name }
+  writeMeta(folder, meta)
+  return out
+}
+
 // Renders written straight into films/ (the habit of the flat layout) go to the out/ of the film whose name
 // they start with; one no film claims goes to films/out/. Only files out of git are moved
 function tidy (dry) {
@@ -365,8 +421,14 @@ function main () {
     if (!file) throw new Error(`No film ${rest[0]}`)
     return console.log(slash(path.relative(root, file)))
   }
+  if (command === 'audio' && rest[0] && rest[1]) {
+    const out = attachAudio({ film: rest[0], file: typeof named.for === 'string' ? named.for : undefined, sound: path.resolve(rest[1]), mono: named.mono === true })
+    return console.log(`Wrote ${slash(path.relative(root, out))}: ${(fs.statSync(out).size / 1048576).toFixed(1)} MB`)
+  }
   if (command === 'tidy') return tidy(named.dry === true)
-  console.log(fs.readFileSync(fileURLToPath(import.meta.url), 'utf8').split('\n').slice(1, 20).map(line => line.replace(/^\/\/ ?/, '')).join('\n'))
+  // The head of this file, down to its first import
+  const lines = fs.readFileSync(fileURLToPath(import.meta.url), 'utf8').split(/\r?\n/)
+  console.log(lines.slice(1, lines.findIndex(line => line.startsWith('import'))).map(line => line.replace(/^\/\/ ?/, '')).join('\n'))
   process.exitCode = command ? 1 : 0
 }
 

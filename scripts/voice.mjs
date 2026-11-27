@@ -20,6 +20,7 @@ import path from 'node:path'
 import process from 'node:process'
 import vm from 'node:vm'
 import { fileURLToPath } from 'node:url'
+import { attachAudio } from './films.mjs'
 
 const STUDIO = process.env.VOICESTUDIO_URL ?? 'http://127.0.0.1:3900'
 const RATE = 48000
@@ -468,6 +469,14 @@ export async function voiceFilm ({ film, lines: FILM_LINES, cues: FILM_CUES, hea
     fs.mkdirSync(path.dirname(out), { recursive: true })
     writeWav(out, sound)
     console.log(`Wrote ${out}: ${order.length} lines over ${duration.toFixed(1)} s`)
+    // The same sound for the page, which plays it under the film (films/README.md, "audio"): one channel, since
+    // the wav repeats the voice in both
+    try {
+      const page = attachAudio({ film, file: path.relative(path.join(films, film), reelFile).replaceAll(path.sep, '/'), sound: out, mono: true })
+      console.log(`Wrote ${page}: the sound the page plays under ${path.basename(reelFile)}; commit it with the reel`)
+    } catch (error) {
+      console.warn(`The page's copy of the sound was not made: ${error.message}`)
+    }
   }
 
   // The lines this voice has not spoken yet and their words, asking no server: what a rented machine would be

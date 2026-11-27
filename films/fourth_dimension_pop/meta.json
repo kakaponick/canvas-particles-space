@@ -18,5 +18,11 @@
       "commits": 40,
       "from": "git"
     }
-  ]
+  ],
+  "audio": {
+    "fourth_dimension_pop.json": "audio/fourth_dimension_pop.m4a",
+    "voices/usachev.json": "audio/usachev.m4a",
+    "voices/surdin.json": "audio/surdin.m4a",
+    "voices/en2.json": "audio/en2.m4a"
+  }
 }

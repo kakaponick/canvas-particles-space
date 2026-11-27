@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import {
-  Check, ChevronRight, Clapperboard, Copy, Download, FastForward, FileDown, FolderOpen, Pause, Play, Rewind, RotateCcw, WandSparkles, X
+  Check, ChevronRight, Clapperboard, Copy, Download, FastForward, FileDown, FolderOpen, Pause, Play, Rewind, RotateCcw, Volume2, VolumeX, WandSparkles, X
 } from 'lucide-react'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
@@ -13,7 +13,7 @@ import { closeIntroDebugger } from '../lib/intro_dock'
 import { LIBRARY, libraryDetails, libraryFilmOf, loadLibraryDetails, type LibraryFilm } from '../lib/film_library'
 import {
   FILM_SEEK_LONG_STEP, FILM_SEEK_STEP, attachStage, cancelVideo, copyFilmText, leaveFilms, openFiles, openFilm, openFromAddress,
-  openFromScene, openLibraryFilm, openPasted, saveFilmFile, saveVideo, seekFilm, seekFilmBy, stepFilm, togglePlaying
+  openFromScene, openLibraryFilm, openPasted, saveFilmFile, saveVideo, seekFilm, seekFilmBy, stepFilm, toggleMuted, togglePlaying
 } from '../lib/film_session'
 import ToggleButton from './controls/toggle_button'
 import { SettingsRow } from './controls/settings_section'
@@ -25,7 +25,7 @@ import { SettingsRow } from './controls/settings_section'
 
 const PANEL_ID = 'films-panel'
 const TOGGLE_SELECTOR = '[data-films-toggle]'
-const ACCEPT = '.json,.js,.png,.jpg,.jpeg,.webp,.gif,.avif'
+const ACCEPT = '.json,.js,.png,.jpg,.jpeg,.webp,.gif,.avif,.m4a,.mp3,.wav,.ogg,.opus,.aac,.flac,.webm'
 const QUALITY_LABELS = { medium: 'Medium', high: 'High', max: 'Max' } as const
 const KIND_LABELS = { film: 'Film', fractal: 'Mandelbrot film', reel: 'Reel' } as const
 const COPIED_MS = 1500
@@ -308,6 +308,28 @@ function Timeline () {
 
 const TRANSPORT_BUTTON = 'h-8 w-8 shrink-0 border-neon-cyan/60 text-neon-cyan hover:bg-neon-cyan/20 hover:text-neon-cyan'
 
+// The sound's switch, in its own leaf, for a film that has a sound. A sound the browser held muted, since the
+// person had not touched the page yet, asks to be turned on with a solid fill
+function SoundButton () {
+  const sound = useFilmStore(state => state.sound)
+  if (sound === 'none') return null
+  const label = sound === 'on' ? 'Mute' : 'Turn the sound on'
+  return (
+    <Button
+      variant="outline"
+      size="icon"
+      aria-label={label}
+      aria-pressed={sound !== 'on'}
+      aria-keyshortcuts="M"
+      title={`${label} (M)`}
+      onClick={toggleMuted}
+      className={cn(TRANSPORT_BUTTON, sound === 'blocked' && 'bg-neon-cyan text-black hover:bg-neon-cyan/80 hover:text-black')}
+    >
+      {sound === 'on' ? <Volume2 aria-hidden="true" className="h-4 w-4" /> : <VolumeX aria-hidden="true" className="h-4 w-4" />}
+    </Button>
+  )
+}
+
 function Transport () {
   const playing = useFilmStore(state => state.playing)
   const ended = useFilmStore(state => state.ended)
@@ -355,6 +377,7 @@ function Transport () {
       </Button>
       <TimeReadout />
       <Timeline />
+      <SoundButton />
     </div>
   )
 }
@@ -468,7 +491,7 @@ function NowLoaded () {
   const makers = [...new Set(details?.made.map(line => line.model) ?? [])]
   const made = film && !details ? '' : makers.length > 0 ? `Made by ${makers.join(', ')}` : 'Maker not recorded'
   const factsLine = facts
-    ? `${KIND_LABELS[facts.kind]} · ${facts.width}×${facts.height} · ${facts.fps} fps · ${clock(facts.duration)}`
+    ? `${KIND_LABELS[facts.kind]} · ${facts.width}×${facts.height} · ${facts.fps} fps · ${clock(facts.duration)}${facts.audio ? ' · sound' : ''}`
     : status === 'failed' ? 'Did not load' : 'Reading the film…'
   const notes = facts?.notes ?? []
   const notesOpen = notesOf === entry.name && notes.length > 0
@@ -829,6 +852,13 @@ function FilmMode () {
       if (event.defaultPrevented || event.ctrlKey || event.altKey || event.metaKey) return
       const state = useFilmStore.getState()
       if (state.status !== 'ready' || state.waiting) return
+      // M mutes and unmutes, wherever the focus is but in a text field
+      if (event.key.toLowerCase() === 'm' && !event.repeat && !isTextEntry(event.target)) {
+        if (state.sound === 'none') return
+        event.preventDefault()
+        toggleMuted()
+        return
+      }
       const seek = PAGE_SEEK_KEYS[event.key.length === 1 ? event.key.toLowerCase() : event.key]
       if (seek) {
         if (takesSeekKeys(event.target)) return
@@ -890,7 +920,7 @@ function FilmMode () {
             <SheetDescription className="sr-only">
               Plays a film live in the browser. Open a .json or .js film, drop it on the page or paste its text; Space plays and
               pauses, the left and right arrows seek 5 seconds, J and L 10, comma and full stop a frame, Home and End to the
-              start and the end. Escape or the Films button at the top right closes it and brings the particle scene back.
+              start and the end, M mutes a film's sound; a sound file dropped beside a film plays under it. Escape or the Films button at the top right closes it and brings the particle scene back.
             </SheetDescription>
           </SheetHeader>
           <NowLoaded />

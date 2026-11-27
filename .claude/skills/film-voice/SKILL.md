@@ -25,11 +25,13 @@ given), so only a changed line is spoken again, and a voice tried once costs not
 |---|---|---|
 | Speak the lines not yet spoken; write each line's length and cue seconds into the reel as the clips' `input` | `node films/<film>/voice.mjs [speak] [voice]` | the voice's engine (below) |
 | Write every take down and show where the words heard differ from the line | `node films/<film>/voice.mjs verify [voice]` | VoiceStudio (its recognizer) |
-| Lay the takes at the seconds the clips mark: `films/<film>/out/<film>[_<voice>].wav` | `node films/<film>/voice.mjs mix [voice]` | nothing but the takes |
+| Lay the takes at the seconds the clips mark: `films/<film>/out/<film>[_<voice>].wav`, and the page's copy, `films/<film>/audio/*.m4a` named in `meta.json` | `node films/<film>/voice.mjs mix [voice]` | nothing but the takes |
 
 The first voice of `VOICES` is the film's own: its reel is `films/<film>/<film>.json`. Another voice writes its
 own wav and a copy of the reel paced by its takes, `films/<film>/voices/<voice>.json`; render that reel with
 that wav.
+
+**Commit the `audio/*.m4a` a mix writes** with the reel it paces: the page plays it under the film (films/README.md, `audio`), and a stale one plays out of step.
 
 **Mix again after every change of a clip's timing** (a shot made longer, a pause, a line moved): the marks
 move and the old wav no longer lies under the picture. It takes seconds. Then render.

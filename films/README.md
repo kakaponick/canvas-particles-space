@@ -13,6 +13,7 @@ films/
     voices/            the reel paced by another voice (scripts/voice.mjs writes them: ru.json)
     posters/           the posters: stills made by films of their own (poster.js)
     voice.mjs          the narration's maker (the film-voice skill); its lines in another language beside it
+    audio/             the sound the page plays under a film or a voice's reel: AAC in .m4a, in git
     brief.md           the task the film was made from, word for word: what every take is given
     takes/<take>/      another attempt at the brief: a meta.json and its own file, the folder's shape
     out/               renders: mp4, wav, posters' jpg; out of git
@@ -51,6 +52,13 @@ A film's file names its parts by their path from the repository's root, as the f
   before there was a `meta.json`, one per model, with the count of its commits and its first and last day.
 - `brief`: the brief's file, when the film has one.
 - `scores`: kept for the scores of an eval; nothing writes it yet.
+- `audio`: the sound under each film of the folder that has one, by the film's file:
+  `{ "fourth_dimension_pop.json": "audio/fourth_dimension_pop.m4a", "voices/ru.json": "audio/ru.m4a" }`. The page
+  plays it with the film, and Save MP4 lays it under the video. `node films/<film>/voice.mjs mix` writes it for
+  the voice it mixes; any other sound is given by `node scripts/films.mjs audio <film> <file> [--for <file>]
+  [--mono]` (AAC at 64 kbit/s for a voice alone, `--mono`, at 128 for two channels; the same sound gives the
+  same bytes). It is committed with the film it plays under: a clip's timing moved and not mixed again plays out
+  of step.
 
 A take's `meta.json` has the same keys without `title` and `about`, which are the film's.
 

@@ -22,6 +22,9 @@ const PICTURES = import.meta.glob<string>([
   '!/films/voice/**',
   '!/films/**/out/**'
 ], { query: '?url', import: 'default' })
+// The films' sounds (meta.json's "audio", films/README.md) by address only: the page holds a few dozen bytes
+// of each, and the browser fetches a sound when its film is played, a piece at a time
+const SOUNDS = import.meta.glob<string>(['/films/*/audio/*.m4a', '/films/*/takes/*/audio/*.m4a'], { eager: true, query: '?url', import: 'default' })
 // The three keys of each film's meta.json the list needs, as named imports, so the rest of the file stays out
 // of the page; the whole of each comes in one chunk when the film mode opens (loadLibraryDetails)
 const TITLES = import.meta.glob<string>('/films/*/meta.json', { eager: true, import: 'title' })
@@ -75,6 +78,7 @@ const keyOf = (path: string) => path.trim().replace(/\\/g, '/').replace(/^(?:.*\
 const byKey = <T>(files: Record<string, T>) => new Map(Object.entries(files).map(([path, value]) => [keyOf(path), value]))
 const texts = byKey(TEXTS)
 const pictures = byKey(PICTURES)
+const SOUNDS_BY_KEY = byKey(SOUNDS)
 
 // A file found by its last name alone, when only one file has it: the way a film written before the folders
 // named its parts
@@ -111,8 +115,15 @@ function libraryFilms (): LibraryFilm[] {
   return films.sort((a, b) => a.name.localeCompare(b.name))
 }
 
+// What the page reads of a meta.json beyond the three keys it holds
+interface MetaRead {
+  about?: unknown
+  made?: unknown
+  audio?: unknown
+}
+
 // Every meta.json read, by its folder, once their chunk has come; null before
-let metas: Map<string, { about?: unknown, made?: unknown }> | null = null
+let metas: Map<string, MetaRead> | null = null
 let metasComing: Promise<void> | null = null
 
 // Fetches every film's meta.json, in one chunk, once: the film mode asks as it opens, so a film's card has
@@ -122,7 +133,7 @@ export function loadLibraryDetails () {
     metas = new Map()
     for (const [path, text] of Object.entries(META_TEXTS)) {
       try {
-        metas.set(folderOf(path), JSON.parse(text) as { about?: unknown, made?: unknown })
+        metas.set(folderOf(path), JSON.parse(text) as MetaRead)
       } catch {
         // A meta.json that is not JSON tells nothing; films.mjs check names it
       }
@@ -145,6 +156,22 @@ export function libraryDetails (path: string): FilmDetails | null {
     about: typeof own.about === 'string' ? own.about : '',
     made: Array.isArray(made) ? made.filter((line): line is MadeLine => typeof line?.model === 'string') : []
   }
+}
+
+// The address of the sound a film of the library plays under it (its folder's meta.json, "audio"), or null
+// when it has none. Waits for the meta files, which the film mode has asked for as it opened
+export async function libraryAudio (path: string): Promise<string | null> {
+  const key = keyOf(path)
+  if (!key.includes('/')) return null
+  await loadLibraryDetails()
+  // The folder that names the sound: a take's own, else the film's
+  const take = /^([^/]+\/takes\/[^/]+)\//.exec(key)?.[1]
+  const folder = take ?? key.split('/')[0]
+  const audio = metas?.get(folder)?.audio
+  if (typeof audio !== 'object' || audio === null) return null
+  const file = key.slice(folder.length + 1)
+  const sound = Object.entries(audio as Record<string, unknown>).find(([named]) => named.toLowerCase() === file)?.[1]
+  return typeof sound === 'string' ? SOUNDS_BY_KEY.get(`${folder}/${sound}`.toLowerCase()) ?? null : null
 }
 
 // What the library offers to play: every film, fractal film and reel in films/, with its parts

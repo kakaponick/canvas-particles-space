@@ -2,7 +2,7 @@
 // scene, plays it on the stage, and saves it as a file or an mp4. The engine (film_live.ts) and the
 // renderer behind it load when the first film is opened, so a visitor who never opens one downloads neither.
 import { useFilmStore, type FilmEntry } from '../store/film_store'
-import { addressName, baseName, libraryText, resolveLibraryFilm } from './film_library'
+import { addressName, baseName, libraryAudio, libraryText, resolveLibraryFilm } from './film_library'
 import type { GivenFile, LivePlayer, LoadedFilm } from './film_live'
 
 const engine = () => import('./film_live')
@@ -16,6 +16,8 @@ const SEEK_STEP = 5
 const SEEK_LONG_STEP = 10
 
 const FILM_FILE = /\.(json|m?js)$/i
+// A sound given beside a film, played under it: what the browser's <audio> plays
+const SOUND_FILE = /\.(m4a|mp3|wav|ogg|opus|aac|flac|webm)$/i
 const PICTURE_FILE = /\.(png|jpe?g|webp|gif|avif)$/i
 
 // Files opened beside a film, by name, for the files it names; they last as long as the page
@@ -54,7 +56,7 @@ async function startPlayer () {
   const host = stage
   if (!film || !host) return
   const mine = players
-  useFilmStore.setState({ waiting: true, playing: false, ended: false, time: 0, seekTo: null, seekDone: 0 })
+  useFilmStore.setState({ waiting: true, playing: false, ended: false, time: 0, seekTo: null, seekDone: 0, sound: 'none' })
   const { createLivePlayer, livePixel } = await engine()
   const ratio = window.devicePixelRatio || 1
   try {
@@ -62,7 +64,8 @@ async function startPlayer () {
       film,
       livePixel(film, host.clientWidth * ratio, host.clientHeight * ratio),
       state => { if (mine === players) useFilmStore.setState(state) },
-      problem => { if (mine === players) useFilmStore.setState({ problem, playing: false }) }
+      problem => { if (mine === players) useFilmStore.setState({ problem, playing: false }) },
+      { audio: film.audio, muted: useFilmStore.getState().muted }
     )
     if (mine !== players) {
       made.dispose()
@@ -93,12 +96,15 @@ export async function openFilm (entry: FilmEntry) {
   try {
     const { loadFilm, MissingFiles } = await engine()
     try {
-      const film = await loadFilm(entry.name, entry.text, given)
+      // A library film's sound is named in its meta.json; another's came beside it
+      const audio = entry.origin === 'library' ? await libraryAudio(entry.name) : entry.audio ?? null
+      if (mine !== loads) return
+      const film = await loadFilm(entry.name, entry.text, given, audio)
       if (mine !== loads) return
       loaded = film
       useFilmStore.setState({
         status: 'ready',
-        facts: { kind: film.kind, duration: film.duration, fps: film.fps, width: film.width, height: film.height, notes: film.notes }
+        facts: { kind: film.kind, duration: film.duration, fps: film.fps, width: film.width, height: film.height, notes: film.notes, audio: film.audio !== null }
       })
       useFilmStore.getState().remember(entry)
       void startPlayer()
@@ -122,11 +128,13 @@ export async function openLibraryFilm (name: string) {
   await openFilm({ name: path, text, origin: 'library' })
 }
 
-// Files from the picker or a drop: films, the films a reel names and the pictures a film draws. The film to
-// play is a reel when one came, else the first film; with no film among them they complete the one waiting
+// Files from the picker or a drop: films, the films a reel names, the pictures a film draws and a sound to
+// play under it. The film to play is a reel when one came, else the first film; with no film among them they
+// complete the one waiting, and a sound alone goes under the film in the mode
 export async function openFiles (files: File[]) {
   const films: FilmEntry[] = []
   const ignored: string[] = []
+  let audio: string | undefined
   for (const file of files) {
     if (FILM_FILE.test(file.name)) {
       const text = await file.text()
@@ -134,17 +142,21 @@ export async function openFiles (files: File[]) {
       films.push({ name: file.name, text, origin: 'file' })
     } else if (PICTURE_FILE.test(file.name) || file.type.startsWith('image/')) {
       given.set(baseName(file.name), { url: URL.createObjectURL(file) })
+    } else if (!audio && (SOUND_FILE.test(file.name) || file.type.startsWith('audio/'))) {
+      audio = URL.createObjectURL(file)
     } else {
       ignored.push(file.name)
     }
   }
   if (films.length > 0) {
     const reel = films.find(film => /"clips"\s*:/.test(film.text))
-    await openFilm(reel ?? films[0])
+    await openFilm({ ...(reel ?? films[0]), audio })
     return
   }
   const state = useFilmStore.getState()
-  if (state.entry && state.needs.length > 0) {
+  if (state.entry && audio) {
+    await openFilm({ ...state.entry, origin: state.entry.origin === 'library' ? 'file' : state.entry.origin, audio })
+  } else if (state.entry && state.needs.length > 0) {
     await openFilm(state.entry)
   } else if (ignored.length > 0) {
     useFilmStore.setState({ open: true, status: state.status === 'ready' ? 'ready' : 'failed', problem: `${ignored.join(', ')}: not a film. A film is a .json or .js file` })
@@ -183,6 +195,14 @@ export function attachStage (host: HTMLElement | null) {
   }
   stage = host
   if (loaded) void startPlayer()
+}
+
+// Mutes or unmutes the film's sound, and remembers it; a sound the browser held muted is turned on
+export function toggleMuted () {
+  const { muted, sound, setMuted } = useFilmStore.getState()
+  const next = sound === 'blocked' ? false : !muted
+  setMuted(next)
+  player?.setMuted(next)
 }
 
 export function togglePlaying () {

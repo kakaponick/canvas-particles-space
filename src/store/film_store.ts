@@ -1,7 +1,8 @@
 import { create } from 'zustand'
 
 // The page's film mode: whether it is open, the film in it and how it plays, a video being saved, and the
-// films opened before. The quality and the films opened before outlast a reload; the rest lives with the page
+// films opened before. The quality, the sound's mute and the films opened before outlast a reload; the rest
+// lives with the page
 const STORAGE_KEY = 'films-v1'
 // Films opened from a file or pasted, kept to open again; the longest text kept, in characters
 const RECENT_COUNT = 6
@@ -16,7 +17,12 @@ export interface FilmEntry {
   text: string
   // Where it came from: the library's films are not kept among the recent ones
   origin: 'library' | 'file' | 'paste' | 'scene'
+  // The address of a sound given with it (a file dropped beside it); a library film finds its own
+  audio?: string
 }
+
+// The film's sound: none, playing, muted, or held muted by the browser until the person turns it on
+export type FilmSound = 'none' | 'on' | 'muted' | 'blocked'
 
 // What the planner says of a loaded film
 export interface FilmFacts {
@@ -26,6 +32,8 @@ export interface FilmFacts {
   width: number
   height: number
   notes: string[]
+  // It plays a sound under it
+  audio: boolean
 }
 
 export interface FilmSaving {
@@ -51,12 +59,16 @@ interface FilmState {
   // The second a seek goes to while the frames before it are stepped, and how much of that is done (0 to 1)
   seekTo: number | null
   seekDone: number
+  sound: FilmSound
+  // The person's mute, kept across films and reloads
+  muted: boolean
   quality: FilmQualityChoice
   saving: FilmSaving | null
   saveProblem: string
   recent: { name: string, text: string }[]
   setOpen: (open: boolean) => void
   setQuality: (quality: FilmQualityChoice) => void
+  setMuted: (muted: boolean) => void
   remember: (entry: FilmEntry) => void
   forget: (name: string) => void
 }
@@ -69,15 +81,15 @@ function readStored () {
       ? stored.recent.filter((film): film is { name: string, text: string } =>
         typeof film === 'object' && film !== null && typeof film.name === 'string' && typeof film.text === 'string').slice(0, RECENT_COUNT)
       : []
-    return { quality, recent }
+    return { quality, recent, muted: stored.muted === true }
   } catch {
-    return { quality: 'high' as const, recent: [] }
+    return { quality: 'high' as const, recent: [], muted: false }
   }
 }
 
-function store (state: Pick<FilmState, 'quality' | 'recent'>) {
+function store (state: Pick<FilmState, 'quality' | 'recent' | 'muted'>) {
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ quality: state.quality, recent: state.recent }))
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ quality: state.quality, recent: state.recent, muted: state.muted }))
   } catch {
     // Storage blocked or full: the choices last until the page reloads
   }
@@ -96,12 +108,17 @@ export const useFilmStore = create<FilmState>((set, get) => ({
   time: 0,
   seekTo: null,
   seekDone: 0,
-  ...(typeof window === 'undefined' ? { quality: 'high' as const, recent: [] } : readStored()),
+  sound: 'none',
+  ...(typeof window === 'undefined' ? { quality: 'high' as const, recent: [], muted: false } : readStored()),
   saving: null,
   saveProblem: '',
   setOpen: (open) => set({ open }),
   setQuality: (quality) => {
     set({ quality })
+    store(get())
+  },
+  setMuted: (muted) => {
+    set({ muted })
     store(get())
   },
   // The newest first, one entry a name

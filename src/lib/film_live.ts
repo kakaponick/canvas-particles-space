@@ -41,6 +41,8 @@ export interface LoadedFilm {
   images: Record<string, string>
   // What the planner changed in the film, and what a script adjusted
   notes: string[]
+  // The address of the sound it plays under it from its first second, or null
+  audio: string | null
 }
 
 // Files the film names that were not given and are not in the library
@@ -138,7 +140,7 @@ const pictures = (graphics: { kind: string, src: string }[]) => graphics.filter(
 
 // Reads a film from its text, finds the files it names, and checks it with the planner the renderer uses,
 // so a film that loads here renders. Throws the planner's problems, or MissingFiles
-export async function loadFilm (name: string, text: string, files: GivenFiles): Promise<LoadedFilm> {
+export async function loadFilm (name: string, text: string, files: GivenFiles, audio: string | null = null): Promise<LoadedFilm> {
   const read = readText(name, text)
   const missing: string[] = []
   const source = read.kind === 'reel' ? await resolveClips(read.source, files, missing) : read.source
@@ -160,7 +162,8 @@ export async function loadFilm (name: string, text: string, files: GivenFiles): 
     height: Math.round(plan.height * plan.scale),
     scale: plan.scale,
     images,
-    notes: [...read.notes, ...plan.notes]
+    notes: [...read.notes, ...plan.notes],
+    audio
   }
 }
 
@@ -201,6 +204,10 @@ export function livePixel (film: LoadedFilm, width: number, height: number) {
   return film.scale * Math.min(1, Math.max(0.1, fit))
 }
 
+// The film's sound as the panel shows it: none, playing, muted by the person, or held muted by the browser
+// until the person touches the page (a film opened from the address starts before they have)
+export type LiveSound = 'none' | 'on' | 'muted' | 'blocked'
+
 export interface LiveState {
   // The second of the film on screen, or the one a seek is going to
   time: number
@@ -211,6 +218,13 @@ export interface LiveState {
   seekTo: number | null
   // How much of that seek's stepping is done, 0 to 1
   seekDone: number
+  sound: LiveSound
+}
+
+export interface LiveOptions {
+  // The address of the sound played under the film from its first second
+  audio?: string | null
+  muted?: boolean
 }
 
 // Seconds between two reports of the time while the film plays, so the panel re-renders a few times a second
@@ -220,12 +234,18 @@ const REPORT_MS = 100
 const SEEK_SLICE_MS = 12
 // The most steps one tick of a seek issues, so the graphics card's queue never runs far ahead of the slice
 const SEEK_MOST_STEPS = 240
+// How far the picture may stray from the sound before it is set by it, in seconds: under the 45 ms a sound
+// ahead of its picture starts to show at
+const SOUND_DRIFT_S = 0.04
 
 // Plays `film` on its own canvas, drawn at `pixel` video pixels a film pixel, paused on its first frame.
 // `report` hears the time and the state; `problem` hears a frame that could not be drawn, and the film
 // pauses there. A seek goes to any frame: a scene only goes forward, so a particle film steps the frames
-// before it unshown, from its start again when it lies behind, and every frame shown is still the render's
-export async function createLivePlayer (film: LoadedFilm, pixel: number, report: (state: LiveState) => void, problem: (message: string) => void) {
+// before it unshown, from its start again when it lies behind, and every frame shown is still the render's.
+// A film with a sound plays it in an <audio> element, which the browser fetches a piece at a time and decodes
+// off the main thread; while it plays it is the clock, and the picture follows it. A picture that falls
+// behind holds the sound until it is back, as a video waits for its data
+export async function createLivePlayer (film: LoadedFilm, pixel: number, report: (state: LiveState) => void, problem: (message: string) => void, options: LiveOptions = {}) {
   let player = await makePlayer(film, pixel)
   const canvas = document.createElement('canvas')
   canvas.width = player.canvas.width
@@ -257,6 +277,23 @@ export async function createLivePlayer (film: LoadedFilm, pixel: number, report:
   let seekFrom = 0
   let seekSteps = 4
 
+  // The sound: muted by the person, held muted by the browser, held while the picture catches up, or broken
+  const sound = options.audio ? document.createElement('audio') : null
+  let muted = options.muted ?? false
+  let blocked = false
+  let stalled = false
+  let broken = false
+  if (sound && options.audio) {
+    sound.preload = 'auto'
+    sound.muted = muted
+    sound.src = options.audio
+    sound.addEventListener('error', () => {
+      broken = true
+      send(true)
+    })
+  }
+  const soundState = (): LiveSound => !sound || broken ? 'none' : blocked ? 'blocked' : muted ? 'muted' : 'on'
+
   const send = (force: boolean) => {
     const now = performance.now()
     if (!force && now - reportedAt < REPORT_MS) return
@@ -268,12 +305,46 @@ export async function createLivePlayer (film: LoadedFilm, pixel: number, report:
       playing,
       ended: wanted === null && shown >= last && !playing,
       seekTo: wanted !== null ? wanted / film.fps : null,
-      seekDone: Math.max(0, Math.min(1, done))
+      seekDone: Math.max(0, Math.min(1, done)),
+      sound: soundState()
     })
   }
   const anchor = () => {
     anchorAt = performance.now()
     anchorFrame = Math.max(0, shown)
+  }
+
+  // Starts the sound at the frame on screen, while the film plays and nothing holds it. A browser that lets
+  // no sound play before the person has touched the page plays it muted, as the clock, until they turn it on
+  const startSound = () => {
+    stalled = false
+    if (!sound || broken || !playing || held || wanted !== null) return
+    const second = Math.max(0, shown) / film.fps
+    // Past the sound's end the film runs on its own clock
+    if (Number.isFinite(sound.duration) && second >= sound.duration) return
+    // A seek of the element costs a fetch and a decode: only when it is not already there
+    if (Math.abs(sound.currentTime - second) > SOUND_DRIFT_S / 2) sound.currentTime = second
+    sound.play().catch((error: unknown) => {
+      if (disposed || !sound || sound.muted || !(error instanceof DOMException) || error.name !== 'NotAllowedError') return
+      blocked = true
+      sound.muted = true
+      send(true)
+      sound.play().catch(() => {})
+    })
+  }
+  const stopSound = () => {
+    stalled = false
+    sound?.pause()
+  }
+  // While the sound plays it sets the clock: a picture more than SOUND_DRIFT_S from it is put where the sound
+  // is. A sound still fetching its next piece stands still, and so does the picture with it
+  const followSound = (now: number) => {
+    if (!sound || broken || sound.paused || sound.ended || sound.seeking) return
+    const frame = sound.currentTime * film.fps
+    if (Math.abs(frame - (anchorFrame + (now - anchorAt) / 1000 * film.fps)) > SOUND_DRIFT_S * film.fps) {
+      anchorAt = now
+      anchorFrame = frame
+    }
   }
 
   // Brings the player on to frame `target` and shows it
@@ -299,6 +370,7 @@ export async function createLivePlayer (film: LoadedFilm, pixel: number, report:
         if (disposed) return
         playing = false
         wanted = null
+        stopSound()
         problem(error instanceof Error ? error.message : String(error))
       })
       .finally(() => {
@@ -315,10 +387,11 @@ export async function createLivePlayer (film: LoadedFilm, pixel: number, report:
     drawn = -1
   }
 
-  // The seek has shown its frame: the clock goes on from there
+  // The seek has shown its frame: the clock and the sound go on from there
   const arrive = (target: number) => {
     if (wanted === target) wanted = null
     anchor()
+    startSound()
     send(true)
   }
 
@@ -375,16 +448,26 @@ export async function createLivePlayer (film: LoadedFilm, pixel: number, report:
     if (!playing) return
     if (shown >= last) {
       playing = false
+      stopSound()
       send(true)
       return
     }
-    const due = Math.min(last, anchorFrame + Math.floor((now - anchorAt) / 1000 * film.fps))
+    followSound(now)
+    const due = Math.min(last, Math.floor(anchorFrame + (now - anchorAt) / 1000 * film.fps))
     if (due <= drawn) return
     const target = Math.min(due, drawn + maxLag)
-    // Behind by more than a tick can catch up: the film slows down here instead of jumping ahead
     if (target < due) {
+      // Behind by more than a tick can catch up: the film slows down here instead of jumping ahead, and the
+      // sound waits for it
       anchorAt = now
       anchorFrame = target
+      if (sound && !sound.paused) {
+        sound.pause()
+        stalled = true
+      }
+    } else if (stalled) {
+      // Caught up: the sound goes on from the picture
+      startSound()
     }
     run(async () => {
       await drawUpTo(target)
@@ -399,6 +482,7 @@ export async function createLivePlayer (film: LoadedFilm, pixel: number, report:
     // A seek that keeps going the same way keeps its start, so its share done stays true
     if (wanted === null || target <= drawn) seekFrom = target > drawn ? drawn : -1
     wanted = target
+    stopSound()
     send(true)
   }
 
@@ -410,12 +494,17 @@ export async function createLivePlayer (film: LoadedFilm, pixel: number, report:
     play () {
       playing = true
       // From the end, Play starts the film again
-      if (wanted === null && shown >= last) seekFrame(0)
-      else anchor()
+      if (wanted === null && shown >= last) {
+        seekFrame(0)
+      } else {
+        anchor()
+        startSound()
+      }
       send(true)
     },
     pause () {
       playing = false
+      stopSound()
       send(true)
     },
     // Goes to the film's second `second`, playing on from there if it was playing
@@ -426,24 +515,44 @@ export async function createLivePlayer (film: LoadedFilm, pixel: number, report:
     step (frames: number) {
       seekFrame((wanted ?? Math.max(0, shown)) + frames)
     },
+    // Mutes or unmutes the sound; turning it on from a click is what lets a held sound be heard
+    setMuted (on: boolean) {
+      muted = on
+      if (!on) blocked = false
+      if (sound) sound.muted = on
+      send(true)
+    },
     // Stops the clock without letting the film go, while a render takes the machine
     hold (on: boolean) {
       held = on
-      if (!on) anchor()
+      if (on) {
+        stopSound()
+      } else {
+        anchor()
+        startSound()
+      }
     },
     dispose () {
       disposed = true
       cancelAnimationFrame(raf)
       player.dispose()
+      if (sound) {
+        // Lets the browser drop the fetch and the decoder at once
+        sound.pause()
+        sound.removeAttribute('src')
+        sound.load()
+      }
     }
   }
 }
+
 
 export type LivePlayer = Awaited<ReturnType<typeof createLivePlayer>>
 
 // Draws the whole film into an mp4 the browser saves under `name`
 export async function renderLoaded (film: LoadedFilm, quality: FilmQuality, name: string) {
-  const options = { quality, download: name, images: film.images }
+  // The sound goes into the mp4 as it does through the film server
+  const options = { quality, download: name, images: film.images, audio: film.audio ?? undefined }
   if (film.kind === 'film') return (await renderFilm(film.source, options)).summary
   if (film.kind === 'fractal') return (await renderFractal(film.source, options)).summary
   return (await renderReel(film.source, options)).summary

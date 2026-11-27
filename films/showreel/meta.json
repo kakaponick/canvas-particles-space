@@ -18,5 +18,8 @@
       "commits": 1,
       "from": "git"
     }
-  ]
+  ],
+  "audio": {
+    "showreel.json": "audio/showreel.m4a"
+  }
 }

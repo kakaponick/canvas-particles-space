@@ -19,5 +19,9 @@
       "last": "2026-11-27",
       "from": "git"
     }
-  ]
+  ],
+  "audio": {
+    "fourth_dimension.json": "audio/fourth_dimension.m4a",
+    "voices/omnivoice.json": "audio/omnivoice.m4a"
+  }
 }
