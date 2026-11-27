@@ -114,6 +114,7 @@ the trails that stay (`trailIntensity`), its brightness the speed.
 | What a particle looks like | `particleSize`, `particleSizeMin`, `trailIntensity`, `speedGlow`, `speedGlowKnee`, `baseBrightness` |
 | How much the particles differ from each other: in width, in their own light | `particleSizeSpread`, `particleLightSpread` |
 | The light lost climbing out of a hole's well (1 = nature) | `gravityRedshift` |
+| The light shifted by the particle's own motion (1 = nature), the power of the shift its brightness goes as, how far its colour turns per doubling | `particleDoppler`, `particleBeam`, `particleDopplerTint` |
 | How depth changes it | `depthFade`, `minOpacity`, `maxOpacity` |
 | Twinkle | `pulseIntensity`, `pulseSpeedMultiplier` |
 | Colours | `colorPalette`, `backgroundR`, `backgroundG`, `backgroundB` |
@@ -134,6 +135,17 @@ the trails that stay (`trailIntensity`), its brightness the speed.
 - `gravityRedshift` 1 dims matter by (1 - r_s / r)^2 as it nears a hole, as redshift and time dilation do:
   infall fades toward the shadow instead of heaping into a white band at its edge. 0 lights every distance
   alike.
+- `particleDoppler` 1 shifts a particle's light by nature's Doppler factor g = sqrt(1 - v^2/c^2) /
+  (1 - v . n / c) for its own motion as the camera sees it: brightness times g^`particleBeam` (3, a blob
+  of matter), colour turned toward the photon ring's `ringColorApproaching` above g = 1 and
+  `ringColorReceding` below, wholly at `particleDopplerTint` doublings. The speed of light is the field's
+  own, c^2 = 2 GM / r_s from `gravityStrength` and the shadow (2.6 Schwarzschild radii), so a particle on
+  the last stable orbit moves at about 0.6 c. It shows only on speed gravity gave and the particle kept:
+  matter in orbit (section 3), a torn star (section 7), a field under `gravityInertia`; the flight is the
+  camera's travel, which `flightTintAhead` stands for. Gate: a hole and `gravityStrength` above 0. An orbit
+  seen face on crosses the sight and is only dimmed; seen from its rim (3D, `cameraPitch` near ±80), the
+  approaching side is blue-white and bright, the receding side red and dim, the asymmetry of M87*.
+  Strokes stop at full, so beaming mostly darkens the receding side.
 - The trail is the fade of the picture, not part of the particle. `trailIntensity` 0 never fades: a long
   exposure, every stroke a particle has drawn kept. With `baseSpeed` 0 beside it the frame is the map of
   the hole's pull, drawn over seconds.
@@ -195,11 +207,19 @@ same path behind it (`flowATrail`), lit by the flow's brightness rather than by 
 | Shared: in 3D, the shares of the hole's distance a stroke fades from and is gone at | `flowNearFade`, `flowNearGone` |
 | Shared: which set of numbers the particles start from | `flowSeed` |
 | Shared: the light a flow falling in leaves in the ring, and how unevenly round | `flowRingFeed`, `flowRingFlicker` |
+| Shared: how far each flow's pace is the pull of its hole instead of its own Swirl and Life | `flowGravity` |
 | The flows in the equator as an accretion disc seen along the paths of light: how much of them, how much it hides, its Doppler shift as a multiple of nature's, the power of the shift its brightness goes as, how far a doubling of the shift turns its colour | `flowTrace`, `flowTraceHide`, `flowTraceDoppler`, `flowTraceBeam`, `flowTraceTint` |
 
 - The two radii are the shape: `flowATo` equal to `flowAFrom` is a ring (a disc with a wide
   `flowASpread`), below it a fall, below 1 a fall into the shadow, above it an outflow. `flowASwirl` with
   a fall winds the matter into a spiral that tightens toward the hole; 0 is a straight fall.
+- A flow is told where to go, so gravity does not move it. `flowGravity` 1 ties its pace to the pull the
+  field feels: it turns at Kepler's rate for its hole (0.6 `gravityStrength` CSS pixels a frame squared at
+  the shadow's edge, inverse square), as fast as the field's matter in orbit at that radius, falls off as
+  r^-1.5, and a fall or an outflow takes the free-fall time between its two
+  radii; `flowASwirl` keeps only its sign (0 a straight fall), a ring keeps `flowALife`. A stronger pull then
+  turns every flow faster, a larger hole one at the same radii slower, and inner flows overtake outer ones. It is Newton's pace: the
+  precession, the plunge and matter torn between two holes are the field's (section 3, "Matter in orbit").
 - The radii and the band reach 200: at the default `blackHoleSize` 8 the frame's sides are about 11 radii
   out, and round the smallest hole (0.5) its corners about 200, so a disc much wider than the hole is a
   small hole with a large `flowAFrom` and `flowASpread`.
@@ -342,6 +362,52 @@ becomes speed, and the particle falls, swings and flies on as a body does.
   the disc most of the way, above 1 only a fast spin does. A tilted, fast-spinning hole then winds a
   tilted disc. The flows, the orbiting stars' birth plane and Particles on Sheet lie in the plane facing
   that axis, so they tip with it.
+- `gravityRelativity` cuts that share of the Schwarzschild radius (the shadow's radius over 2.6) out of
+  the pull: at 1, the default, the particles fall in the Paczynski-Wiita potential, -GM / (r - r_s), the
+  one the orbiting stars move in, Newton's pull times (r / (r - r_s))^2. Far out nothing changes; near
+  the shadow the pull grows (2.6 times at its edge), no orbit lasts inside 1.15 radii (three
+  Schwarzschild radii, the last stable orbit) and an ellipse precesses. 0 is Newton's alone.
+  `gravityFalloff` acts on top of it.
+
+### Matter in orbit: the field moved by gravity alone
+
+Gate: `fieldOrbit` above 0, `gravityStrength` above 0 and a black hole. A said look in where it is born,
+a grown one in what gravity then makes of it: give it a few seconds.
+
+The field's flight and its Orbital Force are stand-ins: the flight is the camera's travel, and the swirl
+gives matter the angular momentum gravity alone does not. Matter in orbit needs neither. A share of the
+particles is born moving round the hole at a circular orbit's speed, and from then on only gravity moves
+it, with the pull of both holes, the spin's drag and `gravityRelativity`.
+
+| What | Keys |
+|---|---|
+| The share of the particles born in orbit | `fieldOrbit` |
+| The band they are born in: its middle and its width, in black hole radii | `fieldOrbitRadius`, `fieldOrbitSpread` |
+| Their height off the equator, as a share of their radius; the scatter of their speeds round a circular orbit's | `fieldOrbitThick`, `fieldOrbitScatter` |
+| The share of them born round the second hole, moving with it | `fieldOrbitSecond` |
+| How fast they lose angular momentum and spiral in | `fieldViscosity` |
+
+- Born in the main hole's equator (in 3D the plane across the swirl's axis; flat, the screen), at
+  sqrt(pull x distance), the way `orbitalStrength` turns (its sign alone), plus the speed of the hole it
+  circles. It does not fly (`baseSpeed` leaves it), keeps all its speed whatever `gravityInertia` says,
+  feels no `orbitalStrength` and no `gravityReach`: an orbit is gravity's alone.
+- What follows is the law's, not a knob's: circles far out, ellipses that precess (`fieldOrbitScatter`
+  above 0 with `gravityRelativity` 1), a plunge from inside the last stable orbit, a band inside 1.15 radii
+  that empties. Round a pair (`companionSize`, `fieldOrbitSecond` between 0 and 1) each hole keeps a disc
+  and the other's pull tears its outer orbits: matter crosses between the two near the point between them
+  and is flung out, which no flow can draw.
+- `fieldViscosity` takes that share of the speed round the nearer hole for each radian turned, so a
+  particle spirals in over about 1 / (2 pi `fieldViscosity`) turns (16 at 0.01), is taken at the horizon,
+  feeds the ring and is born again in the band: a disc that stays fed. In a real disc the rate is
+  alpha (H / R)^2, 0.001 to 0.01. 0 keeps every orbit.
+- A particle flung past three times the band, `gravityReach` or twice a second hole's orbit is born again.
+  Raising `fieldOrbit` moves particles into orbit at once; lowering it sends them back to the flight.
+- Its light is still its own speed on the screen, and `particleDoppler` turns the side of the disc coming
+  toward the camera bluer and brighter (section 2). Seen face on (the flat mode, `cameraPitch` 0) an orbit
+  crosses the sight and is only dimmed.
+- The step moves it once a frame: an orbit closer than about 30 frames a turn (the innermost orbits of a
+  strong `gravityStrength` on a large hole) is stepped coarsely and its precession is the step's as much as
+  the law's. A film at 60 fps or above keeps it fine.
 
 ## 4. Capture: the event horizon
 
@@ -599,6 +665,31 @@ that precess, faster the closer they come, as around a real black hole. They cir
   stars going against the turn feed the ring sooner.
 - A long `orbitTrail` over several turns draws the rosette of the precession. The traces are lines kept
   around the hole, so they follow it, grow with `blackHoleSize` and stay sharp at any zoom.
+
+### Tidal disruption: a star torn into the field
+
+Gate: `orbitTidal` above 0 and a star whose pericentre lies inside it (`orbitClosest` below it, with
+`orbitEccentricity` high enough), `orbitTidalShare` above 0, and the field on with `gravityStrength`
+above 0, since the debris is particles of the field.
+
+| What | Keys |
+|---|---|
+| The distance a star is torn apart at, in Schwarzschild radii (0: never) | `orbitTidal` |
+| The share of the field a torn star becomes, and the spread of its pieces' speeds round its own | `orbitTidalShare`, `orbitTidalSpread` |
+
+- A star that comes inside `orbitTidal` is gone and a new one takes its place; on that frame
+  `orbitTidalShare` of the particles leave whatever they were doing and are set where it came apart, on
+  its velocity scattered by `orbitTidalSpread` of it. One star a frame.
+- The debris lives in the field's gravity, and the field's speed of light is worked out from that
+  gravity as the stars' is (`particleDoppler` says how), so a star's place in Schwarzschild radii and its
+  speed in the speed of light carry over: the debris flies on the star's orbit at the field's pace (which
+  is not the stars' `orbitSpeed`). What the spread gives more energy leaves the hole, what it gives less
+  comes back round, falls in and lights the photon ring, as the debris of a tidal disruption event does.
+- The debris does not fly with the field and keeps all its speed whatever `gravityInertia` says, until a
+  horizon takes it; then it is born again as the rest of the field is. `gravityRelativity` 1 makes its
+  orbits precess and plunge as the stars' do.
+- A Sun-like star is torn apart about 50 Schwarzschild radii from a million-solar-mass hole and swallowed
+  whole by one of a hundred million, where `orbitTidal` lies inside `orbitClosest`.
 
 ## 8. A second black hole and its waves
 

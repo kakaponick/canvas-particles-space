@@ -12,20 +12,23 @@
 // steps give the same field on the same machine.
 import { RING_BINS } from './ring_energy'
 import { fillInertiaStep, type PaletteSampler, type StepSettings } from './particle_simulation'
+import { SHADOW_RADII } from './orbiters'
 
 // A particle's record in the buffer, in floats: its state (place and speed multiplier; kept speed and
 // alpha; pulse phase, pulse speed and colour), then what it draws this frame (the stroke's ends, its width,
-// its opacity, whose sign is the side of the black holes its start is on: below 0 in front of them, and the
-// share of the way along it crosses to the other side, 0 when it does not) and the light
-// it leaves in the ring (where round the hole, how much)
-export const FIELD_FLOATS = 21
+// its opacity, whose sign is the side of the black holes its start is on: below 0 in front of them, the
+// share of the way along it crosses to the other side, 0 when it does not, and how far its light is shifted,
+// the doublings of its frequency times Doppler Tint) and the light it leaves in the ring (where round the
+// hole, how much). The speed share of a particle born in orbit is 0 (it does not fly), and of one torn from
+// a star below 0
+export const FIELD_FLOATS = 22
 export const FIELD_STRIDE = FIELD_FLOATS * 4
 
 // Where in the record the colour's four bytes, the stroke, its style and the ring's light lie, in bytes
 export const FIELD_COLOR_OFFSET = 40
 export const FIELD_SEGMENT_OFFSET = 44
 export const FIELD_STYLE_OFFSET = 60
-export const FIELD_DEPOSIT_OFFSET = 72
+export const FIELD_DEPOSIT_OFFSET = 76
 // What the feedback writes, in the record's order
 export const FIELD_VARYINGS = ['v_place', 'v_drift', 'v_look', 'v_segment', 'v_style', 'v_deposit']
 // The most colours of the palette the card samples from
@@ -44,7 +47,10 @@ const STEP_KEYS = [
   'pulseSpeedMultiplier', 'pulseIntensity', 'baseBrightness', 'minOpacity', 'maxOpacity', 'speedGlow', 'speedKnee', 'revealRadius', 'revealX',
   'revealY', 'revealFeather', 'opacityScale', 'threeD', 'holeWorldX', 'holeWorldY', 'holeWorldZ', 'companionWorldX',
   'companionWorldY', 'companionWorldZ', 'endFade', 'frontAway', 'frontDepth', 'frontReach', 'holeSeen', 'companionSeen', 'holeFront', 'companionFront',
-  'frontLetGo', 'frontPower', 'frontBend', 'frontBetween', 'holeEinstein', 'companionEinstein', 'spinShape', 'spinTurn', 'redshift', 'lightSpread', 'sizeSpread', 'rideStretch'
+  'frontLetGo', 'frontPower', 'frontBend', 'frontBetween', 'holeEinstein', 'companionEinstein', 'spinShape', 'spinTurn', 'redshift', 'lightSpread', 'sizeSpread', 'rideStretch',
+  'relativity', 'orbitShare', 'orbitRadius', 'orbitSpread', 'orbitThick', 'orbitScatter', 'orbitSecond', 'orbitEscape', 'orbitSense', 'viscosity',
+  'holeVelX', 'holeVelY', 'holeVelZ', 'companionVelX', 'companionVelY', 'companionVelZ', 'doppler', 'beam', 'shiftTint',
+  'burst', 'burstX', 'burstY', 'burstZ', 'burstVX', 'burstVY', 'burstVZ', 'burstSpread', 'burstSeed'
 ] as const satisfies readonly (keyof StepSettings)[]
 const DERIVED_KEYS = ['hasHole', 'ringFed', 'revealing', 'inertial', 'keep', 'gain', 'velocityGain', 'spawnRadius', 'speedVariance'] as const
 const STEP_NAMES: readonly string[] = [...STEP_KEYS, ...DERIVED_KEYS]
@@ -122,7 +128,7 @@ ${ride}${behind}
   out vec4 v_drift;
   out vec3 v_look;
   out vec4 v_segment;   // the stroke: where it starts and ends, CSS pixels
-  out vec3 v_style;     // its width in CSS pixels, its opacity (0 draws nothing, below 0 its start is in front of the holes), the share of the way along it crosses to the other side (0: it does not)
+  out vec4 v_style;     // its width in CSS pixels, its opacity (0 draws nothing, below 0 its start is in front of the holes), the share of the way along it crosses to the other side (0: it does not), its light's shift (above 0 toward the approaching colour)
   out vec3 v_deposit;   // light for the photon ring: where round the hole it lands, how much
 
 ${STEP_DEFINES}
@@ -140,13 +146,23 @@ ${STEP_DEFINES}
   const float DRAG_SHARE = 0.5;
   // A kept speed below a hundredth of a scene unit a second (squared, per 60 Hz frame) is let go
   const float SPEED_FLOOR_SQ = ${((0.01 / 60) ** 2).toExponential(6)};
+  // Schwarzschild radii in the radius of the shadow, sqrt(27) / 2, as the orbiting stars count them
+  const float SHADOW_RADII = ${SHADOW_RADII};
+  // The pull is held this many Schwarzschild radii clear of the Schwarzschild radius, where the
+  // Paczynski-Wiita potential has no end (orbiters.ts holds the stars the same)
+  const float MIN_CLEARANCE = 0.15;
+  // The fastest a particle is taken to move for its light, as a share of the speed of light: past it the
+  // Doppler factor has no end
+  const float MOST_BETA = 0.98;
 
   vec4 place;
   vec4 drift;
   vec3 look;
   vec4 segment;
-  vec3 style;
+  vec4 style;
   vec3 deposit;
+  // The doublings of the frequency the particle's light is seen shifted by this step, times Doppler Tint
+  float strokeShift;
   uint seed;
   // What became of the particle this step: 0 it flies on, 1 it left the field and is made anew, 2 a horizon
   // took it and it is made anew outside that horizon. The horizon: in the flat step a circle on the screen,
@@ -178,6 +194,45 @@ ${STEP_DEFINES}
   float dragFall (float ratio) {
     return DRAG_SHARE * (s_dragFalloff == 1.0 ? ratio : pow(ratio, s_dragFalloff));
   }
+
+  // What the pull at "dist" from a hole whose shadow is "shadow" across (the same unit) is multiplied by
+  // for Relativity: the Paczynski-Wiita potential the orbiting stars move in, -GM / (r - r_s), whose pull is
+  // Newton's times (r / (r - r_s))^2. It puts the last stable orbit at three Schwarzschild radii (1.15
+  // shadow radii) and the plunge inside it where relativity puts them; Relativity takes that share of r_s
+  float wellPull (float dist, float shadow) {
+    if (s_relativity <= 0.0) return 1.0;
+    float schwarzschild = shadow / SHADOW_RADII;
+    float clear = max(dist - s_relativity * schwarzschild, MIN_CLEARANCE * schwarzschild);
+    float ratio = dist / clear;
+    return ratio * ratio;
+  }
+
+  // The pull a hole whose shadow is "shadow" gives at "dist" (the same unit) per 60 Hz frame, in that unit:
+  // the law the step pushes by, which a particle born in orbit takes its speed from. "unitScale" turns CSS
+  // pixels at the hole's distance into that unit (1 in the flat step)
+  float pullAt (float dist, float shadow, float unitScale) {
+    return s_gravityStrength * 0.6 * unitScale * pullFall(shadow * shadow / max(dist * dist, 0.000001)) * wellPull(dist, shadow);
+  }
+
+  // The speed of light in the unit of "shadow" per 60 Hz frame, from the field's own gravity: with the
+  // shadow 2.6 Schwarzschild radii across, c^2 = 2 GM / r_s, and GM what Gravity gives, 0.6 Gravity times
+  // the square of the shadow's radius (in CSS pixels; "unitScale" turns them into the unit). So a particle
+  // on the last stable orbit moves at 0.6 of the speed of light, as the potential gives (relativity: 0.5)
+  float lightSpeed (float shadow, float unitScale) {
+    return sqrt(max(2.0 * 0.6 * SHADOW_RADII * s_gravityStrength * unitScale * shadow, 0.0));
+  }
+
+  // The doublings of its frequency the light of a particle moving at "velocity" is seen shifted by, toward
+  // the eye along "toEye" (a unit direction), with the speed of light "light" in the same unit: the Doppler
+  // factor g = sqrt(1 - beta^2) / (1 - beta . n), raised to Doppler. Light that comes in g times bluer
+  // comes in g^Beaming times brighter, which the caller lights it by
+  float dopplerShift (vec3 velocity, vec3 toEye, float light) {
+    if (light <= 0.0) return 0.0;
+    float betaSq = min(dot(velocity, velocity) / (light * light), MOST_BETA * MOST_BETA);
+    float along = clamp(dot(velocity, toEye) / light, -MOST_BETA, MOST_BETA);
+    return s_doppler * log2(sqrt(1.0 - betaSq) / (1.0 - along));
+  }
+
 
   // A number in [0, 1) drawn from a word
   float drawn (uint word) {
@@ -213,6 +268,90 @@ ${STEP_DEFINES}
   // the other and no particle flickers between the two
   float ownShare () {
     return drawn(uint(gl_VertexID) * 747796405u + 2891336453u);
+  }
+  // A number in [0, 1) of this particle alone, the same in every step: below Orbit Birth it is matter in
+  // orbit, and among that below Around Second it orbits the second hole
+  float ownOrbit () {
+    return drawn(uint(gl_VertexID) * 2246822519u + 374761393u);
+  }
+  float ownSecond () {
+    return drawn(uint(gl_VertexID) * 1597334677u + 2654435769u);
+  }
+
+  // A particle born in orbit (Orbit Birth): in the band Orbit Radius and Orbit Spread lay round the main
+  // hole, or round the second by Around Second, evenly by area, in the main hole's equator (the plane
+  // across the swirl's axis; the screen in the flat step) lifted off it by up to Orbit Thickness of its
+  // radius, moving round the hole the way Orbital Force turns at the speed of a circular orbit in the pull
+  // the step pushes by, sqrt(pull x distance), scattered by Orbit Scatter, plus the speed of the hole it
+  // orbits. It does not fly (its speed share is 0), keeps all its speed whatever Inertia says and feels no
+  // Orbital Force, so from then on gravity alone moves it: it precesses, plunges inside the last stable
+  // orbit, and round a pair it is shared, torn and passed between the two. False without a pull to orbit in
+  bool orbitBirth (float alpha) {
+    if (s_gravityStrength <= 0.0) return false;
+    bool inSpace = s_threeD > 0.5;
+    bool second = s_companionRadius > 0.0 && ownSecond() < s_orbitSecond;
+    float shadow = second ? s_companionRadius : s_holeRadius;
+    float capture = second ? s_companionCapture : s_captureRadius;
+    float inner = max(s_orbitRadius - 0.5 * s_orbitSpread, 0.0);
+    float outer = max(s_orbitRadius + 0.5 * s_orbitSpread, inner);
+    float radii = sqrt(mix(inner * inner, outer * outer, chance()));
+    // CSS pixels at the hole's distance, held outside the capture
+    float dist = max(radii * shadow, capture * 1.05 + 0.5);
+    float angle = chance() * TWO_PI;
+    float lift = s_orbitThick * dist * (chance() + chance() - 1.0);
+    float scatter = 1.0 + s_orbitScatter * (2.0 * chance() - 1.0);
+    if (inSpace) {
+      float worldPerPixel = s_holeDepth / s_focal;
+      vec3 centre = second ? vec3(s_companionWorldX, s_companionWorldY, s_companionWorldZ) : vec3(s_holeWorldX, s_holeWorldY, s_holeWorldZ);
+      vec3 carried = second ? vec3(s_companionVelX, s_companionVelY, s_companionVelZ) : vec3(s_holeVelX, s_holeVelY, s_holeVelZ);
+      vec3 swirl = vec3(s_swirlX, s_swirlY, s_swirlZ);
+      vec3 first = normalize(cross(swirl, abs(swirl.x) < 0.9 ? vec3(1.0, 0.0, 0.0) : vec3(0.0, 1.0, 0.0)));
+      vec3 across = cross(swirl, first);
+      vec3 offset = ((first * cos(angle) + across * sin(angle)) * dist - swirl * lift) * worldPerPixel;
+      float away = dist * worldPerPixel;
+      float speed = sqrt(pullAt(away, shadow * worldPerPixel, worldPerPixel) * away) * scatter;
+      place = vec4(centre + offset, 0.0);
+      drift = vec4(normalize(cross(-offset, swirl)) * (speed * s_orbitSense) + carried, alpha);
+    } else {
+      vec2 centre = second ? vec2(s_companionX, s_companionY) : vec2(s_holeX, s_holeY);
+      vec2 carried = second ? vec2(s_companionVelX, s_companionVelY) : vec2(s_holeVelX, s_holeVelY);
+      vec2 outward = vec2(cos(angle), sin(angle));
+      float speed = sqrt(pullAt(dist, shadow, 1.0) * dist) * scatter;
+      // The flat orbital force turns a particle toward (-toHole.y, toHole.x), and toHole is -outward
+      vec2 along = vec2(outward.y, -outward.x) * s_orbitSense;
+      float toScene = s_holeDepth / s_focal;
+      place = vec4((centre + outward * dist - vec2(s_vanishX, s_vanishY)) * toScene, s_holeDepth, 0.0);
+      drift = vec4((along * speed + carried) * toScene, 0.0, alpha);
+    }
+    return true;
+  }
+
+  // Matter torn from a star (Tidal Radius): a share of the field, chosen afresh for each star, is set where
+  // the star came apart, each piece scattered round its place by a twentieth of its distance and round its
+  // velocity by Debris Spread of it, plus the main hole's own speed. The star's place comes in
+  // Schwarzschild radii from the hole and its velocity in the speed of light, and the field's own speed of
+  // light carries them over, so the debris flies on the star's orbit in the field's gravity: what the spread
+  // gives more energy leaves the hole, what it gives less comes back round and falls in. Like matter in
+  // orbit it does not fly and keeps all its speed (its speed share below 0) until a horizon takes it
+  void burstBirth () {
+    bool inSpace = s_threeD > 0.5;
+    float worldPerPixel = inSpace ? s_holeDepth / s_focal : 1.0;
+    float shadow = s_holeRadius * worldPerPixel;
+    float light = lightSpeed(shadow, worldPerPixel);
+    vec3 star = vec3(s_burstX, s_burstY, s_burstZ) * (shadow / SHADOW_RADII);
+    vec3 velocity = vec3(s_burstVX, s_burstVY, s_burstVZ) * light;
+    vec3 shake = vec3(chance(), chance(), chance()) * 2.0 - 1.0;
+    vec3 kick = vec3(chance() + chance(), chance() + chance(), chance() + chance()) - 1.0;
+    vec3 offset = star + shake * (0.05 * length(star));
+    vec3 speed = velocity + kick * (s_burstSpread * length(velocity));
+    if (inSpace) {
+      place = vec4(vec3(s_holeWorldX, s_holeWorldY, s_holeWorldZ) + offset, -1.0);
+      drift = vec4(speed + vec3(s_holeVelX, s_holeVelY, s_holeVelZ), drift.w);
+    } else {
+      float toScene = s_holeDepth / s_focal;
+      place = vec4((vec2(s_holeX, s_holeY) + offset.xy - vec2(s_vanishX, s_vanishY)) * toScene, s_holeDepth, -1.0);
+      drift = vec4((speed.xy + vec2(s_holeVelX, s_holeVelY)) * toScene, 0.0, drift.w);
+    }
   }
 
   // A new particle at the far end of the field: somewhere in the birth disc, with a colour of the palette
@@ -260,9 +399,10 @@ ${STEP_DEFINES}
     float rate = 0.5 + chance() * 1.5;
     // 99% of particles stay near the base speed, 1% reach up to 100x
     float r = chance();
+    look = vec3(phase, rate, uintBitsToFloat(${COLOR_KEPT}u | uint(rgb.r) | (uint(rgb.g) << 8u) | (uint(rgb.b) << 16u)));
+    if (s_hasHole > 0.5 && s_orbitShare > 0.0 && ownOrbit() < s_orbitShare && orbitBirth(alpha)) return;
     place = vec4(at, s_farZ, 1.0 + s_speedVariance * (2.0 + r * r * r * r * r * 98.0));
     drift = vec4(0.0, 0.0, 0.0, alpha);
-    look = vec3(phase, rate, uintBitsToFloat(${COLOR_KEPT}u | uint(rgb.r) | (uint(rgb.g) << 8u) | (uint(rgb.b) << 16u)));
   }
 
   // Liang-Barsky: narrows the share of a stroke that is kept ("span", from and to) by one edge of the
@@ -392,7 +532,7 @@ ${STEP_DEFINES}
       }
     }
     segment = vec4(start, end);
-    style = vec3(lineWidth, front ? -opacity : opacity, cut);
+    style = vec4(lineWidth, front ? -opacity : opacity, cut, strokeShift);
   }
 
   // The flat loop: the holes pull a particle where it lands on the screen, inside a layer of depth round
@@ -403,18 +543,23 @@ ${STEP_DEFINES}
     float startZ = place.z;
     vec2 start = at * (s_focal / startZ) + vanish;
 
-    float pz = startZ - s_speed * s_frameScale * place.w;
+    // Matter in orbit and from a torn star does not fly, keeps all its speed and feels no Orbital Force
+    bool orbiting = place.w <= 0.0;
+    float pz = startZ - s_speed * s_frameScale * max(place.w, 0.0);
     // A particle the holes set moving drifts on with what it kept of that speed; along the line of sight
     // only while spin lying in the screen pushes it there (Drag Along Sight)
-    bool inertial = s_inertial > 0.5;
+    bool inertial = s_inertial > 0.5 || orbiting;
+    float keep = orbiting ? 1.0 : s_keep;
+    float gain = orbiting ? s_frameScale : s_gain;
+    float velocityGain = orbiting ? 1.0 : s_velocityGain;
     bool sight = s_dragSight > 0.0;
     vec2 kept = vec2(0.0);
     float keptZ = 0.0;
     if (inertial) {
-      kept = drift.xy * s_keep;
+      kept = drift.xy * keep;
       at += kept * s_frameScale;
       if (sight) {
-        keptZ = drift.z * s_keep;
+        keptZ = drift.z * keep;
         pz += keptZ * s_frameScale;
       }
     }
@@ -437,8 +582,9 @@ ${STEP_DEFINES}
     // Gravity does not depend on the flight speed
     float pullScale = s_gravityStrength * 0.6 * s_frameScale;
     float radiusSq = s_holeRadius * s_holeRadius;
-    float orbitScale = s_orbitalStrength * 0.02;
-    float reachSq = s_gravityReach * s_gravityReach;
+    float orbitScale = orbiting ? 0.0 : s_orbitalStrength * 0.02;
+    // Matter in orbit feels the holes at any distance: the reach is the flight's cut
+    float reachSq = orbiting ? 3.0e38 : s_gravityReach * s_gravityReach;
 
     if (hasHole) {
       vec2 toHole = hole - end;
@@ -465,22 +611,22 @@ ${STEP_DEFINES}
           // away, as far as Drag Along Sight lets it
           float clampedSq = max(distSq, 1.0);
           float invDistance = inversesqrt(clampedSq);
-          float pull = pullScale * pullFall(radiusSq / clampedSq) * depthWeight;
+          float pull = pullScale * pullFall(radiusSq / clampedSq) * wellPull(sqrt(clampedSq), s_holeRadius) * depthWeight;
           float drag = dragFall(s_holeRadius * invDistance);
           float orbit = pull * (orbitScale + s_spinToward * drag);
           float across = pull * depthOffset * drag * clampedSq * invDistance;
           float toScene = pz / s_focal * invDistance;
           vec2 push = vec2(toHole.x * pull - toHole.y * orbit - across * s_spinUp, toHole.y * pull + toHole.x * orbit - across * s_spinRight) * toScene;
           if (inertial) {
-            kept += push * s_velocityGain;
-            push *= s_gain;
+            kept += push * velocityGain;
+            push *= gain;
           }
           at += push;
           if (sight && (s_spinRight != 0.0 || s_spinUp != 0.0)) {
             float pushZ = -(s_spinRight * toHole.y + s_spinUp * toHole.x) * pull * drag * s_dragSight * toScene;
             if (inertial) {
-              keptZ += pushZ * s_velocityGain;
-              pushZ *= s_gain;
+              keptZ += pushZ * velocityGain;
+              pushZ *= gain;
             }
             pz += pushZ;
             if (pz <= 0.0) {
@@ -515,7 +661,7 @@ ${STEP_DEFINES}
           if (companionFed && distSq < skim * skim) deposit = vec3(-toHole, -s_ringSkimEnergy * s_frameScale * depthWeight);
           float clampedSq = max(distSq, 1.0);
           float invDistance = inversesqrt(clampedSq);
-          float pull = pullScale * pullFall(s_companionRadius * s_companionRadius / clampedSq) * depthWeight;
+          float pull = pullScale * pullFall(s_companionRadius * s_companionRadius / clampedSq) * wellPull(sqrt(clampedSq), s_companionRadius) * depthWeight;
           // Its spin drags them as the main hole's does, in the screen and across its plane
           float drag = dragFall(s_companionRadius * invDistance);
           float orbit = pull * (orbitScale + s_companionSpinToward * drag);
@@ -523,16 +669,16 @@ ${STEP_DEFINES}
           float toScene = pz / s_focal * invDistance;
           vec2 push = vec2(toHole.x * pull - toHole.y * orbit - across * s_companionSpinUp, toHole.y * pull + toHole.x * orbit - across * s_companionSpinRight) * toScene;
           if (inertial) {
-            kept += push * s_velocityGain;
-            push *= s_gain;
+            kept += push * velocityGain;
+            push *= gain;
           }
           at += push;
           // and carries the two sides of its axis toward and away from the camera, as the main hole's does
           if (sight && (s_companionSpinRight != 0.0 || s_companionSpinUp != 0.0)) {
             float pushZ = -(s_companionSpinRight * toHole.y + s_companionSpinUp * toHole.x) * pull * drag * s_dragSight * toScene;
             if (inertial) {
-              keptZ += pushZ * s_velocityGain;
-              pushZ *= s_gain;
+              keptZ += pushZ * velocityGain;
+              pushZ *= gain;
             }
             pz += pushZ;
             if (pz <= 0.0) {
@@ -543,6 +689,30 @@ ${STEP_DEFINES}
           }
           end = at * endScale + vanish;
         }
+      }
+    }
+
+    // Matter in orbit loses angular momentum to Viscosity, round the nearer hole: its speed round that hole
+    // falls by Viscosity of itself for each radian it turns, so it spirals in over 1 / (2 pi Viscosity)
+    // turns, as gas in a disc does. Matter that flies off past Orbit Escape is made anew
+    if (orbiting && hasHole) {
+      vec2 second = vec2(s_companionX, s_companionY);
+      bool nearSecond = s_companionRadius > 0.0 && dot(end - second, end - second) < dot(end - hole, end - hole);
+      vec2 centre = nearSecond ? second : hole;
+      if (s_viscosity > 0.0) {
+        vec2 outward = at - (centre - vanish) * (pz / s_focal);
+        float away = length(outward);
+        if (away > 0.000001) {
+          outward /= away;
+          float radial = dot(kept, outward);
+          vec2 around = kept - outward * radial;
+          float turned = length(around) / away * s_frameScale;
+          kept = outward * radial + around * max(1.0 - s_viscosity * turned, 0.5);
+        }
+      }
+      if (length(end - hole) > s_orbitEscape * s_holeRadius) {
+        reborn = 1;
+        return;
       }
     }
 
@@ -571,6 +741,14 @@ ${STEP_DEFINES}
       light = wellLight(length(hole - end), s_holeRadius);
       if (s_companionRadius > 0.0) light *= wellLight(length(vec2(s_companionX, s_companionY) - end), s_companionRadius);
     }
+    // Its light shifted by its own motion, seen from the camera, which the flat step puts at the origin of
+    // the scene looking down its depth: a disc in the screen moves across the sight, so it is only dimmed
+    // (the transverse shift), and what Drag Along Sight moves in depth turns bluer coming and redder going
+    if (s_doppler > 0.0 && inertial && hasHole && s_gravityStrength > 0.0) {
+      float shift = dopplerShift(vec3(kept, keptZ) * (s_focal / pz), -normalize(vec3(at, pz)), lightSpeed(s_holeRadius, 1.0));
+      light *= exp2(s_beam * shift);
+      strokeShift = shift * s_shiftTint;
+    }
     strokeLook = vec2(pz / s_farZ, light);
     strokeMeasure = vec2(length(end - start), length(end - vec2(s_revealX, s_revealY)));
   }
@@ -590,16 +768,20 @@ ${STEP_DEFINES}
     vec3 seenFrom = vec3(dot(u_poseFrom[0].xyz, fromPivot), dot(u_poseFrom[1].xyz, fromPivot), dot(u_poseFrom[2].xyz, fromPivot)) +
       vec3(u_poseFrom[0].w, u_poseFrom[1].w, u_poseFrom[2].w);
 
-    at.z -= s_speed * s_frameScale * place.w;
+    // Matter in orbit and from a torn star does not fly, keeps all its speed and feels no Orbital Force
+    bool orbiting = place.w <= 0.0;
+    at.z -= s_speed * s_frameScale * max(place.w, 0.0);
     if (at.z <= 0.0) {
       reborn = 1;
       return;
     }
 
-    bool inertial = s_inertial > 0.5;
+    bool inertial = s_inertial > 0.5 || orbiting;
+    float gain = orbiting ? s_frameScale : s_gain;
+    float velocityGain = orbiting ? 1.0 : s_velocityGain;
     vec3 kept = vec3(0.0);
     if (inertial) {
-      kept = drift.xyz * s_keep;
+      kept = drift.xyz * (orbiting ? 1.0 : s_keep);
       at += kept * s_frameScale;
     }
 
@@ -607,9 +789,10 @@ ${STEP_DEFINES}
     vec3 hole = vec3(s_holeWorldX, s_holeWorldY, s_holeWorldZ);
     // Lengths round the black hole arrive in CSS pixels at its depth; there they are this many scene units
     float radius = s_holeRadius * worldPerPixel;
-    float reach = s_gravityReach * worldPerPixel;
+    // Matter in orbit feels the holes at any distance: the reach is the flight's cut
+    float reach = orbiting ? 1.0e18 : s_gravityReach * worldPerPixel;
     float pullScale = s_gravityStrength * 0.6 * s_frameScale * worldPerPixel;
-    float orbitScale = s_orbitalStrength * 0.02;
+    float orbitScale = orbiting ? 0.0 : s_orbitalStrength * 0.02;
     vec3 swirl = vec3(s_swirlX, s_swirlY, s_swirlZ);
 
     if (hasHole) {
@@ -633,13 +816,13 @@ ${STEP_DEFINES}
         // the spin's axis, which stands in the scene (its y runs down and its z away from the camera)
         float clampedSq = max(distSq, 1.0);
         float away = sqrt(clampedSq);
-        float pull = pullScale * pullFall(radius * radius / clampedSq) / away;
+        float pull = pullScale * pullFall(radius * radius / clampedSq) * wellPull(away, radius) / away;
         float orbit = pull * orbitScale;
         vec3 push = toHole * pull + cross(toHole, swirl) * orbit;
         push -= cross(vec3(s_spinRight, -s_spinUp, -s_spinToward), toHole) * (pull * dragFall(radius / away));
         if (inertial) {
-          kept += push * s_velocityGain;
-          push *= s_gain;
+          kept += push * velocityGain;
+          push *= gain;
         }
         at += push;
       }
@@ -666,15 +849,37 @@ ${STEP_DEFINES}
         if (companionFed && distSq < skim * skim) deposit = vec3(ringAt.xy, -s_ringSkimEnergy * s_frameScale);
         float clampedSq = max(distSq, 1.0);
         float away = sqrt(clampedSq);
-        float pull = pullScale * pullFall(companionRadius * companionRadius / clampedSq) / away;
+        float pull = pullScale * pullFall(companionRadius * companionRadius / clampedSq) * wellPull(away, companionRadius) / away;
         float orbit = pull * orbitScale;
         vec3 push = toHole * pull + cross(toHole, swirl) * orbit;
         push -= cross(vec3(s_companionSpinRight, -s_companionSpinUp, -s_companionSpinToward), toHole) * (pull * dragFall(companionRadius / away));
         if (inertial) {
-          kept += push * s_velocityGain;
-          push *= s_gain;
+          kept += push * velocityGain;
+          push *= gain;
         }
         at += push;
+      }
+    }
+
+    // Matter in orbit loses angular momentum to Viscosity round the nearer hole (the flat step says how),
+    // and matter that flies off past Orbit Escape is made anew
+    if (orbiting && hasHole) {
+      vec3 second = vec3(s_companionWorldX, s_companionWorldY, s_companionWorldZ);
+      bool nearSecond = s_companionRadius > 0.0 && dot(at - second, at - second) < dot(at - hole, at - hole);
+      if (s_viscosity > 0.0) {
+        vec3 outward = at - (nearSecond ? second : hole);
+        float away = length(outward);
+        if (away > 0.000001) {
+          outward /= away;
+          float radial = dot(kept, outward);
+          vec3 around = kept - outward * radial;
+          float turned = length(around) / away * s_frameScale;
+          kept = outward * radial + around * max(1.0 - s_viscosity * turned, 0.5);
+        }
+      }
+      if (length(at - hole) > s_orbitEscape * radius) {
+        reborn = 1;
+        return;
       }
     }
 
@@ -728,6 +933,14 @@ ${STEP_DEFINES}
       shown *= wellLight(length(at - hole), radius);
       if (s_companionRadius > 0.0) shown *= wellLight(length(at - vec3(s_companionWorldX, s_companionWorldY, s_companionWorldZ)), s_companionRadius * worldPerPixel);
     }
+    // and shifted by its own motion as the camera sees it: the side of an orbit coming toward the camera
+    // bluer and brighter, the side going away redder and dimmer, and all of it dimmed by the transverse shift
+    if (s_doppler > 0.0 && inertial && hasHole && s_gravityStrength > 0.0) {
+      vec3 seenVelocity = vec3(dot(u_pose[0].xyz, kept), dot(u_pose[1].xyz, kept), dot(u_pose[2].xyz, kept));
+      float shift = dopplerShift(seenVelocity, -normalize(seenTo), lightSpeed(radius, worldPerPixel));
+      shown *= exp2(s_beam * shift);
+      strokeShift = shift * s_shiftTint;
+    }
     strokeLook = vec2(min(seenTo.z / s_farZ, 1.0), shown);
     // The opening reveals the field by the true distance from the blast, which happened at the hole's depth
     // where the flat view shows it, in CSS pixels at that depth
@@ -740,7 +953,8 @@ ${STEP_DEFINES}
     drift = a_drift;
     look = a_look;
     segment = vec4(0.0);
-    style = vec3(0.0);
+    style = vec4(0.0);
+    strokeShift = 0.0;
     deposit = vec3(0.0);
     reborn = 0;
     moved = false;
@@ -752,12 +966,22 @@ ${STEP_DEFINES}
     seed = (uint(gl_VertexID) * 2654435761u) ^ (u_tick * 2246822519u + 3266489917u);
     chance();
 
-    if (s_threeD > 0.5) stepSpace();
-    else stepFlat();
-    // Each of the two is called in this one place: a card's compiler writes a function out again wherever
-    // it is called, and the page waits for it
-    if (reborn > 0) rebirth();
-    else if (moved) stroke(strokeEnds.xy, strokeEnds.zw, strokeAway, strokeLook.x, rideFrom, rideTo, strokeLook.y, strokeMeasure.x, strokeMeasure.y);
+    bool held = s_hasHole > 0.5;
+    if (s_burst > 0.0 && held && drawn((uint(gl_VertexID) * 2891336453u) ^ (uint(s_burstSeed) * 747796405u + 1013904223u)) < s_burst) {
+      // A share of the field is torn from a star this step, and draws nothing until the next
+      burstBirth();
+    } else {
+      // Matter passes between the flight and orbit as Orbit Birth changes, made anew where it now belongs (with
+      // no pull to orbit in, all of it flies); what a star left stays until a horizon takes it
+      bool inOrbit = held && s_orbitShare > 0.0 && s_gravityStrength > 0.0 && ownOrbit() < s_orbitShare;
+      if (place.w > 0.0 ? inOrbit : (place.w == 0.0 && !inOrbit)) reborn = 1;
+      else if (s_threeD > 0.5) stepSpace();
+      else stepFlat();
+      // Each of the two is called in this one place: a card's compiler writes a function out again wherever
+      // it is called, and the page waits for it
+      if (reborn > 0) rebirth();
+      else if (moved) stroke(strokeEnds.xy, strokeEnds.zw, strokeAway, strokeLook.x, rideFrom, rideTo, strokeLook.y, strokeMeasure.x, strokeMeasure.y);
+    }
 
     v_place = place;
     v_drift = drift;

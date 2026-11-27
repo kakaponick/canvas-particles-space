@@ -28,6 +28,22 @@ export interface ParticleState extends FlowState {
   gravityFalloff: number
   gravityDepthBell: number
   gravityInertia: number
+  // The share of the Schwarzschild radius cut out of Newton's pull: the Paczynski-Wiita potential at 1
+  gravityRelativity: number
+  // Matter in orbit: the share of the field born in orbit, its band (middle, width, in hole radii), its
+  // height, the scatter of its speed, the share round the second hole, and the viscosity that drains it
+  fieldOrbit: number
+  fieldOrbitRadius: number
+  fieldOrbitSpread: number
+  fieldOrbitThick: number
+  fieldOrbitScatter: number
+  fieldOrbitSecond: number
+  fieldViscosity: number
+  // A particle's light shifted by its motion: the power of nature's Doppler factor, of the brightness, and
+  // the turn of its colour per doubling
+  particleDoppler: number
+  particleBeam: number
+  particleDopplerTint: number
   // Visible black hole: radius of its shadow, % of the viewport's short side. The photon ring,
   // the lens and the strength and reach of gravity scale with it
   blackHoleSize: number
@@ -397,6 +413,11 @@ export interface ParticleState extends FlowState {
   orbitClosest: number
   orbitEscape: number
   orbitFadeIn: number
+  // Tidal disruption: the distance a star is torn apart at (Schwarzschild radii, 0 none), the share of the
+  // field its debris takes, the spread of the debris's speed as a share of the star's
+  orbitTidal: number
+  orbitTidalShare: number
+  orbitTidalSpread: number
   // The traced disc (disc_trace.ts): the share of the flows in the main hole's equator seen along the Ray
   // Traced lens's paths of light (0 = none, all of them strokes), how much of what is behind it a stroke
   // hides, the Doppler and gravitational shift of its light as a multiple of nature's, the power of the
@@ -549,6 +570,17 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   gravityFalloff: 2,
   gravityDepthBell: 3,
   gravityInertia: 0,
+  gravityRelativity: 1,
+  fieldOrbit: 0,
+  fieldOrbitRadius: 3,
+  fieldOrbitSpread: 2,
+  fieldOrbitThick: 0.04,
+  fieldOrbitScatter: 0.03,
+  fieldOrbitSecond: 0,
+  fieldViscosity: 0.01,
+  particleDoppler: 1,
+  particleBeam: 3,
+  particleDopplerTint: 1,
   blackHoleSize: 8,
   horizonScale: 1,
   blackHoleSpin: 0,
@@ -864,6 +896,9 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   orbitClosest: 1.3,
   orbitEscape: 400,
   orbitFadeIn: 0.6,
+  orbitTidal: 0,
+  orbitTidalShare: 0.1,
+  orbitTidalSpread: 0.1,
   flowTrace: 0,
   flowTraceHide: 1,
   flowTraceDoppler: 1,

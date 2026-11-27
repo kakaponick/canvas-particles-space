@@ -3,7 +3,7 @@
 // a film (film_render.ts) calls it in a plain loop with a fixed step. Everything a frame depends on arrives
 // in SceneInput, so the scene reads no store and no window, and with the same seed and the same inputs it
 // draws the same frames.
-import { createParticleField, createPaletteSampler, createStepSettings, setParticleCount, type SpawnSettings } from './particle_simulation'
+import { REFERENCE_FPS, createParticleField, createPaletteSampler, createStepSettings, setParticleCount, type SpawnSettings } from './particle_simulation'
 import { POSE_SLOTS, cameraPose, turnOnto } from './camera_pose'
 import { createParticleRenderer, type FrameInput, type ParticleRenderer } from './particle_renderer'
 import { createIntroFrame, getRingdownTiming, ringdownWobble, sampleIntro, type IntroFrame, type RingdownTiming } from './intro_timeline'
@@ -318,6 +318,11 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
   // The plane a pair of black holes circles in, the same way: the two directions their own motion is
   // counted along, then the one it faces, which their orbit turns about
   const pairPlane = new Float64Array([1, 0, 0, 0, 1, 0, 0, 0, 1])
+  // Where the two black holes stood when the field was last stepped (scene units in 3D, CSS pixels on the
+  // screen flat) and whether that step was in 3D, so matter born round a hole moves with it; a tearing's
+  // own number, so each torn star takes another share of the field
+  const holeMotion = { stepped: false, threeD: false, x: 0, y: 0, z: 0, companionX: 0, companionY: 0, companionZ: 0 }
+  let tearings = 0
   // A flow's own plane before its tilt: the equator leaned toward the pair's orbit, then toward the camera
   const flowLeaned = new Float64Array(9)
   const flowBase = new Float64Array(9)
@@ -362,6 +367,8 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     tintAhead: createSceneColor(),
     tintEdge: createSceneColor(),
     tintBehind: createSceneColor(),
+    shiftToward: createSceneColor(),
+    shiftAway: createSceneColor(),
     tintGradient: 1.7,
     tintLimit: 0.8,
     vanishX: 0,
@@ -1474,6 +1481,61 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       holeAway = pivot + mainSceneZ * unit
       companionAway = pivot + companionSceneZ * unit
     }
+    // The pull near the horizon, matter born in orbit and the light of a particle's own motion
+    // (field_step.ts). Matter in orbit is made anew past its band three times over, past the flight's reach
+    // and past a second hole's orbit round the main one, all in the main hole's radii
+    settings.relativity = state.gravityRelativity
+    settings.orbitShare = state.fieldOrbit
+    settings.orbitRadius = state.fieldOrbitRadius
+    settings.orbitSpread = state.fieldOrbitSpread
+    settings.orbitThick = state.fieldOrbitThick
+    settings.orbitScatter = state.fieldOrbitScatter
+    settings.orbitSecond = state.fieldOrbitSecond
+    settings.orbitSense = state.orbitalStrength < 0 ? -1 : 1
+    settings.viscosity = state.fieldViscosity
+    const band = state.fieldOrbitRadius + state.fieldOrbitSpread
+    settings.orbitEscape = Math.max(state.gravityReach, 3 * band, companionRadius > 0 ? 2 * (state.companionDistance + band) : 0)
+    settings.doppler = state.particleDoppler
+    settings.beam = state.particleBeam
+    settings.shiftTint = state.particleDopplerTint
+    settings.burst = 0
+    // How fast each hole moves, per 60 Hz frame, from where it stood at the last step; a jump of more than
+    // half its radius in a frame (a cut, an anchor moved) is no motion
+    {
+      const worldPerPixel = threeD ? pivot / settings.focal : 1
+      const nowX = threeD ? settings.holeWorldX : settings.holeX
+      const nowY = threeD ? settings.holeWorldY : settings.holeY
+      const nowZ = threeD ? settings.holeWorldZ : 0
+      const secondX = threeD ? settings.companionWorldX : settings.companionX
+      const secondY = threeD ? settings.companionWorldY : settings.companionY
+      const secondZ = threeD ? settings.companionWorldZ : 0
+      const moving = holeMotion.stepped && holeMotion.threeD === threeD && frameScale > 0
+      const most = 0.5 * horizon * worldPerPixel * frameScale
+      let vx = moving ? nowX - holeMotion.x : 0
+      let vy = moving ? nowY - holeMotion.y : 0
+      let vz = moving ? nowZ - holeMotion.z : 0
+      if (Math.hypot(vx, vy, vz) > most) vx = vy = vz = 0
+      settings.holeVelX = vx / Math.max(frameScale, 1e-6)
+      settings.holeVelY = vy / Math.max(frameScale, 1e-6)
+      settings.holeVelZ = vz / Math.max(frameScale, 1e-6)
+      vx = moving && companionRadius > 0 ? secondX - holeMotion.companionX : 0
+      vy = moving && companionRadius > 0 ? secondY - holeMotion.companionY : 0
+      vz = moving && companionRadius > 0 ? secondZ - holeMotion.companionZ : 0
+      if (Math.hypot(vx, vy, vz) > most) vx = vy = vz = 0
+      settings.companionVelX = vx / Math.max(frameScale, 1e-6)
+      settings.companionVelY = vy / Math.max(frameScale, 1e-6)
+      settings.companionVelZ = vz / Math.max(frameScale, 1e-6)
+      if (frameScale > 0) {
+        holeMotion.stepped = true
+        holeMotion.threeD = threeD
+        holeMotion.x = nowX
+        holeMotion.y = nowY
+        holeMotion.z = nowZ
+        holeMotion.companionX = secondX
+        holeMotion.companionY = secondY
+        holeMotion.companionZ = secondZ
+      }
+    }
     // Two holes at different depths: the nearer one's lens bends the light of the farther, by the share
     // of the way from the camera to the farther that lies behind the nearer (a thin lens's share of what
     // it does to the sky) times Lens Through, and the nearer one's shadow covers the farther one's ring,
@@ -1642,6 +1704,7 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       orbitTuning.flare = state.ringStarFlare
       orbitTuning.flareSpread = state.ringStarSpread
       orbitTuning.flareSides = state.ringStarSides
+      orbitTuning.tidal = state.orbitTidal
       // They feel the spin about its axis as it stands in the scene (x right, y down, z away) and are born
       // near the equator
       frame.orbitCount = stepOrbiters(
@@ -1649,6 +1712,18 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
         shadowRadius, shadowRadius * state.horizonScale, sceneRight, -sceneUp, -sceneToward, equator, shortSide,
         Math.min(holeGrowth, 1), state.orbitTrail, spawn.palette, settings.ringEnergy, orbitTuning, seenTurn
       )
+      // A star torn apart this frame: a share of the field becomes its debris, on its orbit (field_step.ts)
+      if (orbiters.torn && state.orbitTidalShare > 0) {
+        settings.burst = state.orbitTidalShare
+        settings.burstX = orbiters.tornAt[0]
+        settings.burstY = orbiters.tornAt[1]
+        settings.burstZ = orbiters.tornAt[2]
+        settings.burstVX = orbiters.tornAt[3]
+        settings.burstVY = orbiters.tornAt[4]
+        settings.burstVZ = orbiters.tornAt[5]
+        settings.burstSpread = state.orbitTidalSpread
+        settings.burstSeed = ++tearings % 65536
+      }
       frame.orbitRowNew = orbiters.rowNew
       frame.orbitDimmed = orbiters.dimmed
       frame.orbitX = holeX
@@ -1667,11 +1742,34 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     for (let slot = 0; slot < FLOW_KEYS.length; slot++) {
       const keys = FLOW_KEYS[slot]
       const flow = frame.flows[slot]
-      const life = state[keys.life]
+      // Gravity Pace: the flow turns at Kepler's rate for the hole it turns round, with the pull the field
+      // feels: 0.6 Gravity CSS pixels a 60 Hz frame squared at the shadow's edge, falling as the inverse
+      // square, so in that hole's radii GM = 0.6 Gravity over its radius in CSS pixels, per frame squared.
+      // Its turn falls as Kepler's r^-1.5, and a fall or an outflow takes the time a free fall from rest at
+      // infinity takes between its two radii, along the r^1.5 path a flow follows
+      let swirl = state[keys.swirl]
+      let life = state[keys.life]
+      let fall = state[keys.fall]
+      let falloff = state[keys.falloff]
+      const pace = state.flowGravity
+      const paceAround = companionRadius > 0 ? state[keys.pair] : -1
+      const paceUnit = paceAround > 0 ? flowUnit + (companionRadius - flowUnit) * paceAround : flowUnit
+      if (pace > 0 && settings.gravityStrength > 0 && paceUnit > 0) {
+        const pull = 0.6 * settings.gravityStrength / paceUnit * REFERENCE_FPS * REFERENCE_FPS
+        swirl += (Math.sign(swirl) * Math.sqrt(pull) / (2 * Math.PI) - swirl) * pace
+        fall += (1.5 - fall) * pace
+        falloff += (1.5 - falloff) * pace
+        const first = state[keys.from]
+        const last = state[keys.to]
+        if (Math.abs(first - last) > 1e-6) {
+          const fallen = 2 / 3 * Math.abs(Math.pow(Math.max(first, 0), 1.5) - Math.pow(Math.max(last, 0), 1.5)) / Math.sqrt(2 * pull)
+          life += (fallen - life) * pace
+        }
+      }
       stepFlow(
         flow, frame.updateScene ? dt : 0, flowUnit > 0 ? state[keys.brightness] : 0, state[keys.count], state[keys.from], state[keys.to],
-        state[keys.spread], state[keys.swirl], life, state[keys.trail], state[keys.size], state[keys.thick],
-        state[keys.fall], state[keys.falloff], state[keys.flare], state[keys.bell]
+        state[keys.spread], swirl, life, state[keys.trail], state[keys.size], state[keys.thick],
+        fall, falloff, state[keys.flare], state[keys.bell]
       )
       shareFlow(
         flow, state.flowLiftPower, state.flowPhaseSpread, state.flowLiftRenew, state.flowFadeIn, state.flowFadeOut,
@@ -1741,6 +1839,9 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     readSceneColor(frame.tintAhead, state.flightTintAhead)
     readSceneColor(frame.tintEdge, state.flightTintEdge)
     readSceneColor(frame.tintBehind, state.flightTintBehind)
+    // A particle's light shifted by its own motion turns toward the photon ring's two colours
+    readSceneColor(frame.shiftToward, state.ringColorApproaching)
+    readSceneColor(frame.shiftAway, state.ringColorReceding)
     frame.tintGradient = state.flightTintGradient
     frame.tintLimit = state.flightTintLimit
     readBackground(state)

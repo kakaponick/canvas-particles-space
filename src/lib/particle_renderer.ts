@@ -587,6 +587,10 @@ export interface FrameInput extends FieldInput {
   tintEdge: SceneColor
   // the colour it turns past a quarter turn off the line of flight, whole straight behind it
   tintBehind: SceneColor
+  // The colours a particle's light turns toward as its own motion shifts it bluer (coming) and redder
+  // (going): the photon ring's Approaching Side and Receding Side
+  shiftToward: SceneColor
+  shiftAway: SceneColor
   tintGradient: number
   tintLimit: number
   // Vanishing point of the particle field in CSS pixels, then the line of flight the doppler tint is
@@ -806,7 +810,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   let fieldSolved = false
 
   const fadeUniforms = getUniforms(gl, fadeProgram, ['fade'] as const)
-  const particleUniforms = getUniforms(gl, particleProgram, ['floor', 'resolution', 'pixelRatio', 'center', 'flight', 'doppler', 'tintAhead', 'tintEdge', 'tintBehind', 'tint', 'zoom', 'zoomFrom'] as const)
+  const particleUniforms = getUniforms(gl, particleProgram, ['floor', 'resolution', 'pixelRatio', 'center', 'flight', 'doppler', 'tintAhead', 'tintEdge', 'tintBehind', 'tint', 'shiftToward', 'shiftAway', 'zoom', 'zoomFrom'] as const)
   const orbitUniforms = getUniforms(gl, orbitProgram, ['resolution', 'zoom', 'orbit', 'dimmed', 'turnX', 'turnY', 'turnZ', 'orbitFrom', 'side', 'sideMain', 'sideSecond', 'sideBend', 'sideShape'] as const)
   const COMPOSITE_UNIFORMS = [
     'background', 'resolution', 'pixelRatio', 'time', 'hole', 'horizon', 'einstein', 'falloff', 'falloffPivot', 'lensCore', 'maxBend', 'lensReach', 'lensBubble', 'twistLimit', 'swirl', 'absorption', 'trace', 'spin', 'disc', 'discLook', 'discX', 'discY', 'discAxis', 'horizonGrid', 'horizonAxis', 'horizonTurn', 'horizonLook', 'companionGrid', 'companionHole', 'ring',
@@ -1203,6 +1207,8 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     setUniform3f(gl, particleUniforms.tintEdge, frame.tintEdge.r, frame.tintEdge.g, frame.tintEdge.b)
     setUniform3f(gl, particleUniforms.tintBehind, frame.tintBehind.r, frame.tintBehind.g, frame.tintBehind.b)
     setUniform2f(gl, particleUniforms.tint, frame.tintGradient, frame.tintLimit)
+    setUniform3f(gl, particleUniforms.shiftToward, frame.shiftToward.r, frame.shiftToward.g, frame.shiftToward.b)
+    setUniform3f(gl, particleUniforms.shiftAway, frame.shiftAway.r, frame.shiftAway.g, frame.shiftAway.b)
     setUniform2f(gl, particleUniforms.center, frame.vanishX, frame.vanishY)
     setUniform4f(gl, particleUniforms.flight, frame.flightX, frame.flightY, frame.flightZ, frame.flightFocal)
     setUniform4f(gl, particleUniforms.zoom, layerZoomX * ratio, layerZoomY * ratio, layerZoom, 0)

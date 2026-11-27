@@ -318,7 +318,7 @@ export function createFieldFeedback (gl: WebGL2RenderingContext): FieldFeedback 
   function bindStrokes () {
     gl.bindBuffer(gl.ARRAY_BUFFER, buffers[current])
     gl.vertexAttribPointer(ATTRIBUTE_LOCATIONS.segment, 4, gl.FLOAT, false, FIELD_STRIDE, FIELD_SEGMENT_OFFSET)
-    gl.vertexAttribPointer(ATTRIBUTE_LOCATIONS.style, 3, gl.FLOAT, false, FIELD_STRIDE, FIELD_STYLE_OFFSET)
+    gl.vertexAttribPointer(ATTRIBUTE_LOCATIONS.style, 4, gl.FLOAT, false, FIELD_STRIDE, FIELD_STYLE_OFFSET)
     gl.vertexAttribPointer(ATTRIBUTE_LOCATIONS.color, 4, gl.UNSIGNED_BYTE, true, FIELD_STRIDE, FIELD_COLOR_OFFSET)
   }
 

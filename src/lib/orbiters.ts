@@ -72,11 +72,13 @@ export interface OrbitTuning {
   flare: number
   flareSpread: number
   flareSides: number
+  // The distance a star is torn apart at by the hole's tides, in Schwarzschild radii (0: never)
+  tidal: number
 }
 
 // The values the code had before they were settings
 export function createOrbitTuning (): OrbitTuning {
-  return { sizeSpread: 0.8, eccentricitySpread: 0.4, inclination: 20, tiltSky: 0, nodeSpread: 360, retrograde: 0, closest: 1.3, escape: 400, fadeIn: 0.6, drag: 1, flare: 6, flareSpread: 0.2, flareSides: 0.5 }
+  return { sizeSpread: 0.8, eccentricitySpread: 0.4, inclination: 20, tiltSky: 0, nodeSpread: 360, retrograde: 0, closest: 1.3, escape: 400, fadeIn: 0.6, drag: 1, flare: 6, flareSpread: 0.2, flareSides: 0.5, tidal: 0 }
 }
 
 export interface Orbiters {
@@ -110,6 +112,10 @@ export interface Orbiters {
   // Seconds since the star appeared
   age: Float32Array
   color: Uint32Array
+  // Whether a star was torn apart by the tides this frame, and where: its place in Schwarzschild radii and
+  // its velocity in the speed of light, from the hole, in the direction its time runs
+  torn: boolean
+  tornAt: Float64Array
   // Every random draw of the orbits comes from here, so a seed repeats them
   random: Random
   // The settings the orbits were made for; a change makes them all again
@@ -129,6 +135,8 @@ export function createOrbiters (random: Random): Orbiters {
   return {
     random,
     count: 0,
+    torn: false,
+    tornAt: new Float64Array(6),
     fromX: new Float64Array(MAX_ORBITERS),
     fromY: new Float64Array(MAX_ORBITERS),
     fromZ: new Float64Array(MAX_ORBITERS),
@@ -316,6 +324,7 @@ export function stepOrbiters (
   turn: ArrayLike<number>
 ): number {
   const count = Math.min(Math.max(Math.floor(requested), 0), MAX_ORBITERS)
+  orbiters.torn = false
   if (count === 0 || shadowRadius <= 0) {
     clearOrbiters(orbiters)
     return 0
@@ -382,8 +391,22 @@ export function stepOrbiters (
     let py = star[1]
     let pz = star[2]
     const r = Math.sqrt(px * px + py * py + pz * pz)
+    // Inside Tidal Radius the hole's tides tear the star apart: it is gone, one star a frame becomes the
+    // field's debris (scene.ts), and a new star takes its place
+    const torn = r < tuning.tidal && r >= capture
+    if (torn && !orbiters.torn) {
+      const way = speed < 0 ? -1 : 1
+      const at = orbiters.tornAt
+      at[0] = px
+      at[1] = py
+      at[2] = pz
+      at[3] = star[3] * way
+      at[4] = star[4] * way
+      at[5] = star[5] * way
+      orbiters.torn = true
+    }
 
-    if (r < capture || r > escape || r !== r) {
+    if (torn || r < capture || r > escape || r !== r) {
       // What crosses the radius of no return lights the photon ring where the camera sees it go in, round
       // the hole as the ring is drawn
       if (ringEnergy && r < capture) {

@@ -105,6 +105,16 @@ Once the missing piece exists (a knob, a fix in code, a sentence in `knobs.md`, 
 
 ## The tools and the machine
 
+### A shader that did not build, with no word of why (2026-11-28)
+- Wanted / got: a preview of a change to the field's step; got "The scene could not start: its shaders did
+  not build", and the dev page's console was empty too.
+- Cause: neither the film server nor the page passes on the compiler's log.
+- Now: open the worktree's dev server in chrome-devtools and compile the source there:
+  `evaluate_script` with an async function that imports `/src/lib/field_step.ts` and
+  `/src/lib/webgl_shaders.ts`, builds `fieldStepVertexShaderSource(RIDE_GLSL, BEHIND_GLSL)` and reads
+  `getShaderInfoLog` from a WebGL2 context of its own. Still missing: the log in the failure message.
+- Where: `createProgram` in `src/lib/webgl_shaders.ts`, the film server's start.
+
 ### `space.mjs guide` in a fresh worktree (2026-11-28)
 - Wanted / got: the film format from `space.mjs guide` in a new worktree; it stopped with "has no index.html".
 - Cause: the guide is read from the built page, and a worktree has no `dist/` until `pnpm build`.

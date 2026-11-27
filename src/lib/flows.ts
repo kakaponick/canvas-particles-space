@@ -58,10 +58,10 @@ export type FlowColorKey = `flow${FlowSlot}Color`
 // The settings every flow shares: how a flow round a pair turns toward the pair's orbit, how a particle's
 // share of the disc's height and its orbit's phase are drawn, how it fades in and out, how its brightness
 // spreads, how its trail dims, how near the 3D camera it fades, which set of numbers its particles start
-// from, and what it leaves in the photon ring
+// from, what it leaves in the photon ring, and how far its pace is the pull's (Gravity Pace)
 export const FLOW_SHARED_KEYS = [
   'flowPairPlane', 'flowLiftPower', 'flowPhaseSpread', 'flowLiftRenew', 'flowFadeIn', 'flowFadeOut', 'flowDimmest',
-  'flowTrailFade', 'flowNearFade', 'flowNearGone', 'flowSeed', 'flowRingFeed', 'flowRingFlicker'
+  'flowTrailFade', 'flowNearFade', 'flowNearGone', 'flowSeed', 'flowRingFeed', 'flowRingFlicker', 'flowGravity'
 ] as const
 export type FlowSharedKey = typeof FLOW_SHARED_KEYS[number]
 export type FlowState = Record<FlowSliderKey, number> & Record<FlowColorKey, string> & Record<FlowSharedKey, number>
@@ -77,10 +77,10 @@ const FLOW_DEFAULTS: Record<FlowPart, number> = {
 // whole, a phase all the way round, both anew each life; 6% of a life to appear and to leave; 40% to 100% of
 // the flow's brightness; a trail dimming as the square of what is left of it; fading in 3D from half the
 // hole's distance, gone at a fifth; the one set of numbers; a particle a life to the ring, each direction a
-// half to one and a half times its even share
+// half to one and a half times its even share; each flow's pace its own Swirl and Life
 const FLOW_SHARED_DEFAULTS: Record<FlowSharedKey, number> = {
   flowPairPlane: 0, flowLiftPower: 1, flowPhaseSpread: 1, flowLiftRenew: 1, flowFadeIn: 0.06, flowFadeOut: 0.06, flowDimmest: 0.4,
-  flowTrailFade: 2, flowNearFade: 0.5, flowNearGone: 0.2, flowSeed: 0, flowRingFeed: 1, flowRingFlicker: 0.5
+  flowTrailFade: 2, flowNearFade: 0.5, flowNearGone: 0.2, flowSeed: 0, flowRingFeed: 1, flowRingFlicker: 0.5, flowGravity: 0
 }
 export const FLOW_DEFAULT_COLORS: Record<FlowSlot, string> = { A: '#ffd9a8', B: '#a8d4ff', C: '#ff8fb8' }
 

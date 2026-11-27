@@ -319,7 +319,7 @@ export const fadeFragmentShaderSource = `#version 300 es
 export const particleVertexShaderSource = MODERN_VERTEX + `
   attribute vec2 a_position;  // quad corner: x picks the segment end, y the side
   attribute vec4 a_segment;   // x0, y0, x1, y1 in CSS pixels, top-left origin
-  attribute vec3 a_style;     // line width in CSS pixels, opacity, its speed's glow already in it (field_step.ts), below 0 when its start is in front of the holes; the share of the way along it crosses to the other side (0: it does not)
+  attribute vec4 a_style;     // line width in CSS pixels, opacity, its speed's glow already in it (field_step.ts), below 0 when its start is in front of the holes; the share of the way along it crosses to the other side (0: it does not); its light's shift by its own motion, doublings times Doppler Tint (above 0 bluer)
   attribute vec4 a_color;     // rgb as normalized bytes
 
   uniform vec2 u_resolution;  // drawing buffer size in device pixels
@@ -331,6 +331,8 @@ export const particleVertexShaderSource = MODERN_VERTEX + `
   uniform vec3 u_tintEdge;    // its colour away from it, up to a quarter turn,
   uniform vec3 u_tintBehind;  // its colour straight behind, which the edge colour turns to past a quarter turn,
   uniform vec2 u_tint;        // how fast it turns from one to the other per half screen diagonal, the most of a colour it replaces
+  uniform vec3 u_shiftToward; // the colour a particle's light turns toward as its own motion brings it nearer,
+  uniform vec3 u_shiftAway;   // and as it carries it away (the photon ring's two sides)
   uniform vec4 u_zoom;       // the camera: the point its zoom leaves in place (device pixels), the zoom
   uniform vec4 u_zoomFrom;    // the camera of the frame before, the same way
 
@@ -386,6 +388,8 @@ export const particleVertexShaderSource = MODERN_VERTEX + `
     // Measured by the angle from the line of flight, as the tangent of it in half screen diagonals at the
     // focal length; straight on that is the distance from the vanishing point
     vec3 tinted = a_color.rgb;
+    // Its own motion's shift (Particle Doppler), a whole turn of the colour at Doppler Tint doublings
+    if (a_style.w != 0.0) tinted = mix(tinted, a_style.w > 0.0 ? u_shiftToward : u_shiftAway, min(abs(a_style.w), 1.0));
     if (u_doppler > 0.0) {
       vec3 toward = vec3((a_segment.zw - u_center) / u_flight.w, 1.0);
       float ahead = dot(toward, u_flight.xyz);

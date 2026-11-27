@@ -225,6 +225,48 @@ export interface StepSettings {
   ride: number
   rideDepth: number
   sheet: GridSettings
+  // The share of the Schwarzschild radius cut out of Newton's pull (Relativity): the Paczynski-Wiita
+  // potential the orbiting stars move in at 1, Newton's at 0
+  relativity: number
+  // Matter in orbit (Orbit Birth): the share of the field born in orbit; the middle of its band and the
+  // band's width, in black hole radii; its height off the equator as a share of the radius; the scatter of
+  // its speed round a circular orbit's; the share of it round the second hole; the distance from the main
+  // hole, in its radii, past which it is made anew; the way it goes round (1 as Orbital Force turns, -1
+  // the other); the share of its speed round a hole it loses for each radian it turns (Viscosity)
+  orbitShare: number
+  orbitRadius: number
+  orbitSpread: number
+  orbitThick: number
+  orbitScatter: number
+  orbitSecond: number
+  orbitEscape: number
+  orbitSense: number
+  viscosity: number
+  // How fast the two holes move, which matter born round them moves with: in space scene units per 60 Hz
+  // frame, flat CSS pixels on the screen per 60 Hz frame
+  holeVelX: number
+  holeVelY: number
+  holeVelZ: number
+  companionVelX: number
+  companionVelY: number
+  companionVelZ: number
+  // A particle's light shifted by its own motion: the power of nature's Doppler factor, the power of the
+  // shift its brightness goes as, and how far the colour turns per doubling (to the ring's two colours)
+  doppler: number
+  beam: number
+  shiftTint: number
+  // A star torn apart this step (Tidal Radius): the share of the field set where it came apart (0 none),
+  // its place in Schwarzschild radii and velocity in the speed of light, from the main hole in the scene's
+  // axes, the spread of the debris's speed as a share of it, and a number of this tearing's own
+  burst: number
+  burstX: number
+  burstY: number
+  burstZ: number
+  burstVX: number
+  burstVY: number
+  burstVZ: number
+  burstSpread: number
+  burstSeed: number
 }
 
 // Inertia for one step: a push of the holes is a change of speed that lasts. Per 60 Hz frame the speed
@@ -462,6 +504,34 @@ export function createStepSettings (ringEnergy: RingEnergy | null = null): StepS
     spinTurn: 0,
     ride: 0,
     rideDepth: 1,
-    sheet: createGridSettings()
+    sheet: createGridSettings(),
+    relativity: 0,
+    orbitShare: 0,
+    orbitRadius: 3,
+    orbitSpread: 2,
+    orbitThick: 0,
+    orbitScatter: 0,
+    orbitSecond: 0,
+    orbitEscape: 40,
+    orbitSense: 1,
+    viscosity: 0,
+    holeVelX: 0,
+    holeVelY: 0,
+    holeVelZ: 0,
+    companionVelX: 0,
+    companionVelY: 0,
+    companionVelZ: 0,
+    doppler: 0,
+    beam: 3,
+    shiftTint: 0,
+    burst: 0,
+    burstX: 0,
+    burstY: 0,
+    burstZ: 0,
+    burstVX: 0,
+    burstVY: 0,
+    burstVZ: 0,
+    burstSpread: 0,
+    burstSeed: 0
   }
 }

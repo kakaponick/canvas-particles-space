@@ -14,7 +14,9 @@ export const SIMULATION_SETTING_KEYS = [
   'nebulaDriftFollow', 'nebulaDetail', 'nebulaLacunarity', 'nebulaRoughness', 'nebulaCurlSize', 'nebulaGrainSize',
   'starsSize', 'starsColorWarm', 'starsColorCool', 'starsTwinkle', 'starsTwinkleSpeed', 'starsFaintest',
   'starsPlacement', 'starsPerCell', 'starsNeighbors', 'starsCellWarp', 'starsSkyEven', 'skyCenter', 'skySize', 'skyEaseBend',
-  'blackHoleSize', 'horizonScale', 'blackHoleSpin', 'spinTilt', 'spinAxis', 'frameDrag', 'frameDragSweep', 'frameDragFalloff', 'frameDragSight', 'gravityReach', 'gravityStrength', 'gravityFalloff', 'gravityDepthBell', 'orbitalStrength', 'orbitalSpinFollow', 'orbitalSpinFollowCurve', 'gravityInertia', 'followFrequency',
+  'blackHoleSize', 'horizonScale', 'blackHoleSpin', 'spinTilt', 'spinAxis', 'frameDrag', 'frameDragSweep', 'frameDragFalloff', 'frameDragSight', 'gravityReach', 'gravityStrength', 'gravityFalloff', 'gravityDepthBell', 'orbitalStrength', 'orbitalSpinFollow', 'orbitalSpinFollowCurve', 'gravityInertia', 'gravityRelativity', 'followFrequency',
+  'fieldOrbit', 'fieldOrbitRadius', 'fieldOrbitSpread', 'fieldOrbitThick', 'fieldOrbitScatter', 'fieldOrbitSecond', 'fieldViscosity',
+  'particleDoppler', 'particleBeam', 'particleDopplerTint',
   'blackHoleFollowing', 'blackHoleX', 'blackHoleY', 'cameraZoom', 'cameraX', 'cameraY', 'cameraPair', 'cameraCutZoom', 'cameraCutShift',
   'threeD', 'cameraYaw', 'cameraPitch', 'cameraSpin', 'cameraFloat', 'cameraBank', 'cameraRoll', 'cameraLookYaw', 'cameraLookPitch',
   'cameraMoveRight', 'cameraMoveUp', 'cameraMoveIn', 'threeDEndFade', 'threeDFrontDepth', 'threeDFrontCurve', 'threeDFrontBend',
@@ -39,7 +41,7 @@ export const SIMULATION_SETTING_KEYS = [
   'gridHorizonHazeFrom', 'gridHorizonHazeTo', 'gridHorizonCellsAround', 'gridHorizonShift', 'gridHorizonCompanion',
   'gridLatticeLine', 'gridLatticeGain', 'gridLatticeReach', 'gridLatticeFade', 'gridLatticeNear', 'gridLatticeFar', 'gridLatticeNearEdge', 'gridLatticeUnit',
   'orbitCount', 'orbitSize', 'orbitEccentricity', 'orbitSpeed', 'orbitTrail', 'orbitStarSize',
-  'orbitDrag', 'orbitSizeSpread', 'orbitEccentricitySpread', 'orbitInclination', 'orbitTiltSky', 'orbitNodeSpread', 'orbitRetrograde', 'orbitClosest', 'orbitEscape', 'orbitFadeIn',
+  'orbitDrag', 'orbitSizeSpread', 'orbitEccentricitySpread', 'orbitInclination', 'orbitTiltSky', 'orbitNodeSpread', 'orbitRetrograde', 'orbitClosest', 'orbitEscape', 'orbitFadeIn', 'orbitTidal', 'orbitTidalShare', 'orbitTidalSpread',
   ...FLOW_SETTING_KEYS, 'flowTrace', 'flowTraceHide', 'flowTraceDoppler', 'flowTraceBeam', 'flowTraceTint',
   'colorPalette', 'backgroundR', 'backgroundG', 'backgroundB'
 ] as const satisfies readonly (keyof ParticleState)[]

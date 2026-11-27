@@ -218,6 +218,7 @@ function SettingsBody () {
         <SettingSlider field="speedGlow" />
         <SettingSlider field="particleLightSpread" />
         <SettingSlider field="gravityRedshift" />
+        <SettingSlider field="particleDoppler" />
         <SettingSlider field="depthFade" />
         <div className="mt-3 flex flex-col gap-1">
           <SettingSlider field="minOpacity" />
@@ -229,6 +230,8 @@ function SettingsBody () {
         </div>
         <SettingsFine id="lighting">
           <SettingSlider field="speedGlowKnee" />
+          <SettingSlider field="particleBeam" />
+          <SettingSlider field="particleDopplerTint" />
         </SettingsFine>
       </SettingsSection>
 
@@ -273,6 +276,13 @@ function SettingsBody () {
           <SettingSlider field="gravityReach" />
           <SettingSlider field="gravityDepth" />
         </div>
+        {/* Matter born in orbit, which gravity alone moves */}
+        <div className="mt-3 flex flex-col gap-1">
+          <SettingSlider field="fieldOrbit" />
+          <SettingSlider field="fieldOrbitRadius" />
+          <SettingSlider field="fieldOrbitSpread" />
+          <SettingSlider field="fieldViscosity" />
+        </div>
         <FollowCursorRow />
         <SettingSlider field="blackHoleX" setter="setBlackHoleX" />
         <SettingSlider field="blackHoleY" setter="setBlackHoleY" />
@@ -286,7 +296,13 @@ function SettingsBody () {
               axis it gives the swirl, then how the hole follows the cursor, then the camera between a pair and
               what counts as its cut */}
           <SettingSlider field="gravityFalloff" />
+          <SettingSlider field="gravityRelativity" />
           <SettingSlider field="gravityDepthBell" />
+          <div className="mt-3 flex flex-col gap-1">
+            <SettingSlider field="fieldOrbitThick" />
+            <SettingSlider field="fieldOrbitScatter" />
+            <SettingSlider field="fieldOrbitSecond" />
+          </div>
           <div className="mt-3 flex flex-col gap-1">
             <SettingSlider field="frameDragSweep" />
             <SettingSlider field="frameDragSight" />
@@ -438,6 +454,7 @@ function SettingsBody () {
         <SettingSlider field="orbitSize" />
         <SettingSlider field="orbitEccentricity" />
         <SettingSlider field="orbitSpeed" />
+        <SettingSlider field="orbitTidal" />
         <div className="mt-3 flex flex-col gap-1">
           <SettingSlider field="orbitTrail" />
           <SettingSlider field="orbitStarSize" />
@@ -455,6 +472,8 @@ function SettingsBody () {
           <div className="mt-3 flex flex-col gap-1">
             <SettingSlider field="orbitDrag" />
             <SettingSlider field="orbitFadeIn" />
+            <SettingSlider field="orbitTidalShare" />
+            <SettingSlider field="orbitTidalSpread" />
           </div>
         </SettingsFine>
       </SettingsSection>
@@ -475,6 +494,7 @@ function SettingsBody () {
         ))}
         <div className="mt-3 flex flex-col gap-1">
           <SettingSlider field="flowTrace" />
+          <SettingSlider field="flowGravity" />
         </div>
         <SettingsFine id="flows">
           {/* The band's width, the trail and the stroke of each flow, which hole it turns round, the side its tilt brings up and how far it faces the camera, its path's law, and its thickness and the disc's shape */}
