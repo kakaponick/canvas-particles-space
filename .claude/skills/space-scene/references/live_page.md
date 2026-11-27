@@ -30,15 +30,17 @@ What the page needs:
 The operator sees every simulation first (CLAUDE.md, "Working here"): before an agent draws a still, a
 preview, a sheet or a render of a film or of a new look, it puts it on the operator's screen. The screen is
 one page, `http://127.0.0.1:5199/`, that the operator keeps open in T3 Code's own browser. It shows what an
-agent last put on it under one line pressed to the left: who shows it, what, when (and how long ago),
-and from which branch and film; its History button lists the last few things shown to go back to. A shell is all an agent needs; no browser tool of its own.
+agent last put on it under one line from the left edge, read as a sentence: what is shown, who showed it,
+how long ago, and master or the branch it comes from (the film and the exact time on hover); the clock
+button at the left lists what was shown before, to go back to. A shell is all an agent needs; no browser tool of its own.
 
 1. A film not yet in `films/` goes there as `films/_lab_<name>.js`; `films/_lab_*` is in the repository's
    `.git/info/exclude`, so it never joins a commit.
 2. From the worktree, rebased on master (the operator sees the worktree's whole page, toolbar and all, and
    the script refuses a branch behind master):
-   `node scripts/screen.mjs live <film> "<who>: <what it shows>"`, the label in the operator's language and
-   naming the agent by its job, not its folder ("фиксер клипов 5–8: клип 6, лампа и стена"). It starts
+   `node scripts/screen.mjs live <film> "<what>" --by "<who>"`, both in the operator's language: what as
+   the clip and the change ("клип 6: лампа и стена"), who as the agent's job, not its folder ("фиксер
+   клипов 5–8"). It starts
    that worktree's dev server once (a port from 5200 up, detached; later calls reuse it), starts the screen
    if it is not up, and shows `?live=<film>` there.
 3. Then the agent's own stills. The report says what it put on the screen.
