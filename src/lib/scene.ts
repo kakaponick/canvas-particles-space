@@ -452,8 +452,13 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       neutronShade: 0,
       neutronGlowLight: 0,
       neutronWarp: 0,
+      neutronLayers: 1,
+      neutronBranch: 0,
+      neutronCore: 0,
+      neutronStir: 0,
       neutronColor: createSceneColor(),
       neutronVeinColor: createSceneColor(),
+      neutronCoreColor: createSceneColor(),
       ringColor: createSceneColor(),
       ringApproaching: createSceneColor(),
       ringReceding: createSceneColor(),
@@ -2034,8 +2039,13 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       composite.neutronShade = state.neutronShade
       composite.neutronGlowLight = state.neutronGlowLight
       composite.neutronWarp = state.neutronWarp
+      composite.neutronLayers = state.neutronLayers
+      composite.neutronBranch = state.neutronBranch
+      composite.neutronCore = state.neutronCore
+      composite.neutronStir = state.neutronStir
       readSceneColor(composite.neutronColor, state.neutronColor)
       readSceneColor(composite.neutronVeinColor, state.neutronVeinColor)
+      readSceneColor(composite.neutronCoreColor, state.neutronCoreColor)
     }
     readSceneColor(composite.ringReceding, state.ringColorReceding)
     // The explosion as the camera sees it: its place, and its fronts as much larger as it stands nearer

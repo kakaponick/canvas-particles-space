@@ -274,6 +274,8 @@ export const MODERN_VERTEX = '#version 300 es\n#define attribute in\n#define var
 // holds and the most rings of neighbouring cells a star is drawn from (the tops of Stars per Cell and Star
 // Neighbours): the composite shader's loops stop there
 export const NEBULA_LAYERS = 8
+// The most layers of noise a neutron star's veins are made of (the top of Vein Layers)
+export const NEUTRON_LAYERS = 6
 export const STARS_PER_CELL = 4
 export const STAR_RINGS = 2
 
@@ -597,6 +599,8 @@ export const compositeFragmentShaderSource = `
   uniform vec3 u_neutronShade;   // how much darker its face is toward the limb, how bright its glow, how far a slower noise bends its veins
   uniform vec3 u_neutronColor;   // its plasma's colour, and its veins' and glow's
   uniform vec3 u_neutronVein;
+  uniform vec4 u_neutronPlasma;  // its veins' layers, how much each grows out of the last (branching), how far their brightest runs to the hot core, how much the underlayer stirs the plasma
+  uniform vec3 u_neutronCore;    // the colour its veins run to where they are brightest
   uniform vec3 u_ringApproaching;
   uniform vec3 u_ringReceding;
   uniform float u_ringGlow;      // strength of the soft light around the line; 0 leaves the bare line
@@ -770,6 +774,7 @@ export const compositeFragmentShaderSource = `
   // one leaves it well under a pixel off
   const int GRID_PULL_STEPS = 8;
   const int NEBULA_LAYERS = ${NEBULA_LAYERS};
+  const int NEUTRON_LAYERS = ${NEUTRON_LAYERS};
   const int STARS_PER_CELL = ${STARS_PER_CELL};
   const int STAR_RINGS = ${STAR_RINGS};
   // Impact parameter of the photon sphere, Schwarzschild radii: a ray aimed closer falls in
@@ -872,44 +877,6 @@ ${DENT_GLSL}
     ) - 0.5);
   }
 
-  // A neutron star drawn in the hole's stead (Neutron Star above 0), "fromHole" from its middle: a ball of
-  // the radius of its surface turning about the picture's up, its plasma a deep colour crossed by bright
-  // veins, ridged noise read on the ball so they turn with it and crowd toward the limb as a sphere's
-  // markings do. Its face darkens toward the limb, the limb itself is lit, and a glow falls off round it as
-  // the square of the share of Glow Reach left. A slower noise bends the place the veins are read at, so
-  // they branch and wander like threads of current rather than lie in the cells of the noise; where the
-  // layers' ridges meet the veins stop at full rather than pool into flat white. Three layers
-  // of noise: each one more is another read of the noise for every pixel of the star
-  vec3 neutronStar (vec3 color, vec2 fromHole, float px) {
-    float d = length(fromHole) / u_neutron.y;
-    float reach = max(u_neutron.z, 0.001);
-    vec3 glow = color;
-    if (d > 1.0 - 2.0 * px / u_neutron.y) {
-      float left = clamp(1.0 - (d - 1.0) / reach, 0.0, 1.0);
-      glow += u_neutronVein * u_neutron.x * u_neutronShade.y * left * left;
-      if (d >= 1.0) return glow;
-    }
-    vec2 p = fromHole / u_neutron.y;
-    vec3 n = vec3(p.x, -p.y, sqrt(max(1.0 - dot(p, p), 0.0)));
-    float c = cos(u_neutron.w);
-    float s = sin(u_neutron.w);
-    vec3 q = vec3(c * n.x + s * n.z, n.y, c * n.z - s * n.x) * u_neutronVeins.x;
-    if (u_neutronShade.z > 0.0) {
-      vec3 slow = q * 0.5;
-      q += u_neutronShade.z * 2.0 * (vec3(valueNoise3(slow), valueNoise3(slow + 7.3), valueNoise3(slow + 13.1)) - 0.5);
-    }
-    float veins = 0.0;
-    float share = 0.6;
-    for (int layer = 0; layer < 3; layer++) {
-      veins += share * pow(1.0 - abs(2.0 * valueNoise3(q) - 1.0), u_neutronVeins.y);
-      q = q * 2.03 + vec3(1.7, 9.2, 4.1);
-      share *= 0.5;
-    }
-    vec3 body = u_neutronColor * (1.0 - u_neutronShade.x * (1.0 - n.z)) +
-      u_neutronVein * (min(veins, 1.0) * u_neutronVeins.z + pow(1.0 - n.z, 3.0) * u_neutronVeins.w);
-    return mix(glow, body * u_neutron.x, smoothstep(1.0, 1.0 - 2.0 * px / u_neutron.y, d));
-  }
-
   vec3 hash33 (vec3 p) {
     vec3 p3 = fract(p * vec3(0.1031, 0.1030, 0.0973));
     p3 += dot(p3, p3.yxz + 33.33);
@@ -928,6 +895,81 @@ ${DENT_GLSL}
       mix(mix(hash33(i + e.yyx), hash33(i + e.xyx), u.x), mix(hash33(i + e.yxx), hash33(i + e.xxx), u.x), u.y),
       u.z
     ) - 0.5);
+  }
+
+  // How far a place of space is from the nearest edge between the cells of a Voronoi noise, in cells: the
+  // second-nearest of the 27 cells' points less the nearest, which is 0 on an edge
+  float cellEdge (vec3 p) {
+    vec3 i = floor(p);
+    vec3 f = fract(p);
+    float nearest = 8.0;
+    float next = 8.0;
+    for (int x = -1; x <= 1; x++) {
+      for (int y = -1; y <= 1; y++) {
+        for (int z = -1; z <= 1; z++) {
+          vec3 g = vec3(float(x), float(y), float(z));
+          vec3 r = g + hash33(i + g) - f;
+          float far = dot(r, r);
+          if (far < nearest) { next = nearest; nearest = far; }
+          else if (far < next) next = far;
+        }
+      }
+    }
+    return sqrt(next) - sqrt(nearest);
+  }
+
+  // A neutron star drawn in the hole's stead (Neutron Star above 0), "fromHole" from its middle: a ball of
+  // the radius of its surface turning about the picture's up, its plasma a deep colour crossed by bright
+  // veins read on the ball, so they turn with it and crowd toward the limb as a sphere's markings do.
+  // The veins are cracks, the edges between the cells of a Voronoi noise, in layers each twice as fine as
+  // the last and weighted by how near the layer before drew a crack (Branching), so thin cracks branch off
+  // the thick ones the way a discharge forks. Each layer reads the 27 cells round the place. A slower noise bends the place they are
+  // read at (Vein Wander), so they wander. Where a vein is brightest its colour runs to the hot core's
+  // (Hot Core), and between the veins a turbulent underlayer stirs the plasma (Turbulence). Its face
+  // darkens toward the limb, the limb itself is lit, and a glow falls off round it as the square of the
+  // share of Glow Reach left. NEUTRON_LAYERS holds the loop for the GPU's unrolling; Vein Layers stops it
+  // sooner, and each layer is another read of the noise for every pixel of the star
+  vec3 neutronStar (vec3 color, vec2 fromHole, float px) {
+    float d = length(fromHole) / u_neutron.y;
+    float reach = max(u_neutron.z, 0.001);
+    vec3 glow = color;
+    if (d > 1.0 - 2.0 * px / u_neutron.y) {
+      float left = clamp(1.0 - (d - 1.0) / reach, 0.0, 1.0);
+      glow += u_neutronVein * u_neutron.x * u_neutronShade.y * left * left;
+      if (d >= 1.0) return glow;
+    }
+    vec2 p = fromHole / u_neutron.y;
+    vec3 n = vec3(p.x, -p.y, sqrt(max(1.0 - dot(p, p), 0.0)));
+    float c = cos(u_neutron.w);
+    float s = sin(u_neutron.w);
+    vec3 q = vec3(c * n.x + s * n.z, n.y, c * n.z - s * n.x) * u_neutronVeins.x;
+    vec3 slow = valueNoise33(q * 0.5);
+    if (u_neutronShade.z > 0.0) q += u_neutronShade.z * 2.0 * (slow - 0.5);
+    float veins = 0.0;
+    float weight = 1.0;
+    float share = 1.0;
+    // A layer's cell across the screen, in its pixels: a layer whose cells come down to a few pixels fades
+    // out, or its thin ridges break into dots of single pixels
+    float cell = u_neutron.y / max(u_neutronVeins.x, 0.001) / px;
+    for (int layer = 0; layer < NEUTRON_LAYERS; layer++) {
+      if (float(layer) >= u_neutronPlasma.x) break;
+      // How far the place is from the nearest edge between two cells, in cells: the cracks are those edges,
+      // which always join into a net, where the ridges of a smooth noise close into small loops and dots
+      float edge = cellEdge(q);
+      veins += share * exp(-edge * u_neutronVeins.y) * weight * smoothstep(4.0, 12.0, cell);
+      // The next layer grows in the broad band round this one's cracks, so its finer cracks branch off them
+      weight = clamp(exp(-edge * u_neutronVeins.y * 0.3) * weight * u_neutronPlasma.y, 0.0, 1.0);
+      q = q * 2.03 + vec3(1.7, 9.2, 4.1);
+      cell /= 2.03;
+      share *= 0.6;
+    }
+    veins = min(veins, 1.0);
+    // The underlayer: the slow noise already read, its three numbers a coarse turbulence round the middle
+    float stir = 1.0 + u_neutronPlasma.w * (abs(slow.x - 0.5) + abs(slow.y - 0.5) - 0.5) * 2.0;
+    vec3 vein = mix(u_neutronVein, u_neutronCore, u_neutronPlasma.z * veins * veins * veins);
+    vec3 body = u_neutronColor * (1.0 - u_neutronShade.x * (1.0 - n.z)) * max(stir, 0.0) +
+      vein * veins * u_neutronVeins.z + u_neutronVein * pow(1.0 - n.z, 3.0) * u_neutronVeins.w;
+    return mix(glow, body * u_neutron.x, smoothstep(1.0, 1.0 - 2.0 * px / u_neutron.y, d));
   }
 
   // The nebula: clouds made as the opening's dust is, with every number its own. The noise is read

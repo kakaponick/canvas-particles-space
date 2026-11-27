@@ -29,7 +29,7 @@ export const SIMULATION_SETTING_KEYS = [
   'gridCell', 'gridSheet', 'gridTilt', 'gridDepth', 'gridRings', 'gridSpokes', 'gridRide', 'gridRideDepth', 'gridSky', 'gridSkyPull', 'gridColor', 'gridLattice', 'gridLatticeCell', 'gridLatticeWarp',
   'gridDistance', 'gridSpan', 'gridFade', 'gridWaveLift', 'gridWaveOrbit', 'gridLine', 'gridLineNear', 'gridNear', 'gridClearing', 'gridClearingEdge', 'gridSkyLine', 'gridSkyHaze', 'gridSkyHazeSpan', 'gridSkySphere', 'gridSkySlant',
   'gridRingSpacing', 'gridRideWave', 'gridLensed', 'gridRideSoft', 'gridRideStretch', 'gridRideFar', 'gridRideCut', 'gridWell2Bottom', 'gridLift', 'gridWellWidth', 'neutronSurface', 'neutronStar', 'neutronGlow', 'neutronTurn', 'neutronVeins', 'neutronVeinSharp',
-  'neutronVeinLight', 'neutronLimb', 'neutronShade', 'neutronGlowLight', 'neutronWarp', 'neutronColor', 'neutronVeinColor', 'gridEaseTurn',
+  'neutronVeinLight', 'neutronLimb', 'neutronShade', 'neutronGlowLight', 'neutronWarp', 'neutronLayers', 'neutronBranch', 'neutronCore', 'neutronStir', 'neutronColor', 'neutronVeinColor', 'neutronCoreColor', 'gridEaseTurn',
   'gridThroatGlow', 'gridThroatCurve', 'gridLight', 'gridLightReach', 'gridLightColor',
   'gridFront', 'gridFrontX', 'gridFrontY', 'gridFrontRun', 'gridFrontWidth', 'gridFrontLead', 'gridFrontGhost', 'gridFrontPulses', 'gridFrontPulseGap', 'gridFrontColor',
   'gridFrontPhotons', 'gridPhotonCount', 'gridPhotonTrail', 'gridPhotonWidth', 'gridPhotonFade', 'gridPhotonColor',

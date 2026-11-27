@@ -277,6 +277,11 @@ export interface ParticleState extends FlowState {
   neutronShade: number
   neutronGlowLight: number
   neutronWarp: number
+  neutronLayers: number
+  neutronBranch: number
+  neutronCore: number
+  neutronStir: number
+  neutronCoreColor: string
   neutronColor: string
   neutronVeinColor: string
   gridEaseTurn: number
@@ -695,15 +700,20 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   neutronStar: 0,
   neutronGlow: 0.35,
   neutronTurn: 0.05,
-  neutronVeins: 3.5,
-  neutronVeinSharp: 16,
+  neutronVeins: 3,
+  neutronVeinSharp: 40,
   neutronVeinLight: 1.1,
   neutronLimb: 0.7,
   neutronShade: 0.6,
   neutronGlowLight: 0.4,
-  neutronWarp: 0.8,
-  neutronColor: '#062a7a',
+  neutronWarp: 1.2,
+  neutronLayers: 4,
+  neutronBranch: 1.3,
+  neutronCore: 1,
+  neutronStir: 0.6,
+  neutronColor: '#0a46b0',
   neutronVeinColor: '#8fdcff',
+  neutronCoreColor: '#ffffff',
   gridEaseTurn: 1,
   gridThroatGlow: 1.5,
   gridThroatCurve: 2,

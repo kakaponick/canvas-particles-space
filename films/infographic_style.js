@@ -10,10 +10,10 @@ film({
   settings: {
     fieldEnabled: false, lensingEnabled: false, ringEnabled: false, blackHoleX: 0.5, blackHoleY: 0.47,
     // The neutron star the scene draws in the hole's stead, its surface 1.4 shadow radii out, as a typical
-    // one of three Schwarzschild radii is seen; thin plasma veins that branch and turn with it, a lit limb
-    // and a glow a radius wide
+    // one of three Schwarzschild radii is seen; a net of thin cracks that branch and turn with it, white-hot
+    // in their middles, a lit limb and a glow a radius wide
     blackHoleSize: 8.4, neutronStar: 1, neutronSurface: 1.4,
-    neutronVeinLight: 1, neutronVeinSharp: 20, neutronWarp: 1.4, neutronLimb: 1, neutronGlow: 1, neutronGlowLight: 0.6,
+    neutronVeinLight: 1, neutronLimb: 1.4, neutronGlow: 1, neutronGlowLight: 0.6,
     // A sheet of large square cells seen at 66 degrees, the textbook's rubber sheet: the well drawn 2.5 times
     // wider than the real one (whose wall stands vertical round a compact star, a narrow tube), 4 radii deep
     // and lifted 62% of the way, so the star rests on the round bottom of a star's well (no throat: inside its

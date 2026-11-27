@@ -307,6 +307,10 @@ function SettingsBody () {
             <SettingSlider field="neutronVeinSharp" />
             <SettingSlider field="neutronVeinLight" />
             <SettingSlider field="neutronWarp" />
+            <SettingSlider field="neutronLayers" />
+            <SettingSlider field="neutronBranch" />
+            <SettingSlider field="neutronCore" />
+            <SettingSlider field="neutronStir" />
             <SettingSlider field="neutronLimb" />
             <SettingSlider field="neutronShade" />
             <SettingSlider field="neutronGlow" />
@@ -314,6 +318,7 @@ function SettingsBody () {
             <SettingSlider field="neutronTurn" />
             <SettingColor field="neutronColor" />
             <SettingColor field="neutronVeinColor" />
+            <SettingColor field="neutronCoreColor" />
           </div>
         </SettingsFine>
       </SettingsSection>

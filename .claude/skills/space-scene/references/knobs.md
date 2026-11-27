@@ -438,7 +438,8 @@ and `frameDrag` above 0 and particles within a few radii; the sky's lean needs `
 |---|---|
 | A neutron star drawn where the hole stands, and the radius of its surface (which the sheet's well follows too) | `neutronStar`, `neutronSurface` |
 | Its plasma: its veins, how many, how thin, how bright and how far they wander; its lit limb and how its face darkens toward it | `neutronVeins`, `neutronVeinSharp`, `neutronVeinLight`, `neutronWarp`, `neutronLimb`, `neutronShade` |
-| Its glow, how far and how bright; how fast it turns; its two colours | `neutronGlow`, `neutronGlowLight`, `neutronTurn`, `neutronColor`, `neutronVeinColor` |
+| How its veins fork and burn: the layers of branches, how much each grows out of the last, their white-hot middles, the turbulence between them | `neutronLayers`, `neutronBranch`, `neutronCore`, `neutronStir`, `neutronCoreColor` |
+| Its glow, how far and how bright; how fast it turns; its colours | `neutronGlow`, `neutronGlowLight`, `neutronTurn`, `neutronColor`, `neutronVeinColor` |
 
 - `neutronStar` above 0 draws the star in the composite pass at the hole: a ball `neutronSurface` shadow
   radii wide (the shadow's own size below 1) whose veins are read on the ball, so they crowd toward the
