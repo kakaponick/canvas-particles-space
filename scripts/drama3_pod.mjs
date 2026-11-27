@@ -2,9 +2,9 @@
 // a Runpod pod of scripts/drama3_server.sh with its servers, then the film's voice script speaking the lines not
 // yet spoken on them (DRAMA3_SERVERS), then the pod deleted whatever happened, and what it cost. The skill
 // film-voice says when to use it; the global runpod-rent skill says how the account and its money are handled.
-//   RUNPOD_KEY_FILE=<file holding a Runpod API key> node scripts/drama3_pod.mjs <film> [voice] [--set <DRAMA3_SET>] [--dry]
-// <film> names films/<film>_voice.mjs; [voice] one of its VOICES (its first by default). --dry lists what would be
-// spoken and rents nothing. The key is read inside this process and never printed.
+//   RUNPOD_KEY_FILE=<file holding a Runpod API key> node scripts/drama3_pod.mjs <film> [voice,voice,...] [--set <DRAMA3_SET>] [--dry]
+// <film> names films/<film>_voice.mjs; [voice] one or more of its VOICES, comma-separated, spoken one after another
+// on the same pod (its first by default). --dry lists what would be spoken and rents nothing. The key is read inside this process and never printed.
 import { Buffer } from 'node:buffer'
 import { spawn } from 'node:child_process'
 import fs from 'node:fs'
@@ -97,16 +97,18 @@ async function main () {
   const dry = args.includes('--dry')
   const set = flag('--set') ?? 'Q4_K_S:cuda_perf,Q4_K_S:cuda_perf'
   const [film, voice] = args.filter(arg => arg !== '--dry')
-  if (!film) throw new Error('node scripts/drama3_pod.mjs <film> [voice] [--set <DRAMA3_SET>] [--dry]')
+  if (!film) throw new Error('node scripts/drama3_pod.mjs <film> [voice,voice,...] [--set <DRAMA3_SET>] [--dry]')
+  const voices = voice ? voice.split(',') : [null]
   const script = path.join(root, 'films', `${film}_voice.mjs`)
   if (!fs.existsSync(script)) throw new Error(`no ${path.relative(root, script)}`)
   // The voice script with no server named lists the lines it would speak and stops at the first
-  const speak = servers => new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [script, 'speak', ...(voice ? [voice] : [])], { cwd: root, stdio: 'inherit', env: { ...process.env, DRAMA3_SERVERS: servers.join(',') } })
-    child.on('exit', code => code === 0 ? resolve() : reject(new Error(`the voice script stopped with ${code}`)))
+  const speakOne = (servers, one) => new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [script, 'speak', ...(one ? [one] : [])], { cwd: root, stdio: 'inherit', env: { ...process.env, DRAMA3_SERVERS: servers.join(',') } })
+    child.on('exit', code => code === 0 ? resolve() : reject(new Error(`the voice script${one ? ` (${one})` : ''} stopped with ${code}`)))
   })
+  const speak = async servers => { for (const one of voices) await speakOne(servers, one) }
   if (dry) {
-    await speak([]).catch(error => console.log(error.message))
+    for (const one of voices) await speakOne([], one).catch(error => console.log(error.message))
     return
   }
   keyOf()
