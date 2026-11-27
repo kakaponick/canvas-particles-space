@@ -8,7 +8,7 @@ const LINES = {
   which: 'But here is a strange question. Which way is it falling?',
   opposite: 'Down, sure. But down in Tokyo and down in Buenos Aires point almost opposite ways. Down is not a direction in space at all. It just means: toward the middle.',
   serious: 'One hypothesis takes that seriously. It says the middle is a real direction. A fourth one. And gravity is what it feels like.',
-  need: 'To see if that makes any sense, we need three things. A cube, a black hole, and a very long wire.'
+  need: 'To see if that makes any sense, we need three things. A cube, a black hole, and two mirrors.'
 }
 
 // ---- the film's kit: the same text in every clip of films/fourth_dimension_pop.json ----
@@ -204,15 +204,12 @@ shot('need', () => {
     draw({ kind: 'circle', center: [x, ROW], radius: 0.042, color: GOLD, width: 0.004, draw: 0.5, fade: 0.3 }, left)
     draw({ kind: 'circle', center: [x, ROW], radius: 0.034, fill: '#000000', color: '#000000', width: 0.001, fade: 0.3 }, left)
   })
-  // A long wire hung between two ends, sagging gently in the middle
-  sign('wire', 0.95, 0.7, 'a long wire', (x, left) => {
-    const points = []
-    for (let i = 0; i <= 40; i++) {
-      const t = i / 40
-      points.push([+(x - 0.09 + 0.18 * t).toFixed(4), +(ROW - 0.02 + 0.04 * (1 - (2 * t - 1) ** 2)).toFixed(4)])
-    }
-    draw({ kind: 'line', points, smooth: true, color: '#aeeeff', width: 0.003, draw: 0.6, fade: 0.3 }, left)
-    for (const end of [points[0], points[40]]) draw({ kind: 'circle', center: end, radius: 0.004, fill: '#aeeeff', color: '#aeeeff', width: 0.001, fade: 0.3 }, left)
+  // Two mirrors standing on a block, a dot of light between them: the light clock of clip 10
+  sign('mirrors', 0.9, 0.7, 'two mirrors', (x, left) => {
+    const half = 0.022
+    for (const side of [-1, 1]) line([[+(x + side * half).toFixed(4), ROW - 0.032], [+(x + side * half).toFixed(4), ROW + 0.02]], left, '#e6eeff')
+    draw({ kind: 'rect', center: [x, ROW + 0.028], size: [0.1, 0.014], color: SOFT, width: 0.002, fade: 0.3 }, left)
+    draw({ kind: 'circle', center: [x, ROW - 0.006], radius: 0.006, fill: GOLD, color: GOLD, width: 0, fade: 0.3 }, left)
   })
   wait(life)
 })

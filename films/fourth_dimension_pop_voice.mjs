@@ -162,6 +162,7 @@ await voiceFilm({
     kilometre: ['kilometer', 'km'],
     kilometres: ['kilometers', 'km'],
     millimetre: ['millimeter'],
+    centimetres: ['centimeters', 'cm'],
     white: ['whitehole']
   },
   profile: 'Theo',
