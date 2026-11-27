@@ -35,7 +35,9 @@ how long ago, and master or the branch it comes from (the film and the exact tim
 button at the left lists what was shown before, to go back to. A show from a worktree that is gone (or
 whose port now serves another worktree) plays from the main checkout's dev server if master has its film,
 which the screen starts when needed, and is marked "удалено" otherwise; so a `_lab_` film can be gone back
-to only while its worktree lives. A shell is all an agent needs; no browser tool of its own.
+to only while its worktree lives. Each `live` call starts the worktree's dev server afresh on its port (a few
+seconds), since Vite can miss files a rebase, a checkout or a stash rewrites and serve a stale module that
+leaves the page black; after such a git step, call `live` again rather than trust the page's reload. A shell is all an agent needs; no browser tool of its own.
 
 1. A film not yet in `films/` goes there as `films/_lab_<name>.js`; `films/_lab_*` is in the repository's
    `.git/info/exclude`, so it never joins a commit.

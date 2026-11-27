@@ -108,13 +108,21 @@ async function show (address, label, by) {
   console.log(`The screen (${SCREEN}/) shows ${address}${started ? '; the screen was started now, so open it once in T3 Code\'s browser' : ''}`)
 }
 
-// A checkout's dev server (this worktree's unless named): the one started before if it still answers, else a new one
-async function devServer (checkout = root) {
+// A checkout's dev server (this worktree's unless named). With `fresh`, one that runs is stopped and started
+// again on its port: Vite's watcher can miss files that git rewrites in one go (a rebase, a checkout, a stash
+// and its pop), and then serves a module older than the rest, such as a store without the settings its
+// newer specs ask for, which throws and leaves the page black. Without `fresh` (the screen playing an old
+// show from master) a server that answers is reused
+async function devServer (checkout = root, fresh = false) {
   const state = readState()
   const known = state.servers[checkout]
-  if (known && alive(known.pid) && await answers(known.port)) return known.port
-  const taken = new Set(Object.values(state.servers).map(server => server.port))
-  const port = await freePort(taken)
+  if (known && alive(known.pid) && await answers(known.port)) {
+    if (!fresh) return known.port
+    process.kill(known.pid)
+    for (let tries = 0; tries < 40 && await answers(known.port); tries++) await sleep(250)
+  }
+  const taken = new Set(Object.entries(state.servers).filter(([dir]) => dir !== checkout).map(([, server]) => server.port))
+  const port = known && !taken.has(known.port) && !(await answers(known.port)) ? known.port : await freePort(taken)
   const vite = path.join(checkout, 'node_modules', 'vite', 'bin', 'vite.js')
   if (!fs.existsSync(vite)) throw new Error(`No ${vite}: run pnpm install --offline --frozen-lockfile in this worktree first (CLAUDE.md, "Working here")`)
   const child = spawn(process.execPath, [vite, '--port', String(port), '--strictPort', '--host', '127.0.0.1'], { cwd: checkout, detached: true, stdio: 'ignore', windowsHide: true })
@@ -136,7 +144,8 @@ async function live (film, label, by) {
   } catch {
     throw new Error(`${root} is behind master: rebase it first (git rebase master), or the operator sees a page master has already changed`)
   }
-  const port = await devServer()
+  // Started afresh each time, so the page the operator sees is built from the files as they are now
+  const port = await devServer(root, true)
   await show(`http://127.0.0.1:${port}/?live=${encodeURIComponent(name)}`, label ?? name, by)
 }
 

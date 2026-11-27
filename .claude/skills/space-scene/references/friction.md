@@ -105,6 +105,17 @@ Once the missing piece exists (a knob, a fix in code, a sentence in `knobs.md`, 
 
 ## The tools and the machine
 
+### A black screen I called fixed without opening it (2026-11-27)
+- Wanted / got: the operator's screen to play a show picked from its history; I fixed dead addresses of
+  removed worktrees and said so, and the operator still got a black screen.
+- Cause: the show they picked was mine, from a live worktree whose Vite server had missed the store file a
+  stash, a rebase and a pop rewrote; the page threw in a slider and React left it black. I had checked the
+  addresses the server handed out, not the page.
+- Now: `screen.mjs live` restarts the worktree's dev server each call. A fix to what the operator sees is
+  checked by opening the page in a browser (chrome-devtools) and reading its console, not by its server's
+  answers.
+- Where: `scripts/screen.mjs`, `devServer`.
+
 ### A screen call piped into tail (2026-11-27)
 - Wanted / got: stills drawn after the operator's screen showed the clip; `screen.mjs live ... | tail -1 &&
   space.mjs still ...` drew them although the screen had refused ("is behind master"), since the pipe's exit
