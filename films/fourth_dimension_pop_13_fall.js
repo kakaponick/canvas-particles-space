@@ -28,13 +28,17 @@ const say = name => { mark('say:' + name); return long(name) }
 // The second of a line a word falls at: heard in the voice, or this share of the line until it is spoken
 const heard = (name, word, share) => cues[name]?.[word] ?? +(long(name) * share).toFixed(2)
 const until = second => wait(Math.max(0, second - now()))
-// The chapter's card on black; the picture comes up under the last of it
+// The chapter's card on black; the picture comes up under its last CARD_FADE, and the first line follows at
+// CARD. The breaks between chapters ran 4.2 s of silence, 2.8 s of it the card: too long for the operator, so
+// the card is held 1.1 s and the picture comes up in 0.7 s
+const CARD_FADE = 0.7
+const CARD = 1.1 + CARD_FADE
 const chapter = (number, name) => {
   set({ fade: 1 })
-  caption(`*{${number}}`, 2.4, { at: [0.5, 0.43], size: 0.03, font: 'unbounded', accent: W, fade: 0.4 })
-  caption(name, 2.4, { at: [0.5, 0.52], size: 0.052, font: 'unbounded', color: INK, fade: 0.4 })
-  wait(1.6)
-  to({ fade: 0 }, 1.2)
+  caption(`*{${number}}`, CARD, { at: [0.5, 0.43], size: 0.03, font: 'unbounded', accent: W, fade: 0.4 })
+  caption(name, CARD, { at: [0.5, 0.52], size: 0.052, font: 'unbounded', color: INK, fade: 0.4 })
+  wait(CARD - CARD_FADE)
+  to({ fade: 0 }, CARD_FADE)
 }
 // What kind of claim is on the screen: measured physics, plain geometry, the hypothesis, or a question
 // nobody has answered. A line that claims nothing about nature (a question, a thought experiment) has none
@@ -43,7 +47,8 @@ const status = (kind, seconds) => caption(STATUS[kind][0], seconds, { at: [0.11,
 // The one sentence of a shot a viewer should keep, at the foot of the frame
 const keep = (text, seconds, more = {}) => caption(text, seconds, { at: [0.5, 0.86], size: 0.038, font: 'noto', accent: W, plate: 0.35, fade: 0.4, ...more })
 // The clip leaves through black
-const leave = () => { to({ fade: 1 }, 0.8) }
+const LEAVE = 0.5
+const leave = () => { to({ fade: 1 }, LEAVE) }
 // ---- end of the kit ----
 
 // The Earth stands over the hole, as in fourth_dimension_pop_11_test.js: NASA's photograph, a little wider
@@ -140,11 +145,11 @@ const tWell = tEdge + heard('edge', 'well', 0.62)
 const tTurn = tEdge + 0.6
 const TURN = 3
 
-// The Earth, the whole clip, coming up with the picture as the chapter's card leaves (from 2 s, once the
+// The Earth, the whole clip, coming up with the picture as the chapter's card leaves (from CARD - 0.4, once the
 // title over it has mostly gone, while the picture is still too dark for the hole under it to show)
-at(1.6, () => {
+at(CARD - CARD_FADE, () => {
   // its light keyed to the picture's own fade in and out, so the hole under it never shows through
-  draw({ kind: 'image', src: 'films/fourth_dimension_earth.png', center: { hole: [0, 0] }, width: 2.9, opacity: 'lit', fade: 0, values: { lit: [[2, 0], [2.8, 1], [END, 1], [END + 0.8, 0]] } }, END + 0.8 - now())
+  draw({ kind: 'image', src: 'films/fourth_dimension_earth.png', center: { hole: [0, 0] }, width: 2.9, opacity: 'lit', fade: 0, values: { lit: [[CARD - 0.4, 0], [CARD, 1], [END, 1], [END + LEAVE, 0]] } }, END + LEAVE - now())
 })
 
 // The ball: it drops from high over the Earth straight down the frame and slows to a hang while the arrows

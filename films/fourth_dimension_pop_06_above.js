@@ -32,13 +32,17 @@ const say = name => { mark('say:' + name); return long(name) }
 // The second of a line a word falls at: heard in the voice, or this share of the line until it is spoken
 const heard = (name, word, share) => cues[name]?.[word] ?? +(long(name) * share).toFixed(2)
 const until = second => wait(Math.max(0, second - now()))
-// The chapter's card on black; the picture comes up under the last of it
+// The chapter's card on black; the picture comes up under its last CARD_FADE, and the first line follows at
+// CARD. The breaks between chapters ran 4.2 s of silence, 2.8 s of it the card: too long for the operator, so
+// the card is held 1.1 s and the picture comes up in 0.7 s
+const CARD_FADE = 0.7
+const CARD = 1.1 + CARD_FADE
 const chapter = (number, name) => {
   set({ fade: 1 })
-  caption(`*{${number}}`, 2.4, { at: [0.5, 0.43], size: 0.03, font: 'unbounded', accent: W, fade: 0.4 })
-  caption(name, 2.4, { at: [0.5, 0.52], size: 0.052, font: 'unbounded', color: INK, fade: 0.4 })
-  wait(1.6)
-  to({ fade: 0 }, 1.2)
+  caption(`*{${number}}`, CARD, { at: [0.5, 0.43], size: 0.03, font: 'unbounded', accent: W, fade: 0.4 })
+  caption(name, CARD, { at: [0.5, 0.52], size: 0.052, font: 'unbounded', color: INK, fade: 0.4 })
+  wait(CARD - CARD_FADE)
+  to({ fade: 0 }, CARD_FADE)
 }
 // What kind of claim is on the screen: measured physics, plain geometry, the hypothesis, or a question
 // nobody has answered. A line that claims nothing about nature (a question, a thought experiment) has none
@@ -47,15 +51,13 @@ const status = (kind, seconds) => caption(STATUS[kind][0], seconds, { at: [0.11,
 // The one sentence of a shot a viewer should keep, at the foot of the frame
 const keep = (text, seconds, more = {}) => caption(text, seconds, { at: [0.5, 0.86], size: 0.038, font: 'noto', accent: W, plate: 0.35, fade: 0.4, ...more })
 // The clip leaves through black
-const leave = () => { to({ fade: 1 }, 0.8) }
+const LEAVE = 0.5
+const leave = () => { to({ fade: 1 }, LEAVE) }
 // ---- end of the kit ----
 
 // The sheet as chapter 05 leaves it: seen from the side, the well deep under the mass, the matter on it
 // whirling down. The flat mode draws the sheet; the camera is its tilt
 const GRID = '#4de3ff'
-// Chapter 05's mass, the textbook's ball, stands over the hole for the whole clip: the narration never says
-// it became a black hole, so the hole is covered by it
-const MASS = '#ffc861'
 // The matter on the sheet is chapter 05's: flow A laid on the sheet, born 2 to 7 radii out round the mouth
 // and winding down into the well (the field laid on the sheet draws no matter there since the engine's
 // redshift and rebirth changes, films.md "On the sheet"). From the side it opens as chapter 05 swept it at
@@ -129,7 +131,6 @@ film({
 })
 // The hole itself stays: without it the sheet has no well and no rings. The mass covers its shadow, and its
 // ring, which would edge the ball, is hidden
-hide('ring')
 chapter('06', 'LOOK FROM ABOVE')
 
 // Where a point of the sheet stands on the screen, from the hole in hole radii (the sums of
@@ -182,36 +183,15 @@ const R_IN = 2.5
 const RIM = 3.5
 const FLYUP = Math.max(long('flyup') + 0.6, heard('flyup', 'up', 0.45) - 0.3 + RISE + 0.2)
 
-// The mass over the hole: it comes up with the picture under the chapter card's last second and stays to the
-// clip's end, going dark with the picture as the clip leaves (shapes lie over the fade). It is chapter 05's
-// ball, wider than the throat and lying LIFT radii up in the bowl; seen from straight above it lies over the
-// hole's middle, so it slides there while the camera rises
-const BALL = 1.9
-const LIFT = 0.8
+// The mass is the black hole with its ring, as in chapter 05: the textbook's flat yellow ball drawn over it
+// went ("давай просто везде использовать черную дыру"). The arrows that ended at the ball's edge end EDGE
+// radii out, just past the ring
+const EDGE = 1.1
 const RISES = now() + heard('flyup', 'up', 0.45) - 0.3
-// An opaque black disc lies under the ball for its whole life: dimmed alone, the ball went see-through and
-// the bare hole's shadow and throat showed inside it (review 4, 4:33 and 5:07).
-// The picture stays black under the chapter's title and comes up with the ball once the title is gone: coming
-// up under the title, the black disc under the ball showed alone on the lit sheet, a bare black hole, and the
-// title lay over a half-lit ball (review 5, 1.6 to 2.6 s). A black sheet over the whole frame, under the
-// captions, holds it dark
-const TITLED = 2.4
-const LIGHTS = 0.6
-// The mass stays until "cells", where it goes dark and shrinks onto the hole's shadow: the black disc in the
+// "cells" comes when the lines before it are done: the black disc in the
 // middle of the operator's slide, which the rings crowd into, and the black hole of "round"
 const GONE = now() + FLYUP + long('flat') + 0.6 + long('rings') + 0.6 + long('same') + 0.6 + long('points') + 0.6
 const SHRINK = 1.4
-{
-  const card = now() - 1.2
-  const end = GONE + 0.2 + SHRINK
-  at(card, () => {
-    const up = [[card, LIFT], [RISES, LIFT], [RISES + RISE, 0]]
-    const size = [[card, BALL], [GONE + 0.2, BALL], [end, 1]]
-    draw({ kind: 'rect', center: [0.5, 0.5], size: [1.9, 1.05], color: '#000000', width: 0, fill: '#000000', fade: 0, opacity: 'dark', values: { dark: [[card, 1], [TITLED, 1], [TITLED + LIGHTS, 0]] } }, TITLED + LIGHTS - card)
-    draw({ kind: 'circle', center: { hole: [0, 'up'] }, radius: 'size', fill: '#000000', color: '#000000', width: 0, fade: 0, values: { up, size } }, end - card)
-    draw({ kind: 'circle', center: { hole: [0, 'up'] }, radius: 'size', fill: MASS, color: '#ffe3a8', width: 0.002, glow: 0.03, fade: 0, opacity: 'lit', values: { lit: [[card, 0], [TITLED, 0], [TITLED + LIGHTS, 1], [GONE + 0.2, 1], [end - 0.2, 0]], up, size } }, end - card)
-  })
-}
 
 shot('flyup', () => {
   const start = now()
@@ -343,7 +323,7 @@ shot('points', () => {
   at(start + heard('points', 'points', 0.6), () => {
     for (let index = 0; index < 8; index++) {
       const angle = index * Math.PI / 4
-      draw({ kind: 'line', points: [onTop(RIM, angle), onTop(BALL + 0.3, angle)], arrow: 'end', color: W, width: 0.006, draw: 0.6, fade: 0.4 }, end - now())
+      draw({ kind: 'line', points: [onTop(RIM, angle), onTop(EDGE + 0.3, angle)], arrow: 'end', color: W, width: 0.006, draw: 0.6, fade: 0.4 }, end - now())
     }
   })
   at(start + heard('points', 'inward', 0.9) - 0.4, () => {

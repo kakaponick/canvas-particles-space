@@ -30,13 +30,17 @@ const say = name => { mark('say:' + name); return long(name) }
 // The second of a line a word falls at: heard in the voice, or this share of the line until it is spoken
 const heard = (name, word, share) => cues[name]?.[word] ?? +(long(name) * share).toFixed(2)
 const until = second => wait(Math.max(0, second - now()))
-// The chapter's card on black; the picture comes up under the last of it
+// The chapter's card on black; the picture comes up under its last CARD_FADE, and the first line follows at
+// CARD. The breaks between chapters ran 4.2 s of silence, 2.8 s of it the card: too long for the operator, so
+// the card is held 1.1 s and the picture comes up in 0.7 s
+const CARD_FADE = 0.7
+const CARD = 1.1 + CARD_FADE
 const chapter = (number, name) => {
   set({ fade: 1 })
-  caption(`*{${number}}`, 2.4, { at: [0.5, 0.43], size: 0.03, font: 'unbounded', accent: W, fade: 0.4 })
-  caption(name, 2.4, { at: [0.5, 0.52], size: 0.052, font: 'unbounded', color: INK, fade: 0.4 })
-  wait(1.6)
-  to({ fade: 0 }, 1.2)
+  caption(`*{${number}}`, CARD, { at: [0.5, 0.43], size: 0.03, font: 'unbounded', accent: W, fade: 0.4 })
+  caption(name, CARD, { at: [0.5, 0.52], size: 0.052, font: 'unbounded', color: INK, fade: 0.4 })
+  wait(CARD - CARD_FADE)
+  to({ fade: 0 }, CARD_FADE)
 }
 // What kind of claim is on the screen: measured physics, plain geometry, the hypothesis, or a question
 // nobody has answered. A line that claims nothing about nature (a question, a thought experiment) has none
@@ -45,7 +49,8 @@ const status = (kind, seconds) => caption(STATUS[kind][0], seconds, { at: [0.11,
 // The one sentence of a shot a viewer should keep, at the foot of the frame
 const keep = (text, seconds, more = {}) => caption(text, seconds, { at: [0.5, 0.86], size: 0.038, font: 'noto', accent: W, plate: 0.35, fade: 0.4, ...more })
 // The clip leaves through black
-const leave = () => { to({ fade: 1 }, 0.8) }
+const LEAVE = 0.5
+const leave = () => { to({ fade: 1 }, LEAVE) }
 // ---- end of the kit ----
 
 // The matter is flows, said from the first frame: the particle field laid on the sheet draws only still dots,
@@ -78,11 +83,9 @@ const LATTICE = 0.38
 // at 0.6 s steps from 29.6 s show the sheet, the sheet going with the matter coming, the lattice arriving with
 // no cross, and the lattice, with no stretch of the ball alone on black
 const LATTICE_IN = 0.7
-// Chapter 05's mass stands over the hole for the whole clip, from above and in 3D, never a bare black hole:
-// the textbook's ball, wider than the throat (chapter 06 ends on it seen from straight above). Its ring, which
-// would edge it, is hidden; in 3D the lens is off too, as it is for the textbook's mass in chapters 05 and 06
-const MASS = '#ffc861'
-const BALL = 1.9
+// The mass is the black hole with its ring, as in chapters 05 and 06: the textbook's flat yellow ball drawn over
+// it went ("давай просто везде использовать черную дыру"). What slides in stops EDGE radii out, past the ring
+const EDGE = 1.1
 const falling = (flow, count, tilt, node) => ({
   ...Object.fromEntries(Object.entries(FALL).map(([key, value]) => ['flow' + flow + key, value])),
   ['flow' + flow + 'Count']: count,
@@ -134,27 +137,8 @@ film({
     ...falling('C', FALLING_COUNT, 120, 0)
   }
 })
-hide('ring')
 chapter('07', 'THE FLAT CREATURE')
 
-// The mass over the hole stays to the clip's end, going dark with the picture as the clip leaves (shapes lie
-// over the fade). An opaque black disc lies under it for its whole life: dimmed alone, the ball went
-// see-through and the bare hole's shadow and throat showed inside it (review 4).
-// The picture stays black under the chapter's title and comes up with the ball once the title is gone: coming
-// up under the title, the black disc under the ball showed alone on the lit sheet, a bare black hole, and the
-// title lay over a half-lit ball (review 5, 1.6 to 2.6 s). A black sheet over the whole frame, under the
-// captions, holds it dark
-const TITLED = 2.4
-const LIGHTS = 0.6
-{
-  const card = now() - 1.2
-  const clipEnd = now() + long('lives') + 0.6 + long('blind') + 0.6 + long('word') + 0.6 + long('us') + 0.6 + long('chair') + 0.6 + 0.8
-  at(card, () => {
-    draw({ kind: 'rect', center: [0.5, 0.5], size: [1.9, 1.05], color: '#000000', width: 0, fill: '#000000', fade: 0, opacity: 'dark', values: { dark: [[card, 1], [TITLED, 1], [TITLED + LIGHTS, 0]] } }, TITLED + LIGHTS - card)
-    draw({ kind: 'circle', center: { hole: [0, 0] }, radius: BALL, fill: '#000000', color: '#000000', width: 0, fade: 0 }, clipEnd - card)
-    draw({ kind: 'circle', center: { hole: [0, 0] }, radius: BALL, fill: MASS, color: '#ffe3a8', width: 0.002, glow: 0.03, fade: 0, opacity: 'lit', values: { lit: [[card, 0], [TITLED, 0], [TITLED + LIGHTS, 1], [clipEnd - 0.8, 1], [clipEnd, 0]] } }, clipEnd - card)
-  })
-}
 
 // The creature: a round body with two eyes, out on the sheet to the right of the well, in hole radii
 const HOME = [5, 2]
@@ -168,8 +152,8 @@ const creature = seconds => {
   draw({ kind: 'circle', center: near(0.18, 0.15), radius: 0.09, fill: '#101830', color: '#101830', fade: 0.5 }, seconds)
 }
 const part = value => +value.toFixed(3)
-// Where a thing let go at [x, y] ends its slide down the spoke it lies on: at the mass's edge, toward the centre
-const spoke = (x, y) => { const k = (BALL + 0.2) / Math.hypot(x, y); return [part(x * k), part(y * k)] }
+// Where a thing let go at [x, y] ends its slide down the spoke it lies on: at the hole's edge, toward the centre
+const spoke = (x, y) => { const k = (EDGE + 0.2) / Math.hypot(x, y); return [part(x * k), part(y * k)] }
 const SLIDE_SECONDS = 1.4
 // The flat picture lasts until just before the line that leaves it says three
 let flatEnd = 0
@@ -294,7 +278,7 @@ shot('chair', () => {
     for (let index = 0; index < 8; index++) {
       const angle = index * Math.PI / 4
       const from = { hole: [+(2.9 * Math.cos(angle)).toFixed(3), +(2.9 * Math.sin(angle)).toFixed(3)] }
-      const into = { hole: [+((BALL + 0.25) * Math.cos(angle)).toFixed(3), +((BALL + 0.25) * Math.sin(angle)).toFixed(3)] }
+      const into = { hole: [+((EDGE + 0.25) * Math.cos(angle)).toFixed(3), +((EDGE + 0.25) * Math.sin(angle)).toFixed(3)] }
       draw({ kind: 'line', points: [from, into], arrow: 'end', color: W, width: 0.006, draw: 0.6, fade: 0.4 }, end - now())
     }
     caption('W', end - now(), { at: { hole: [-3.5, 3.5] }, size: 0.05, font: 'unbounded', color: W, fade: 0.4, plate: 0.5 })

@@ -30,13 +30,17 @@ const say = name => { mark('say:' + name); return long(name) }
 // The second of a line a word falls at: heard in the voice, or this share of the line until it is spoken
 const heard = (name, word, share) => cues[name]?.[word] ?? +(long(name) * share).toFixed(2)
 const until = second => wait(Math.max(0, second - now()))
-// The chapter's card on black; the picture comes up under the last of it
+// The chapter's card on black; the picture comes up under its last CARD_FADE, and the first line follows at
+// CARD. The breaks between chapters ran 4.2 s of silence, 2.8 s of it the card: too long for the operator, so
+// the card is held 1.1 s and the picture comes up in 0.7 s
+const CARD_FADE = 0.7
+const CARD = 1.1 + CARD_FADE
 const chapter = (number, name) => {
   set({ fade: 1 })
-  caption(`*{${number}}`, 2.4, { at: [0.5, 0.43], size: 0.03, font: 'unbounded', accent: W, fade: 0.4 })
-  caption(name, 2.4, { at: [0.5, 0.52], size: 0.052, font: 'unbounded', color: INK, fade: 0.4 })
-  wait(1.6)
-  to({ fade: 0 }, 1.2)
+  caption(`*{${number}}`, CARD, { at: [0.5, 0.43], size: 0.03, font: 'unbounded', accent: W, fade: 0.4 })
+  caption(name, CARD, { at: [0.5, 0.52], size: 0.052, font: 'unbounded', color: INK, fade: 0.4 })
+  wait(CARD - CARD_FADE)
+  to({ fade: 0 }, CARD_FADE)
 }
 // What kind of claim is on the screen: measured physics, plain geometry, the hypothesis, or a question
 // nobody has answered. A line that claims nothing about nature (a question, a thought experiment) has none
@@ -45,7 +49,8 @@ const status = (kind, seconds) => caption(STATUS[kind][0], seconds, { at: [0.11,
 // The one sentence of a shot a viewer should keep, at the foot of the frame
 const keep = (text, seconds, more = {}) => caption(text, seconds, { at: [0.5, 0.86], size: 0.038, font: 'noto', accent: W, plate: 0.35, fade: 0.4, ...more })
 // The clip leaves through black
-const leave = () => { to({ fade: 1 }, 0.8) }
+const LEAVE = 0.5
+const leave = () => { to({ fade: 1 }, LEAVE) }
 // ---- end of the kit ----
 
 // What falls toward the hole on the sheet: swung round as it comes, a whirl that drains down the well's wall.
@@ -88,36 +93,16 @@ film({
     ...WHIRL
   }
 })
-// The mass of "stretch" is the textbook's ball of chapters 05 to 07, never a bare black hole: wider than the
-// throat, lying LIFT radii up in the well, the hole's ring (which would edge it) hidden. It stays until the cut
-// to the pair, a real pair of black holes, which come with their rings
-const MASS = '#ffc861'
-const BALL = 1.9
-const LIFT = 0.8
+// The mass of "stretch" is the black hole with its ring, as in chapters 05 to 07: the textbook's flat yellow
+// ball drawn over it went ("давай просто везде использовать черную дыру")
 // The well once it has stretched: deeper, and still a bowl the ball lies in. At depth 5.5 the throat's narrowing
 // neck stood over the ball like a stalk again (review 4, 3:31; at depth 8 too, the defect of chapter 05).
 // Swept at the end of "stretch" from depth 3: 4 and 4.3 keep the walls round the ball's upper half, at 4.6 the
 // neck starts to show above it, at 5 it stands over it
 const STRETCHED = { gridDepth: 4.3, blackHoleY: 0.68 }
-hide('ring')
 chapter('08', 'SPACE CAN RIPPLE')
 // The cut to the pair: black from this second
 const CUT = now() + long('stretch') + 1.4 + heard('small', 'curved', 0.18) - 0.6 + 0.35
-// The ball lies over an opaque black disc for its whole life: dimmed alone, it went see-through and the bare
-// hole's shadow and throat showed inside it (review 4). The picture stays black under the chapter's title and
-// comes up with the ball once the title is gone: coming up under the title, the black disc showed alone on the
-// lit sheet, a bare black hole with the matter whirling round it, and the title lay over a half-lit ball
-// (review 5, 1.6 to 2.6 s). A black sheet over the whole frame holds it dark, under the captions
-const TITLED = 2.4
-const LIGHTS = 0.6
-{
-  const card = now() - 1.2
-  at(card, () => {
-    draw({ kind: 'rect', center: [0.5, 0.5], size: [1.9, 1.05], color: '#000000', width: 0, fill: '#000000', fade: 0, opacity: 'dark', values: { dark: [[card, 1], [TITLED, 1], [TITLED + LIGHTS, 0]] } }, TITLED + LIGHTS - card)
-    draw({ kind: 'circle', center: { hole: [0, LIFT] }, radius: BALL, fill: '#000000', color: '#000000', width: 0, fade: 0 }, CUT - card)
-    draw({ kind: 'circle', center: { hole: [0, LIFT] }, radius: BALL, fill: MASS, color: '#ffe3a8', width: 0.002, glow: 0.03, fade: 0, opacity: 'lit', values: { lit: [[card, 0], [TITLED, 0], [TITLED + LIGHTS, 1]] } }, CUT - card)
-  })
-}
 
 // The sheet as the scene lays it out (the sums of fourth_dimension_well.js), to place a label beside the well
 const LONG = 1920
