@@ -38,8 +38,12 @@ These words carry the rest of this skill, of `references/` and of the guides.
 1. **Wish -> law.** A request says "make the hole heavier", "show how light bends", "let two of them
    merge". Find the law in [references/knobs.md](references/knobs.md), which is organised by what happens
    physically. Look in `films/` for a film that already shows the law (films.md, "Films to start from"):
-   its settings are a tested start. A preset is a law's starting point too: `describe` with the preset's
-   name lists what it sets. Done when you can name the section, its gate and the knobs that take part.
+   its settings are a tested start for the law, not for the amounts. A count, a size or a brightness
+   (`numParticles`, a flow's Count, `particleSize`, `baseBrightness`) was right for that film's framing
+   only, as a number in a recipe was right for its tracer's: sweep it again at the shot's own framing (the
+   sweep below) and write down where each amount came from. A preset is a law's starting point too:
+   `describe` with the preset's name lists what it sets. Done when you can name the section, its gate and
+   the knobs that take part.
 2. **Ranges.** Read each range and meaning from `describe` with a word from that section (`space_describe`
    for films, `window.space.describe('lens')` on the page) when you set it.
 3. **Prediction.** Write one sentence: what the particles will do (fall, orbit, swirl, stream, ride the

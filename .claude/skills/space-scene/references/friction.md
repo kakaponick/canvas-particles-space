@@ -86,6 +86,18 @@ the friction cannot happen any more.
 
 ## Particles
 
+### One recipe's particle count copied into every clip (2026-11-27)
+- Wanted / got: a count fitted to each shot; got `numParticles` 20000 with the same size, brightness and
+  opacity in four clips of the pop film framed differently, and 10000 with `flowACount` 9000 in two more.
+- Cause: films.md gave 20000 as the setup's value (found at one framing) and SKILL.md called a neighbour
+  film's settings a tested start, so the number travelled unchanged; nothing asked for it to be measured.
+- Now: films.md, "On the sheet", and SKILL.md step 1 ask for counts, sizes and brightness found at the
+  shot's own framing; the reviewers flag a well burned white or bare and shots framed apart with one count.
+  Still missing: the field on the sheet (films.md, "On the sheet") draws still dots on the flat at every
+  count up to 200000 and nothing on the wall, so its recipe needs mending; flows on the sheet work and
+  their count sweeps on a track, a second a step.
+- Where: films.md section 16, `.claude/agents/film-review.md` defect 3.
+
 ### The field vanished once the clip went 3D (2026-11-27)
 - Wanted / got: space falling into the Earth's well down every spoke, as in the flat mode; got an almost
   empty sheet.

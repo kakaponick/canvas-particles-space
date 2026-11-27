@@ -38,7 +38,9 @@ words alive on that sheet and `frameShapes` the lines, curves and arrows fixed t
 3. **Particles that betray the simulation.** Matter drawn as one uniform bright line or tube with a hard
    edge (it must fade in a gradient, each particle its own light); a ring, band or circle of particles that
    no law puts there (rebirth artefacts); a cloud hanging off the surface it should lie on; a black band or
-   bare patch where the field should be; everything frozen where the line says matter falls. The project's
+   bare patch where the field should be; everything frozen where the line says matter falls; the wrong
+   amount, a well burned white or a wall so sparse it reads as noise, often a close shot and a far shot
+   given the same count (name the shots: their counts were copied, not swept). The project's
    aim is nature: anything that reads as a rendering artefact is a defect. Major, blocker when it draws the eye.
 4. **The body and the scene disagree.** An image over the hole (a planet, a star) that does not cover what it
    stands for, a bare black hole showing before or around a body that is not one, a glow or redshift the body

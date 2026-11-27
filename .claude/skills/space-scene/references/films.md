@@ -624,8 +624,18 @@ the hole at 0.5:
 - Every particle alike, so the well stays fed: `gravityDepth` 100, `depthFade` 0, `minOpacity` 0.1,
   `speedGlowKnee` 0.03. A `warmup` of 10, the most there is, gathers the matter before the first frame.
   Laid wholly, the gathered matter crowds the throat, whose steep wall the tilt folds into a narrow strip
-  of the screen, and at 40000 bright particles it is a solid white tube that hides the sheet: `numParticles`
-  20000, `trailIntensity` 0.15 and `baseBrightness` 0.3 let the wall's lines show through the streaks.
+  of the screen: too many bright particles there are a solid white tube that hides the sheet, too few leave
+  the wall bare. **The count is the shot's, never this page's**: how many read as matter on the wall depends
+  on how much of the frame the well fills (the zoom, the 3D camera's distance, `gridDepth`, the tilt) and
+  on how bright each stroke is. Find it at the shot's own framing with one still per count (20000, 60000,
+  120000, 200000), each with the full `warmup` of 10: a count changed on a track sows the field anew, and a
+  step of seconds shows matter that has not had time to gather. Start at `baseBrightness` 0.3 and
+  `trailIntensity` 0.15, take the most particles at which the wall's lines still show through the streaks,
+  and when even the fewest burn white lower `baseBrightness` and draw them again. Two shots framed
+  differently get two counts, not one copied number. Seen on 2026-11-27 at `gridTilt` 66, `gridDepth` 6 with
+  the drain row below: at every count up to 200000 the field lay on the flat as still dots and the wall and
+  throat stayed bare, so this setup no longer draws matter on the wall; until it is mended, line the wall with
+  a flow (the row "lines the wall" below, or the 3D paragraph after the table).
 - `gridRideDepth` at its default reaches the whole column; lowered to 2, only the matter near the hole's
   depth rides and the rest is drawn where it flies (knobs.md section 9).
 
@@ -659,19 +669,23 @@ In 3D the scene's camera sees the sheet where it lies, the well's bottom on the 
   the hole on it.
 - In 3D the field's gravity ends at a sphere, so at `baseSpeed` 0 the warm-up drains it and nothing refills
   it, and with the flight on only a band round the mouth and streaks over the flat part are lit. There the
-  matter on the well is flows, with the field off or dim: `flowA` 1.5, `flowACount` 20000, `flowAFrom` 8,
-  `flowATo` 1, `flowASpread` 6, `flowALife` 8, `flowASwirl` 0.4, `flowATrail` 0.6, `flowASize` 1.2 at
-  `cameraPitch` -40 lines the well from its mouth to the hole, all the way round and turning, from the
-  first frame (seen in a tracer at `gridDepth` 6). A ring (`flowBFrom` and `flowBTo` 4, `flowBSpread` 1)
-  lies round the mouth.
+  matter on the well is flows, with the field off or dim: `flowA` 1.5, `flowAFrom` 8, `flowATo` 1,
+  `flowASpread` 6, `flowALife` 8, `flowASwirl` 0.4, `flowATrail` 0.6, `flowASize` 1.2 at `cameraPitch` -40
+  lines the well from its mouth to the hole, all the way round and turning, from the first frame (seen in a
+  tracer at `gridDepth` 6). `flowACount` is the shot's, as the field's count is: a flow is said, so sweep it
+  every second (5000, 10000, 20000, 40000) at the shot's framing and take the count at which the wall reads
+  lined without turning into a white sheet. A ring (`flowBFrom` and `flowBTo` 4, `flowBSpread` 1) lies round
+  the mouth.
 
 What keeps the picture on the sheet right:
 
 - From above, the square cells hardly show the well: the depth reads from above through `gridRings`,
   whose contour lines crowd toward the hole, or from the side at `gridTilt` 60 and more.
 - For a shot about something beside the hole, the strokes in the well are few, thin and of the sheet's
-  colour, so its rings show through them: `numParticles` 10000, `particleSize` and `particleSizeMin` 1.2
-  at `cameraZoom` 3 and 1.8 from afar, `colorPalette` near `gridColor`, `trailIntensity` 0.2.
+  colour, so its rings show through them: fewer and thinner than in a shot about the well itself, with
+  `colorPalette` near `gridColor` and `trailIntensity` 0.2. Sweep `numParticles` down from the well shot's
+  own count (a half, a quarter) and `particleSize` with `particleSizeMin` (1.2 to 2) at the shot's
+  framing, and take the frame where the rings read first and the strokes second.
 - The particles and flows on the sheet rise and fall with its waves (`gridRideWave`, whole by default, seen
   once `gridWaveLift` lifts the sheet): a ripple carries the matter on it. At 0 they hold still while the
   sheet ripples under them (knobs.md section 8 for the waves).
