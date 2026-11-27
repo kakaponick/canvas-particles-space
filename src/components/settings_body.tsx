@@ -579,8 +579,6 @@ function SettingsBody () {
             <SettingSlider field="gridLightReach" />
             <SettingSlider field="gridFrontWidth" />
             <SettingSlider field="gridFrontLead" />
-            <SettingSlider field="gridFrontSlope" />
-            <SettingSlider field="gridFrontCapture" />
           </div>
           <div className="mt-3 flex flex-col gap-1">
             <SettingSlider field="gridLatticeLine" />

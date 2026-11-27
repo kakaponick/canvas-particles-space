@@ -34,6 +34,7 @@ import { LATTICE_INSTANCE_FLOATS, createLatticeInstances, latticeInstancesWithin
 import { FLOW_CAPACITY, FLOW_CORNER_FLOATS, FLOW_SEED_FLOATS, FLOW_VERTEX_COUNT, createFlowCorners, createFlowSeeds, type FlowSettings } from './flows'
 import { DISC_MAP_SIZE } from './disc_trace'
 import { CRITICAL_IMPACT } from './lens_trace'
+import { createFrontField, FRONT_FIELD_ANGLES, FRONT_FIELD_RADII, type FrontField } from './light_front'
 
 const STRETCH_STRIDE = STRETCH_FLOATS * 4
 const INSTANCED_ATTRIBUTES = [ATTRIBUTE_LOCATIONS.segment, ATTRIBUTE_LOCATIONS.style, ATTRIBUTE_LOCATIONS.color]
@@ -53,6 +54,8 @@ const DISC_TEXTURE_UNIT = 8
 // would pass the 16 a fragment shader is sure to have
 const BLOOM_FRAME_TEXTURE_UNIT = 9
 const BLOOM_TEXTURE_UNIT = 10
+// The light front's delay field on the sheet (light_front.ts), which the grid vertex shader reads
+const FLASH_TEXTURE_UNIT = 11
 // The most times the bloom halves the frame. Each level holds a quarter of the pixels of the one above it,
 // so the levels past the second cost the frame almost nothing; eight is where the smallest is a few pixels
 // high at the pixel budget (PIXEL_BUDGET), and Bloom Reach's top, half the frame's height, needs no more
@@ -766,12 +769,13 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   const field: FieldFeedback = madeField
   // Whether the composite pass reads the ring's light from the field this frame
   let ringLit = false
-  // Where the sheet's fixed point stood from the hole (grid.anchorX/Y) when the flash went off, and the place
-  // it went off at: a flash stays where it went off on the sheet while the hole moves on. Taken again while
-  // Front Run is 0, when the flash is off and when its place changes
-  let flashAnchorX = 0
-  let flashAnchorY = 0
-  let flashPlace = ''
+  // The flash's delay field, made the first time a flash is drawn, and what it was last solved for: the
+  // flash's distance from the hole, the reach and the floor, in throat radii; whether that solve gave a field
+  let frontField: FrontField | null = null
+  let fieldFlash = 0
+  let fieldReach = 0
+  let fieldFloor = -1
+  let fieldSolved = false
 
   const fadeUniforms = getUniforms(gl, fadeProgram, ['fade'] as const)
   const particleUniforms = getUniforms(gl, particleProgram, ['floor', 'resolution', 'pixelRatio', 'center', 'flight', 'doppler', 'tintAhead', 'tintEdge', 'tintBehind', 'tint', 'zoom', 'zoomFrom'] as const)
@@ -796,7 +800,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   const compositeUniforms = getUniforms(gl, compositeProgram, COMPOSITE_UNIFORMS)
   const gridUniforms = getUniforms(gl, gridProgram, [
     'resolution', 'pixelRatio', ...SHEET_UNIFORMS, 'lines', 'lens', 'jolt', 'color',
-    'shadow', 'frame', 'shadow2', 'sheet', 'clearing', 'rings', 'front', 'kept', 'glow', 'lightColor', 'flash', 'flashShape', 'flashColor'
+    'shadow', 'frame', 'shadow2', 'sheet', 'clearing', 'rings', 'front', 'kept', 'glow', 'lightColor', 'flash', 'flashShape', 'flashField', 'flashColor'
   ] as const)
 
   const latticeUniforms = getUniforms(gl, latticeProgram, [
@@ -854,6 +858,9 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     gl.useProgram(program)
     gl.uniform1i(gl.getUniformLocation(program, 'u_behindShape'), SHADOW_TEXTURE_UNIT)
   }
+  // The sheet reads the light front's delay field
+  gl.useProgram(gridProgram)
+  gl.uniform1i(gl.getUniformLocation(gridProgram, 'u_flashDelay'), FLASH_TEXTURE_UNIT)
 
   // Shared quad at location 0, bound once for every program
   const quadBuffer = gl.createBuffer()
@@ -919,6 +926,9 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.R16F, SHADOW_SAMPLES, 2, 0, gl.RED, gl.FLOAT, null)
   let shadowVersion = -1
   let companionShapeVersion = -1
+  // The light front's delay field: a row of radii for each angle, half floats, read between the nodes
+  const flashTexture = createLinearTexture(FLASH_TEXTURE_UNIT)
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.R16F, FRONT_FIELD_RADII, FRONT_FIELD_ANGLES, 0, gl.RED, gl.FLOAT, null)
   const titleTexture = createLinearTexture(TITLE_TEXTURE_UNIT)
   let titleWidth = 0
   let titleHeight = 0
@@ -1767,6 +1777,29 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     gl.drawArrays(gl.TRIANGLES, 0, QUAD_VERTEX_COUNT)
   }
 
+  // The flash's delay field for a flash `flash` throat radii from the main hole, solved again (light_front.ts,
+  // a few milliseconds) only when the flash's distance, the sheet's reach or a star's surface has changed:
+  // a hole dragged after the flash moves the flash against it, and each frame of the drag solves once. The
+  // reach, out to the sheet's farthest corner, goes up in steps of a fifth, so a sheet that grows a little
+  // solves nothing; false while the flash stands inside the field's floor, where none of its light comes out
+  function layFlash (grid: GridSettings, flash: number): boolean {
+    const corner = Math.SQRT2 * Math.max(grid.span, 1) / grid.throat
+    const reach = Math.pow(2, Math.ceil(Math.log2(Math.max(corner, 2)) * 4) / 4)
+    const floor = grid.star >= 1 ? grid.star : 0
+    if (frontField && Math.abs(flash - fieldFlash) <= flash * 1e-5 && reach === fieldReach && floor === fieldFloor) return fieldSolved
+    if (!frontField) frontField = createFrontField()
+    fieldFlash = flash
+    fieldReach = reach
+    fieldFloor = floor
+    fieldSolved = frontField.solve(flash, reach, floor)
+    if (fieldSolved) {
+      gl.activeTexture(gl.TEXTURE0 + FLASH_TEXTURE_UNIT)
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, FRONT_FIELD_RADII, FRONT_FIELD_ANGLES, gl.RED, gl.FLOAT, frontField.delay)
+      gl.activeTexture(gl.TEXTURE0 + SCENE_TEXTURE_UNIT)
+    }
+    return fieldSolved
+  }
+
   // The sheet is drawn over the frame, seen through its pose: it follows the scene camera's zoom and shake
   // and the letterbox, ripples with the gravitational wave and stops at the black hole's shadow, unless it
   // passes in front of the holes: nearer the camera than the nearer hole, `front` as a share of the main
@@ -1792,19 +1825,15 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     const light = grid.lightReach > 0 ? Math.max(grid.light, 0) : 0
     setUniform4f(gl, u.glow, Math.max(grid.throatGlow, 0), Math.max(grid.throatCurve, 0.01), light, grid.lightReach)
     setUniform3f(gl, u.lightColor, grid.lightColor.r * grid.brightness, grid.lightColor.g * grid.brightness, grid.lightColor.b * grid.brightness)
-    // The flash running over the lines, its lengths from the main well's radii into the plane's units; its
-    // place against the plane's second direction, as sheetPoint takes it. Off, the shader works none of it out
-    const flash = grid.front > 0 && grid.throat > 0 ? grid.front : 0
-    const place = flash > 0 ? `${grid.frontX} ${grid.frontY}` : ''
-    if (flash <= 0 || grid.frontRun <= 0 || place !== flashPlace) {
-      flashAnchorX = grid.anchorX
-      flashAnchorY = grid.anchorY
-      flashPlace = place
-    }
-    // Every place fixed on the sheet moves against the hole as the sheet's fixed point does
-    setUniform4f(gl, u.flash, flash, grid.frontX * grid.throat + grid.anchorX - flashAnchorX, -grid.frontY * grid.throat + grid.anchorY - flashAnchorY, grid.frontRun * grid.throat)
+    // The flash running over the lines, its lengths from the main well's radii into the plane's units. Off,
+    // the shader works none of it out and no field is solved
+    let flash = grid.front > 0 && grid.throat > 0 ? grid.front : 0
+    if (flash > 0 && !layFlash(grid, Math.hypot(grid.frontX, grid.frontY) / grid.throat)) flash = 0
+    setUniform4f(gl, u.flash, flash, grid.frontX, grid.frontY, grid.frontRun * grid.throat)
     if (flash > 0) {
-      setUniform4f(gl, u.flashShape, grid.frontLead * grid.throat, grid.frontTail * grid.throat, Math.max(grid.frontSlope, 0), Math.max(grid.frontCapture, 0))
+      setUniform2f(gl, u.flashShape, grid.frontLead * grid.throat, grid.frontTail * grid.throat)
+      setUniform3f(gl, u.flashField, frontField ? frontField.inner : 0, (FRONT_FIELD_RADII - 1) / Math.max(frontField ? frontField.outer - frontField.inner : 1, 0.001),
+        (FRONT_FIELD_ANGLES - 1) / Math.PI)
       setUniform3f(gl, u.flashColor, grid.frontColor.r * flash, grid.frontColor.g * flash, grid.frontColor.b * flash)
     }
     if (intoLayer) {
@@ -2117,6 +2146,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     gl.deleteTexture(titleTexture)
     gl.deleteTexture(ringTexture)
     gl.deleteTexture(shadowTexture)
+    gl.deleteTexture(flashTexture)
     gl.deleteBuffer(quadBuffer)
     field.dispose()
     gl.deleteBuffer(traceBuffer)

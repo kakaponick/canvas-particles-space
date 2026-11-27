@@ -242,6 +242,14 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
   let originY = 0
 
   let fadeBacklog = 0
+  // Where the sheet's fixed point stood from the hole (grid.anchorX/Y) when Light Front's flash went off, and
+  // the place it went off at: a flash stays where it went off on the sheet while the hole moves on. Taken
+  // again while Front Run is 0, while the flash is off and when its place changes; kept here, in the step
+  // every frame takes, so a film's frames that are stepped and not drawn move it too
+  let flashAnchorX = 0
+  let flashAnchorY = 0
+  let flashPlaceX = NaN
+  let flashPlaceY = NaN
   // Seconds the shake's clock is ahead of the scene's, and its undertone's ahead of that
   let shakeLead = 0
   // How far the neutron star has turned, in radians: its turns a second, run up on the scene's clock
@@ -705,6 +713,7 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     cue.ringLayers = 0
     cue.title = false
     fadeBacklog = 0
+    flashPlaceX = NaN
     shakeLead = 0
     undertoneLead = 0
     view.spin = 0
@@ -2244,17 +2253,27 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       readSceneColor(grid.lightColor, state.gridLightColor)
       grid.front = state.gridFront
       if (state.gridFront > 0) {
-        grid.frontX = state.gridFrontX
-        grid.frontY = state.gridFrontY
+        if (state.gridFrontRun <= 0 || state.gridFrontX !== flashPlaceX || state.gridFrontY !== flashPlaceY) {
+          flashAnchorX = grid.anchorX
+          flashAnchorY = grid.anchorY
+          flashPlaceX = state.gridFrontX
+          flashPlaceY = state.gridFrontY
+        }
+        // Its place from the main hole in the plane's units, against the plane's second direction as
+        // sheetPoint takes it: every place fixed on the sheet moves against the hole as its fixed point does
+        grid.frontX = state.gridFrontX * grid.throat + grid.anchorX - flashAnchorX
+        grid.frontY = -state.gridFrontY * grid.throat + grid.anchorY - flashAnchorY
         grid.frontRun = state.gridFrontRun
         const width = Math.max(state.gridFrontWidth, 0.01)
         const lead = Math.min(Math.max(state.gridFrontLead, 0), 1)
         grid.frontLead = width * lead
         grid.frontTail = width * (1 - lead)
-        grid.frontSlope = state.gridFrontSlope
-        grid.frontCapture = state.gridFrontCapture
         readSceneColor(grid.frontColor, state.gridFrontColor)
+      } else {
+        flashPlaceX = NaN
       }
+    } else {
+      flashPlaceX = NaN
     }
     // The sheet's waves, which the grid program draws and the particles on the sheet ride, from the sky's
     if (state.gridSheet > 0 || (settings.ride > 0 && state.gridRideWave > 0)) waveSheet(grid, composite)

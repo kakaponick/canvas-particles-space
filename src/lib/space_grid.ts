@@ -66,18 +66,15 @@ export interface GridSettings {
   lightReach: number
   lightColor: SceneColor
   // A flash of light running over the sheet's lines (0: none, nothing of it is worked out): its band's
-  // brightness, where it flashed in the main well's radii (x along the plane's first direction, y against
-  // its second, as sheetPoint takes them), how far it has run along the surface, the band's rise ahead of
-  // that and its tail behind, all in radii; the steepest slope its way counts, the radius round a hole's
-  // middle a straight way passing nearer is taken at, in that hole's radii, and its colour
+  // brightness, where it flashed, from the main hole in the plane's units (the scene keeps it where it went
+  // off on the sheet), how long its light has run (the eikonal field of light_front.ts), the band's rise
+  // ahead of that and its tail behind, in the main well's radii, and its colour
   front: number
   frontX: number
   frontY: number
   frontRun: number
   frontLead: number
   frontTail: number
-  frontSlope: number
-  frontCapture: number
   frontColor: SceneColor
   // The share of the sheet behind the holes drawn into the layer the lens reads, the rest over the frame
   lensed: number
@@ -151,8 +148,6 @@ export function createGridSettings (): GridSettings {
     frontRun: 0,
     frontLead: 0,
     frontTail: 1,
-    frontSlope: 2.5,
-    frontCapture: 1.25,
     frontColor: createSceneColor(),
     lensed: 0,
     wave: new Float32Array(SHEET_WAVE_FLOATS),

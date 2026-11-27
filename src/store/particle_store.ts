@@ -297,8 +297,6 @@ export interface ParticleState extends FlowState {
   gridFrontRun: number
   gridFrontWidth: number
   gridFrontLead: number
-  gridFrontSlope: number
-  gridFrontCapture: number
   gridFrontColor: string
   bloom: number
   bloomThreshold: number
@@ -707,8 +705,6 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   gridFrontRun: 12,
   gridFrontWidth: 3,
   gridFrontLead: 0.15,
-  gridFrontSlope: 2.5,
-  gridFrontCapture: 1.25,
   gridFrontColor: '#fff1c8',
   bloom: 0,
   bloomThreshold: 0.3,

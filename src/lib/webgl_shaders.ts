@@ -9,11 +9,7 @@ import { KERR_GLSL } from './kerr_glsl'
 import { DISC_GLSL } from './disc_glsl'
 import { LATTICE_SEGMENTS } from './space_lattice'
 import { FLOW_SEGMENTS } from './flows'
-
-// The steps the space sheet's flash measures its way to a vertex in (Light Front, gridFront): the work per
-// vertex of the sheet's line pieces while it is on. 24, crowded round the throat, follow its bend to well
-// under the band's width
-const FLASH_STEPS = 24
+import { FRONT_FIELD_ANGLES, FRONT_FIELD_RADII } from './light_front'
 
 // Attribute locations shared by every program; location 0 is always the full-screen quad
 export const ATTRIBUTE_LOCATIONS = {
@@ -2155,8 +2151,10 @@ export const gridVertexShaderSource = `
   uniform vec4 u_rings;       // rings drawn around the black hole in place of the square cells (0 = the cells), lines through the hole drawn across them, the share of the way the rings are moved from equal steps of depth to equal radii; unused
   uniform float u_front;      // 3D: the nearer black hole's distance from the camera as a share of the main one's (0 = nothing is in front)
   uniform vec4 u_glow;        // how many times brighter a line is at a throat (0 = even), the power of the slowing of time it follows, the light the holes shed on the sheet (0 = none), the shadow radii it falls to half at
-  uniform vec4 u_flash;       // a flash running over the lines: its band's brightness (0 = none), where it flashed on the plane, how far it has run along the surface
-  uniform vec4 u_flashShape;  // the band's rise ahead of the run and its tail behind it, the steepest slope its way counts, the radius round a hole's middle that takes a straight way, in that hole's radii (0 = none)
+  uniform vec4 u_flash;       // a flash running over the lines: its band's brightness (0 = none), where it flashed on the plane from the main hole, how long its light has run
+  uniform vec2 u_flashShape;  // the band's rise ahead of the run and its tail behind it
+  uniform vec3 u_flashField;  // its delay field (light_front.ts): ln of the innermost radius solved, in throat radii; nodes per unit of that logarithm; nodes per radian
+  uniform sampler2D u_flashDelay; // the delay over the straight way from the flash, in throat radii: a row of radii for each angle from the flash's side
 ${SHEET_GLSL}
   varying vec2 v_ends;        // distance along the piece from its start and from its end
   varying float v_across;     // signed distance from its axis
@@ -2166,59 +2164,27 @@ ${SHEET_GLSL}
   varying vec2 v_glow;        // the gain on the sheet's own colour, and how lit it is by the holes
   varying float v_flash;      // how lit by the flash, 0 to 1
 
-  // The steps the flash's way to a vertex is measured in: what the vertex's work holds it to. The steps
-  // crowd round where the way passes nearest the hole, so the bend of the throat is followed closely
-  const int FLASH_STEPS = ${FLASH_STEPS};
-  const float FLASH_STEPS_F = ${FLASH_STEPS}.0;
-
-  // Whether the straight way from the flash across "way" passes within "reach" of a hole's middle "at"
-  bool taken (vec2 way, vec2 at, float reach) {
-    vec2 from = at - u_flash.yz;
-    float along = clamp(dot(from, way) / max(dot(way, way), 0.000001), 0.0, 1.0);
-    return length(way * along - from) < reach;
-  }
-
-  // How lit by the flash a place of the plane is, 0 to 1. The light's way there is the straight line from
-  // the flash on the flat sheet, measured along the surface: each step as long as its flat length and its
-  // climb or fall in the wells together, the climb at most the slope cap times the step, so the way does not
-  // stall on the nearly upright throat. Over a well the surface goes down and back up, so the same way
-  // covers less of the flat and the front lags behind its flat circle: the Shapiro delay as the sheet
-  // picture tells it. A way that passes within the capture radius of a hole is taken by it, and the place
-  // lies in its shadow. The band rises smoothly over its lead ahead of the run and fades behind it as the
-  // square of what is left of its tail
+  // How lit by the flash a place of the plane is, 0 to 1. Its light reaches the place at the time the
+  // eikonal field of the hole's medium gives (light_front.ts): the straight way from the flash, worked out
+  // here, and the delay over it, read from the field solved round the main hole with the flash on its first
+  // axis, so the place is turned into that frame by its angle from the flash's side, mirrored across it. The
+  // light runs as fast as on a flat sheet far from the hole, bends round it, lags over it and closes behind
+  // it; a place inside the field's innermost radius is never reached. The band rises smoothly over its lead
+  // ahead of the run and fades behind it as the square of what is left of its tail
   float flashAt (vec2 at) {
-    vec2 way = at - u_flash.yz;
-    float flatWay = length(way);
+    float straight = length(at - u_flash.yz);
     float run = u_flash.w;
     float lead = u_flashShape.x;
     float tail = u_flashShape.y;
-    float cap = u_flashShape.z;
-    // The way along the surface is no shorter than the flat one and no longer than one that climbs at the
-    // cap all along, so a place the band cannot reach either way is dark without measuring
-    if (flatWay > run + lead || run - flatWay * sqrt(1.0 + cap * cap) > tail) return 0.0;
-    if (u_flashShape.w > 0.0) {
-      if (u_sheetWell.x > 0.0 && taken(way, vec2(0.0), u_flashShape.w * u_sheetWell.x)) return 0.0;
-      if (u_sheetWell2.z > 0.0 && taken(way, u_sheetWell2.xy, u_flashShape.w * u_sheetWell2.z)) return 0.0;
-    }
-    // Where along the way it passes nearest the main hole, as a share of it. The steps are squared toward
-    // that point from both sides; a step that crosses it lies there by either rule, so the steps slide
-    // smoothly as the place moves and the band keeps its shape
-    float nearest = clamp(-dot(u_flash.yz, way) / max(flatWay * flatWay, 0.000001), 0.0, 1.0);
-    float travelled = 0.0;
-    float lastAt = 0.0;
-    float lastDepth = sheetDepth(u_flash.yz);
-    for (int i = 1; i <= FLASH_STEPS; i++) {
-      float share = float(i) / FLASH_STEPS_F;
-      float rest = share <= nearest ? 1.0 - share / nearest : (share - nearest) / (1.0 - nearest);
-      float along = share <= nearest ? nearest - nearest * rest * rest : nearest + (1.0 - nearest) * rest * rest;
-      float depth = sheetDepth(u_flash.yz + way * along);
-      float flatStep = (along - lastAt) * flatWay;
-      float climb = min(abs(depth - lastDepth), cap * flatStep);
-      travelled += sqrt(flatStep * flatStep + climb * climb);
-      lastAt = along;
-      lastDepth = depth;
-    }
-    float behind = run - travelled;
+    // The delay is never below 0, so a place the straight way leaves ahead of the band is dark unread
+    if (straight > run + lead) return 0.0;
+    float throat = u_sheetWell.x;
+    float rho = length(at);
+    float node = (log(rho / throat) - u_flashField.x) * u_flashField.y;
+    if (node < 0.0) return 0.0;
+    float angle = atan(abs(at.x * u_flash.z - at.y * u_flash.y), dot(at, u_flash.yz)) * u_flashField.z;
+    float delay = texture2D(u_flashDelay, vec2((node + 0.5) / ${FRONT_FIELD_RADII}.0, (angle + 0.5) / ${FRONT_FIELD_ANGLES}.0)).r;
+    float behind = run - straight - delay * throat;
     // The floors keep a band with no lead or no tail off a division by zero
     if (behind < 0.0) {
       float rise = clamp(1.0 + behind / max(lead, 0.0001), 0.0, 1.0);

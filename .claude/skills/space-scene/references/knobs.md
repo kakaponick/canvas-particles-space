@@ -720,7 +720,7 @@ straight-on (section 11).
 | The sheet's shape: where its rings stand (equal steps of depth to equal radii), the share of the well's depth it is lifted by, how much wider than the real one the main well is drawn, a star's round-bottomed well in place of the hole's throat, how far a second well reaches toward its own hole | `gridRingSpacing`, `gridLift`, `gridWellWidth`, `neutronSurface`, `gridWell2Bottom` |
 | The sheet in the picture: the share of it behind the holes drawn through the lens, and how its pose turns while 3D eases in | `gridLensed`, `gridEaseTurn` |
 | The sheet's light: how many times brighter a line is at a throat and how close to it that glow keeps; the light the holes shed on it, where it falls to half, and its colour | `gridThroatGlow`, `gridThroatCurve`, `gridLight`, `gridLightReach`, `gridLightColor` |
-| A flash running over the sheet's lines: its band's brightness (0 is off), where it flashed (the main well's radii, x right, y away, as a film's sheet places), how far it has run along the surface, the band's width and its rising share, the slope its way counts, the radius a hole takes a ray at, and its colour | `gridFront`, `gridFrontX`, `gridFrontY`, `gridFrontRun`, `gridFrontWidth`, `gridFrontLead`, `gridFrontSlope`, `gridFrontCapture`, `gridFrontColor` |
+| A flash running over the sheet's lines: its band's brightness (0 is off), where it flashed (the main well's radii, x right, y away, as a film's sheet places), how long its light has run, the band's width and its rising share, and its colour | `gridFront`, `gridFrontX`, `gridFrontY`, `gridFrontRun`, `gridFrontWidth`, `gridFrontLead`, `gridFrontColor` |
 
 - The sheet is a surface of the scene: a piece of the main hole's equator (the plane matter, the flows and
   the orbiting stars follow; across the line of flight while the hole does not spin), dented where the
@@ -770,19 +770,29 @@ straight-on (section 11).
   high values turn the throat white; 0 for both draws the sheet in its one colour.
 - `gridFront` is a flash of light spreading across the sheet, drawn by its own lines lighting up where the
   front is (`gridFrontColor`, added to their colour: no line, no light). Its gate is `gridFront` above 0 and
-  `gridFrontRun` moved on a track: 0 to 30 over 11 s from `gridFrontX` -10 crosses the default well. The
-  flash's place is read from the hole while `gridFrontRun` is 0 and then stays on the sheet: a hole that
-  moves after the flash (dragged, following the cursor, or on a track) leaves the flash where it went off. The
-  light's way to a point is the straight line from the flash on the flat sheet measured along the surface,
-  so over a well, which goes down and back up, the band lags behind its flat circle (the Shapiro delay as
-  the sheet tells it), more with a deeper `gridDepth` or a steeper `gridFrontSlope`; a way passing within
-  `gridFrontCapture` radii of a hole is taken, so a wedge of lines behind the hole, as seen from the flash,
-  stays dark for good: straight ways never close behind it. A second hole delays and takes rays too. From
-  straight above (3D `cameraPitch` 0, or the flat mode's `gridTilt` 0) the band is a circle dented behind
-  the well; from the side the throat's wall lights as the band runs down it. On rings and spokes the band
-  lights short pieces of the few rings and spokes it crosses far out: square cells (`gridRings` 0) draw
-  its whole shape. Added to the sheet's blue the default warm white turns white at any strength; a
-  stronger warm colour reads warm: `gridFrontColor` #ffa040 at `gridFront` 1.2 over `gridSheet` 0.35.
+  `gridFrontRun` moved on a track: 0 to 30 over 12 s from `gridFrontX` -10 crosses the default well. The
+  front is where the flash's first light has got to, as light runs near a Schwarzschild hole (1×, no knob
+  for its strength): the hole is a medium for light, n = (1 + rs/4ρ)³ / (1 − rs/4ρ) in isotropic
+  coordinates, its rs fixed by the shadow (the throat, `gridWellWidth` times the shadow, is the critical
+  impact parameter, 3√3/2 rs), and the arrival time is the eikonal |∇T| = n, solved on the main thread by
+  fast marching round the main hole (`src/lib/light_front.ts`, about 5 ms) whenever the flash's distance
+  from the hole changes. Far out the band is a circle of radius `gridFrontRun`; near the hole it bends
+  round, lags by the Shapiro delay of the rays that pass close (about 2 radii behind the hole for a flash
+  10 radii away, under the default band's width of 3), and its two halves close behind the hole a little
+  late with a notch, the cusp on the line from the flash through the hole, which narrows as the front runs
+  on. `gridDepth` draws the well and does not change the light.
+  The lag shows best from straight above (3D `cameraPitch` 0, or the flat mode's `gridTilt` 0) with a
+  narrow band: `gridFrontWidth` 1 and `gridCell` 1, framed a few radii round the hole. A second hole is not
+  in the field: the front runs over its well as if it were not there (its lines are still cut at its
+  throat). The flash's place is read from the hole while `gridFrontRun` is 0 and then stays on the sheet: a
+  hole that moves across the sheet after the flash (in the flat mode dragged, following the cursor or on a
+  track) leaves the flash where it went off, and the field is solved again for the new distance; in 3D
+  `blackHoleX` moves the whole picture, sheet and flash with it. A flash within 0.32 radii of the middle,
+  or inside a star's surface, lights nothing; a star (`neutronSurface` 1 or more) takes the light that
+  meets it. On rings and spokes the band lights short pieces of the few rings and spokes it crosses far
+  out: square cells (`gridRings` 0) draw its whole shape. Added to the sheet's blue the default warm white
+  turns white at any strength; a stronger warm colour reads warm: `gridFrontColor` #ffa040 at `gridFront`
+  1.2 over `gridSheet` 0.35.
 - `gridEaseTurn` 1 turns the sheet's pose as a camera turns while 3D eases in (`threeDEase`), the plane
   flat and square; 0 squeezes it midway and slides its lines across the screen. The well's bottom stays on
   the hole either way.
