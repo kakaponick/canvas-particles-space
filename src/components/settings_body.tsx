@@ -643,6 +643,18 @@ function SettingsBody () {
           </div>
         </SettingsFine>
       </SettingsSection>
+
+      <SettingsSection id="bloom" title="Bloom">
+        {/* How bright the halo is, what is bright enough for it and how far it spreads; then the threshold's edge, the halo's skirt and its tint */}
+        <SettingSlider field="bloom" />
+        <SettingSlider field="bloomThreshold" />
+        <SettingSlider field="bloomReach" />
+        <SettingsFine id="bloom">
+          <SettingSlider field="bloomKnee" />
+          <SettingSlider field="bloomTail" />
+          <SettingColor field="bloomColor" />
+        </SettingsFine>
+      </SettingsSection>
     </div>
   )
 }

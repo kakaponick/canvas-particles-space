@@ -616,7 +616,17 @@ export const SIMULATION_SETTING_SPECS = {
   flowTraceBeam: spec('Disc Beaming', 0, 6, 0.05, fixed(2), 'Brightness as this power of the shift',
     'The power of the shift g the traced disc\'s brightness goes as. 4 is nature\'s for the whole light of a glowing surface, 3 that of one colour of it; 0 leaves both sides of the disc equally bright and keeps the shift in the colour alone, higher darkens the side going away and the inner edge further.'),
   flowTraceTint: spec('Disc Tint', 0, 4, 0.05, fixed(2, '×'), 'Colour turned per doubling of the shift',
-    'How far the traced disc\'s colour turns toward Ring Approaching (bluer) and Ring Receding (redder) for each doubling or halving of the shift g. At 1 a shift of twice or half turns the colour wholly; 0 keeps every flow its own colour and leaves the shift to the brightness; higher turns the colour at a smaller shift.')
+    'How far the traced disc\'s colour turns toward Ring Approaching (bluer) and Ring Receding (redder) for each doubling or halving of the shift g. At 1 a shift of twice or half turns the colour wholly; 0 keeps every flow its own colour and leaves the shift to the brightness; higher turns the colour at a smaller shift.'),
+  bloom: curved(spoken(spec('Bloom', 0, 12, 0.01, fixed(2, '×'), 'Glow round bright things; 0 = off',
+    'The soft halo a camera\'s lens spreads round everything bright in the frame, the glowing look of a scientific illustration: the light of the finished picture above Bloom Threshold (the photon ring, a traced disc, the sheet\'s lit throat, bright strokes, the title, a body drawn over the hole) is spread over Bloom Reach and added back over the picture in Bloom Color, so bright things bleed light into the dark round them. It acts on the frame as it is shown, the space sheet included, after the film\'s grain and vignette, and leaves the letterbox\'s bars black. This is how bright the halo is: at 1 the halo holds, spread over its width, as much light as the light above the threshold it is made of; at 2 twice that. A line a pixel or two wide spreads its light thin, so the ring and the sheet\'s lines show a halo from about 3, and 6 makes them glow; a dense bright field blooms sooner. Each channel stops at full, so a strong bloom whitens what it surrounds. 0 is off and draws the frame straight to the screen, costing nothing.'), 'Bloom Strength'), 2),
+  bloomThreshold: spoken(spec('Threshold', 0, 1, 0.01, percentOfOne, 'Brightness the glow starts at; lower: more',
+    'How bright a pixel of the finished frame must be, its brightest channel from 0 to 1, before it glows: only the light above this goes into the halo. 0 blooms the whole picture, a soft haze over everything; 30% takes the ring, the throat, bright lines and strokes and leaves the sky and faint trails sharp; 95% only what is near white. Bloom Knee softens the edge. Without Bloom it does nothing.'), 'Bloom Threshold'),
+  bloomKnee: spoken(spec('Knee', 0, 1, 0.01, percentOfOne, 'Softness of the threshold\'s edge',
+    'Half the width of the soft edge round Bloom Threshold, on the same 0-1 scale: light from the threshold less this to the threshold plus this joins the halo gradually, along a square, so nothing shows where the glow begins. 0 is a hard cut, where a pixel just above the threshold glows and one just below does not, and a slowly brightening thing pops into its halo. Without Bloom it does nothing.'), 'Bloom Knee'),
+  bloomReach: curved(spoken(spec('Reach', 0.005, 0.5, 0.005, percentOfOneFine, 'How far the halo spreads, share of height',
+    'How far the widest part of the halo spreads from what is bright, as a share of the frame\'s height, so a film blooms alike at any size. The halo is the sum of blurs of the bright light, each twice as wide as the one before, up to this radius: 2% a tight glow hugging the bright line, 8% a soft halo round the ring, 30% and above a haze over a large part of the frame. Bloom Tail sets how much of the light goes to the wider blurs. Without Bloom it does nothing.'), 'Bloom Reach'), 2),
+  bloomTail: spoken(spec('Tail', 0, 1.5, 0.01, fixed(2), 'Light of the wide halo; lower: tighter',
+    'How much light each wider blur of the halo carries, as a share of the one inside it, twice narrower: 1 gives every width the same light, a halo with a long, slowly fading skirt as a real lens has; 0.5 keeps most of the light close round the bright line; 0 leaves only the narrowest blur, a thin glow; above 1 the wide haze outweighs the glow at the edge. The halo as a whole keeps the brightness Bloom gives. Without Bloom it does nothing.'), 'Bloom Tail')
 } satisfies Record<string, SimulationSettingSpec>
 
 export type SimulationSliderKey = keyof typeof SIMULATION_SETTING_SPECS
@@ -675,6 +685,8 @@ export const SIMULATION_COLOR_SPECS = {
   starsColorCool: color('Cool Tint', 'Color of the coolest background stars',
     'The color of the coolest background stars. Each star\'s tint lies somewhere between Warm Tint and this.',
     'Star Cool Tint'),
+  bloomColor: color('Color', 'Tint of the glow round bright things',
+    'The color the bloom\'s halo is multiplied by: white keeps each bright thing\'s own color in its halo, a warm one gives every halo the glow of hot matter, a blue one the cold light of a diagram.', 'Bloom Color'),
   ...FLOW_COLOR_SPECS
 } satisfies Record<string, SimulationColorSpec>
 

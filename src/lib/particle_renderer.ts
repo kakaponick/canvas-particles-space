@@ -15,6 +15,9 @@ import {
   gridFragmentShaderSource,
   latticeVertexShaderSource,
   flowVertexShaderSource,
+  bloomDownFragmentShaderSource,
+  bloomUpFragmentShaderSource,
+  bloomFinalFragmentShaderSource,
   NEBULA_LAYERS,
   STARS_PER_CELL,
   STAR_RINGS
@@ -45,6 +48,15 @@ const FRONT_TEXTURE_UNIT = 6
 const FRONT_LINES_TEXTURE_UNIT = 7
 // The traced disc's map of the equator, which the flows that lie in it are drawn into
 const DISC_TEXTURE_UNIT = 8
+// The bloom: the finished frame on a unit of its own, and its levels on one more, which they take in turn,
+// each the source of the next pass and the target of the one before: eight textures on units of their own
+// would pass the 16 a fragment shader is sure to have
+const BLOOM_FRAME_TEXTURE_UNIT = 9
+const BLOOM_TEXTURE_UNIT = 10
+// The most times the bloom halves the frame. Each level holds a quarter of the pixels of the one above it,
+// so the levels past the second cost the frame almost nothing; eight is where the smallest is a few pixels
+// high at the pixel budget (PIXEL_BUDGET), and Bloom Reach's top, half the frame's height, needs no more
+const BLOOM_LEVELS = 8
 // The widest a stroke is drawn into the traced disc's map, texels for each CSS pixel of a flow's Size
 const DISC_STROKE_MOST = 4
 // Samples the traced disc's map is read with along the way it is squeezed
@@ -572,6 +584,22 @@ export interface FrameInput extends FieldInput {
   flows: FlowSettings[]
   // Which set of numbers the flows' particles start from (Flow Seed, a whole number; 0 the set in the code)
   flowSeed: number
+  // The halo a camera spreads round whatever is bright, laid over the finished frame and the sheet
+  bloom: BloomSettings
+}
+
+// The bloom (Bloom, Bloom Threshold, Bloom Knee, Bloom Reach, Bloom Tail, Bloom Color): 0 strength draws
+// the frame straight to the screen, with no pass and no texture more
+export interface BloomSettings {
+  strength: number
+  // Where the light the halo takes begins, and the half width of the soft edge round it, on the frame's 0-1
+  threshold: number
+  knee: number
+  // The radius of the widest halo, a share of the frame's height
+  reach: number
+  // The light of each wider level as a share of the one inside it
+  tail: number
+  color: SceneColor
 }
 
 export interface ParticleRenderer {
@@ -699,9 +727,13 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     a_flowCorner: ATTRIBUTE_LOCATIONS.flowCorner,
     a_flowSeed: ATTRIBUTE_LOCATIONS.flowSeed
   })
-  const programs = [fadeProgram, particleProgram, orbitProgram, compositeProgram, gridProgram, latticeProgram, flowProgram]
+  const bloomDownProgram = createProgram(gl, compositeVertexShaderSource, bloomDownFragmentShaderSource, position)
+  const bloomUpProgram = createProgram(gl, compositeVertexShaderSource, bloomUpFragmentShaderSource, position)
+  const bloomFinalProgram = createProgram(gl, compositeVertexShaderSource, bloomFinalFragmentShaderSource, position)
+  const programs = [fadeProgram, particleProgram, orbitProgram, compositeProgram, gridProgram, latticeProgram, flowProgram, bloomDownProgram, bloomUpProgram, bloomFinalProgram]
 
-  if (!fadeProgram || !particleProgram || !orbitProgram || !compositeProgram || !gridProgram || !latticeProgram || !flowProgram) {
+  if (!fadeProgram || !particleProgram || !orbitProgram || !compositeProgram || !gridProgram || !latticeProgram || !flowProgram ||
+    !bloomDownProgram || !bloomUpProgram || !bloomFinalProgram) {
     for (const program of programs) {
       if (program) gl.deleteProgram(program)
     }
@@ -751,6 +783,14 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   const flowUniforms = getUniforms(gl, flowProgram, [
     'resolution', 'zoom', 'place', 'turnX', 'turnY', 'turnZ', 'law', 'shape', 'draw', 'style', 'path', 'age', 'light', 'ride', 'rideShape', ...SHEET_UNIFORMS, 'inPlaneU', 'inPlaneV', 'inPlaneH', 'flowFrom', 'side', 'sideMain', 'sideSecond', 'sideBend', 'sideShape'
   ] as const)
+  const bloomDownUniforms = getUniforms(gl, bloomDownProgram, ['source', 'texel', 'target', 'bright'] as const)
+  const bloomUpUniforms = getUniforms(gl, bloomUpProgram, ['texel', 'target', 'weight'] as const)
+  const bloomFinalUniforms = getUniforms(gl, bloomFinalProgram, ['resolution', 'texel', 'tint', 'letterbox'] as const)
+  gl.useProgram(bloomUpProgram)
+  gl.uniform1i(gl.getUniformLocation(bloomUpProgram, 'u_source'), BLOOM_TEXTURE_UNIT)
+  gl.useProgram(bloomFinalProgram)
+  gl.uniform1i(gl.getUniformLocation(bloomFinalProgram, 'u_frame'), BLOOM_FRAME_TEXTURE_UNIT)
+  gl.uniform1i(gl.getUniformLocation(bloomFinalProgram, 'u_bloom'), BLOOM_TEXTURE_UNIT)
   // The sheet's surface and pose go to the grid and flow programs through the same setter
   const setSheetUniform = (uniform: CachedUniform, x: number, y: number, z: number, w: number) => setUniform4f(gl, uniform, x, y, z, w)
 
@@ -979,6 +1019,34 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   gl.activeTexture(gl.TEXTURE0 + SCENE_TEXTURE_UNIT)
   let discSized = false
 
+  // The bloom's textures: the finished frame, which the composite pass and the sheet draw into while Bloom
+  // is above 0, and the levels it is halved into, the first half the frame's size. The levels hold light
+  // in half floats, so a halo summed from eight of them neither stops at full nor bands; drawing into them
+  // takes EXT_color_buffer_float, which every desktop WebGL2 has (Devices). They get their sizes the first
+  // time the bloom is on, and again after a resize; with Bloom at 0 they hold a texel each
+  gl.getExtension('EXT_color_buffer_float')
+  const bloomFrame = createLinearTexture(BLOOM_FRAME_TEXTURE_UNIT)
+  const bloomFrameBuffer = gl.createFramebuffer()
+  gl.bindFramebuffer(gl.FRAMEBUFFER, bloomFrameBuffer)
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, bloomFrame, 0)
+  interface BloomLevel {
+    texture: WebGLTexture | null
+    framebuffer: WebGLFramebuffer | null
+    width: number
+    height: number
+  }
+  const bloomLevels: BloomLevel[] = []
+  for (let level = 0; level < BLOOM_LEVELS; level++) {
+    const texture = createLinearTexture(BLOOM_TEXTURE_UNIT)
+    const framebuffer = gl.createFramebuffer()
+    gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer)
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0)
+    bloomLevels.push({ texture, framebuffer, width: 1, height: 1 })
+  }
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+  gl.activeTexture(gl.TEXTURE0 + SCENE_TEXTURE_UNIT)
+  let bloomSized = false
+
   // Canvas 2D source-over: color blends by its alpha, the scene alpha stays opaque
   gl.disable(gl.DEPTH_TEST)
   gl.enable(gl.BLEND)
@@ -1006,6 +1074,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     }
     flowsLaid = false
     frontLinesShown = false
+    bloomSized = false
     // The picture is drawn again at the new size; the orbits' traces are lines and outlast it
     wipeScene()
 
@@ -1856,8 +1925,117 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
       orbitsShown = true
     }
     if (!frame.present) return
+    // With Bloom the frame and the sheet go into a texture, which the bloom lays on the screen with its halo
+    const bloomed = frame.bloom.strength > 0
+    if (bloomed) {
+      if (!bloomSized) sizeBloom()
+      gl.bindFramebuffer(gl.FRAMEBUFFER, bloomFrameBuffer)
+    }
     composite(frame.composite, frame.title, frame.background)
     if (frame.grid.brightness > 0) drawGrid(frame.grid, frame.composite, sheetFront(frame), false)
+    if (bloomed) bloom(frame.bloom, frame.composite.letterbox)
+  }
+
+  // Gives the bloom's frame the frame's size, and each level half the size of the one above it
+  function sizeBloom () {
+    bloomSized = true
+    gl.activeTexture(gl.TEXTURE0 + BLOOM_FRAME_TEXTURE_UNIT)
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
+    gl.activeTexture(gl.TEXTURE0 + BLOOM_TEXTURE_UNIT)
+    let levelWidth = width
+    let levelHeight = height
+    for (const level of bloomLevels) {
+      levelWidth = Math.max(Math.ceil(levelWidth / 2), 1)
+      levelHeight = Math.max(Math.ceil(levelHeight / 2), 1)
+      level.width = levelWidth
+      level.height = levelHeight
+      gl.bindTexture(gl.TEXTURE_2D, level.texture)
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, levelWidth, levelHeight, 0, gl.RGBA, gl.HALF_FLOAT, null)
+    }
+    gl.activeTexture(gl.TEXTURE0 + SCENE_TEXTURE_UNIT)
+  }
+
+  // The halo over the frame the composite pass and the sheet drew into the bloom's frame: its light above
+  // the threshold halved level by level, down as far as Bloom Reach asks, then each level added back into
+  // the one above it at Bloom Tail's share, and the first laid over the frame on the screen. The reach is a
+  // share of the frame's height, so a 720p and a 4K frame of a film bloom alike: a level k halvings down
+  // spreads its light some 2^(k+1) pixels, and the deepest level is weighed by how far into it the reach
+  // goes, so the halo widens smoothly as Bloom Reach moves
+  function bloom (settings: BloomSettings, letterbox: number) {
+    const depth = Math.min(Math.max(Math.log2(Math.max(settings.reach * height, 1)) - 1, 1), BLOOM_LEVELS)
+    const count = Math.ceil(depth)
+    const deepest = depth - (count - 1)
+    const tail = Math.max(settings.tail, 0)
+    // The levels' weights summed, which the halo is divided by, so Bloom alone sets how bright it is
+    let total = 0
+    let weight = 1
+    for (let level = 0; level < count; level++) {
+      total += level === count - 1 ? weight * deepest : weight
+      weight *= tail
+    }
+    // Every pass but the way back up covers its target whole
+    gl.disable(gl.BLEND)
+    gl.useProgram(bloomDownProgram)
+    const down = bloomDownUniforms
+    const knee = Math.max(settings.knee, 0)
+    setUniform4f(gl, down.bright, settings.threshold, knee, 1 / (4 * knee + 0.00001), 1)
+    setSamplerUnit(down.source, BLOOM_FRAME_TEXTURE_UNIT)
+    gl.activeTexture(gl.TEXTURE0 + BLOOM_TEXTURE_UNIT)
+    let sourceWidth = width
+    let sourceHeight = height
+    for (let level = 0; level < count; level++) {
+      const target = bloomLevels[level]
+      if (level > 0) {
+        setSamplerUnit(down.source, BLOOM_TEXTURE_UNIT)
+        setUniform4f(gl, down.bright, settings.threshold, knee, 1 / (4 * knee + 0.00001), 0)
+        gl.bindTexture(gl.TEXTURE_2D, bloomLevels[level - 1].texture)
+      }
+      gl.bindFramebuffer(gl.FRAMEBUFFER, target.framebuffer)
+      gl.viewport(0, 0, target.width, target.height)
+      setUniform2f(gl, down.texel, 1 / sourceWidth, 1 / sourceHeight)
+      setUniform2f(gl, down.target, target.width, target.height)
+      gl.drawArrays(gl.TRIANGLES, 0, QUAD_VERTEX_COUNT)
+      sourceWidth = target.width
+      sourceHeight = target.height
+    }
+    gl.enable(gl.BLEND)
+    gl.blendFunc(gl.ONE, gl.ONE)
+    gl.useProgram(bloomUpProgram)
+    const up = bloomUpUniforms
+    for (let level = count - 1; level > 0; level--) {
+      const source = bloomLevels[level]
+      const target = bloomLevels[level - 1]
+      gl.bindTexture(gl.TEXTURE_2D, source.texture)
+      gl.bindFramebuffer(gl.FRAMEBUFFER, target.framebuffer)
+      gl.viewport(0, 0, target.width, target.height)
+      setUniform2f(gl, up.texel, 0.5 / source.width, 0.5 / source.height)
+      setUniform2f(gl, up.target, target.width, target.height)
+      setUniform1f(gl, up.weight, level === count - 1 ? tail * deepest : tail)
+      gl.drawArrays(gl.TRIANGLES, 0, QUAD_VERTEX_COUNT)
+    }
+    gl.disable(gl.BLEND)
+    const first = bloomLevels[0]
+    gl.bindTexture(gl.TEXTURE_2D, first.texture)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+    gl.viewport(0, 0, width, height)
+    gl.useProgram(bloomFinalProgram)
+    const final = bloomFinalUniforms
+    const scale = settings.strength / total
+    setUniform2f(gl, final.resolution, width, height)
+    setUniform2f(gl, final.texel, 0.5 / first.width, 0.5 / first.height)
+    setUniform3f(gl, final.tint, settings.color.r * scale, settings.color.g * scale, settings.color.b * scale)
+    setUniform1f(gl, final.letterbox, letterbox * ratio)
+    gl.drawArrays(gl.TRIANGLES, 0, QUAD_VERTEX_COUNT)
+    gl.enable(gl.BLEND)
+    gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
+    gl.activeTexture(gl.TEXTURE0 + SCENE_TEXTURE_UNIT)
+  }
+
+  // Points a sampler at a texture unit, skipping the call when it already is
+  function setSamplerUnit (uniform: CachedUniform, unit: number) {
+    if (uniform.x === unit) return
+    uniform.x = unit
+    gl.uniform1i(uniform.location, unit)
   }
 
   // The share of the main hole's distance the nearer hole stands at, which the sheet's pieces in front of
@@ -1879,6 +2057,12 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     gl.deleteFramebuffer(linesBoth)
     gl.deleteFramebuffer(discFramebuffer)
     gl.deleteTexture(discMap)
+    gl.deleteFramebuffer(bloomFrameBuffer)
+    gl.deleteTexture(bloomFrame)
+    for (const level of bloomLevels) {
+      gl.deleteFramebuffer(level.framebuffer)
+      gl.deleteTexture(level.texture)
+    }
     gl.deleteTexture(sceneTexture)
     for (const layer of [lines, frontScene, frontLines]) {
       gl.deleteFramebuffer(layer.framebuffer)

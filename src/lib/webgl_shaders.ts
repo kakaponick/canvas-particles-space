@@ -1983,6 +1983,92 @@ ${DENT_GLSL}
 // the disc is traced, so the pass every other scene runs carries none of its code and none of its registers
 export const compositeDiscFragmentShaderSource = '#define TRACED_DISC\n' + compositeFragmentShaderSource
 
+// The bloom (particle_renderer.ts, bloom): the finished frame, the sheet over it included, is drawn into a
+// texture, and the light of it above Bloom Threshold is halved in size again and again, each level blurred
+// a little on the way down and on the way back up, and added over the frame. Each level's blur is the dual
+// filter's (Bjørge, SIGGRAPH 2015): five taps down, eight up, so a level costs a quarter of the one above
+// it. All three passes draw the full-screen quad with compositeVertexShaderSource and place their texel by
+// gl_FragCoord, so a level of any size reads its source at the same place on the frame
+
+// Halves a level: the frame into the first level, through the bright pass, then each level into the next.
+// The bright pass is the soft knee: light below Threshold - Knee is dropped, light above Threshold + Knee
+// kept less the threshold, and a square joins the two, so no edge shows where the glow begins
+export const bloomDownFragmentShaderSource = `
+  precision highp float;
+
+  uniform sampler2D u_source;
+  uniform vec2 u_texel;    // one texel of the source, in its coordinates: the taps lie a texel off diagonally, each at the corner of four
+  uniform vec2 u_target;   // the size of the level drawn, in its pixels
+  uniform vec4 u_bright;   // the threshold, the knee, 1 / (4 knee), and 1 for the bright pass (the first level), 0 after it
+
+  vec3 tap (vec2 at) {
+    vec3 color = texture2D(u_source, at).rgb;
+    if (u_bright.w > 0.0) {
+      float peak = max(color.r, max(color.g, color.b));
+      float soft = clamp(peak - u_bright.x + u_bright.y, 0.0, 2.0 * u_bright.y);
+      color *= max(soft * soft * u_bright.z, peak - u_bright.x) / max(peak, 0.0001);
+    }
+    return color;
+  }
+
+  void main () {
+    vec2 at = gl_FragCoord.xy / u_target;
+    vec2 cross = vec2(u_texel.x, -u_texel.y);
+    vec3 sum = tap(at) * 4.0 + tap(at - u_texel) + tap(at + u_texel) + tap(at + cross) + tap(at - cross);
+    gl_FragColor = vec4(sum * 0.125, 1.0);
+  }
+`
+
+// Doubles a level back: the tent of eight taps round the place, which the renderer adds into the level
+// above at u_weight, the share Bloom Tail gives the wider halo
+export const bloomUpFragmentShaderSource = `
+  precision highp float;
+
+  uniform sampler2D u_source;
+  uniform vec2 u_texel;    // half a texel of the source, in its coordinates
+  uniform vec2 u_target;   // the size of the level drawn into, in its pixels
+  uniform float u_weight;
+
+  void main () {
+    vec2 at = gl_FragCoord.xy / u_target;
+    vec2 h = u_texel;
+    vec3 sum = texture2D(u_source, at + vec2(-2.0 * h.x, 0.0)).rgb + texture2D(u_source, at + vec2(2.0 * h.x, 0.0)).rgb
+      + texture2D(u_source, at + vec2(0.0, -2.0 * h.y)).rgb + texture2D(u_source, at + vec2(0.0, 2.0 * h.y)).rgb
+      + 2.0 * (texture2D(u_source, at + h).rgb + texture2D(u_source, at - h).rgb
+      + texture2D(u_source, at + vec2(h.x, -h.y)).rgb + texture2D(u_source, at + vec2(-h.x, h.y)).rgb);
+    gl_FragColor = vec4(sum * (u_weight / 12.0), 1.0);
+  }
+`
+
+// The frame with its halo added: the first level doubled back by the same tent, times Bloom and Bloom
+// Color over the levels' summed weights, and kept off the letterbox's bars. A dither of half an 8-bit step,
+// fixed to the pixel, keeps a wide faint halo from banding on a dark sky, and draws the same bytes each time
+export const bloomFinalFragmentShaderSource = `
+  precision highp float;
+
+  uniform sampler2D u_frame;
+  uniform sampler2D u_bloom;
+  uniform vec2 u_resolution;  // the frame's size in device pixels
+  uniform vec2 u_texel;       // half a texel of the first level, in its coordinates
+  uniform vec3 u_tint;        // Bloom times Bloom Color, over the summed weights of the levels
+  uniform float u_letterbox;  // the bars' height in device pixels, 0 = none
+
+  void main () {
+    vec2 at = gl_FragCoord.xy / u_resolution;
+    vec2 h = u_texel;
+    vec3 halo = texture2D(u_bloom, at + vec2(-2.0 * h.x, 0.0)).rgb + texture2D(u_bloom, at + vec2(2.0 * h.x, 0.0)).rgb
+      + texture2D(u_bloom, at + vec2(0.0, -2.0 * h.y)).rgb + texture2D(u_bloom, at + vec2(0.0, 2.0 * h.y)).rgb
+      + 2.0 * (texture2D(u_bloom, at + h).rgb + texture2D(u_bloom, at - h).rgb
+      + texture2D(u_bloom, at + vec2(h.x, -h.y)).rgb + texture2D(u_bloom, at + vec2(-h.x, h.y)).rgb);
+    halo *= u_tint / 12.0;
+    if (u_letterbox > 0.0) {
+      halo *= smoothstep(u_letterbox - 1.0, u_letterbox + 1.0, min(gl_FragCoord.y, u_resolution.y - gl_FragCoord.y));
+    }
+    float dither = (fract(sin(dot(floor(gl_FragCoord.xy), vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0;
+    gl_FragColor = vec4(texture2D(u_frame, at).rgb + halo + dither * step(0.0005, halo.r + halo.g + halo.b), 1.0);
+  }
+`
+
 // The space sheet (space_grid.ts), drawn over the finished frame: the surface of SHEET_GLSL seen through its
 // pose. Lengths on the sheet are in the plane's units, places on the screen in CSS pixels
 

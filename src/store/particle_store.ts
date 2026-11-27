@@ -273,6 +273,12 @@ export interface ParticleState extends FlowState {
   gridLight: number
   gridLightReach: number
   gridLightColor: string
+  bloom: number
+  bloomThreshold: number
+  bloomKnee: number
+  bloomReach: number
+  bloomTail: number
+  bloomColor: string
   // Width of the lensed grid's lines, CSS pixels; the CSS pixels a cell of it pulled in shrinks to before its
   // lines start to merge into a haze, and the share of that by which the haze is whole
   gridSkyLine: number
@@ -650,6 +656,12 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   gridLight: 1,
   gridLightReach: 3,
   gridLightColor: '#d6ebff',
+  bloom: 0,
+  bloomThreshold: 0.3,
+  bloomKnee: 0.25,
+  bloomReach: 0.08,
+  bloomTail: 0.85,
+  bloomColor: '#ffffff',
   gridSkyLine: 1.5,
   gridSkyHaze: 6,
   gridSkyHazeSpan: 0.5,

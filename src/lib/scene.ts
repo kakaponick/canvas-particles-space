@@ -592,6 +592,7 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     lattice: createLatticeSettings(),
     flows: FLOW_KEYS.map(() => createFlowSettings()),
     flowSeed: 0,
+    bloom: { strength: 0, threshold: 0.3, knee: 0.25, reach: 0.08, tail: 0.85, color: createSceneColor() },
     step: settings
   }
 
@@ -2143,6 +2144,16 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     composite.vignetteStart = params.vignetteStart
     composite.vignetteEnd = params.vignetteEnd
     composite.filmKnee = params.filmKnee
+    // The bloom over the finished frame, the sheet included
+    const bloom = frame.bloom
+    bloom.strength = state.bloom
+    if (state.bloom > 0) {
+      bloom.threshold = state.bloomThreshold
+      bloom.knee = state.bloomKnee
+      bloom.reach = state.bloomReach
+      bloom.tail = state.bloomTail
+      readSceneColor(bloom.color, state.bloomColor)
+    }
 
     // The space grid: the flat one is read through the lens in the composite pass, the sheet is laid
     // over the frame with its well under the black hole

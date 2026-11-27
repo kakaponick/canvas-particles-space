@@ -1086,6 +1086,29 @@ covers the hole, so there all of this is still.
   round the farther hole keeps its shape while the other circles. `threeDFrontBetween` draws that matter
   once, where the nearer lens alone shows it, and with `threeDFrontBend` blends by its depth in the band.
 
+### Bloom: the camera's halo
+
+Gate: `bloom` above 0 and something in the frame brighter than `bloomThreshold`.
+
+| What it sets | Keys |
+|---|---|
+| How bright the halo is, what is bright enough to glow, how far the halo spreads | `bloom`, `bloomThreshold`, `bloomReach` |
+| The threshold's soft edge, the light of the wide halo against the narrow, its tint | `bloomKnee`, `bloomTail`, `bloomColor` |
+
+- The bloom acts on the finished frame as it is shown, the sheet over it included, after the grain and
+  the vignette: whatever is bright there glows, whichever law drew it (the ring, a traced disc, the
+  sheet's lit throat, bright strokes, the title). It is a camera's look, not a law of the scene, so it
+  bends with nothing and stands in front of the holes and behind them alike.
+- The frame stops at full, so only the light between `bloomThreshold` and full feeds the halo, and a line
+  a pixel or two wide spreads it thin: the ring and the sheet's lines show a halo from `bloom` 3 and glow
+  at 6 with `bloomThreshold` 0.3. A dense field of bright strokes blooms far sooner, and a strong bloom over
+  it lifts the faint streaks into a haze: keep `bloom` low or `bloomThreshold` high on a full field.
+- `bloomReach` is a share of the frame's height, so a 720p tracer and the 1080p film bloom alike.
+  `bloomTail` at 1 gives a long skirt round a bright thing, at 0.5 a tight glow; `bloom` keeps the halo's
+  brightness as both move.
+- `bloomColor` multiplies the halo: white keeps each thing's own colour in its glow. The letterbox's bars
+  stay black.
+
 ## 12. The page only
 
 `frameRateCap`, `fpsCounter` and `scrollSpeedStep` belong to a device or to a hand on the wheel. They act
