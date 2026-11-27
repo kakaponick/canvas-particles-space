@@ -805,7 +805,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   const compositeUniforms = getUniforms(gl, compositeProgram, COMPOSITE_UNIFORMS)
   const gridUniforms = getUniforms(gl, gridProgram, [
     'resolution', 'pixelRatio', ...SHEET_UNIFORMS, 'lines', 'lens', 'jolt', 'color',
-    'shadow', 'frame', 'shadow2', 'sheet', 'clearing', 'rings', 'front', 'kept', 'glow', 'lightColor', 'flash', 'flashShape', 'flashField', 'flashColor'
+    'shadow', 'frame', 'shadow2', 'sheet', 'clearing', 'rings', 'front', 'kept', 'glow', 'lightColor', 'flash', 'flashShape', 'flashField', 'flashColor', 'flashGhost'
   ] as const)
 
   const latticeUniforms = getUniforms(gl, latticeProgram, [
@@ -1840,6 +1840,9 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
       setUniform3f(gl, u.flashField, frontField ? frontField.inner : 0, (FRONT_FIELD_RADII - 1) / Math.max(frontField ? frontField.outer - frontField.inner : 1, 0.001),
         (FRONT_FIELD_ANGLES - 1) / Math.PI)
       setUniform3f(gl, u.flashColor, grid.frontColor.r * flash, grid.frontColor.g * flash, grid.frontColor.b * flash)
+      // The ghost is a cool white, so it never reads as the warm light itself
+      const ghost = grid.frontGhost * flash
+      setUniform4f(gl, u.flashGhost, 0.85 * ghost, 0.92 * ghost, ghost, ghost > 0 ? 1 : 0)
     }
     if (intoLayer) {
       setUniform2f(gl, u.kept, lensed, 0)

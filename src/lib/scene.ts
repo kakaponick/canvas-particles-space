@@ -2288,6 +2288,7 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
         const lead = Math.min(Math.max(state.gridFrontLead, 0), 1)
         grid.frontLead = width * lead
         grid.frontTail = width * (1 - lead)
+        grid.frontGhost = Math.min(Math.max(state.gridFrontGhost, 0), 1)
         readSceneColor(grid.frontColor, state.gridFrontColor)
       }
     }

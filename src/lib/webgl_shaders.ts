@@ -2162,7 +2162,8 @@ ${SHEET_GLSL}
   varying float v_alpha;
   varying float v_front;      // 1 for a piece nearer the camera than the holes, which passes in front of them
   varying vec2 v_glow;        // the gain on the sheet's own colour, and how lit it is by the holes
-  varying float v_flash;      // how lit by the flash, 0 to 1
+  uniform vec4 u_flashGhost;  // the ghost's colour at its brightness, and 1 while it is drawn
+  varying vec2 v_flash;       // how lit by the flash, 0 to 1, and by its ghost, where its light would be with no hole
 
   // How lit by the flash a place of the plane is, 0 to 1. Its light reaches the place at the time the
   // eikonal field of the hole's medium gives (light_front.ts): the straight way from the flash, worked out
@@ -2171,20 +2172,8 @@ ${SHEET_GLSL}
   // light runs as fast as on a flat sheet far from the hole, bends round it, lags over it and closes behind
   // it; a place inside the field's innermost radius is never reached. The band rises smoothly over its lead
   // ahead of the run and fades behind it as the square of what is left of its tail
-  float flashAt (vec2 at) {
-    float straight = length(at - u_flash.yz);
-    float run = u_flash.w;
-    float lead = u_flashShape.x;
-    float tail = u_flashShape.y;
-    // The delay is never below 0, so a place the straight way leaves ahead of the band is dark unread
-    if (straight > run + lead) return 0.0;
-    float throat = u_sheetWell.x;
-    float rho = length(at);
-    float node = (log(rho / throat) - u_flashField.x) * u_flashField.y;
-    if (node < 0.0) return 0.0;
-    float angle = atan(abs(at.x * u_flash.z - at.y * u_flash.y), dot(at, u_flash.yz)) * u_flashField.z;
-    float delay = texture2D(u_flashDelay, vec2((node + 0.5) / ${FRONT_FIELD_RADII}.0, (angle + 0.5) / ${FRONT_FIELD_ANGLES}.0)).r;
-    float behind = run - straight - delay * throat;
+  // The band's light at a place a distance behind the run (negative ahead of it)
+  float flashBand (float behind, float lead, float tail) {
     // The floors keep a band with no lead or no tail off a division by zero
     if (behind < 0.0) {
       float rise = clamp(1.0 + behind / max(lead, 0.0001), 0.0, 1.0);
@@ -2192,6 +2181,24 @@ ${SHEET_GLSL}
     }
     float left = max(1.0 - behind / max(tail, 0.0001), 0.0);
     return left * left;
+  }
+
+  vec2 flashAt (vec2 at) {
+    float straight = length(at - u_flash.yz);
+    float run = u_flash.w;
+    float lead = u_flashShape.x;
+    float tail = u_flashShape.y;
+    // The delay is never below 0, so a place the straight way leaves ahead of the band is dark unread
+    if (straight > run + lead) return vec2(0.0);
+    // The ghost: the same band where the light would stand with no hole, the straight way and no delay
+    float ghost = u_flashGhost.a > 0.0 ? flashBand(run - straight, lead, tail) : 0.0;
+    float throat = u_sheetWell.x;
+    float rho = length(at);
+    float node = (log(rho / throat) - u_flashField.x) * u_flashField.y;
+    if (node < 0.0) return vec2(0.0, ghost);
+    float angle = atan(abs(at.x * u_flash.z - at.y * u_flash.y), dot(at, u_flash.yz)) * u_flashField.z;
+    float delay = texture2D(u_flashDelay, vec2((node + 0.5) / ${FRONT_FIELD_RADII}.0, (angle + 0.5) / ${FRONT_FIELD_ANGLES}.0)).r;
+    return vec2(flashBand(run - straight - delay * throat, lead, tail), ghost);
   }
 
   // The radius of ring k of the n the sheet is drawn with, at k / (n + 1) of the way down the well, so the
@@ -2334,7 +2341,7 @@ ${SHEET_GLSL}
     v_alpha = 0.0;
     v_front = 0.0;
     v_glow = vec2(1.0, 0.0);
-    v_flash = 0.0;
+    v_flash = vec2(0.0);
     // What lies nearer than the camera's near plane is cut off where the piece crosses it, as a stroke of
     // the field is
     float near = u_sheetV.w;
@@ -2396,6 +2403,7 @@ export const gridFragmentShaderSource = `
   uniform vec2 u_kept;     // the share drawn of a piece behind the holes, and of one in front of them
   uniform vec3 u_lightColor; // colour of the holes' light on the sheet, at the sheet's brightness
   uniform vec3 u_flashColor; // colour of the flash running over the lines, at its band's brightness
+  uniform vec4 u_flashGhost; // its ghost's colour at its brightness, and 1 while it is drawn
 
   varying vec2 v_ends;
   varying float v_across;
@@ -2403,7 +2411,7 @@ export const gridFragmentShaderSource = `
   varying float v_alpha;
   varying float v_front;
   varying vec2 v_glow;
-  varying float v_flash;
+  varying vec2 v_flash;
 
   void main () {
     // Round caps, so the pieces of a line join without a notch
@@ -2419,7 +2427,7 @@ export const gridFragmentShaderSource = `
       if (u_shadow2.z > 0.0) alpha *= smoothstep(u_shadow2.z * u_clearing.x + 1.0, u_shadow2.z * u_clearing.y + 2.0, length(screen - u_shadow2.xy));
     }
     if (u_frame.y > 0.0) alpha *= smoothstep(u_frame.y - 1.0, u_frame.y + 1.0, min(screen.y, u_frame.x - screen.y));
-    gl_FragColor = vec4((u_color.rgb * v_glow.x + u_lightColor * v_glow.y + u_flashColor * v_flash) * alpha, 1.0);
+    gl_FragColor = vec4((u_color.rgb * v_glow.x + u_lightColor * v_glow.y + u_flashColor * v_flash.x + u_flashGhost.rgb * v_flash.y) * alpha, 1.0);
   }
 `
 

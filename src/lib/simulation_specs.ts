@@ -608,6 +608,8 @@ export const SIMULATION_SETTING_SPECS = {
     'Width of a photon\'s stroke and trail, in screen pixels, the same near and far. Below a pixel it is drawn a pixel wide and dimmed. Without Photons it does nothing.'), 'Sheet Photon Width'), 2),
   gridPhotonFade: curved(spoken(spec('Photon Fade', 0.05, 20, 0.05, fixed(2, ' r'), 'Run a fallen photon fades over',
     'How long a photon the hole has taken keeps showing, in radii of run: it stays where it reached the horizon, its trail drawing into it, and fades out over this much of Front Run. Without Photons it does nothing.'), 'Sheet Photon Fade'), 2),
+  gridFrontGhost: spoken(spec('Front Ghost', 0, 1, 0.01, percentOfOne, 'Ring where the light would be with no hole',
+    'How bright a thin white ring is drawn where the flash of Light Front would stand if the hole did not slow and bend its light: a circle of radius Front Run round the flash, the same band\'s shape, on the same lines. The space between it and the warm band is the delay the hole puts on the light (the Shapiro delay): small far off, a couple of radii behind the hole, where the light has passed close. 0 draws none. Without Light Front it does nothing.'), 'Sheet Front Ghost'),
   gridLatticeLine: curved(spoken(spec('Lattice Line', 0.25, 12, 0.05, fixed(2, ' px'), 'Width of the lattice\'s lines',
     'Width of the lattice\'s lines, in screen pixels, the same near and far and at any zoom.'), 'Lattice Line Width'), 2),
   gridLatticeGain: spoken(spec('Lattice Gain', 0, 8, 0.05, fixed(2, '×'), 'Lattice brightness, × the grids\' color',

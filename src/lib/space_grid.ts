@@ -75,6 +75,8 @@ export interface GridSettings {
   frontRun: number
   frontLead: number
   frontTail: number
+  // How bright the ring stands where the flash's light would be with no hole (0 = none)
+  frontGhost: number
   frontColor: SceneColor
   // The share of the sheet behind the holes drawn into the layer the lens reads, the rest over the frame
   lensed: number
@@ -148,6 +150,7 @@ export function createGridSettings (): GridSettings {
     frontRun: 0,
     frontLead: 0,
     frontTail: 1,
+    frontGhost: 0,
     frontColor: createSceneColor(),
     lensed: 0,
     wave: new Float32Array(SHEET_WAVE_FLOATS),

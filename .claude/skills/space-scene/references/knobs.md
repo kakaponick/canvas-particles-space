@@ -723,7 +723,7 @@ straight-on (section 11).
 | The sheet's shape: where its rings stand (equal steps of depth to equal radii), the share of the well's depth it is lifted by, how much wider than the real one the main well is drawn, a star's round-bottomed well in place of the hole's throat, how far a second well reaches toward its own hole | `gridRingSpacing`, `gridLift`, `gridWellWidth`, `neutronSurface`, `gridWell2Bottom` |
 | The sheet in the picture: the share of it behind the holes drawn through the lens, and how its pose turns while 3D eases in | `gridLensed`, `gridEaseTurn` |
 | The sheet's light: how many times brighter a line is at a throat and how close to it that glow keeps; the light the holes shed on it, where it falls to half, and its colour | `gridThroatGlow`, `gridThroatCurve`, `gridLight`, `gridLightReach`, `gridLightColor` |
-| A flash running over the sheet's lines: its band's brightness (0 is off), where it flashed (the main well's radii, x right, y away, as a film's sheet places), how long its light has run, the band's width and its rising share, and its colour | `gridFront`, `gridFrontX`, `gridFrontY`, `gridFrontRun`, `gridFrontWidth`, `gridFrontLead`, `gridFrontColor` |
+| A flash running over the sheet's lines: its band's brightness (0 is off), where it flashed (the main well's radii, x right, y away, as a film's sheet places), how long its light has run, the band's width and its rising share, a ghost ring where the light would be with no hole, and its colour | `gridFront`, `gridFrontX`, `gridFrontY`, `gridFrontRun`, `gridFrontWidth`, `gridFrontLead`, `gridFrontGhost`, `gridFrontColor` |
 | The flash's light as photons on the paths of light past the hole: their brightness (0 is off), how many, how far their trails reach back (radii of run), the strokes' width, the run a fallen photon fades over, and their colour | `gridFrontPhotons`, `gridPhotonCount`, `gridPhotonTrail`, `gridPhotonWidth`, `gridPhotonFade`, `gridPhotonColor` |
 
 - The sheet is a surface of the scene: a piece of the main hole's equator (the plane matter, the flows and
@@ -801,6 +801,11 @@ straight-on (section 11).
   out: square cells (`gridRings` 0) draw its whole shape. Added to the sheet's blue the default warm white
   turns white at any strength; a stronger warm colour reads warm: `gridFrontColor` #ffa040 at `gridFront`
   1.2 over `gridSheet` 0.35.
+  `gridFrontGhost` (0 to 1) adds a thin cool-white ring where the light would stand with no hole: a circle of
+  radius `gridFrontRun` round the flash, the band's own shape. The delay is then the gap between it and the
+  warm band, which the eye reads at once, where the band alone shows only a slight dent: a little everywhere
+  (the index is above 1 at any distance), about 2 radii behind the hole for a flash 4 to 10 radii away.
+  0.5 to 0.7 under a warm band at 2 to 3 reads as a reference, not a second flash.
 - `gridFrontPhotons` draws the same flash as light itself: photons sent evenly in angle from `gridFrontX`,
   `gridFrontY`, each where light has run `gridFrontRun` along its own ray, the null geodesic of the medium
   Light Front's band is solved in (`src/lib/photons.ts` takes its index and scale from `src/lib/light_front.ts`), so
