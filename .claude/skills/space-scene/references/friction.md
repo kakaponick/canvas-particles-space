@@ -68,7 +68,32 @@ Once the missing piece exists (a knob, a fix in code, a sentence in `knobs.md`, 
 - Now: pieces deep in a well are shorter on the surface and hold the same amount of space: draw unequal
   lengths with the same count of dots in each. Check a claim's wording against the physics before drawing it.
 
+## The film script
+
+### A rewritten line still timed by its old take (2026-11-27)
+- Wanted / got: "predicted by Einstein · 1916" after "a ripple of space"; with the reel's input the ripple
+  caption came at 4.45 s, the old take's "ripple" near its end, and the 1916 caption, at its word-count share,
+  came before it.
+- Cause: a reel's `input` keeps the cues of the take it was spoken from until the line is voiced again, so a
+  rewritten line's old cue words, where they survive, land at their old seconds.
+- Now: where two captions must keep an order, key the second to `Math.max(its word, the first + a beat)`;
+  voice a rewritten line before judging its timing.
+- Where: shot "small" of `films/fourth_dimension_pop_08_ripple.js`.
+
 ## The scene
+
+### A body that fades in or out over a hole showed the hole through it (2026-11-27)
+- Wanted / got: the textbook's ball coming up with the picture and going with it; got a see-through ball with
+  the hole's black shadow and the throat's crowded rings inside it at every fade (pop film clips 5 to 8), and
+  at the openings the chapter's title lying over the ball.
+- Cause: a shape's `opacity` dims its fill too, and shapes lie over the fade, so a half-lit ball shows what
+  is under it at full strength.
+- Now: lay an opaque black disc of the body's size under it for the body's whole life (same centre and
+  values) and ramp only the body; start the ramp as the title's last 0.4 s fade out (about 2.05 s, 2.3 s
+  where the body is under the title). A black disc on a fully lit scene reads as a bare hole: keep its
+  bare stretch within the fade-in.
+- Where: the ball's draws at the head of `films/fourth_dimension_pop_06_above.js` to `_08_ripple.js`, and at
+  "mass" in `_05_sheet.js`.
 
 ### A textbook ball hanging under the sheet's throat (2026-11-27)
 - Wanted / got: a mass sitting in a dent; got a ball of 1.05 radii at `{ hole: [0, 0] }` under the tip of a
@@ -77,8 +102,9 @@ Once the missing piece exists (a knob, a fix in code, a sentence in `knobs.md`, 
   depth, and there is no knob for a wider bowl: a ball as wide as the shadow always ends the throat.
 - Now: a ball wider than the throat, lifted into the well so it still covers the shadow (lift + 1 below its
   radius): radius 1.9 at `{ hole: [0, 0.8] }` on depth 4 at tilt 68 lies in the bowl with the walls round its
-  upper half; at depth 8 the throat stood over it like a stalk again. Seen from straight above, slide the
-  lift to 0 while the camera rises. A ball over a hole hides the throat's crowded rings inside its radius.
+  upper half; at depth 8 the throat stood over it like a stalk again, and at tilt 66 from depth 3 the neck
+  shows from 4.6 on (4.3 still holds). Seen from straight above, slide the lift to 0 while the camera rises.
+  A ball over a hole hides the throat's crowded rings inside its radius.
 - Where: `BALL`, `LIFT` in `films/fourth_dimension_pop_05_sheet.js` to `_08_ripple.js`.
 
 ### A pair's ripple not seen until the merger (2026-11-27)
@@ -86,9 +112,14 @@ Once the missing piece exists (a knob, a fix in code, a sentence in `knobs.md`, 
   merger, and raising `gridWaveLift` folded the throats into bright needles beside the pair (pop film 5:02).
 - Cause: the spiral wave grows as 1 over the pair's distance and its crests lengthen with a slow orbit, so 6
   radii apart it is long and low; it is strongest at the pair's middle, where the steep wells fold first.
-- Now: a closer pair (4 radii), shallow wells (`gridDepth` 1.5), `companionWaves` 10 with `gridWaveLift` 9,
-  ramped in over 1.5 s, and a wide clearing (`gridClearing` 3.6, `gridClearingEdge` 8) so the middle is one
-  dark pit; at lift 13 needles came back at any clearing tried. Start closing the clearing at the merger.
+- Now: a closer pair (4 radii) on shallow wells (`gridDepth` 1.5). The wide clearing that hid the needles at
+  lift 9 (3.6 out to 8) left the pair in a large black void with creases at its sides and a needle under it,
+  the next review's blocker. Clearing 1.6 out to 3.6, `gridWaveLift` 3, `companionWaves` 5 and
+  `gridThroatGlow` 2 show two wells, no void, no needle; lift 4 to 6 brought creases or needles back at every
+  clearing from 1.3 to 2. Close the clearing to 1.04 within 0.8 s of the merger.
+- Still missing: crests that read before the merger without folding the throats. At lift 3 the spiral is
+  faint in a still, and the ripple reads from the merger's rings on; a lift that falls off near the wells
+  (a knob) would let the far crests stand up.
 - Where: `PAIR`, `WAVES` in `films/fourth_dimension_pop_08_ripple.js`.
 
 ## The tools and the machine

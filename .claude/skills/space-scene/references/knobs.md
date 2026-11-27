@@ -896,7 +896,9 @@ line of flight).
   above 1 leaves only the far side.
 - While `threeDEase` eases the camera in, the lattice is seen down the line of flight and its rows pile up
   into a thick blurred cross through the hole (the lens is not the cause): keep `gridLattice` at 0 until
-  about 1.9 s into a 2.6 s ease, then bring it up.
+  the ease is past halfway, then bring it up. 1.9 s into a 2.6 s ease left 2 s of nothing on screen after
+  the sheet faded; a 1.8 s ease with the lattice from 0.95 s, over 0.8 s, shows no cross and no empty
+  stretch.
 - A cube of cells is its own mirror image across yaw 45, so a turn through 45 reads as no change. Turn on
   one side of 45 and carry the move in pitch and a small `cameraMoveIn` too, the near half drawn
   (`gridLatticeNear` below 1, `threeDFrontDepth` above 0) and the far half dimmed (`gridLatticeFar` 0.25):

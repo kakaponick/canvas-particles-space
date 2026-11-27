@@ -8,7 +8,7 @@ const LINES = {
   blind: 'It cannot see the well. It cannot even imagine down. It just notices something odd: everything it drops slides toward the same spot.',
   word: 'So it invents a word for that. It calls it gravity.',
   us: 'Now the same story, one step up. We might be that creature. Our sheet just has three dimensions instead of two.',
-  chair: 'And the well we cannot see would drop into a fourth. You cannot point at it. But you can feel it, right now, pressing you into your chair.'
+  chair: 'And the well we cannot see would drop into a fourth. You cannot point at it. But if it is there, that is what you feel right now, pressing you into your chair.'
 }
 
 // ---- the film's kit: the same text in every clip of films/fourth_dimension_pop.json ----
@@ -116,7 +116,8 @@ film({
     gridLatticeNearEdge: 0.4,
     gridLatticeFar: 0.25,
     threeDFrontDepth: 2,
-    threeDEase: 2.6,
+    // Short, so the lattice can come soon after the sheet goes ("us")
+    threeDEase: 1.8,
     cameraYaw: 0,
     cameraPitch: 0,
     ...SLIDE,
@@ -128,13 +129,17 @@ film({
 hide('ring')
 chapter('07', 'THE FLAT CREATURE')
 
-// The mass over the hole: it comes up with the picture under the chapter card's last second and stays to the
-// clip's end, going dark with the picture as the clip leaves (shapes lie over the fade)
+// The mass over the hole: it comes up as the chapter's title goes (the title lay over it) and stays to the
+// clip's end, going dark with the picture as the clip leaves (shapes lie over the fade). An opaque black disc
+// lies under it for its whole life: dimmed alone, the ball went see-through and the bare hole's shadow and
+// throat showed inside it (review 4)
 {
   const card = now() - 1.2
+  const titled = 2.3
   const clipEnd = now() + long('lives') + 0.6 + long('blind') + 0.6 + long('word') + 0.6 + long('us') + 0.6 + long('chair') + 0.6 + 0.8
   at(card, () => {
-    draw({ kind: 'circle', center: { hole: [0, 0] }, radius: BALL, fill: MASS, color: '#ffe3a8', width: 0.002, glow: 0.03, fade: 0, opacity: 'lit', values: { lit: [[card, 0], [card + 1.2, 1], [clipEnd - 0.8, 1], [clipEnd, 0]] } }, clipEnd - card)
+    draw({ kind: 'circle', center: { hole: [0, 0] }, radius: BALL, fill: '#000000', color: '#000000', width: 0, fade: 0 }, clipEnd - card)
+    draw({ kind: 'circle', center: { hole: [0, 0] }, radius: BALL, fill: MASS, color: '#ffe3a8', width: 0.002, glow: 0.03, fade: 0, opacity: 'lit', values: { lit: [[card, 0], [titled, 0], [titled + 0.45, 1], [clipEnd - 0.8, 1], [clipEnd, 0]] } }, clipEnd - card)
   })
 }
 
@@ -235,8 +240,10 @@ shot('us', () => {
   // falling in from every side. The lattice's pull is whole at once, gentle enough that the cells round the
   // mass stay square (at 8 they curled into knots at the hole), and the lattice comes up only once the camera
   // has eased into 3D: seen down the line of flight while 3D eased in, its rows piled into a blurred cross
-  // through the hole. The lens stays off: the mass is the textbook's ball, as in chapters 05 and 06
-  at(flatEnd - 1.4, () => { to({ gridSheet: 0, flowA: 0 }, 1.4) })
+  // through the hole. The lens stays off: the mass is the textbook's ball, as in chapters 05 and 06. The sheet
+  // fading over 1.4 s and the lattice up 1.9 s into a 2.6 s ease left 2 s of the ball alone on black (review
+  // 4, 4:31): the sheet goes in 0.9 s, the ease takes 1.8 s and the lattice comes 1.25 s into it, no cross
+  at(flatEnd - 0.9, () => { to({ gridSheet: 0, flowA: 0 }, 0.9) })
   at(flatEnd, () => { set({ gridRide: 0, ...falling('A', FALLING_COUNT, 0, 0) }) })
   at(flatEnd + 0.06, () => {
     set({ threeD: true, gridLatticeWarp: 3 })
@@ -244,7 +251,7 @@ shot('us', () => {
     meanwhile(() => { to({ flowA: FALLING_LIGHT, flowB: FALLING_LIGHT, flowC: FALLING_LIGHT }, 1) })
     to({ cameraYaw: 34, cameraPitch: 18 }, 2.8)
   })
-  at(flatEnd + 0.06 + 1.9, () => { to({ gridLattice: LATTICE }, 1.2) })
+  at(flatEnd + 0.06 + 0.95, () => { to({ gridLattice: LATTICE }, 0.8) })
   wait(spoken + 0.6)
 })
 
@@ -253,10 +260,15 @@ shot('chair', () => {
   const spoken = say('chair')
   const end = start + spoken + 0.6
   status('idea', spoken + 0.6)
-  // The camera rises and comes a little nearer as it turns, so the lattice's near layers slide past its far
+  // The camera rises and comes a little nearer as it turns back, so the lattice's near layers slide past its far
   // ones and the space reads as deep. The yaw stays on one side of 45 degrees: across it a cube of cells is
   // its own mirror image and the turn reads as no change
-  meanwhile(() => { to({ cameraYaw: 14, cameraPitch: 40, cameraMoveIn: 3 }, spoken + 0.6) })
+  // At pitch 40 and 3 radii in the falling matter streaked the frame like rain and the lattice tangled (review
+  // 4, 4:47). Swept at this end framing, the matter's light and trail with it: yaw 14, pitch 32, 2 in, light
+  // 0.8 still rained; 1 in, light 0.45 left a few streaks above the ball; yaw 20, pitch 26, 1 in, light 0.45,
+  // trail 0.25 reads as cubes with the matter falling in as fine strokes
+  meanwhile(() => { to({ cameraYaw: 20, cameraPitch: 26, cameraMoveIn: 1 }, spoken + 0.6) })
+  meanwhile(() => { to({ flowA: 0.45, flowB: 0.45, flowC: 0.45, flowATrail: 0.25, flowBTrail: 0.25, flowCTrail: 0.25 }, 1.5) })
   // The well we cannot see drops into a fourth direction: W is no one way of our space, it points inward
   // from every side at once, and the arrows ride the hole as the camera turns round it, ending at the mass's
   // edge; started at 3.2 radii or more the lowest ran through the caption at the foot of the frame
@@ -270,7 +282,8 @@ shot('chair', () => {
     caption('W', end - now(), { at: { hole: [-3.5, 3.5] }, size: 0.05, font: 'unbounded', color: W, fade: 0.4, plate: 0.5 })
   })
   at(start + heard('chair', 'point', 0.45), () => {
-    keep('You cannot point at it, but you can *{feel} it.', end - now())
+    // The hypothesis does not own weight: it only says what weight would be if W is real
+    keep('If W is real, you feel it as *{weight}.', end - now())
   })
   // A figure on a chair, pressed down
   at(start + heard('chair', 'feel', 0.72), () => {
@@ -278,24 +291,26 @@ shot('chair', () => {
     const look = { color: INK, width: 0.004, draw: 0.5, fade: 0.4 }
     // A dark card behind it, so it reads over the lattice, clear of the frame's edge (at 0.86 it stood 1.6% in)
     const x = value => part(value - 0.03)
-    draw({ kind: 'rect', center: [x(0.86), 0.52], size: [0.44, 0.6], round: 0.012, color: '#46525a', width: 0.0012, fill: '#05070a', fillOpacity: 0.78, fade: 0.4 }, seconds)
+    draw({ kind: 'rect', center: [x(0.86), 0.52], size: [0.44, 0.6], round: 0.012, color: '#46525a', width: 0.0012, fill: '#05070a', fillOpacity: 0.96, fade: 0.4 }, seconds)
     // The chair: seat, two legs, back
     draw({ kind: 'line', points: [[x(0.805), 0.62], [x(0.875), 0.62]], ...look }, seconds)
     draw({ kind: 'line', points: [[x(0.805), 0.62], [x(0.805), 0.72]], ...look }, seconds)
     draw({ kind: 'line', points: [[x(0.875), 0.62], [x(0.875), 0.72]], ...look }, seconds)
     draw({ kind: 'line', points: [[x(0.875), 0.62], [x(0.875), 0.48]], ...look }, seconds)
-    // The figure sits a little above the seat and in front of the chair's back, so no line of it doubles the
-    // chair's: torso, thigh past the seat's edge, shin, foot, arm
-    draw({ kind: 'circle', center: [x(0.835), 0.425], radius: 0.022, color: INK, width: 0.004, fade: 0.4 }, seconds)
-    draw({ kind: 'line', points: [[x(0.835), 0.46], [x(0.835), 0.6]], ...look }, seconds)
-    draw({ kind: 'line', points: [[x(0.835), 0.6], [x(0.765), 0.6]], ...look }, seconds)
-    draw({ kind: 'line', points: [[x(0.765), 0.6], [x(0.765), 0.715]], ...look }, seconds)
-    draw({ kind: 'line', points: [[x(0.765), 0.715], [x(0.745), 0.715]], ...look }, seconds)
-    draw({ kind: 'line', points: [[x(0.835), 0.5], [x(0.8), 0.56]], ...look }, seconds)
-    // The weight presses the figure into the seat: the arrow runs down through the seat between the chair's
-    // legs (drawn above the head it pointed at the head)
-    draw({ kind: 'line', points: [[x(0.84), 0.635], [x(0.84), 0.745]], arrow: 'end', color: W, width: 0.007, draw: 0.5, fade: 0.4 }, seconds)
-    caption('weight', seconds, { at: [x(0.84), 0.775], size: 0.03, font: 'unbounded', color: W, fade: 0.4 })
+    // The figure sits on the seat, its thigh resting on it, in front of the chair's back, so no line of it
+    // doubles the chair's: torso, thigh past the seat's edge, shin, foot, arm. Drawn 0.02 above the seat it
+    // floated (review 4)
+    const hip = 0.613
+    draw({ kind: 'circle', center: [x(0.835), 0.435], radius: 0.022, color: INK, width: 0.004, fade: 0.4 }, seconds)
+    draw({ kind: 'line', points: [[x(0.835), 0.47], [x(0.835), hip]], ...look }, seconds)
+    draw({ kind: 'line', points: [[x(0.835), hip], [x(0.765), hip]], ...look }, seconds)
+    draw({ kind: 'line', points: [[x(0.765), hip], [x(0.765), 0.72]], ...look }, seconds)
+    draw({ kind: 'line', points: [[x(0.765), 0.72], [x(0.745), 0.72]], ...look }, seconds)
+    draw({ kind: 'line', points: [[x(0.835), 0.51], [x(0.8), 0.57]], ...look }, seconds)
+    // The weight presses the figure into the seat: the arrow runs from the hip down through the seat, between
+    // the chair's legs (drawn above the head it pointed at the head; started under the seat it touched nobody)
+    draw({ kind: 'line', points: [[x(0.845), hip], [x(0.845), 0.75]], arrow: 'end', color: W, width: 0.007, draw: 0.5, fade: 0.4 }, seconds)
+    caption('weight', seconds, { at: [x(0.845), 0.78], size: 0.03, font: 'unbounded', color: W, fade: 0.4 })
   })
   wait(spoken + 0.6)
 })

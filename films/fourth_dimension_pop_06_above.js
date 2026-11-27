@@ -176,11 +176,17 @@ const FLYUP = Math.max(long('flyup') + 0.6, heard('flyup', 'up', 0.45) - 0.3 + R
 const BALL = 1.9
 const LIFT = 0.8
 const RISES = now() + heard('flyup', 'up', 0.45) - 0.3
+// An opaque black disc lies under the ball for its whole life: dimmed alone, the ball went see-through and
+// the bare hole's shadow and throat showed inside it (review 4, 4:33 and 5:07). It comes up once the chapter's
+// title is gone (the title lay over it), over the black disc
 {
   const card = now() - 1.2
+  const titled = 2.05
   const clipEnd = now() + FLYUP + long('flat') + 0.6 + long('rings') + 0.6 + long('same') + 0.6 + long('points') + 0.6 + 0.8
   at(card, () => {
-    draw({ kind: 'circle', center: { hole: [0, 'up'] }, radius: BALL, fill: MASS, color: '#ffe3a8', width: 0.002, glow: 0.03, fade: 0, opacity: 'lit', values: { lit: [[card, 0], [card + 1.2, 1], [clipEnd - 0.8, 1], [clipEnd, 0]], up: [[card, LIFT], [RISES, LIFT], [RISES + RISE, 0]] } }, clipEnd - card)
+    const up = [[card, LIFT], [RISES, LIFT], [RISES + RISE, 0]]
+    draw({ kind: 'circle', center: { hole: [0, 'up'] }, radius: BALL, fill: '#000000', color: '#000000', width: 0, fade: 0, values: { up } }, clipEnd - card)
+    draw({ kind: 'circle', center: { hole: [0, 'up'] }, radius: BALL, fill: MASS, color: '#ffe3a8', width: 0.002, glow: 0.03, fade: 0, opacity: 'lit', values: { lit: [[card, 0], [titled, 0], [titled + 0.5, 1], [clipEnd - 0.8, 1], [clipEnd, 0]], up } }, clipEnd - card)
   })
 }
 
@@ -250,30 +256,50 @@ shot('same', () => {
     caption('W', end - now(), { at: { hole: [part(x), 0.9] }, size: 0.05, font: 'unbounded', color: W, fade: 0.4, plate: 0.5 })
   })
   // "The lamp and the wall again": chapter 03's rhyme, drawn small beside the picture on a dark card of its
-  // own, so the spokes do not run through it. Above, the lamp, the ball and the wall seen edge on, W the way
-  // toward the lamp; below, the shadow as the wall shows it, small and grown, W the way between the two
+  // own, so the spokes do not run through it (nearly opaque: at 0.82 the sheet showed through, review 4, 4:56).
+  // Above, seen edge on: the lamp, the ball where it was (faint, near the lamp) and where it went (solid,
+  // nearer the wall), W the way between them, and on a whole wall each ball's shadow as a dark-grey band, the
+  // big one faint. Below, the wall face on: the big shadow and the small one, W from the big to the small:
+  // inward, as on the sheet. The move is the one whose shadow shrinks, so both W arrows point the sheet's way
+  // (one ball with two shadows, a gap for a shadow and an arrow outward were review 4's findings)
   at(start + heard('same', 'lamp', 0.62), () => {
     const life = end - now()
     const x = dx => +(0.86 + dx * ASPECT).toFixed(5)
-    draw({ kind: 'rect', center: [0.86, 0.5], size: [0.42, 0.68], round: 0.012, color: '#46525a', width: 0.0012, fill: '#05070a', fillOpacity: 0.82, fade: 0.4 }, life)
-    // Light from a point: the shadow is the ball scaled by how much nearer the lamp the ball is
-    const lampAt = -0.15
-    const ballAt = -0.03
-    const wallAt = 0.13
-    const ball = 0.026
-    const shade = ball * (wallAt - lampAt) / (ballAt - lampAt)
-    for (const side of [-1, 1]) {
-      draw({ kind: 'line', points: [[x(lampAt), 0.33], [x(wallAt), part(0.33 + side * shade)]], color: GOLD, width: 0.0016, draw: 0.6, fade: 0.4 }, life)
+    draw({ kind: 'rect', center: [0.86, 0.5], size: [0.42, 0.68], round: 0.012, color: '#46525a', width: 0.0012, fill: '#05070a', fillOpacity: 0.96, fade: 0.4 }, life)
+    // Light from a point: a shadow is its ball scaled by how much nearer the lamp the ball is
+    const axis = 0.32
+    const lampAt = -0.17
+    const wasAt = -0.09
+    const isAt = 0.03
+    const wallAt = 0.15
+    const ball = 0.022
+    const shadeOf = at => part(ball * (wallAt - lampAt) / (at - lampAt))
+    const big = shadeOf(wasAt)
+    const small = shadeOf(isAt)
+    const lightOf = (shade, more) => {
+      for (const side of [-1, 1]) {
+        draw({ kind: 'line', points: [[x(lampAt), axis], [x(wallAt), part(axis + side * shade)]], color: GOLD, width: 0.0016, draw: 0.6, fade: 0.4, ...more }, life)
+      }
     }
-    draw({ kind: 'line', points: [[x(wallAt), 0.2], [x(wallAt), 0.46]], color: SOFT, width: 0.004, fade: 0.4 }, life)
-    draw({ kind: 'line', points: [[x(wallAt), part(0.33 - shade)], [x(wallAt), part(0.33 + shade)]], color: '#05070a', width: 0.006, fade: 0.4 }, life)
-    draw({ kind: 'circle', center: [x(lampAt), 0.33], radius: 0.012, fill: GOLD, color: GOLD, width: 0, fade: 0.4 }, life)
-    draw({ kind: 'circle', center: [x(ballAt), 0.33], radius: ball, fill: INK, color: INK, width: 0, fade: 0.4 }, life)
-    draw({ kind: 'line', points: [[x(ballAt - 0.035), 0.4], [x(lampAt + 0.025), 0.4]], arrow: 'end', color: W, width: 0.0035, draw: 0.5, fade: 0.4 }, life)
-    draw({ kind: 'circle', center: [0.86, 0.6], radius: 0.06, color: INK, width: 0.003, draw: 0.6, fade: 0.4 }, life)
-    draw({ kind: 'circle', center: [0.86, 0.6], radius: 0.025, color: INK, width: 0.003, draw: 0.6, fade: 0.4 }, life)
-    draw({ kind: 'line', points: [[0.86 - 0.025 * ASPECT, 0.6], [0.86 - 0.06 * ASPECT, 0.6]], arrow: 'end', color: W, width: 0.0045, draw: 0.5, fade: 0.4 }, life)
-    caption('the ball\'s shadow\non the wall, again', life, { at: [0.86, 0.75], size: 0.03, font: 'noto', color: SOFT, fade: 0.4 })
+    lightOf(big, { dash: true, opacity: 0.4 })
+    lightOf(small)
+    // The wall, whole, and the two shadows on it
+    draw({ kind: 'line', points: [[x(wallAt), 0.19], [x(wallAt), 0.45]], color: '#e4eaee', width: 0.011, fade: 0.4 }, life)
+    draw({ kind: 'line', points: [[x(wallAt), part(axis - big)], [x(wallAt), part(axis + big)]], color: '#737d83', width: 0.011, fade: 0.4 }, life)
+    draw({ kind: 'line', points: [[x(wallAt), part(axis - small)], [x(wallAt), part(axis + small)]], color: '#14181b', width: 0.011, fade: 0.4 }, life)
+    draw({ kind: 'circle', center: [x(lampAt), axis], radius: 0.012, fill: GOLD, color: GOLD, width: 0, fade: 0.4 }, life)
+    draw({ kind: 'circle', center: [x(wasAt), axis], radius: ball, fill: INK, fillOpacity: 0.3, color: INK, width: 0.0024, dash: true, opacity: 0.8, fade: 0.4 }, life)
+    draw({ kind: 'circle', center: [x(isAt), axis], radius: ball, fill: INK, color: INK, width: 0, fade: 0.4 }, life)
+    draw({ kind: 'line', points: [[x(wasAt), 0.4], [x(isAt), 0.4]], arrow: 'end', color: W, width: 0.0035, draw: 0.5, fade: 0.4 }, life)
+    caption('W', life, { at: [x((wasAt + isAt) / 2), 0.43], size: 0.026, font: 'unbounded', color: W, fade: 0.4 })
+    // The wall face on: the big shadow faint, the small one dark, W between them, inward
+    const face = [0.86, 0.6]
+    draw({ kind: 'rect', center: face, size: [0.2, 0.17], round: 0.006, color: '#c8d2d8', width: 0, fill: '#e4eaee', fade: 0.4 }, life)
+    draw({ kind: 'circle', center: face, radius: 0.06, fill: '#737d83', color: '#737d83', width: 0, fade: 0.4 }, life)
+    draw({ kind: 'circle', center: face, radius: 0.025, fill: '#14181b', color: '#14181b', width: 0, fade: 0.4 }, life)
+    draw({ kind: 'line', points: [[part(0.86 - 0.058 * ASPECT), 0.6], [part(0.86 - 0.027 * ASPECT), 0.6]], arrow: 'end', color: W, width: 0.0045, draw: 0.5, fade: 0.4 }, life)
+    caption('W', life, { at: [x(-0.13), 0.6], size: 0.026, font: 'unbounded', color: W, fade: 0.4 })
+    caption('the ball\'s shadow\non the wall, again', life, { at: [0.86, 0.76], size: 0.03, font: 'noto', color: SOFT, fade: 0.4 })
   })
   wait(spoken + 0.6)
 })
@@ -282,7 +308,8 @@ shot('points', () => {
   const start = now()
   const spoken = say('points')
   const end = start + spoken + 0.6
-  status('idea', spoken + 0.4)
+  // Where the depth points in the sheet model is the model's geometry, as the shot before
+  status('math', spoken + 0.4)
   // With nothing to swing it round, the matter goes straight in along the spokes: the depth points inward.
   // The winding flow gives way to flow B, the same matter with no swirl: B comes up before A goes, so the
   // matter does not thin out in the middle of the handover (review, 4:00)

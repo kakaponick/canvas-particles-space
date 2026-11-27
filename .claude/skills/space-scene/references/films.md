@@ -647,7 +647,9 @@ with the field off, as `films/flows.json` films them:
   60 and 120 degrees, each `Thick` 0.5 with `Bell` 1 and `Swirl` 0, falling from 4.5 radii (`Spread` 1.5) to
   0.9 with the field off, are a ball of strokes all pointing at the hole, lines of the scene a turn does
   not smear (`FALL` in `films/fourth_dimension_pop_07_creature.js`); from 5.5 wide 3 the outer strokes
-  still raked the frame's sides once the camera came in 2 to 3 radii. The band matters as much as the
+  still raked the frame's sides once the camera came in 2 to 3 radii. A camera that moves in through the ball
+  of falling matter rakes it into rain again: at 2 to 3 radii in, pitch 32 to 40, light 0.8, grey streaks
+  filled the frame; 1 radius in at pitch 26 with the light at 0.45 and `Trail` 0.25 keeps fine strokes. The band matters as much as the
   count: from 9 or 10 radii wide 6 or 7 the near matter carpets the flat or streaks the frame like a
   starburst at any count, so narrow the band to the part of the frame the shot is about, then sweep the
   count.

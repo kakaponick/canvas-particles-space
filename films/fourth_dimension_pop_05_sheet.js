@@ -65,7 +65,7 @@ const MASS = '#ffc861'
 const BALL = 1.9
 const LIFT = 0.8
 // Before the dent the hole stands where the flat sheet will stay, the rim of the dent to come (3.735 radii
-// above the hole once it has sunk, by laySheet below), so the sheet holds still and only the mass goes down
+// above the hole once it has sunk, by the sheet sums of fourth_dimension_well.js), so the sheet holds still and only the mass goes down
 const RIM_Y = 0.4
 // What lies on the sheet rolls toward the dent, swung round as it goes: flow A laid on the sheet, born 2 to 7
 // radii out round the mouth and falling down the wall into the well, winding as it goes, lingering near the
@@ -120,44 +120,16 @@ hide('hole')
 hide('ring')
 chapter('05', 'THE TEXTBOOK PICTURE')
 
-// ---- the sheet as the scene lays it out, so that a drawing can lie on it (as in fourth_dimension_well.js) ----
-const LONG = 1920
-const SHORT = 1080
-const SHADOW = 0.08 * SHORT
-const dent = (away, edge) => {
-  const x = away > edge ? edge / away : 1
-  return (1 - Math.sqrt(Math.max(1 - x / (3 * Math.cos(Math.acos(-x) / 3)), 0))) * 2.3660254
-}
-function laySheet (tilt, radii, holeY) {
-  const distance = 2.5 * LONG
-  const sin = Math.sin(tilt * Math.PI / 180)
-  const cos = Math.cos(tilt * Math.PI / 180)
-  const down = (holeY - 0.5) * SHORT
-  let throat = SHADOW
-  let depth = 0
-  let away = 0
-  for (let round = 0; round < 3; round++) {
-    depth = radii * throat
-    away = (down * (distance + depth * cos) - distance * depth * sin) / Math.max(distance * cos + down * sin, distance * 0.05)
-    if (round < 2) throat = SHADOW * Math.max(distance + depth * cos - away * sin, distance * 0.05) / distance
-  }
-  return (across, toward, level) => {
-    const x = across * throat
-    const y = toward * throat + away
-    const deep = depth * (level ?? dent(Math.hypot(x, toward * throat), throat))
-    const scale = distance / (distance + deep * cos - y * sin)
-    return [x * scale / SHADOW, (down - (y * cos + deep * sin) * scale) / SHADOW]
-  }
-}
 const part = value => +value.toFixed(4)
-// The sheet once the dent has sunk: the axes are drawn on it while the camera stands still
-const here = laySheet(TILT, DEEP, HOLE_Y)
-const on = point => { const [x, y] = here(...point); return { hole: [part(x), part(y)] } }
-const X_TIP = [3.6, 0, 0]
-const Y_TIP = [-1.5, -3.6, 0]
-const W_TOP = [0, 0, 0]
-const W_TIP = [0, 0, 0.8]
-const wSide = (() => { const [x, y] = here(0, 0, 0.45); return { hole: [part(x - 5.2), part(y)] } })()
+// The axes lie on the sheet once the dent has sunk. W runs down the dent's left wall, along the spoke, from
+// the flat sheet to the ball's edge (as chapter 08 draws it); drawn from the hole's middle straight down it
+// ran across the ball's face to its middle (review 4, 0:22). X and Y share its corner on the flat sheet,
+// square to each other: X out to the left, Y away
+const CORNER = [-4.6, 0]
+const W_PATH = [4.6, 3.6, 2.8, 2.2, 1.9].map(away => ({ sheet: [-away, 0] }))
+const X_TIP = { sheet: [-8.2, 0] }
+const Y_TIP = { sheet: [-4.6, 3.6] }
+const wSide = { sheet: [-5.6, -2.5] }
 const label = (text, seconds, place, more) => caption(text, seconds, { at: place, size: 0.03, font: 'unbounded', fade: 0.4, ...more })
 // A place on the sheet, `away` of the well's radii from its middle, `angle` degrees round from the right
 // toward the far side
@@ -184,7 +156,10 @@ shot('textbook', () => {
     show('hole')
     show('ring')
     const clipEnd = start + spoken + 0.6 + long('roll') + 1.4 + long('axes') + 0.6 + long('metaphor') + 0.6 + long('whatif') + 0.6 + 0.8
-    // Shapes lie over the fade, so the ball goes dark with the picture as the clip leaves
+    // Shapes lie over the fade, so the ball goes dark with the picture as the clip leaves. An opaque black
+    // disc lies under it for its whole life: dimmed alone, it went see-through and the bare hole's shadow
+    // and throat showed inside it (review 4, 0:41)
+    draw({ kind: 'circle', center: { hole: [0, LIFT] }, radius: BALL, fill: '#000000', color: '#000000', width: 0, fade: 0 }, clipEnd - now())
     draw({ kind: 'circle', center: { hole: [0, LIFT] }, radius: BALL, fill: MASS, color: '#ffe3a8', width: 0.002, glow: 0.03, fade: 0, opacity: 'lit', values: { lit: [[now(), 1], [clipEnd - 0.8, 1], [clipEnd, 0]] } }, clipEnd - now())
     label('a mass', 3.4, { hole: [3.6, LIFT + 0.4] }, { color: GOLD })
     // The dent sinks and the matter on the sheet comes up with it, already running down into it
@@ -198,26 +173,30 @@ shot('roll', () => {
   const spoken = say('roll')
   // The three things named are drawn on the sheet; the line holds until the last of them has been read
   const end = start + spoken + 1.4
-  status('known', end - start - 0.2)
+  // The rubber sheet is the textbook's picture, not a measurement: geometry, as the shot before
+  status('math', end - start - 0.2)
   // The dent's own move ends inside this line; then the matter, brighter, rolls in
   at(start + 1.2, () => { to({ flowA: MATTER }, 1.2) })
   const look = { color: INK, width: 0.0035, fade: 0.4 }
-  // "your orbit": a path round the dent, lying on the sheet, its way told once
+  // "your orbit": a path round the dent, lying on the sheet, its way told once. Only its far arc is drawn,
+  // the near side going behind the ball: drawn whole, the near side ran across the top of the ball while the
+  // ball covered the sheet in front of it (review 4, 0:14)
   at(start + heard('roll', 'orbit', 0.55) - 0.2, () => {
     const ring = []
-    for (let step = 0; step < 36; step++) ring.push(onSheet(3.4, step * 10))
-    draw({ kind: 'line', points: ring, smooth: true, close: true, arrow: 'middle', draw: 0.8, ...look }, end - now())
+    for (let step = -2; step <= 20; step++) ring.push(onSheet(3.4, step * 10))
+    draw({ kind: 'line', points: ring, smooth: true, arrow: 'middle', draw: 0.8, ...look }, end - now())
     label('orbit', end - now(), onSheet(5, 160), { size: 0.026, color: INK, plate: 0.4 })
   })
   // "your falling apple": a small ball runs down a spoke into the dent
   at(start + heard('roll', 'apple', 0.72) - 0.2, () => {
-    // It reaches the mass's edge (1.6 radii out on this spoke) in 1.4 s, its word riding beside it, and the two
-    // leave together just after; drawn after the ball, it would roll on over its face
+    // It reaches the mass's edge (1.6 radii out on this spoke) in 1.4 s and leaves just after; drawn after
+    // the ball, it would roll on over its face. Its word stands still outside the orbit, where the apple
+    // starts: riding beside it, it crossed the orbit's line (review 4, 0:15)
     const away = s => 5.2 - 3.6 * Math.min(1, s / 1.4) ** 2
     const ax = s => part(away(s) * Math.cos(Math.PI / 6))
     const ay = s => part(away(s) * Math.sin(Math.PI / 6))
     draw({ kind: 'circle', center: { sheet: ['ax', 'ay'] }, radius: 0.28, fill: '#ff6b5c', color: '#ff6b5c', fade: 0.3, values: { ax, ay } }, 1.7)
-    label('apple', 1.7, { sheet: ['lx', 'ly'] }, { size: 0.026, color: INK, plate: 0.4, values: { lx: s => part(ax(s) + 0.9), ly: s => part(ay(s) + 0.9) } })
+    label('apple', 1.7, onSheet(6.6, 22), { size: 0.026, color: INK, plate: 0.4 })
   })
   // "your weight": the push down the wall of the dent
   at(start + heard('roll', 'weight', 0.92) - 0.2, () => {
@@ -230,7 +209,7 @@ shot('roll', () => {
 
 // The W axis, solid or dashed; each drawing lasts until the next replaces it
 const wAxis = (seconds, more) => {
-  draw({ kind: 'line', points: [on(W_TOP), on(W_TIP)], arrow: 'end', color: W, width: 0.0065, draw: 0.8, fade: 0.4, ...more }, seconds)
+  draw({ kind: 'line', points: W_PATH, smooth: true, arrow: 'end', color: W, width: 0.0065, draw: 0.8, fade: 0.4, ...more }, seconds)
 }
 let axesEnd = 0
 shot('axes', () => {
@@ -242,16 +221,15 @@ shot('axes', () => {
   // The matter dims while the axes are read on the wall, and comes back when the dent is asked to be real
   at(start + 0.4, () => { to({ flowA: MATTER * 0.6 }, 1.2) })
   at(start + heard('axes', 'x', 0.3), () => {
-    draw({ kind: 'line', points: [on(W_TOP), on(X_TIP)], arrow: 'end', color: X, width: 0.006, draw: 0.5, fade: 0.5 }, axesEnd - now())
-    label('X', axesEnd - now(), on([4.1, 0, 0]), { size: 0.034, color: X })
+    draw({ kind: 'line', points: [{ sheet: CORNER }, X_TIP], arrow: 'end', color: X, width: 0.006, draw: 0.5, fade: 0.5 }, axesEnd - now())
+    label('X', axesEnd - now(), { sheet: [-8.9, 0] }, { size: 0.034, color: X })
   })
   at(start + heard('axes', 'y', 0.35), () => {
-    draw({ kind: 'line', points: [on(W_TOP), on(Y_TIP)], arrow: 'end', color: Y, width: 0.006, draw: 0.5, fade: 0.5 }, axesEnd - now())
-    label('Y', axesEnd - now(), on([-1.8, -4.1, 0]), { size: 0.034, color: Y })
+    draw({ kind: 'line', points: [{ sheet: CORNER }, Y_TIP], arrow: 'end', color: Y, width: 0.006, draw: 0.5, fade: 0.5 }, axesEnd - now())
+    label('Y', axesEnd - now(), { sheet: [-4.6, 4.6] }, { size: 0.034, color: Y })
     // X and Y stand square on the sheet: a corner mark between them, lying on it
-    const c = 0.7
-    const k = c / Math.hypot(1.5, 3.6)
-    draw({ kind: 'line', points: [on([c, 0, 0]), on([c - 1.5 * k, -3.6 * k, 0]), on([-1.5 * k, -3.6 * k, 0])], color: INK, width: 0.0025, opacity: 0.8, draw: 0.3, fade: 0.5 }, axesEnd - now())
+    const c = 0.8
+    draw({ kind: 'line', points: [{ sheet: [CORNER[0] - c, 0] }, { sheet: [CORNER[0] - c, c] }, { sheet: [CORNER[0], c] }], color: INK, width: 0.0025, opacity: 0.8, draw: 0.3, fade: 0.5 }, axesEnd - now())
   })
   at(start + heard('axes', 'third', 0.6), () => {
     wAxis(start + spoken + 0.6 - now())
