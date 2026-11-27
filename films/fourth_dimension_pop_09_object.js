@@ -48,17 +48,23 @@ const keep = (text, seconds, more = {}) => caption(text, seconds, { at: [0.5, 0.
 const leave = () => { to({ fade: 1 }, 0.8) }
 // ---- end of the kit ----
 
-// What falls toward the hole on the sheet, swung round as it comes: a whirl that drains down the well's wall
+// What falls toward the star on the sheet, swung round as it comes: a whirl that drains down the well's wall. It is
+// a flow laid on the sheet (the field laid on the sheet draws only still dots on the flat and leaves the wall bare),
+// said whole from the first frame. Its count was swept at each framing, 1500 / 3000 / 5000 / 8000 a second a step:
+// in the shallow well of "bottom" 3000 left the flat thin and 5000 read as matter winding in with the grid showing
+// through; in the deep well, from "deeper" on, the matter crowds the mouth and the long throat, and 6000 lines the
+// throat without turning the mouth into a carpet
 const WHIRL = {
-  gravityInertia: 0.75, orbitalStrength: 80, gravityStrength: 4, gravityReach: 16, gravityDepth: 100, baseSpeed: 0, speedGlowKnee: 0.03, trailIntensity: 0.15,
-  depthFade: 0, minOpacity: 0.1, particleSize: 2, particleSizeMin: 2, baseBrightness: 0.3
+  fieldEnabled: false, flowA: 1.2, flowACount: 5000, flowAFrom: 7, flowATo: 0.8, flowASpread: 4, flowASwirl: 0.7, flowALife: 8,
+  flowATrail: 0.6, flowASize: 1.2, flowAColor: '#aeeeff'
 }
+const DEEP_COUNT = 6000
 film({
   fps: 60,
   seed: 9,
-  warmup: 10,
+  // a flow is said: nothing to grow before the first frame
+  warmup: 0,
   settings: {
-    numParticles: 20000,
     lensingEnabled: false,
     nebula: 0.8,
     nebulaScale: 700,
@@ -85,12 +91,8 @@ film({
     gridRings: 40,
     gridCell: 4,
     gridTilt: 66,
+    // the flow rides the sheet
     gridRide: 1,
-    // The whole column lies on the sheet: a share of the ride fading with depth left the matter the hole
-    // gathers hanging between where it flies and the surface, a white ball over the shadow. Laid wholly,
-    // it crowds the steep throat, so half as many particles, dimmer, let the wall show through it
-    gridRideSoft: 0.01,
-    fieldAtHole: 1,
     blackHoleSize: 8,
     companionSize: 0,
     companionWaves: 0,
@@ -152,7 +154,8 @@ shot('deeper', () => {
       caption(`${mass} M_{☉}`, +(step + 0.05).toFixed(2), { at: [0.24, 0.3], size: 0.07, font: 'unbounded', color: index ? INK : GOLD, fade: 0.05 })
     })
   })
-  at(from - 0.2, () => { to({ gridDepth: 9, blackHoleY: 0.76 }, span) })
+  // and the whirl gathers to the deeper well's own count
+  at(from - 0.2, () => { to({ gridDepth: 9, blackHoleY: 0.76, flowACount: DEEP_COUNT }, span) })
   at(start + heard('deeper', 'deeper', 0.55), () => {
     caption('deeper, steeper', start + spoken + 0.6 - now(), { at: [0.76, 0.3], size: 0.04, font: 'unbounded', color: INK })
   })
@@ -168,6 +171,9 @@ shot('dark', () => {
   // as far as it can and turns back down to it a little further round. A place on the sheet is the well's
   // radii from its middle, `angle` degrees round from the right toward the far side, so -90 faces the camera
   const light = start + heard('dark', 'light', 0.35)
+  // The whirl dims while the rays are read on the wall, and comes back once they are gone
+  at(light - 0.9, () => { to({ flowA: 0.55 }, 0.6) })
+  at(light - 0.4 + 3 * 0.35 + 2.6, () => { to({ flowA: 1.2 }, 1.2) })
   const RAYS = [[-120, 1.7], [-60, 2.2], [-100, 2.8], [-75, 1.5]]
   RAYS.forEach(([angle, reach], index) => {
     const points = []
@@ -209,7 +215,10 @@ shot('thing', () => {
     draw({ kind: 'circle', center: { hole: [0, 0] }, radius: 1.3, color: W, width: 0.003, fade: 0.3 }, end - now())
     caption('the object', end - now(), { at: 'hole', angle: 25, size: 0.03, font: 'unbounded', color: W })
   })
-  keep('Not a hole in space: *{an object} at the bottom of a well.', spoken + 0.4, { at: [0.5, 0.91] })
+  // The shot's sentence once "an object" has been said, not before "not a hole"
+  at(start + heard('thing', 'object', 0.4), () => {
+    keep('Not a hole in space: *{an object} at the bottom of a well.', end - 0.2 - now(), { at: [0.5, 0.9] })
+  })
   wait(spoken + 0.6)
 })
 

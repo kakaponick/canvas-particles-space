@@ -65,7 +65,7 @@ const cap = (text, seconds, options) => { if (seconds > 0.15) caption(text, seco
 const MIRROR = '#e6eeff'
 const BLOCK = '#141d36'
 const CLOCK = { gap: 2.2, high: 0.9 }
-const INSET = 0.13
+const INSET = 0.12
 const inset = (x, y) => (dx, dy) => [part(x + dx * INSET * 9 / 16), part(y - dy * INSET)]
 function clockBody (at, seconds) {
   const half = CLOCK.gap / 2
@@ -110,8 +110,8 @@ const counter = (at, seconds, run, ask = false) => {
 
 // The clip's whole length, for what stays on through all of it
 const SHOTS = ['fail', 'clock', 'ruler', 'mirrors', 'count', 'verdict']
-// Seconds the ruler shot holds after its line, for the ruler to be laid straight and read
-const RULER_HOLD = 2.4
+// Seconds the ruler shot holds after its line, for the ruler to lie on the sheet a while, then be laid straight and read
+const RULER_HOLD = 3.2
 // and the count shot, for the clock higher up to finish its count before the verdict
 const COUNT_HOLD = 1.8
 const END = 2.8 + SHOTS.reduce((sum, name) => sum + long(name) + 0.6, 0) + RULER_HOLD + COUNT_HOLD + 0.8
@@ -233,6 +233,9 @@ shot('clock', () => {
       cap(name, rest, { at: [0.73, y], size: 0.022, font: 'unbounded', color: SOFT, fade: 0.3 })
     }
     sketch({ kind: 'line', points: [[0.55, 0.34], [0.55, 0.48]], arrow: 'both', color: SOFT, width: 0.002, fade: 0.3, draw: 0.5 }, rest)
+    // The clocks' gap is 4 %; over a millimetre nature's is g h / c^2, about 1e-19, so the drawing owns its
+    // stretch: 0.04 / 1.1e-19 is about 4e17
+    cap('difference exaggerated ~10^{17}×', rest, { at: [0.62, 0.69], size: 0.022, font: 'unbounded', color: SOFT, fade: 0.3 })
   })
   at(start + heard('clock', 'millimetre', 0.85) - 0.4, () => {
     cap('*{2022 · 1 mm}', life - (now() - start), { at: [0.62, 0.62], size: 0.05, font: 'unbounded', accent: GOLD, fade: 0.3 })
@@ -311,8 +314,7 @@ shot('ruler', () => {
   const start = now()
   const spoken = say('ruler')
   const life = spoken + 0.6 + RULER_HOLD
-  // above the Earth's photograph, which the camera brings down to the frame's lower left
-  caption(STATUS.idea[0], life - 0.2, { at: [0.5, 0.06], size: 0.022, font: 'unbounded', color: STATUS.idea[1], fade: 0.4 })
+  status('idea', life - 0.2)
   // The camera flies down to the sheet beside the Earth's well, and back as the shot ends
   at(start, () => {
     to({ gravityStrength: 3 }, 1.5)
@@ -323,9 +325,9 @@ shot('ruler', () => {
   const gone = start + life - 1.4
   const rulerFrom = start + heard('ruler', 'rulers', 0.4) - 2.6
   const squeezeFrom = start + heard('ruler', 'squeezed', 0.55)
-  // The ruler leaves the sheet for the frame after the squeeze is named and the flight down has ended, and lies
-  // there straight
-  const liftFrom = Math.max(squeezeFrom + 1.4, start + 3.95)
+  // The ruler leaves the sheet for the frame after the squeeze is named, the flight down has ended and it has
+  // lain on the sheet, read by the rings, for 2 s after its last mark (drawn over 1.6 s), and lies there straight
+  const liftFrom = Math.max(squeezeFrom + 1.4, rulerFrom + 1.6 + 2.0, start + 3.95)
   const LIFT = 1.6
   const lift = [[liftFrom, 0], [liftFrom + LIFT, 1]]
   // The sheet and the falling space step back as the ruler lifts off, so the straight ruler reads on the dark
@@ -348,8 +350,8 @@ shot('ruler', () => {
     const rest = liftFrom - now()
     // down the near wall, the side facing the camera, from out on the flat to the Earth's edge
     sketch({ kind: 'line', points: [0, 1, 2, 3, 4, 5, 6, 7, 8].map(step => onSheet(3.6 - 2.45 * step / 8, W_SPOKE)), smooth: true, arrow: 'end', color: W, width: 0.0042, fade: 0.3, draw: 0.9 }, rest)
-    cap('*{W}', rest, { at: onSheet(2.6, W_SPOKE - 16), size: 0.036, font: 'unbounded', accent: W, fade: 0.3 })
-    cap('squeezed along *{W}', rest, { at: [0.5, 0.18], size: 0.03, font: 'unbounded', color: SOFT, accent: W, fade: 0.3 })
+    cap('*{W}', rest, { at: onSheet(3.3, W_SPOKE + 14), size: 0.036, font: 'unbounded', accent: W, fade: 0.3 })
+    cap('squeezed along *{W}', rest, { at: [0.68, 0.12], size: 0.03, font: 'unbounded', color: SOFT, accent: W, fade: 0.3 })
   })
   // Laid straight, the pieces are not the same length, and each holds the same space: as many dots in each
   at(liftFrom + LIFT, () => {
@@ -376,14 +378,32 @@ shot('ruler', () => {
   wait(life)
 })
 
-// The experiment, at two places of the scene: one light clock on the Earth, deep in its well, and the same clock
-// higher up, far out on the flat of the sheet where the well is shallow (a satellite's height drawn out of
-// scale). An arrow from clock to clock carries the one up to the other
-const HERE = inset(0.5, 0.5)
-const THERE = inset(0.8, 0.3)
+// The experiment, at two places of the scene: one light clock on the Earth, deep in its well, and the same clock on
+// a satellite, higher up, far out on the flat of the sheet where the well is shallow (its height drawn out of
+// scale). The way up is drawn on the sheet itself: an arrow from the Earth up the well's wall and out along the
+// spoke the ruler lay on, to the satellite. Each clock stands large on the frame, the upper one higher on it, with
+// a lead to its place. Probed at the count shot's wide camera: the spoke at 60 degrees runs from the Earth's top
+// (0.24, 0.56 of the frame) up and right to 0.37, 0.37 at 22 radii, clear of both insets
+const HERE = inset(0.84, 0.58)
+const THERE = inset(0.62, 0.25)
 const onEarth = { hole: [0.95, 0.75] }
-const upAt = { sheet: [22, -6] }
-const climb = () => [HERE(CLOCK.gap / 2 + 0.45, CLOCK.high + 0.1), [0.64, 0.27], THERE(-CLOCK.gap / 2 - 0.45, 0)]
+const UP = { away: 22, angle: RULER.angle }
+const upAt = onSheet(UP.away, UP.angle)
+// The way up the well, on the sheet: from the Earth's edge up the wall and out on the flat, stopping short of the
+// satellite
+const climb = () => [1.2, 1.5, 2, 2.8, 4, 6, 9, 13, 17, 19.8].map(away => onSheet(away, UP.angle))
+// A satellite at its place on the sheet: a body and two solar wings across the spoke, in the sheet's radii, so it
+// lies where the climb ends, and its name above it
+function satellite (seconds) {
+  const [x, y] = upAt.sheet
+  for (const side of [-1, 1]) {
+    sketch({ kind: 'line', points: [{ sheet: [part(x + side * 0.9), y] }, { sheet: [part(x + side * 2.8), y] }], color: GOLD, width: 0.006, fade: 0.3 }, seconds)
+  }
+  sketch({ kind: 'circle', center: upAt, radius: 0.45, fill: GOLD, color: GOLD, width: 0, fade: 0.3 }, seconds)
+  cap('satellite', seconds, { at: { sheet: [x, part(y + 9)] }, size: 0.022, font: 'unbounded', color: GOLD, fade: 0.3 })
+}
+// The two clocks, their leads and counters stay on to the end of the verdict, whose line compares their counts
+const VERDICT_END = () => long('verdict') + 0.6
 
 shot('mirrors', () => {
   const start = now()
@@ -393,8 +413,8 @@ shot('mirrors', () => {
   // The space eases: the clock is drawn on a quiet sheet
   at(start, () => { to({ gravityStrength: 1.5 }, 2) })
   // Two mirrors on a block, drawn large beside the Earth they stand on, and the light set bouncing between them.
-  // The clock stays on into the count shot
-  const end = start + life + long('count') + 0.6 + COUNT_HOLD
+  // The clock stays on through the count and the verdict
+  const end = start + life + long('count') + 0.6 + COUNT_HOLD + VERDICT_END()
   at(start + heard('mirrors', 'mirrors', 0.2) - 0.4, () => {
     clockBody(HERE, end - now())
     clockLead(HERE, [-CLOCK.gap / 2 - 0.25, -CLOCK.high - 0.4], onEarth, 0.12, end - now())
@@ -414,23 +434,26 @@ shot('count', () => {
   const start = now()
   const spoken = say('count')
   const life = spoken + 0.6 + COUNT_HOLD
-  const end = start + life
+  const end = start + life + VERDICT_END()
   // Here, deep in the well: the clock from the shot before, its round trips counted against an atomic clock's second
   at(start + heard('count', 'atomic', 0.25) - 0.3, () => {
     counter(HERE, end - now(), 2.4)
     cap('in 1 s of an atomic clock', end - now(), { at: HERE(0, -CLOCK.high - 1.6), size: 0.022, font: 'unbounded', color: SOFT, fade: 0.3 })
   })
-  // Then higher up, where the well is shallow: the way up the well along the sheet, and the same clock there
-  at(start + heard('count', 'satellite', 0.62) - 0.8, () => {
-    sketch({ kind: 'line', points: climb(), smooth: true, arrow: 'end', color: SOFT, width: 0.0022, dash: [0.01, 0.008], draw: 1.2, fade: 0.3 }, end - now())
+  // Then on a satellite: the satellite at its place far out on the flat, and the way up to it drawn along the sheet
+  const climbFrom = start + heard('count', 'satellite', 0.62) - 0.6
+  at(climbFrom, () => {
+    satellite(end - now())
+    sketch({ kind: 'line', points: climb(), smooth: true, arrow: 'end', color: GOLD, width: 0.003, dash: [0.01, 0.007], draw: 1.2, fade: 0.3 }, end - now())
   })
-  at(start + heard('count', 'satellite', 0.62) + 0.2, () => {
+  // and the same clock there, once the arrow has reached it
+  at(climbFrom + 1.1, () => {
     clockBody(THERE, end - now())
-    clockLead(THERE, [CLOCK.gap / 2 + 0.25, -CLOCK.high - 0.63], upAt, 0.3, end - now())
+    clockLead(THERE, [-CLOCK.gap / 2 - 0.25, -CLOCK.high - 0.4], upAt, 0.35, end - now())
     clockLight(THERE, end - now())
     cap('higher up: a shallower well', end - now(), { at: THERE(0, CLOCK.high + 0.5), size: 0.024, font: 'unbounded', color: SOFT, fade: 0.3 })
   })
-  at(start + heard('count', 'shallower', 0.9), () => {
+  at(Math.max(start + heard('count', 'shallower', 0.9), climbFrom + 1.4), () => {
     counter(THERE, end - now(), 2.4, true)
   })
   wait(life)
@@ -441,13 +464,14 @@ shot('verdict', () => {
   const spoken = say('verdict')
   const life = spoken + 0.6
   status('idea', spoken)
-  // The scene steps back behind the two answers
+  // The sheet steps back behind the two clocks, which stay with their counts, and the two answers stand beside the
+  // upper clock's count, each with the reading it predicts
   at(start, () => { to({ fade: 0.6 }, 0.8) })
   at(start + heard('verdict', 'Einstein', 0.03), () => {
-    cap('Einstein\n*{the same count}\nup and down', life - (now() - start), { at: [0.3, 0.42], size: 0.04, font: 'unbounded', color: SOFT, accent: GRID, plate: 0.55, fade: 0.4 })
+    cap('Einstein: the same count\n*{2.998 billion}', life - (now() - start), { at: [0.27, 0.13], size: 0.032, font: 'unbounded', color: SOFT, accent: GRID, plate: 0.55, fade: 0.4 })
   })
   at(start + heard('verdict', 'hypothesis', 0.3) - 0.2, () => {
-    cap('the hypothesis\n*{a few fewer}\nhigher up', life - (now() - start), { at: [0.7, 0.42], size: 0.04, font: 'unbounded', color: SOFT, accent: W, plate: 0.55, fade: 0.4 })
+    cap('the hypothesis: a few fewer\n*{2.998 billion − a few}', life - (now() - start), { at: [0.27, 0.26], size: 0.032, font: 'unbounded', color: SOFT, accent: W, plate: 0.55, fade: 0.4 })
   })
   at(start + heard('verdict', 'number', 0.7) - 0.3, () => {
     keep('one number, two *{ideas}', life - (now() - start))

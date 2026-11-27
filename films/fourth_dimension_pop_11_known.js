@@ -48,26 +48,29 @@ const keep = (text, seconds, more = {}) => caption(text, seconds, { at: [0.5, 0.
 const leave = () => { to({ fade: 1 }, 0.8) }
 // ---- end of the kit ----
 
-// The picture behind the words is quiet: a small black hole far off at the right, matter circling it slowly,
-// lit only by the motion its pull and swirl give it, so the columns of text read over the dark
+// The picture behind the words is quiet: a small black hole low at the right with matter winding into it, a flow
+// said whole from the first frame, so the hole reads as a body with its own motion and the columns of text read
+// over the dark. The flow's count was swept here, 1500 / 3000 / 5000 / 8000 a second a step: 3000 reads as a
+// spiral of matter and keeps clear of the board; 5000 and up fill the lower right into a disc that pulls the eye
 film({
   fps: 60,
   seed: 11,
+  warmup: 0,
   settings: {
-    blackHoleSize: 2.2,
-    blackHoleX: 0.88,
-    blackHoleY: 0.55,
-    numParticles: 24000,
-    baseSpeed: 0,
-    gravityStrength: 8,
-    speedGlowKnee: 0.02,
-    minOpacity: 0.3,
-    // The pull reaches past the frame's far edge, so the field thins toward the left with no edge of its own
-    gravityReach: 90,
-    gravityInertia: 0.6,
-    orbitalStrength: 80,
-    trailIntensity: 0.15,
-    baseBrightness: 1,
+    fieldEnabled: false,
+    blackHoleSize: 3.5,
+    blackHoleX: 0.87,
+    blackHoleY: 0.78,
+    flowA: 1.8,
+    flowACount: 3000,
+    flowAFrom: 7,
+    flowATo: 0.8,
+    flowASpread: 4,
+    flowASwirl: 0.8,
+    flowALife: 6,
+    flowATrail: 0.6,
+    flowASize: 1.2,
+    flowAColor: '#cfe0ff',
     starsBrightness: 0.8,
     starDensity: 0.15,
     gridSky: 0
@@ -76,15 +79,16 @@ film({
 chapter('11', 'WHAT WE ACTUALLY KNOW')
 
 // Three columns: what was measured, what is guessed, what is open
-const COLUMNS = { known: 0.05, guess: 0.36, open: 0.64 }
-const HEAD_Y = 0.16
+const COLUMNS = { known: 0.05, guess: 0.39, open: 0.66 }
+// The board fills the frame's upper two thirds
+const HEAD_Y = 0.24
 const ROW = 0.1
 // The seconds from now to the end of the given lines, each with its pause
 const through = (...names) => names.reduce((sum, name) => sum + long(name) + 0.6, 0)
 const heading = (text, column, color, seconds) =>
-  caption(text, seconds, { at: [column, HEAD_Y], size: 0.034, font: 'unbounded', color, align: 'left', fade: 0.5 })
+  caption(text, seconds, { at: [column, HEAD_Y], size: 0.038, font: 'unbounded', color, align: 'left', fade: 0.5 })
 const item = (text, column, row, seconds, more = {}) =>
-  caption(text, seconds, { at: [column, HEAD_Y + 0.1 + ROW * row], size: 0.032, font: 'noto', color: INK, align: 'left', reveal: 'lines', fade: 0.4, ...more })
+  caption(text, seconds, { at: [column, HEAD_Y + 0.1 + ROW * row], size: 0.036, font: 'noto', color: INK, align: 'left', reveal: 'lines', fade: 0.4, ...more })
 
 shot('straight', () => {
   const spoken = say('straight')
@@ -132,7 +136,7 @@ shot('unanswered', () => {
   const start = now()
   status('open', spoken + 0.3)
   at(start + heard('unanswered', 'shrinks', 0.3), () => item('does matter shrink\nin a well?', COLUMNS.open, 0, spoken + 0.6 - (now() - start)))
-  at(start + heard('unanswered', 'author', 0.6), () => caption('unanswered', spoken + 0.6 - (now() - start), { at: [COLUMNS.open, HEAD_Y + 0.1 + ROW * 1.6], size: 0.028, font: 'unbounded', color: SOFT, align: 'left', fade: 0.4 }))
+  at(start + heard('unanswered', 'author', 0.6), () => caption('unanswered', spoken + 0.6 - (now() - start), { at: [COLUMNS.open, HEAD_Y + 0.1 + ROW * 1.15], size: 0.028, font: 'unbounded', color: SOFT, align: 'left', fade: 0.4 }))
   wait(spoken + 0.6)
 })
 

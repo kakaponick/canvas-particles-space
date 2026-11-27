@@ -157,6 +157,15 @@ the friction cannot happen any more.
   and from the side at tilt 68); `hide('ring')` alone keeps the ring from edging the picture.
 - Where: `films/fourth_dimension_pop_06_above.js`, the mass drawn before shot "flyup".
 
+### A small black hole behind a board of text (2026-11-27)
+- Wanted / got: a quiet black hole beside the words of the pop film's clip 11; got a thin white ring like a UI
+  icon over film-grain fuzz: 24000 field particles at `baseSpeed` 0 lit only as noise.
+- Cause: the field's light is its speed, and slow matter far from a small hole draws nothing that reads.
+- Now: one flow falling in and winding (`flowA` 1.8, From 7, To 0.8, Spread 4, Swirl 0.8, the field off), its
+  count swept at the framing: 3000 read as a spiral round the shadow, 5000 and up a disc that pulls the eye.
+  A ring flow (From equal to To) beside it drew a solid band, a tube: leave it out.
+- Where: `films/fourth_dimension_pop_11_known.js`.
+
 ### A black hole showing round or before a planet (2026-11-27)
 - Wanted / got: the Earth; got a bare black disc before its picture came up, a dark crescent round it after a
   fly-in, and the hole's black disc left when the picture faded.
