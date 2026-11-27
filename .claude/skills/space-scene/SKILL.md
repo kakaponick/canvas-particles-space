@@ -50,7 +50,8 @@ These words carry the rest of this skill, of `references/` and of the guides.
    sheet, stand dark) and what else changes, which way, and where to look: the shadow's edge, the Einstein
    ring, the strokes round the hole, the sheet's well. Done when the sentence names the particles' motion
    and a place in the frame.
-4. **Tracer.** Draw the one still (or sweep) that tests the sentence, its `warmup` by the look: 0 if said, seconds if grown.
+4. **Tracer.** First play it in the operator's tab ([references/live_page.md](references/live_page.md), "In the
+   operator's tab"): the operator sees a simulation before you do. Then draw the one still (or sweep) that tests the sentence, its `warmup` by the look: 0 if said, seconds if grown.
 5. **Compare.** Done when the tracer shows the predicted change where it was predicted. When it shows
    nothing, the law's gate is shut: open it and draw the tracer again. When it shows a change elsewhere or of
    another kind, the prediction misread the law: read the section's traps and predict again. A value that

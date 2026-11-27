@@ -20,6 +20,7 @@ import {
 import { FILM_GUIDE, planFilm } from './film'
 import { FRAME_RATE_CAP_MAX, FRAME_RATE_CAP_MIN } from './particle_simulation'
 import { FRACTAL_SCRIPT_GUIDE, SCRIPT_GUIDE, writeFilm, writeFractal } from './film_script'
+import { playFromAddress, playInScene, sceneFilmTime, stopInScene, type SceneFilmOptions } from './film_in_scene'
 import { cancelFilm, filmProgress, previewFilm, renderFilm, type PreviewOptions, type RenderOptions } from './film_render'
 import { FRACTAL_GUIDE } from './fractal'
 import { checkFractal, previewFractal, renderFractal } from './fractal_render'
@@ -53,6 +54,11 @@ const HELP = `window.space: the scene for agents. Every call returns plain JSON-
                            faded through black or dissolved into one video (the guide's last part)
   film.script(source, input?)   the JSON a script writes, with the seconds it marked
   film.progress() / film.cancel()
+  film.live(film, { from?, loop?, input? }) / film.liveStop({ keep? }) / film.liveTime()
+                           plays a film inside this page's own scene, its tracks written into the settings each
+                           frame, looping; the film, its script, or the name of a film in films/. Only settings
+                           move (no captions, graphics or cues). ?live=<film> in the address plays it on load and
+                           again after every reload. Stop puts back the settings from before unless keep
   fractal.guide() / fractal.check(film) / fractal.preview(film, { at?, frames? }) / fractal.render(film, { quality?, audio?, download? })
                            a zoom into the Mandelbrot set as a video, as deep as asked, on a timeline of its own
                            (tracks, fade, captions, shots); the JSON object or a script, as for a film
@@ -364,7 +370,11 @@ export const sceneApi = {
       return { ...summary, notes: [...read.notes, ...summary.notes] }
     },
     progress: filmProgress,
-    cancel: cancelFilm
+    cancel: cancelFilm,
+    // The film played inside this page's scene rather than on the film mode's stage (film_in_scene.ts)
+    live: (film: unknown, options?: SceneFilmOptions) => playInScene(film, options),
+    liveStop: (options?: { keep?: boolean }) => stopInScene(options),
+    liveTime: sceneFilmTime
   },
   fractal: {
     guide: () => `${FRACTAL_GUIDE}\n\n${FRACTAL_SCRIPT_GUIDE}`,
@@ -387,5 +397,6 @@ declare global {
 
 export function installSceneApi () {
   window.space = sceneApi
+  playFromAddress()
   return sceneApi
 }
