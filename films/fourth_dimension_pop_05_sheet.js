@@ -1,4 +1,4 @@
-// The fourth dimension as popular science, clip 5 of films/fourth_dimension_pop.json: the sheet of space with a dent in it, its axes X, Y and W, and the question whether the dent is real.
+// The fourth dimension as popular science, clip 5 of films/fourth_dimension_pop.json: the sheet of space with a dent in it, light held back where gravity is strong, its axes X, Y and W, and the question whether the dent is real.
 // The narration sets the pace: LINES is what is said, say() marks where a line starts, and until a voice has
 // spoken the lines each takes what its words would (input.lines and input.cues bring a voice's own seconds).
 //   node .claude/skills/space-scene/scripts/space.mjs preview films/fourth_dimension_pop_05_sheet.js out.jpg -
@@ -6,6 +6,7 @@
 const LINES = {
   textbook: 'Now, how do you draw gravity? Every textbook does it the same way. Space is a stretched sheet, and a mass makes a dent in it.',
   roll: 'Things roll toward the dent. That is your orbit, your falling apple, your weight.',
+  light: 'Light feels the dent too. Let a flash go off near a heavy body. Outside its field the light runs on; inside it, the same light falls behind. Radar echoes sent past the Sun really do come back late, about two hundred millionths of a second, as Einstein predicted.',
   axes: "Look at the axes. Two of them, X and Y, are ordinary space. The third, the depth of the dent, is not. Let's call it W.",
   metaphor: 'Physicists will tell you the dent is only a picture. Space does not need to sag into anything.',
   whatif: 'This hypothesis asks: what if it does? What if W is a real direction, and the dent is really there?'
@@ -150,6 +151,16 @@ const onSheet = (away, angle) => {
   return { sheet: [part(away * Math.cos(turn)), part(away * Math.sin(turn))] }
 }
 
+// The black between the textbook's sheet and the flash's picture, each way
+const DIP = 0.6
+// The ball in the bowl from `from` to `until`. Shapes lie over the fade, so it goes dark with the picture
+// itself, and comes up with it when `rising`. An opaque black disc lies under it for its whole life: dimmed
+// alone, it went see-through and the bare hole's shadow and throat showed inside it (review 4, 0:41)
+const ball = (from, until, rising) => {
+  draw({ kind: 'circle', center: { hole: [0, LIFT] }, radius: BALL, fill: '#000000', color: '#000000', width: 0, fade: 0, opacity: 'lit', values: { lit: rising ? [[from, 0], [from + DIP, 1]] : [[from, 1]] } }, until - from)
+  draw({ kind: 'circle', center: { hole: [0, LIFT] }, radius: BALL, fill: MASS, color: '#ffe3a8', width: 0.002, glow: 0.03, fade: 0, opacity: 'lit', values: { lit: [[from, rising ? 0 : 1], [from + (rising ? DIP : 0.01), 1], [until - DIP, 1], [until, 0]] } }, until - from)
+}
+
 shot('textbook', () => {
   const start = now()
   const spoken = say('textbook')
@@ -167,12 +178,8 @@ shot('textbook', () => {
   at(lands, () => {
     show('hole')
     show('ring')
-    const clipEnd = start + spoken + 0.6 + long('roll') + 1.4 + long('axes') + 0.6 + long('metaphor') + 0.6 + long('whatif') + 0.6 + 0.8
-    // Shapes lie over the fade, so the ball goes dark with the picture as the clip leaves. An opaque black
-    // disc lies under it for its whole life: dimmed alone, it went see-through and the bare hole's shadow
-    // and throat showed inside it (review 4, 0:41)
-    draw({ kind: 'circle', center: { hole: [0, LIFT] }, radius: BALL, fill: '#000000', color: '#000000', width: 0, fade: 0 }, clipEnd - now())
-    draw({ kind: 'circle', center: { hole: [0, LIFT] }, radius: BALL, fill: MASS, color: '#ffe3a8', width: 0.002, glow: 0.03, fade: 0, opacity: 'lit', values: { lit: [[now(), 1], [clipEnd - 0.8, 1], [clipEnd, 0]] } }, clipEnd - now())
+    // The ball stays until the picture goes to black for the flash ("light"), and comes back after it
+    ball(now(), start + spoken + 0.6 + long('roll') + 1.4 + DIP, false)
     label('a mass', 3.4, { hole: [3.6, LIFT + 0.4] }, { color: GOLD })
     // The dent sinks and the matter on the sheet comes up with it, already running down into it
     to({ gridDepth: DEEP, blackHoleY: HOLE_Y, flowA: MATTER * 0.6 }, 2.4)
@@ -218,6 +225,113 @@ shot('roll', () => {
     label('weight', end - now(), onSheet(5.6, 235), { size: 0.026, color: INK, plate: 0.4 })
   })
   wait(end - start)
+})
+
+// "Light feels the dent too": the operator's drawings of a flash past a strong field. Through black the
+// picture turns to the sheet seen from straight above: a light source, a ring of light leaving it, a body with
+// its field drawn as a dashed zone. The same front runs free outside the zone and lags inside it, where light
+// is slower (gridFrontField, gridFrontStrength, gridFrontFieldEven: the eikonal of a field drawn far stronger
+// than a real one and even across the zone, which the frame says). Its key frame, the front just inside the
+// zone while it runs on outside, is held while the camera comes in and the frame explains it a line at a time;
+// the white band is where the light would be with no gravity (gridFrontGhost). Then through black back to the
+// textbook's sheet, as "roll" left it
+const SOURCE = [-8, 0]
+const ZONE = 3.5
+const WARM = '#ffb070'
+const COOL = '#bcd4ff'
+const LIGHT = {
+  threeD: true, threeDEase: 0, cameraYaw: 0, cameraPitch: 0, cameraMoveIn: -9.5, cameraFloat: 0,
+  blackHoleSize: 10, blackHoleY: 0.5, lensingEnabled: true, ringBrightness: 4, ringGlow: 2, bloom: 2, bloomThreshold: 0.5,
+  flowA: 0, gridRide: 0, gridDepth: 2, gridSpan: 2, gridCell: 2.5, gridSheet: 0.3, gridLine: 1.2, gridFade: 0.3, gridThroatGlow: 1, gridLight: 0,
+  starsBrightness: 0, starDensity: 0,
+  gridFront: 4, gridFrontColor: '#ff8a1e', gridFrontX: SOURCE[0], gridFrontY: SOURCE[1], gridFrontRun: 0, gridFrontWidth: 3, gridFrontLead: 0.1,
+  gridFrontGhost: 0.35, gridFrontStrength: 20, gridFrontField: ZONE, gridFrontFieldEven: 1, gridFrontFieldLine: 1.5
+}
+// The textbook's sheet as "roll" leaves it, set back after the flash
+const SHEET = {
+  threeD: false, cameraYaw: 40, cameraPitch: 20, cameraMoveIn: 0, cameraFloat: 0.3,
+  blackHoleSize: 8, blackHoleY: HOLE_Y, lensingEnabled: false, ringBrightness: 1, ringGlow: 0.3, bloom: 0, bloomThreshold: 0.3,
+  flowA: MATTER, gridRide: 1, gridDepth: DEEP, gridSpan: 1.6, gridCell: 4, gridSheet: 1, gridLine: 2, gridFade: 0.4, gridThroatGlow: 1.5, gridLight: 1,
+  starsBrightness: 1.2, starDensity: 0.22,
+  gridFront: 0, gridFrontRun: 0, gridFrontGhost: 0, gridFrontStrength: 1, gridFrontField: 0, gridFrontFieldEven: 0, gridFrontFieldLine: 0
+}
+const note = (text, seconds, place, more = {}) => caption(text, seconds, { at: place, size: 0.024, font: 'noto', color: INK, plate: 0.55, fade: 0.4, ...more })
+const lead = (seconds, points, more = {}) => {
+  draw({ kind: 'line', points: points.map(p => ({ sheet: p })), arrow: 'end', color: INK, width: 0.0016, draw: 0.5, fade: 0.4, ...more }, seconds)
+}
+shot('light', () => {
+  const start = now()
+  const spoken = say('light')
+  to({ fade: 1 }, DIP)
+  set(LIGHT)
+  to({ fade: 0 }, DIP)
+  const open = now()
+  // The key frame comes as the line reaches "Outside", and is held until "behind" has been heard and read
+  const key = Math.max(open + 7, start + heard('light', 'Outside', 0.31))
+  const keyEnd = Math.max(key + 6, start + heard('light', 'behind', 0.56) + 2)
+  const end = Math.max(keyEnd + 7.5, start + spoken + 0.6)
+  // The delay past the Sun is measured; the picture draws the field larger than life, and says so
+  status('known', end - open)
+  caption('the field is drawn far stronger than a real one', end - open, { at: [0.5, 0.95], size: 0.019, font: 'noto', color: SOFT, plate: 0.7, fade: 0.4 })
+  // The cast, one at a time: the source, a solid disc the band passes under, with its name inside; the zone's
+  // name steps aside while the key frame is explained and comes back after it
+  draw({ kind: 'circle', center: { sheet: SOURCE }, radius: 1.4, color: INK, fill: '#0a0e12', fillOpacity: 1, width: 0.0016, fade: 0.5 }, end - open)
+  note('Light source', end - open, { sheet: SOURCE }, { size: 0.02, plate: 0 })
+  at(open + 0.8, () => {
+    note('Strong gravitational field', key - 0.3 - now(), { sheet: [6.6, -5.2] })
+    lead(key - 0.3 - now(), [[5.4, -4.6], [2.8, -2.4]])
+  })
+  at(keyEnd + 0.4, () => {
+    note('Strong gravitational field', end - now(), { sheet: [6.6, -5.2] })
+    lead(end - now(), [[5.4, -4.6], [2.8, -2.4]])
+  })
+  at(open + 1.2, () => {
+    note('Light', 2.6, { sheet: [SOURCE[0], -6.2] })
+    lead(2.6, [[SOURCE[0], -5.6], [SOURCE[0], -3.3]])
+  })
+  // The key frame, a line at a time
+  at(key + 0.3, () => {
+    note('Same light cone', keyEnd - now(), { sheet: [-6.2, 5.6] })
+    lead(keyEnd - now(), [[-4.6, 5.6], [-1.2, 5.1]])
+    lead(keyEnd - now(), [[-5.2, 4.9], [-2.4, 1.6]])
+  })
+  at(key + 1.5, () => {
+    note('outside the field it runs on', keyEnd - now(), { sheet: [4.2, 6.2] }, { color: WARM })
+    lead(keyEnd - now(), [[2.6, 5.8], [0.2, 4.6]], { color: WARM })
+  })
+  at(key + 2.7, () => {
+    note('inside the field the same light is late', keyEnd - now(), { sheet: [-6.4, -3.6] }, { color: WARM })
+    lead(keyEnd - now(), [[-5.0, -3.0], [-2.6, -1.2]], { color: WARM })
+  })
+  at(key + 3.9, () => {
+    note('without gravity it would be here', keyEnd - now(), { sheet: [5.6, 2.6] }, { color: COOL })
+    lead(keyEnd - now(), [[3.8, 2.4], [1.2, 1.4]], { color: COOL })
+  })
+  at(keyEnd + 0.2, () => { note('inside, the front bows back toward the source', 3, { sheet: [-5.6, -4.4] }, { color: WARM }) })
+  meanwhile(() => {
+    // The camera drifts in while the light sets off, comes in on the key frame, and drifts out at the end
+    to({ cameraMoveIn: -8 }, key - open, 'linear')
+    to({ cameraMoveIn: -4.5 }, 2.5, 'ease')
+    wait(keyEnd - key - 4)
+    to({ cameraMoveIn: -8.5 }, 1.5, 'ease')
+    to({ cameraMoveIn: -10 }, end - keyEnd, 'linear')
+  })
+  // The light leaves the source as a ring, reaches the field slowing as it comes to the key frame, is held,
+  // bows back inside the zone and runs on
+  wait(0.2)
+  to({ gridFrontRun: 3 }, 2, 'linear')
+  wait(1)
+  to({ gridFrontRun: 9 }, key - now(), 'out')
+  wait(keyEnd - now())
+  to({ gridFrontRun: 12.5 }, 1.5, 'linear')
+  wait(1.5)
+  to({ gridFrontRun: 20 }, 3, 'linear')
+  until(end)
+  // Back through black to the textbook's sheet, the ball rising with it
+  to({ fade: 1 }, DIP)
+  set(SHEET)
+  ball(now(), now() + DIP + long('axes') + 0.6 + long('metaphor') + 0.6 + long('whatif') + 0.6 + 0.8, true)
+  to({ fade: 0 }, DIP)
 })
 
 // The W axis, solid or dashed; each drawing lasts until the next replaces it

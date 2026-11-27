@@ -51,7 +51,7 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 
 // Sent to every session that has this server, on every turn: the how lives in the space-scene skill
 const INSTRUCTIONS = 'Makes 1-180 s videos of a black-hole particle scene from a "film" (one JSON object or a short ' +
-  'script), and reels of them up to 600 s. Load the space-scene skill (.claude/skills/space-scene/SKILL.md) before ' +
+  'script), and reels of them up to 900 s. Load the space-scene skill (.claude/skills/space-scene/SKILL.md) before ' +
   'the first call: it finds the law behind an effect and tests it with a one-still tracer before the film is written. ' +
   'space_guide gives the format; the space_fractal_ tools zoom into the Mandelbrot set, space_fractal_guide first.'
 

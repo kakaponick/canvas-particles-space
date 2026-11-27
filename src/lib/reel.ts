@@ -8,7 +8,7 @@ import { MAX_FPS, MIN_FPS, inRange, planFilm, readFrame, type FilmPlan } from '.
 import { writeFilm, writeFractal } from './film_script'
 import { planFractal, type FractalPlan } from './fractal'
 
-export const MAX_REEL_SECONDS = 600
+export const MAX_REEL_SECONDS = 900
 export const MAX_REEL_CLIPS = 24
 // How one clip arrives from the one before: at once, out of black, or rising over it
 export const REEL_TRANSITIONS = ['cut', 'black', 'dissolve'] as const
