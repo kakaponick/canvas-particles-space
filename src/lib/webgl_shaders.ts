@@ -897,33 +897,12 @@ ${DENT_GLSL}
     ) - 0.5);
   }
 
-  // How far a place of space is from the nearest edge between the cells of a Voronoi noise, in cells: the
-  // second-nearest of the 27 cells' points less the nearest, which is 0 on an edge
-  float cellEdge (vec3 p) {
-    vec3 i = floor(p);
-    vec3 f = fract(p);
-    float nearest = 8.0;
-    float next = 8.0;
-    for (int x = -1; x <= 1; x++) {
-      for (int y = -1; y <= 1; y++) {
-        for (int z = -1; z <= 1; z++) {
-          vec3 g = vec3(float(x), float(y), float(z));
-          vec3 r = g + hash33(i + g) - f;
-          float far = dot(r, r);
-          if (far < nearest) { next = nearest; nearest = far; }
-          else if (far < next) next = far;
-        }
-      }
-    }
-    return sqrt(next) - sqrt(nearest);
-  }
-
   // A neutron star drawn in the hole's stead (Neutron Star above 0), "fromHole" from its middle: a ball of
   // the radius of its surface turning about the picture's up, its plasma a deep colour crossed by bright
   // veins read on the ball, so they turn with it and crowd toward the limb as a sphere's markings do.
-  // The veins are cracks, the edges between the cells of a Voronoi noise, in layers each twice as fine as
-  // the last and weighted by how near the layer before drew a crack (Branching), so thin cracks branch off
-  // the thick ones the way a discharge forks. Each layer reads the 27 cells round the place. A slower noise bends the place they are
+  // The veins are a ridged multifractal: each layer of noise is twice as fine as the last and grows only in
+  // the broad band round the ridge the layer before drew (Branching), so the fine veins run on beside the
+  // coarse ones as streaks and swirls of current rather than lie in their own cells. A slower noise bends the place they are
   // read at (Vein Wander), so they wander. Where a vein is brightest its colour runs to the hot core's
   // (Hot Core), and between the veins a turbulent underlayer stirs the plasma (Turbulence). Its face
   // darkens toward the limb, the limb itself is lit, and a glow falls off round it as the square of the
@@ -953,12 +932,11 @@ ${DENT_GLSL}
     float cell = u_neutron.y / max(u_neutronVeins.x, 0.001) / px;
     for (int layer = 0; layer < NEUTRON_LAYERS; layer++) {
       if (float(layer) >= u_neutronPlasma.x) break;
-      // How far the place is from the nearest edge between two cells, in cells: the cracks are those edges,
-      // which always join into a net, where the ridges of a smooth noise close into small loops and dots
-      float edge = cellEdge(q);
-      veins += share * exp(-edge * u_neutronVeins.y) * weight * smoothstep(4.0, 12.0, cell);
-      // The next layer grows in the broad band round this one's cracks, so its finer cracks branch off them
-      weight = clamp(exp(-edge * u_neutronVeins.y * 0.3) * weight * u_neutronPlasma.y, 0.0, 1.0);
+      float broad = 1.0 - abs(2.0 * valueNoise3(q) - 1.0);
+      veins += share * pow(broad, u_neutronVeins.y) * weight * smoothstep(4.0, 12.0, cell);
+      // The next layer grows in the broad band round this one's ridge, not in its thin line alone, so its
+      // veins run on beside the ridge as lines rather than show through it as dots
+      weight = clamp(broad * broad * weight * u_neutronPlasma.y, 0.0, 1.0);
       q = q * 2.03 + vec3(1.7, 9.2, 4.1);
       cell /= 2.03;
       share *= 0.6;

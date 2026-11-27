@@ -10,7 +10,7 @@ film({
   settings: {
     fieldEnabled: false, lensingEnabled: false, ringEnabled: false, blackHoleX: 0.5, blackHoleY: 0.47,
     // The neutron star the scene draws in the hole's stead, its surface 1.4 shadow radii out, as a typical
-    // one of three Schwarzschild radii is seen; a net of thin cracks that branch and turn with it, white-hot
+    // one of three Schwarzschild radii is seen; streaks and swirls of current that turn with it, white-hot
     // in their middles, a lit limb and a glow a radius wide
     blackHoleSize: 8.4, neutronStar: 1, neutronSurface: 1.4,
     neutronVeinLight: 1, neutronLimb: 1.4, neutronGlow: 1, neutronGlowLight: 0.6,
