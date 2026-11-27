@@ -1,0 +1,18 @@
+{
+  "size": "1080p",
+  "fps": 60,
+  "clips": [
+    { "name": "which way is down?", "film": "films/fourth_dimension_pop_01_down.js", "input": {"lines":{},"cues":{}} },
+    { "name": "what is a dimension?", "film": "films/fourth_dimension_pop_02_ladder.js", "input": {"lines":{},"cues":{}} },
+    { "name": "where does the fourth point?", "film": "films/fourth_dimension_pop_03_inward.js", "input": {"lines":{},"cues":{}} },
+    { "name": "gravity at full power", "film": "films/fourth_dimension_pop_04_hole.js", "input": {"lines":{},"cues":{}} },
+    { "name": "the textbook picture", "film": "films/fourth_dimension_pop_05_sheet.js", "input": {"lines":{},"cues":{}} },
+    { "name": "look from above", "film": "films/fourth_dimension_pop_06_above.js", "input": {"lines":{},"cues":{}} },
+    { "name": "the flat creature", "film": "films/fourth_dimension_pop_07_creature.js", "input": {"lines":{},"cues":{}} },
+    { "name": "space can ripple", "film": "films/fourth_dimension_pop_08_ripple.js", "input": {"lines":{},"cues":{}} },
+    { "name": "what a black hole is", "film": "films/fourth_dimension_pop_09_object.js", "input": {"lines":{},"cues":{}} },
+    { "name": "how to prove it wrong", "film": "films/fourth_dimension_pop_10_test.js", "input": {"lines":{},"cues":{}} },
+    { "name": "what we actually know", "film": "films/fourth_dimension_pop_11_known.js", "input": {"lines":{},"cues":{}} },
+    { "name": "so, which way is down?", "film": "films/fourth_dimension_pop_12_fall.js", "input": {"lines":{},"cues":{}} }
+  ]
+}
