@@ -274,6 +274,11 @@ Tours and language:
   jump, round the column, over a disc of three flows, a fly-by through the disc's plane, tilted orbits, a
   merger, a dive into the traced disc; about 7 800 keys, most of them driven paths (circle in a disc, flows,
   the traced disc). Written without a preview: check it before the first render.
+- `rivals.js`: two rival holes that pass matter back and forth in twelve transfers, each gift dropping their
+  distance (Kepler turns them faster), a third flow hopping between them, flow colours sliding toward each
+  other, a merger, one hole wearing both colours; a cable-like camera between them; about 8 300 keys, most of
+  them the physics (the distance drive, the hops, the swirl). Written without a preview or a check, at the
+  operator's word: check it before the first render.
 - `horizon.js`: a film carried by its text: words on black, a definition, a formula, a label, counters
   read from the film, a list that builds.
 - `graphics.js`: everything drawn over the picture: rings that mark radii, an arrow with a label, a chart
