@@ -5,7 +5,7 @@
     {
       "name": "which way is down?",
       "film": "films/fourth_dimension_pop_01_down.js",
-      "input": {"lines":{"drop":4.56,"which":3.33,"opposite":11.17,"serious":8.05,"need":6.56,"fourth":5,"wire":10.56},"cues":{"drop":{"falls":1.16,"every":1.48},"which":{"which":1.79},"opposite":{"Tokyo":1.77,"Buenos":2.87,"opposite":4.67,"middle":10.71},"serious":{"direction":4.09,"fourth":5.25,"gravity":6.27},"need":{"cube":3.28,"hole":4.34,"wire":6},"fourth":{"fourth":0.29},"wire":{"kilometres":3.72,"second":7.82,"coil":9.98}}}
+      "input": {"lines":{"drop":4.56,"which":3.33,"opposite":11.17,"serious":8.05,"need":6.07,"fourth":5,"mirrors":12.3},"cues":{"drop":{"falls":1.16,"every":1.48},"which":{"which":1.79},"opposite":{"Tokyo":1.77,"Buenos":2.87,"opposite":4.67,"middle":10.71},"serious":{"direction":4.09,"fourth":5.25,"gravity":6.27},"need":{"cube":3.04,"hole":4.26,"mirrors":5.32},"fourth":{"fourth":0.29},"mirrors":{"mirrors":1.37,"bouncing":4.95,"ruler":10.47}}}
     },
     {
       "name": "what is a dimension?",
@@ -20,7 +20,7 @@
     {
       "name": "gravity at full power",
       "film": "films/fourth_dimension_pop_04_hole.js",
-      "input": {"lines":{"suspect":6.58,"strongest":4.75,"anatomy":12.53,"sixty":5.75,"photographed":3.1},"cues":{"suspect":{"inward":1.79,"Gravity":5.95},"strongest":{"hole":4.18},"anatomy":{"shadow":2.52,"ring":6.76,"sky":10.62},"sixty":{"Suns":1.6,"sixty":3.88},"photographed":{"photographed":1.64}}}
+      "input": {"lines":{"suspect":6.58,"strongest":4.75,"anatomy":12.53,"sixty":5.75,"photographed":3.1},"cues":{"suspect":{"inward":1.79,"Gravity":5.95},"strongest":{"strongest":2.66},"anatomy":{"shadow":2.52,"ring":6.76,"sky":10.62},"sixty":{"Suns":1.6,"sixty":3.88},"photographed":{"photographed":1.64}}}
     },
     {
       "name": "the textbook picture",
@@ -45,17 +45,17 @@
     {
       "name": "what a black hole is",
       "film": "films/fourth_dimension_pop_09_object.js",
-      "input": {"lines":{"bottom":9.61,"deeper":4.06,"dark":8,"thing":10.07,"bold":9.01},"cues":{"dark":{"light":2.12,"dark":5.58,"black":7.16},"bottom":{"neutron":4.18,"half":5.82,"twenty":7.78},"deeper":{"mass":0.68,"deeper":1.86},"thing":{"hole":1.4,"tear":3.04,"object":4.3,"bottom":7.96},"bold":{"singularity":0.76,"wormhole":3.18,"white":4.42,"nobody":7.86}}}
+      "input": {"lines":{"bottom":9.61,"deeper":4.06,"dark":8,"thing":10.07,"bold":9.01},"cues":{"dark":{"light":2.12,"dark":5.58,"black":7.16},"deeper":{"mass":0.68,"deeper":1.86},"bottom":{"neutron":4.18,"half":5.82,"twenty":7.78},"bold":{"singularity":0.76,"wormhole":3.18,"white":4.42,"nobody":7.86},"thing":{"hole":1.4,"tear":3.04,"object":4.3,"bottom":7.96}}}
     },
     {
       "name": "how to prove it wrong",
       "film": "films/fourth_dimension_pop_10_test.js",
-      "input": {"lines":{"fail":4.69,"clock":7.37,"ruler":10.29,"wire":10.56,"twice":7.01,"verdict":10.53},"cues":{"fail":{"fail":2.29},"clock":{"clocks":4.52,"millimetre":6.14},"ruler":{"rulers":6.2,"trust":9.64},"wire":{"kilometres":3.72,"second":7.82,"coil":9.98},"twice":{"Earth":2.13,"planet":5.33,"again":6.49},"verdict":{"Einstein":0,"hypothesis":2.95,"number":7.07}}}
+      "input": {"lines":{"fail":4.69,"clock":7.37,"ruler":10.29,"mirrors":12.3,"count":9.99,"verdict":13.53},"cues":{"fail":{"fail":2.29},"clock":{"time":0.7,"millimetre":6.14},"ruler":{"squeezed":4.06,"rulers":6.2,"trust":9.64},"mirrors":{"mirrors":1.37,"bouncing":4.95,"ruler":10.47},"count":{"atomic":2.19,"satellite":6.91,"shallower":9.25},"verdict":{"Einstein":0,"hypothesis":3.46,"number":9.92}}}
     },
     {
       "name": "what we actually know",
       "film": "films/fourth_dimension_pop_11_known.js",
-      "input": {"lines":{"straight":3.3,"facts":8.05,"guess":5.94,"unanswered":7.06,"century":8.28},"cues":{"straight":{"known":1.3,"guess":2.72},"facts":{"dimension":0.85,"gravity":2.61,"black":5.33,"ripples":7.17},"guess":{"dent":1.08,"W":3.62},"unanswered":{"shrinks":1.58,"unanswered":5.88},"century":{"General":1.16,"test":3.06,"match":6.68}}}
+      "input": {"lines":{"straight":3.3,"facts":8.05,"guess":5.94,"unanswered":7.06,"century":8.28},"cues":{"straight":{"known":1.3,"guess":2.72},"facts":{"dimension":0.85,"gravity":2.61,"black":5.33,"ripples":7.17},"guess":{"dent":1.08,"W":3.62},"unanswered":{"shrinks":1.58,"author":3.72},"century":{"General":1.16,"test":3.06,"match":6.68}}}
     },
     {
       "name": "so, which way is down?",

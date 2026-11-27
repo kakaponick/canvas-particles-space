@@ -5,7 +5,7 @@
     {
       "name": "which way is down?",
       "film": "films/fourth_dimension_pop_01_down.js",
-      "input": {"lines":{"drop":4.57,"which":3.99,"opposite":13.39,"serious":9.27,"need":9.19,"fourth":7.71,"wire":10.4},"cues":{"drop":{"falls":1.41,"every":2.25},"which":{"which":1.36},"opposite":{"Tokyo":2.16,"Buenos":3.8,"opposite":6.26,"middle":12.52},"serious":{"direction":4.69,"fourth":5.71,"gravity":6.57},"need":{"cube":3.39,"hole":4.95,"wire":6.99},"fourth":{"fourth":0.48},"wire":{"kilometres":3.75,"second":7.53,"coil":9.71}}}
+      "input": {"lines":{"drop":4.57,"which":3.99,"opposite":13.39,"serious":9.27,"need":7.1,"fourth":7.71,"mirrors":18.16},"cues":{"drop":{"falls":1.41,"every":2.25},"which":{"which":1.36},"opposite":{"Tokyo":2.16,"Buenos":3.8,"opposite":6.26,"middle":12.52},"serious":{"direction":4.69,"fourth":5.71,"gravity":6.57},"need":{"cube":3.46,"hole":5.02,"mirrors":6.22},"fourth":{"fourth":0.48},"mirrors":{"mirrors":2.42,"bouncing":7.9,"ruler":15.2}}}
     },
     {
       "name": "what is a dimension?",
@@ -25,7 +25,7 @@
     {
       "name": "the textbook picture",
       "film": "films/fourth_dimension_pop_05_sheet.js",
-      "input": {"lines":{"textbook":9.21,"roll":7.09,"axes":8.94,"metaphor":6.34,"whatif":9.52},"cues":{"textbook":{"sheet":5.83,"mass":6.79},"roll":{"orbit":2.7,"apple":4.38,"weight":5.58},"axes":{"x":1.87,"y":2.49,"third":4.89},"metaphor":{"picture":2.27},"whatif":{"does":2.28,"w":4.64}}}
+      "input": {"lines":{"textbook":9.21,"roll":7.09,"axes":9.78,"metaphor":6.34,"whatif":9.52},"cues":{"textbook":{"sheet":5.83,"mass":6.79},"roll":{"orbit":2.7,"apple":4.38,"weight":5.58},"axes":{"third":5.24},"metaphor":{"picture":2.27},"whatif":{"does":2.28,"w":4.64}}}
     },
     {
       "name": "look from above",
@@ -45,12 +45,12 @@
     {
       "name": "what a black hole is",
       "film": "films/fourth_dimension_pop_09_object.js",
-      "input": {"lines":{"bottom":10.02,"deeper":4.63,"dark":10.08,"thing":11.63,"bold":11.02},"cues":{"bottom":{"neutron":3.9,"half":5.12,"twenty":7.62},"deeper":{"mass":0.44,"deeper":2.02},"dark":{"light":2.34,"dark":5.46,"black":8.88},"thing":{"hole":1.64,"tear":3.12,"object":4.46,"bottom":9.48},"bold":{"singularity":1.67,"wormhole":4.61,"white":6.45,"nobody":9.83}}}
+      "input": {"lines":{"bottom":10.02,"deeper":4.07,"dark":8.54,"thing":11.63,"bold":11.84},"cues":{"bottom":{"neutron":3.9,"half":5.12,"twenty":7.62},"deeper":{"mass":0.42,"deeper":1.76},"dark":{"light":2.44,"dark":5.36,"black":6.98},"thing":{"hole":1.64,"tear":3.12,"object":4.46,"bottom":9.48},"bold":{"singularity":1.54,"wormhole":4.62,"white":6.72,"nobody":10.28}}}
     },
     {
       "name": "how to prove it wrong",
       "film": "films/fourth_dimension_pop_10_test.js",
-      "input": {"lines":{"fail":4.95,"clock":9.26,"ruler":11.32,"wire":10.4,"twice":7.42,"verdict":13.1},"cues":{"fail":{"fail":2.38},"clock":{"clocks":6,"millimetre":8.6},"ruler":{"rulers":7.37,"trust":10.67},"wire":{"kilometres":3.75,"second":7.53,"coil":9.71},"twice":{"Earth":2.52,"planet":5.56,"again":6.5},"verdict":{"Einstein":0,"hypothesis":3.77,"number":9.03}}}
+      "input": {"lines":{"fail":4.95,"clock":9.26,"ruler":9.8,"mirrors":18.16,"count":13.27,"verdict":13.21},"cues":{"fail":{"fail":2.38},"clock":{"clocks":6,"millimetre":8.6},"ruler":{"rulers":6.56,"trust":9.12},"mirrors":{"mirrors":2.42,"bouncing":7.9,"ruler":15.2},"count":{"atomic":3.9,"satellite":9.88,"shallower":12.12},"verdict":{"Einstein":0,"hypothesis":3.66,"number":9.64}}}
     },
     {
       "name": "what we actually know",
