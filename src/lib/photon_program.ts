@@ -24,7 +24,7 @@ const photonVertexShaderSource = MODERN_VERTEX + `
   uniform vec4 u_lens;        // the scene camera's zoom: the point it leaves in place, the zoom; unused
   uniform vec4 u_jolt;        // the scene camera's shake; unused
   uniform vec4 u_run;         // how far the light has run, the trail's length, both in throat radii of coordinate time, the run a taken photon fades out over, the stroke's width in CSS pixels
-  uniform vec4 u_hole;        // the nearer black hole's distance from the camera as a share of the main one's (0 = nothing is in front), as the sheet takes it
+  uniform vec4 u_hole;        // the nearer black hole's distance from the camera as a share of the main one's (0 = nothing is in front), as the sheet takes it; 1 to draw a trail even, not fading toward its tail (a dash)
   uniform vec4 u_place;       // the throat's radius in the plane's units, how far the flash stands from where it was traced, in throat radii; unused
 ${SHEET_GLSL}
   out vec2 v_ends;            // distance along the piece from its start and from its end
@@ -109,7 +109,8 @@ ${SHEET_GLSL}
     v_halfWidth = halfWidth;
     // The trail fades from the photon toward its tail as the square of what is left of it
     float along = (float(piece) + end) / PIECES_F;
-    v_light = (1.0 - along) * (1.0 - along) * left * width / drawWidth;
+    float faded = u_hole.y > 0.0 ? 0.0 : along;
+    v_light = (1.0 - faded) * (1.0 - faded) * left * width / drawWidth;
 
     // The screen has its first row at the top
     gl_Position = vec4(pixel.x / u_frame.x * 2.0 - 1.0, 1.0 - pixel.y / u_frame.y * 2.0, 0.0, 1.0);
@@ -197,10 +198,10 @@ function traceFlash (table: Float32Array, count: number, photons: PhotonSettings
 /**
  * The photon program and its table; null when it does not build. Made inside createParticleRenderer. `fill`
  * fills the table for the settings it is drawn with: the flash's photons by default, Sheet Beams' walk along the
- * surface for the beams
+ * surface for the beams, the field's dashes for its circle; `even` draws each trail at one brightness (dashes)
  */
 export function createPhotonDrawer<S extends PhotonSettings = PhotonSettings> (gl: WebGL2RenderingContext,
-  fill: (table: Float32Array, count: number, settings: S) => void = traceFlash): PhotonDrawer<S> | null {
+  fill: (table: Float32Array, count: number, settings: S) => void = traceFlash, even = false): PhotonDrawer<S> | null {
   const program = createProgram(gl, photonVertexShaderSource, photonFragmentShaderSource, { a_position: ATTRIBUTE_LOCATIONS.position })
   if (!program) return null
   const names = ['table', 'frame', 'lens', 'jolt', 'run', 'place', 'color', 'hole', 'shadow', ...SHEET_UNIFORMS] as const
@@ -266,7 +267,7 @@ export function createPhotonDrawer<S extends PhotonSettings = PhotonSettings> (g
     set(u.lens, zoomX, zoomY, zoom, 0)
     set(u.jolt, shakeX, shakeY, 0, 0)
     set(u.shadow, shadow[0], shadow[1], shadow[2], shadow[3])
-    set(u.hole, front, 0, 0, 0)
+    set(u.hole, front, even ? 1 : 0, 0, 0)
     set(u.run, photons.run, Math.max(photons.trail, 0), photons.fade, Math.max(photons.width, 0))
     set(u.place, grid.throat, photons.x - x, photons.y - y, 0)
     const light = photons.brightness

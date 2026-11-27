@@ -18,6 +18,7 @@ import { layFlatSheet, laySpaceSheet, orbitOnSheet, placeSheet, waveSheet } from
 import { createPhotonSettings } from './photon_program'
 import { createPhotonTrace, followFlash } from './photons'
 import { createBeamSettings } from './beams'
+import { FIELD_RING_DASHES, FIELD_RING_FILL, createFieldRingSettings } from './field_ring'
 import { LATTICE_LINES_PER_SIDE, createLatticeSettings, latticeAnchor } from './space_lattice'
 import { FLOW_KEYS, createFlowSettings, leanPlane, resetFlow, shareFlow, stepFlow, turnFlow } from './flows'
 import { LIGHT_SPEED, SHADOW_RADII, clearOrbiters, createOrbitTuning, createOrbiters, stepOrbiters } from './orbiters'
@@ -644,6 +645,7 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     bloom: { strength: 0, threshold: 0.3, knee: 0.25, reach: 0.08, tail: 0.85, color: createSceneColor() },
     photons: createPhotonSettings(),
     beams: createBeamSettings(),
+    fieldRing: createFieldRingSettings(),
     step: settings
   }
 
@@ -2314,6 +2316,8 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
         grid.frontGhost = Math.min(Math.max(state.gridFrontGhost, 0), 1)
         grid.frontPulses = Math.min(Math.max(Math.round(state.gridFrontPulses), 1), 16)
         grid.frontPulseGap = Math.max(state.gridFrontPulseGap, 0.1)
+        grid.frontStrength = Math.max(state.gridFrontStrength, 1)
+        grid.frontField = Math.max(state.gridFrontField, 0)
         readSceneColor(grid.frontColor, state.gridFrontColor)
       }
     }
@@ -2360,7 +2364,29 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       }
       readSceneColor(beams.color, state.gridBeamColor)
     }
-    if (state.gridSheet > 0 || (settings.ride > 0 && state.gridRideWave > 0) || state.gridFrontPhotons > 0 || state.gridBeams > 0) waveSheet(grid, composite)
+    // The dashed circle where Light Front's field for light ends (field_ring.ts), white at Field Line
+    const ring = frame.fieldRing
+    ring.brightness = grid.throat > 0 && state.gridFrontField > 0 ? state.gridFrontFieldLine : 0
+    if (ring.brightness > 0) {
+      ring.count = FIELD_RING_DASHES
+      ring.x = 0
+      ring.y = 0
+      ring.traceX = 0
+      ring.traceY = 0
+      const dash = FIELD_RING_FILL * 2 * Math.PI * state.gridFrontField / FIELD_RING_DASHES
+      ring.run = dash
+      ring.trail = dash
+      ring.width = 2
+      ring.fade = 1
+      if (ring.radius !== state.gridFrontField) {
+        ring.radius = state.gridFrontField
+        ring.version++
+      }
+      ring.color.r = 1
+      ring.color.g = 1
+      ring.color.b = 1
+    }
+    if (state.gridSheet > 0 || (settings.ride > 0 && state.gridRideWave > 0) || state.gridFrontPhotons > 0 || state.gridBeams > 0 || ring.brightness > 0) waveSheet(grid, composite)
 
     // The lattice stands in the scene around the black hole and is seen by the 3D camera, or straight on
     // in the flat mode. Its cells are counted in the hole's full radius, so it is there before the hole

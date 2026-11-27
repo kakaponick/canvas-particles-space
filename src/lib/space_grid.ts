@@ -80,6 +80,10 @@ export interface GridSettings {
   // How many flashes go off one after another from the same place, and the run between them, in throat radii
   frontPulses: number
   frontPulseGap: number
+  // How many times stronger the hole's field for light is than the real one, and the zone it ends at, in throat
+  // radii (0: none)
+  frontStrength: number
+  frontField: number
   frontColor: SceneColor
   // The share of the sheet behind the holes drawn into the layer the lens reads, the rest over the frame
   lensed: number
@@ -156,6 +160,8 @@ export function createGridSettings (): GridSettings {
     frontGhost: 0,
     frontPulses: 1,
     frontPulseGap: 2,
+    frontStrength: 1,
+    frontField: 0,
     frontColor: createSceneColor(),
     lensed: 0,
     wave: new Float32Array(SHEET_WAVE_FLOATS),

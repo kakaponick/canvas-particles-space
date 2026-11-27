@@ -725,7 +725,7 @@ straight-on (section 11).
 | The sheet's shape: where its rings stand (equal steps of depth to equal radii), the share of the well's depth it is lifted by, how much wider than the real one the main well is drawn, a star's round-bottomed well in place of the hole's throat, how far a second well reaches toward its own hole | `gridRingSpacing`, `gridLift`, `gridWellWidth`, `neutronSurface`, `gridWell2Bottom` |
 | The sheet in the picture: the share of it behind the holes drawn through the lens, and how its pose turns while 3D eases in | `gridLensed`, `gridEaseTurn` |
 | The sheet's light: how many times brighter a line is at a throat and how close to it that glow keeps; the light the holes shed on it, where it falls to half, and its colour | `gridThroatGlow`, `gridThroatCurve`, `gridLight`, `gridLightReach`, `gridLightColor` |
-| A flash running over the sheet's lines: its band's brightness (0 is off), where it flashed (the main well's radii, x right, y away, as a film's sheet places), how long its light has run, the band's width and its rising share, a ghost ring where the light would be with no hole, a train of flashes and the run between them, and its colour | `gridFront`, `gridFrontX`, `gridFrontY`, `gridFrontRun`, `gridFrontWidth`, `gridFrontLead`, `gridFrontGhost`, `gridFrontPulses`, `gridFrontPulseGap`, `gridFrontColor` |
+| A flash running over the sheet's lines: its band's brightness (0 is off), where it flashed (the main well's radii, x right, y away, as a film's sheet places), how long its light has run, the band's width and its rising share, a ghost ring where the light would be with no hole, a train of flashes and the run between them, the hole's pull on light, the zone it ends at and that zone's dashed edge, and its colour | `gridFront`, `gridFrontX`, `gridFrontY`, `gridFrontRun`, `gridFrontWidth`, `gridFrontLead`, `gridFrontGhost`, `gridFrontPulses`, `gridFrontPulseGap`, `gridFrontStrength`, `gridFrontField`, `gridFrontFieldLine`, `gridFrontColor` |
 | The flash's light as photons on the paths of light past the hole: their brightness (0 is off), how many, how far their trails reach back (radii of run), the strokes' width, the run a fallen photon fades over, and their colour | `gridFrontPhotons`, `gridPhotonCount`, `gridPhotonTrail`, `gridPhotonWidth`, `gridPhotonFade`, `gridPhotonColor` |
 | Two beams racing along the dented sheet, one far from the well and one down its wall: their brightness (0 is off), where they start, how near and how far from the well they pass (radii), how far each has run along the surface, the trail, the strokes' width and their colour | `gridBeams`, `gridBeamX`, `gridBeamNear`, `gridBeamFar`, `gridBeamRun`, `gridBeamTrail`, `gridBeamWidth`, `gridBeamColor` |
 
@@ -810,6 +810,12 @@ straight-on (section 11).
   (the index is above 1 at any distance), about 2 radii behind the hole for a flash 4 to 10 radii away.
   0.5 to 0.7 under a warm band at 2 to 3 reads as a reference, not a second flash. With a train it rings the
   first flash alone.
+  `gridFrontStrength` (1 to 20) makes the hole's pull on light that many times the real one (the index's
+  excess over 1, same shape), and `gridFrontField` (radii, 0 = everywhere) ends it at a zone, easing out over
+  its outer tenth; `gridFrontFieldLine` draws the zone's edge as a white dashed circle on the sheet. Together
+  they are the textbook's drawing of a strong field: the front runs free outside the circle and lags inside
+  it, bowing back toward the flash. Strength 4 in a field of 3 radii lags the front by about the zone's radius
+  on the line through the hole. Above 1 it is larger than life, not physics: a film says so on screen.
   `gridFrontPulses` (1 to 16) sends that many flashes from the same place, `gridFrontPulseGap` radii of run
   apart, the first leading: a train of fronts like waves, each bending round the hole and kinking behind
   it, so the delay is shown again on every front. The most legible: the flash far off (`gridFrontX` -40,

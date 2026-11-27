@@ -48,6 +48,16 @@ export function frontIndex (rho: number): number {
   return (1 + q) * (1 + q) * (1 + q) / (1 - q)
 }
 
+// The index Light Front solves in: the hole's own, its excess over 1 made `strength` times stronger (1: the
+// real hole; above, a field for light drawn as the textbook draws it, larger than life) and, with a zone
+// (`zone` throat radii, 0: none), easing to nothing over its outer tenth, so outside it light runs free
+export function zoneIndex (rho: number, strength: number, zone: number): number {
+  const excess = frontIndex(rho) - 1
+  if (!(zone > 0)) return 1 + strength * excess
+  const share = Math.min(Math.max((rho - 0.9 * zone) / (0.1 * zone), 0), 1)
+  return 1 + strength * excess * (1 - share * share * (3 - 2 * share))
+}
+
 export interface FrontField {
   // The delay at each node, the arrival time less the straight distance from the flash, in throat radii:
   // FRONT_FIELD_RADII a row, one row an angle, from the flash's side (0) to the far side (π)
@@ -58,9 +68,10 @@ export interface FrontField {
   // The flash's distance from the hole the field was solved for, in throat radii; 0 while none is solved
   flash: number
   // Solves the field for a flash `flash` throat radii from the hole, out to `reach` and in to `floor` (a
-  // star's surface, which takes the light that meets it; the photon sphere's floor at least). False, with no
-  // field, when the flash is not outside the floor
-  solve: (flash: number, reach: number, floor: number) => boolean
+  // star's surface, which takes the light that meets it; the photon sphere's floor at least), in the index
+  // zoneIndex gives for `strength` and `zone` (1 and 0: the real hole). False, with no field, when the flash
+  // is not outside the floor
+  solve: (flash: number, reach: number, floor: number, strength?: number, zone?: number) => boolean
   // The arrival time at a place of the plane given from the hole, in throat radii, the flash on the first
   // axis, read between the nodes as the shader reads it: for checks
   arrival: (x: number, y: number) => number
@@ -235,7 +246,8 @@ export function createFrontField (radii = FRONT_FIELD_RADII, angles = FRONT_FIEL
     inner: 0,
     outer: 1,
     flash: 0,
-    solve (flash, reach, floor) {
+    solve (flash, reach, floor, strength = 1, zone = 0) {
+      const index = (rho: number) => zoneIndex(rho, strength, zone)
       const innermost = Math.max(floor, FIELD_FLOOR)
       field.flash = 0
       if (!(flash > innermost * 1.05)) return false
@@ -245,11 +257,11 @@ export function createFrontField (radii = FRONT_FIELD_RADII, angles = FRONT_FIEL
       for (let i = 0; i < radii; i++) {
         const rho = Math.exp(inner + i * logStep)
         radius[i] = rho
-        slowness[i] = rho * frontIndex(rho)
+        slowness[i] = rho * index(rho)
       }
       // The flash's nodes, set by the straight way: the index's mean along it, the ends and the middle by
       // Simpson's rule
-      const flashIndex = frontIndex(flash)
+      const flashIndex = index(flash)
       const near = SOURCE_NODES * flash * Math.max(logStep, angleStep)
       heapSize = 0
       for (let j = 0; j < angles; j++) {
@@ -260,7 +272,7 @@ export function createFrontField (radii = FRONT_FIELD_RADII, angles = FRONT_FIEL
           place[node] = -1
           if (straight <= near) {
             const middle = Math.hypot(0.5 * (rho * cosine[j] + flash), 0.5 * rho * sine[j])
-            time[node] = straight * (flashIndex + 4 * frontIndex(middle) + frontIndex(rho)) / 6
+            time[node] = straight * (flashIndex + 4 * index(middle) + index(rho)) / 6
             state[node] = 2
           } else {
             time[node] = Infinity

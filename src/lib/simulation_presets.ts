@@ -31,7 +31,7 @@ export const SIMULATION_SETTING_KEYS = [
   'gridRingSpacing', 'gridRideWave', 'gridLensed', 'gridRideSoft', 'gridRideStretch', 'gridRideFar', 'gridRideCut', 'gridWell2Bottom', 'gridLift', 'gridWellWidth', 'neutronSurface', 'neutronStar', 'neutronGlow', 'neutronTurn', 'neutronVeins', 'neutronVeinSharp',
   'neutronVeinLight', 'neutronLimb', 'neutronShade', 'neutronGlowLight', 'neutronWarp', 'neutronLayers', 'neutronBranch', 'neutronCore', 'neutronStir', 'neutronFlow', 'neutronCross', 'neutronColor', 'neutronVeinColor', 'neutronCoreColor', 'gridEaseTurn',
   'gridThroatGlow', 'gridThroatCurve', 'gridLight', 'gridLightReach', 'gridLightColor',
-  'gridFront', 'gridFrontX', 'gridFrontY', 'gridFrontRun', 'gridFrontWidth', 'gridFrontLead', 'gridFrontGhost', 'gridFrontPulses', 'gridFrontPulseGap', 'gridFrontColor',
+  'gridFront', 'gridFrontX', 'gridFrontY', 'gridFrontRun', 'gridFrontWidth', 'gridFrontLead', 'gridFrontGhost', 'gridFrontPulses', 'gridFrontPulseGap', 'gridFrontStrength', 'gridFrontField', 'gridFrontFieldLine', 'gridFrontColor',
   'gridFrontPhotons', 'gridPhotonCount', 'gridPhotonTrail', 'gridPhotonWidth', 'gridPhotonFade', 'gridPhotonColor',
   'gridBeams', 'gridBeamX', 'gridBeamNear', 'gridBeamFar', 'gridBeamRun', 'gridBeamTrail', 'gridBeamWidth', 'gridBeamColor',
   'bloom', 'bloomThreshold', 'bloomKnee', 'bloomReach', 'bloomTail', 'bloomColor',
