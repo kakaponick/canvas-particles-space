@@ -1,4 +1,4 @@
-// The fourth dimension as popular science, clip 10 of films/fourth_dimension_pop.json: the test: a wire one light second long, timed on Earth and far from any planet.
+// The fourth dimension as popular science, clip 10 of films/fourth_dimension_pop.json: the test: a light clock, two mirrors with light between them, counted against an atomic clock deep in Earth's well and higher up.
 // The narration sets the pace: LINES is what is said, say() marks where a line starts, and until a voice has
 // spoken the lines each takes what its words would (input.lines and input.cues bring a voice's own seconds).
 //   node .claude/skills/space-scene/scripts/space.mjs preview films/fourth_dimension_pop_10_test.js out.jpg -
@@ -7,9 +7,9 @@ const LINES = {
   fail: 'A nice story is not science until it can fail. So how could this one fail?',
   clock: 'Gravity slows time. In twenty twenty-two, physicists measured that with atomic clocks, across a single millimetre of height.',
   ruler: 'The hypothesis adds something. If matter deep in a well is squeezed along W, our rulers are squeezed too. So we need a ruler we can trust.',
-  wire: 'Take a superconducting wire, almost three hundred thousand kilometres long. Exactly as far as light travels in one second. And wind it into a coil.',
-  twice: 'Send a pulse of light through it, here on Earth. Then carry the coil far away from any planet, and do it again.',
-  verdict: 'Einstein says: one second, both times. The hypothesis says: out there, a little more than one second. One number. Two ideas. Only one survives.'
+  mirrors: 'Nothing exotic. Two mirrors on a solid block, a few centimetres apart, with light bouncing between them. Labs already build these to keep the best clocks on Earth steady. It is a ruler that light can read.',
+  count: 'Count the round trips in one second of an atomic clock, here, deep in the well of the Earth. Then count again on a satellite, high up, where the well is shallower.',
+  verdict: 'Einstein says: the same count, up and down. The hypothesis says: up there the block is less squeezed, so a few fewer round trips. One number. Two ideas. Only one survives.'
 }
 
 // ---- the film's kit: the same text in every clip of films/fourth_dimension_pop.json ----
@@ -57,45 +57,64 @@ const part = value => +value.toFixed(4)
 const sketch = (shape, seconds) => { if (seconds > 0.15) draw(shape, seconds) }
 const cap = (text, seconds, options) => { if (seconds > 0.15) caption(text, seconds, options) }
 
-// A coil: a helix seen a little from its end, in the frame's own coordinates. `along(share)` is the place a
-// share of the way along its wire
-function coil ({ from, y, length, radius, turns, lean = 0.36 }) {
-  const point = angle => [part(from + length * (angle + Math.PI / 2) / (2 * Math.PI * turns) + lean * radius * Math.cos(angle)), part(y - radius * Math.sin(angle))]
-  const arcs = []
-  for (let half = 0; half < turns * 2; half++) {
-    const start = -Math.PI / 2 + Math.PI * half
-    const points = []
-    for (let step = 0; step <= 8; step++) points.push(point(start + Math.PI * step / 8))
-    arcs.push({ near: half % 2 === 0, points })
+// A light clock, the kind labs build to keep the best clocks steady: two mirrors on a solid block, a few
+// centimetres apart, and light bouncing between them. It is drawn large on the frame, as an inset beside the
+// place it stands for: `inset(x, y)` gives the clock's points around [x, y] in shares of the frame, in clock units
+// of INSET of the frame's short side, x to the right and y up. Its light makes one crossing every 0.28 s, slowed a
+// billion times so it can be seen
+const MIRROR = '#e6eeff'
+const BLOCK = '#141d36'
+const CLOCK = { gap: 2.2, high: 0.9 }
+const INSET = 0.13
+const inset = (x, y) => (dx, dy) => [part(x + dx * INSET * 9 / 16), part(y - dy * INSET)]
+function clockBody (at, seconds) {
+  const half = CLOCK.gap / 2
+  const low = -CLOCK.high - 0.18
+  // The block that holds the mirrors apart: its length is matter, and it is what the hypothesis squeezes
+  sketch({ kind: 'line', points: [at(-half - 0.25, low), at(half + 0.25, low), at(half + 0.25, low - 0.45), at(-half - 0.25, low - 0.45)], close: true, color: SOFT, width: 0.0018, fill: BLOCK, fillOpacity: 0.92, fade: 0.3 }, seconds)
+  for (const side of [-1, 1]) {
+    sketch({ kind: 'line', points: [at(side * half, low), at(side * half, CLOCK.high)], color: MIRROR, width: 0.008, fade: 0.3 }, seconds)
   }
-  const along = share => point(-Math.PI / 2 + 2 * Math.PI * turns * Math.min(Math.max(share, 0), 1))
-  return { arcs, along }
+  // The beam's path, faint, for the light to run along
+  sketch({ kind: 'line', points: [at(-half, 0), at(half, 0)], color: GOLD, width: 0.0016, opacity: 0.25, fade: 0.3 }, seconds)
 }
-// Draws a coil, winding over `wind` seconds, for `seconds`
-function wound (made, seconds, wind = 0, color = COLD) {
-  const born = now()
-  made.arcs.forEach((arc, index) => {
-    const late = wind * index / made.arcs.length
-    at(born + late, () => {
-      sketch({ kind: 'line', points: arc.points, smooth: true, color, width: arc.near ? 0.0036 : 0.0027, opacity: arc.near ? 1 : 0.55, draw: wind > 0 ? Math.max(wind / made.arcs.length * 1.6, 0.12) : 0, fade: 0.35 }, seconds - late)
-    })
-  })
+// The gap measured above the mirrors, with its length
+function clockGap (at, seconds) {
+  const half = CLOCK.gap / 2
+  sketch({ kind: 'line', points: [at(-half, CLOCK.high + 0.3), at(half, CLOCK.high + 0.3)], arrow: 'both', color: SOFT, width: 0.0016, fade: 0.3 }, seconds)
+  cap('5 cm', seconds, { at: at(0, CLOCK.high + 0.62), size: 0.026, font: 'unbounded', color: SOFT, fade: 0.3 })
 }
-// A pulse of light through a coil over `run` seconds, with its stopwatch beside the coil
-function pulse (made, run, seconds, watchAt) {
+// A dashed lead from the clock's block (at `from`, in clock units) to the place on the scene it stands at, with a
+// dot of `dot` there in that place's unit
+function clockLead (at, from, place, dot, seconds) {
+  sketch({ kind: 'line', points: [at(...from), place], color: GOLD, width: 0.0024, dash: [0.008, 0.005], draw: 0.6, fade: 0.3 }, seconds)
+  sketch({ kind: 'circle', center: place, radius: dot, fill: GOLD, color: GOLD, width: 0, fade: 0.3 }, seconds)
+}
+// Its light, crossing from mirror to mirror every `cross` seconds for `seconds`, with a short trail behind it
+function clockLight (at, seconds, cross = 0.28) {
   const born = now()
-  const share = s => Math.min(Math.max(s / run, 0), 1)
-  const values = { x: s => made.along(share(s))[0], y: s => made.along(share(s))[1] }
-  sketch({ kind: 'circle', center: ['x', 'y'], radius: 0.022, fill: GOLD, color: GOLD, width: 0.0005, opacity: 0.25, fade: 0.2, values }, seconds)
-  sketch({ kind: 'circle', center: ['x', 'y'], radius: 0.009, fill: '#fffbe8', color: GOLD, width: 0.002, fade: 0.2, values }, seconds)
-  cap('*{#{t:3} s}', seconds, { at: watchAt, size: 0.036, font: 'geistMono', accent: GOLD, fade: 0.3, values: { t: [[born, 0], [born + run, 1, 'linear']] } })
+  const half = CLOCK.gap / 2
+  const keys = [[part(born), 0]]
+  for (let crossing = 1; crossing * cross <= seconds; crossing++) keys.push([part(born + crossing * cross), crossing % 2, 'linear'])
+  const light = { between: [at(-half + 0.08, 0), at(half - 0.08, 0)], share: 'p' }
+  sketch({ kind: 'circle', center: light, radius: part(0.3 * INSET), fill: GOLD, color: GOLD, width: 0, fillOpacity: 0.3, opacity: 0.8, fade: 0.2, values: { p: keys } }, seconds)
+  sketch({ kind: 'circle', center: light, radius: part(0.1 * INSET), fill: '#fffbe8', color: GOLD, width: 0.001, fade: 0.2, values: { p: keys } }, seconds)
+}
+// Round trips of light in one second of an atomic clock, between mirrors 5 cm apart: c / 10 cm, in billions
+const ROUND_TRIPS = 299792458 / 0.1 / 1e9
+// The counter under a clock, counting up to the round trips of one second over `run` seconds
+const counter = (at, seconds, run, ask = false) => {
+  const born = now()
+  cap(`*{#{n:3}} billion${ask ? '  ?' : ''}`, seconds, { at: at(0, -CLOCK.high - 1.05), size: 0.032, font: 'geistMono', color: INK, accent: GOLD, fade: 0.3, values: { n: [[born, 0], [born + run, ROUND_TRIPS, 'out']] } })
 }
 
 // The clip's whole length, for what stays on through all of it
-const SHOTS = ['fail', 'clock', 'ruler', 'wire', 'twice', 'verdict']
+const SHOTS = ['fail', 'clock', 'ruler', 'mirrors', 'count', 'verdict']
 // Seconds the ruler shot holds after its line, for the ruler to be laid straight and read
 const RULER_HOLD = 2.4
-const END = 2.8 + SHOTS.reduce((sum, name) => sum + long(name) + 0.6, 0) + RULER_HOLD + 0.8
+// and the count shot, for the clock higher up to finish its count before the verdict
+const COUNT_HOLD = 1.8
+const END = 2.8 + SHOTS.reduce((sum, name) => sum + long(name) + 0.6, 0) + RULER_HOLD + COUNT_HOLD + 0.8
 
 film({
   fps: 60,
@@ -347,54 +366,62 @@ shot('ruler', () => {
   wait(life)
 })
 
-// The coil of the experiment, the same coil in two places: beside the Earth, and far out at the right
-const COIL = { length: 0.22, radius: 0.05, turns: 9 }
-const NEAR = coil({ ...COIL, from: 0.33, y: 0.6 })
-const FAR = coil({ ...COIL, from: 0.66, y: 0.36 })
+// The experiment, at two places of the scene: one light clock on the Earth, deep in its well, and the same clock
+// higher up, far out on the flat of the sheet where the well is shallow (a satellite's height drawn out of
+// scale). An arrow from clock to clock carries the one up to the other
+const HERE = inset(0.5, 0.5)
+const THERE = inset(0.8, 0.3)
+const onEarth = { hole: [0.95, 0.75] }
+const upAt = { sheet: [22, -6] }
+const climb = () => [HERE(CLOCK.gap / 2 + 0.45, CLOCK.high + 0.1), [0.64, 0.27], THERE(-CLOCK.gap / 2 - 0.45, 0)]
 
-shot('wire', () => {
+shot('mirrors', () => {
   const start = now()
-  const spoken = say('wire')
+  const spoken = say('mirrors')
   const life = spoken + 0.6
-  status('idea', spoken)
-  // The space eases: the wire is drawn on a quiet sheet
+  status('known', spoken)
+  // The space eases: the clock is drawn on a quiet sheet
   at(start, () => { to({ gravityStrength: 1.5 }, 2) })
-  // The length counted up, to the distance light goes in a second
-  const COUNT = 3.2
-  at(start + heard('wire', 'kilometres', 0.35) - 1.6, () => {
-    const born = now()
-    sketch({ kind: 'line', points: [[0.3, 0.42], [0.9, 0.42]], color: COLD, width: 0.0036, draw: COUNT, fade: 0.3 }, heard('wire', 'coil', 0.95) - (born - start))
-    cap('*{#{k:0} km}', life - (born - start), { at: [0.6, 0.3], size: 0.05, font: 'unbounded', accent: COLD, fade: 0.3, values: { k: [[born, 0], [born + COUNT, 299792]] } })
+  // Two mirrors on a block, drawn large beside the Earth they stand on, and the light set bouncing between them.
+  // The clock stays on into the count shot
+  const end = start + life + long('count') + 0.6 + COUNT_HOLD
+  at(start + heard('mirrors', 'mirrors', 0.2) - 0.4, () => {
+    clockBody(HERE, end - now())
+    clockLead(HERE, [-CLOCK.gap / 2 - 0.25, -CLOCK.high - 0.4], onEarth, 0.12, end - now())
+    clockGap(HERE, life - (now() - start))
   })
-  at(start + heard('wire', 'second', 0.72) - 0.3, () => {
-    cap('= 1 light second', life - (now() - start), { at: [0.6, 0.36], size: 0.032, font: 'unbounded', color: GOLD, fade: 0.3 })
+  at(start + heard('mirrors', 'bouncing', 0.4) - 0.2, () => {
+    clockLight(HERE, end - now())
+    cap('light, slowed a billion times', life - (now() - start), { at: HERE(0, -CLOCK.high - 1.05), size: 0.024, font: 'unbounded', color: SOFT, fade: 0.3 })
   })
-  // And wound into a coil, beside the Earth
-  at(start + heard('wire', 'coil', 0.95) - 0.4, () => {
-    wound(NEAR, life - (now() - start), 1.2)
+  at(start + heard('mirrors', 'ruler', 0.85) - 0.3, () => {
+    keep('a ruler that *{light} can read', life - (now() - start))
   })
   wait(life)
 })
 
-shot('twice', () => {
+shot('count', () => {
   const start = now()
-  const spoken = say('twice')
-  const life = spoken + 0.6
+  const spoken = say('count')
+  const life = spoken + 0.6 + COUNT_HOLD
   const end = start + life
-  status('idea', spoken)
-  wound(NEAR, life, 0)
-  // Here on Earth: the pulse, timed
-  at(start + heard('twice', 'Earth', 0.38) - 0.5, () => {
-    pulse(NEAR, 2.2, end - now(), [0.44, 0.7])
-    cap('on Earth', end - now(), { at: [0.44, 0.76], size: 0.024, font: 'unbounded', color: SOFT, fade: 0.3 })
+  // Here, deep in the well: the clock from the shot before, its round trips counted against an atomic clock's second
+  at(start + heard('count', 'atomic', 0.25) - 0.3, () => {
+    counter(HERE, end - now(), 2.4)
+    cap('in 1 s of an atomic clock', end - now(), { at: HERE(0, -CLOCK.high - 1.6), size: 0.022, font: 'unbounded', color: SOFT, fade: 0.3 })
   })
-  // Then far from any planet: the same coil, the same pulse
-  at(start + heard('twice', 'planet', 0.78) - 0.6, () => {
-    wound(FAR, end - now(), 0.8)
-    cap('far from any planet', end - now(), { at: [0.77, 0.25], size: 0.024, font: 'unbounded', color: SOFT, fade: 0.3 })
+  // Then higher up, where the well is shallow: the way up the well along the sheet, and the same clock there
+  at(start + heard('count', 'satellite', 0.62) - 0.8, () => {
+    sketch({ kind: 'line', points: climb(), smooth: true, arrow: 'end', color: SOFT, width: 0.0022, dash: [0.01, 0.008], draw: 1.2, fade: 0.3 }, end - now())
   })
-  at(start + heard('twice', 'again', 0.95) - 0.6, () => {
-    pulse(FAR, 2.2, end - now() + 0.3, [0.77, 0.46])
+  at(start + heard('count', 'satellite', 0.62) + 0.2, () => {
+    clockBody(THERE, end - now())
+    clockLead(THERE, [CLOCK.gap / 2 + 0.25, -CLOCK.high - 0.63], upAt, 0.3, end - now())
+    clockLight(THERE, end - now())
+    cap('higher up: a shallower well', end - now(), { at: THERE(0, CLOCK.high + 0.5), size: 0.024, font: 'unbounded', color: SOFT, fade: 0.3 })
+  })
+  at(start + heard('count', 'shallower', 0.9), () => {
+    counter(THERE, end - now(), 2.4, true)
   })
   wait(life)
 })
@@ -407,10 +434,10 @@ shot('verdict', () => {
   // The scene steps back behind the two answers
   at(start, () => { to({ fade: 0.6 }, 0.8) })
   at(start + heard('verdict', 'Einstein', 0.03), () => {
-    cap('Einstein\n*{1 s = 1 s}', life - (now() - start), { at: [0.3, 0.42], size: 0.042, font: 'unbounded', color: SOFT, accent: GRID, plate: 0.55, fade: 0.4 })
+    cap('Einstein\n*{the same count}\nup and down', life - (now() - start), { at: [0.3, 0.42], size: 0.04, font: 'unbounded', color: SOFT, accent: GRID, plate: 0.55, fade: 0.4 })
   })
   at(start + heard('verdict', 'hypothesis', 0.3) - 0.2, () => {
-    cap('the hypothesis\n1 s < *{a little more}', life - (now() - start), { at: [0.7, 0.42], size: 0.042, font: 'unbounded', color: SOFT, accent: W, plate: 0.55, fade: 0.4 })
+    cap('the hypothesis\n*{a few fewer}\nhigher up', life - (now() - start), { at: [0.7, 0.42], size: 0.04, font: 'unbounded', color: SOFT, accent: W, plate: 0.55, fade: 0.4 })
   })
   at(start + heard('verdict', 'number', 0.7) - 0.3, () => {
     keep('one number, two *{ideas}', life - (now() - start))

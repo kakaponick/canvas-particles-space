@@ -5,7 +5,7 @@
 import { TITLE_FONTS } from './title_sprite'
 import type { CompositeSettings } from './particle_renderer'
 import { createShadowShape, shadowScaleAt } from './kerr_shadow'
-import { captionAlpha, captionValue, type CaptionNumbers, type FilmCaption, type FilmNumber, type FilmPlace, type FilmPlan } from './film'
+import { captionAlpha, captionValue, type CaptionNumbers, type FilmCaption, type FilmNumber, type FilmPlace, type FilmPlan, type FilmPoint } from './film'
 
 // What captions need of a film: its frame, length, captions and tracks, and where its numbers come from.
 // A particle film's plan is one; a fractal film builds one of its own
@@ -80,6 +80,16 @@ export function placeOnFrame (
     if (!from || !to) return from ?? to
     return { x: from.x + (to.x - from.x) * share, y: from.y + (to.y - from.y) * share, unit: from.unit + (to.unit - from.unit) * share }
   }
+  const point = pointOnFrame(place, read, composite, pixel, width, height, orMain, sheet)
+  if (!point || !place.shift) return point
+  // A drawing standing at the point: moved on the frame in the point's own unit, y up
+  return { x: point.x + read(place.shift[0]) * point.unit, y: point.y - read(place.shift[1]) * point.unit, unit: point.unit }
+}
+
+function pointOnFrame (
+  place: FilmPoint, read: (value: FilmNumber) => number, composite: CaptionFrame, pixel: number, width: number, height: number, orMain: boolean,
+  sheet: GridSettings | null
+): { x: number, y: number, unit: number } | null {
   if (place.anchor === 'frame') return { x: read(place.x) * width, y: read(place.y) * height, unit: Math.min(width, height) }
   if (place.anchor === 'sheet') {
     const point = sheet ? sheetPoint(sheet, read(place.x), read(place.y)) : null

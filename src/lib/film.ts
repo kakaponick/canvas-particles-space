@@ -77,6 +77,9 @@ export interface FilmPoint {
   anchor: 'frame' | typeof GRAPHIC_ANCHORS[number]
   x: FilmNumber
   y: FilmNumber
+  // Moved from there on the frame, in the place's unit (the hole's radii, or shares of the short side), x to the
+  // right and y up: a small drawing standing at a point of the scene, such as a device on the sheet
+  shift?: readonly [FilmNumber, FilmNumber]
 }
 
 // A place `share` of the way on the frame from one point to another, so that a shape can leave the scene
@@ -570,7 +573,7 @@ function readNumber (where: string, value: unknown, values: Record<string, FilmT
   return value
 }
 
-const PLACE_FORMS = '[x, y] in shares of the frame, { "hole": [dx, dy] } or { "companion": [dx, dy] } in that hole\'s radii, or { "sheet": [x, y] } on the space sheet in its well\'s radii; or { "between": [place, place], "share": 0..1 }, that share of the way from the first to the second'
+const PLACE_FORMS = '[x, y] in shares of the frame, { "hole": [dx, dy] } or { "companion": [dx, dy] } in that hole\'s radii, or { "sheet": [x, y] } on the space sheet in its well\'s radii, any of the three with "shift": [dx, dy] on the frame in its unit; or { "between": [place, place], "share": 0..1 }, that share of the way from the first to the second'
 
 function readPlace (where: string, source: unknown, values: Record<string, FilmTrack>): FilmPlace {
   if (isObject(source) && 'between' in source) {
@@ -585,11 +588,14 @@ function readPlace (where: string, source: unknown, values: Record<string, FilmT
     return { anchor: 'frame', x: readNumber(`${where}[0]`, source[0], values), y: readNumber(`${where}[1]`, source[1], values) }
   }
   if (isObject(source)) {
-    const keys = Object.keys(source)
+    const keys = Object.keys(source).filter(key => key !== 'shift')
     const anchor = GRAPHIC_ANCHORS.find(name => name === keys[0])
     const pair = anchor ? source[anchor] : undefined
-    if (keys.length === 1 && anchor && Array.isArray(pair) && pair.length === 2) {
-      return { anchor, x: readNumber(`${where}.${anchor}[0]`, pair[0], values), y: readNumber(`${where}.${anchor}[1]`, pair[1], values) }
+    const shift = source.shift
+    if (keys.length === 1 && anchor && Array.isArray(pair) && pair.length === 2 && (shift === undefined || (Array.isArray(shift) && shift.length === 2))) {
+      const point: FilmPoint = { anchor, x: readNumber(`${where}.${anchor}[0]`, pair[0], values), y: readNumber(`${where}.${anchor}[1]`, pair[1], values) }
+      if (Array.isArray(shift)) point.shift = [readNumber(`${where}.shift[0]`, shift[0], values), readNumber(`${where}.shift[1]`, shift[1], values)]
+      return point
     }
   }
   fail(`${where} takes a place: ${PLACE_FORMS}; got ${JSON.stringify(source)}`)

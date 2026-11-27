@@ -18,6 +18,27 @@ the friction cannot happen any more.
 
 ## Shapes and captions over the scene
 
+### A small device drawn at its place on the scene (2026-11-27)
+- Wanted / got: a light clock standing on the Earth; drawn in the hole's radii it came out 40 px tall once
+  the 3D camera pulled back, the mirrors and the light unreadable.
+- Cause: a scene place is the right home for what explains the scene, not for an apparatus the eye must
+  read.
+- Now: draw the apparatus large on the frame's empty side and give it a dashed lead and a dot to its
+  place. A thin lead in a pale colour disappears over a lit field: lead and dot in the accent colour, width
+  about 0.0024. Probe where a `{ sheet }` point lands with a few labelled dots in a throwaway still before
+  aiming a lead at it: far out on the flat the projection is not where a flat guess puts it.
+- Where: `clockBody`, `clockLead`, `inset` in `films/fourth_dimension_pop_10_test.js`, shots "mirrors" and
+  "count".
+
+### An experiment that sounded like science fiction (2026-11-27)
+- Wanted / got: the test of the hypothesis; got "a wire many kilometres long, wound into a coil" and a
+  spinning spiral: the operator heard an unbuildable machine and saw a cheap animation.
+- Cause: the script reached for the longest ruler instead of the instrument labs already build.
+- Now: say the real instrument and draw it plainly: two mirrors on a block a few centimetres apart (an
+  optical cavity), round trips of light counted in an atomic clock's second, the same count on Earth and on
+  a satellite. Before writing an experiment, ask whether a lab has one on a bench today, and name it so.
+- Where: clip 10 of the pop film, `films/fourth_dimension_pop_10_test.js`.
+
 ### A ruler or an arrow that lies on the curved sheet (2026-11-27)
 - Wanted / got: a ruler down the well's wall; got a straight frame line floating over the curved sheet, and
   after a camera move it no longer lay on anything. The operator: "the ruler is not tied to the grid".
@@ -149,6 +170,13 @@ the friction cannot happen any more.
   committed meanwhile, and a background render reading files the merge was changing.
 - Now: rebase the branch on master right before the merge, build again, and render only from a checkout
   nothing is merging into.
+
+### Removing a worktree with linked node_modules (2026-11-27)
+- Wanted / got: `git worktree remove`; got a hook blocking the walk through `node_modules` junctions that
+  point into the main checkout, and a half-removed folder once.
+- Now: unlink the junctions first, from PowerShell: `cmd /c rmdir <worktree>\node_modules` (and any nested
+  `node_modules` junction), then `git worktree remove --force <worktree>`. `rmdir` on a junction removes
+  the link, not the main checkout's packages.
 
 ### Subagents (2026-11-27)
 - Review agents return findings as text and do not write files: the coordinator saves them.

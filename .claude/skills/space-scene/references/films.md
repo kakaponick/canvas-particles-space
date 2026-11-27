@@ -436,7 +436,13 @@ kind.
 - A shape leaves the scene for the frame through `{ between: [place, place], share: 'lift' }`: the place
   that share of the way from the first to the second on the frame, the share a value of the shape keyed
   from 0 to 1. Give every point the same two kinds of place and the shape lifts off whole: the ruler of
-  `films/fourth_dimension_pop_10_test.js` leaves the sheet and lies straight across the frame.
+  `films/fourth_dimension_pop_10_test.js` leaves the sheet and lies straight across the frame. The same
+  form with `share` a number holds a shape that part of the way, and a light dot keyed back and forth
+  between two mirrors bounces between them.
+- A thing too small to read at its place on the scene is drawn large on the frame beside it, with a dashed
+  lead and a dot at its place: the light clocks of `films/fourth_dimension_pop_10_test.js` stand in the
+  frame's empty half and point at the Earth and at the flat. `shift: [dx, dy]` on a scene place moves it
+  by that many of the place's own units (y up) without leaving it, for a label held off its mark.
 - Let a shape read the number it shows. `radius: 'lensingRadius'` keeps a ring on the Einstein ring while
   a track moves it; `radius: 'companionDistance'` around the main hole is the second hole's orbit seen
   from it. A plot's `marker` and a caption's `#{...}` given the same value move together, which is what
