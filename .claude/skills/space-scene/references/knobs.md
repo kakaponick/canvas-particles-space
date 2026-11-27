@@ -738,7 +738,10 @@ straight-on (section 11).
   middle, the well is the hole's; within it the sheet follows the slowing of time inside a ball of even
   density and closes in a round bottom instead of ending at the horizon's ring: the well of a neutron star
   (section 4, which draws one there), about 1.4 for a typical star. `gridLift` then lifts by a share of the
-  round bottom: below 1 the bottom shows under the star, a bowl it sits in.
+  round bottom: below 1 the bottom shows under the star, a bowl it sits in. To sit the star on the bowl's
+  rim, as an infographic draws it, lift about halfway (`gridDepth` 8, `gridLift` 0.55 at `gridTilt` 64);
+  lifted less, the bowl hangs far below the star, and lifted more, the near sheet passes the flat camera,
+  so stand that camera farther (`gridDistance` 4, `gridNear` 0.02).
 - `gridWell2Bottom` 1 sinks a second hole's well exactly to where that hole stands: a hole on the sheet's
   far side digs a deep well, one on the near side none. At 0 each well is `gridDepth` of its own radii, the
   two add up, and the second well's bottom misses its hole.

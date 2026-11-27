@@ -17,6 +17,17 @@ Once the missing piece exists (a knob, a fix in code, a sentence in `knobs.md`, 
 
 ## Telling the film
 
+### Matching a reference by the reviewer's notes, not by the reference (2026-11-27)
+- Wanted / got: the infographic's funnel as the reference draws it; the film-review agent called the well
+  too flat, then too narrow, then sagging, and each fix followed the last note. The operator sent the well
+  back as hanging far below the star.
+- Cause: a reviewer judging tiles of 768 px drifts from round to round, and the brief left the look to its
+  notes; nothing compared a still with the reference side by side.
+- Now: put a still and the reference side by side and fix what differs; take a reviewer's note on looks
+  only when it moves the still toward the reference. What is missing is a review step that shows the
+  reviewer the reference beside each tile.
+- Where: `films/infographic_style.js`, the well (`gridDepth`, `gridLift`).
+
 ### An experiment that sounded like science fiction (2026-11-27)
 - Wanted / got: the test of the hypothesis; got "a wire many kilometres long, wound into a coil" and a
   spinning spiral: the operator heard an unbuildable machine and saw a cheap animation.
