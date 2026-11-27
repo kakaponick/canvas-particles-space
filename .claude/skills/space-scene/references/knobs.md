@@ -190,6 +190,9 @@ same path behind it (`flowATrail`), lit by the flow's brightness rather than by 
 - The two radii are the shape: `flowATo` equal to `flowAFrom` is a ring (a disc with a wide
   `flowASpread`), below it a fall, below 1 a fall into the shadow, above it an outflow. `flowASwirl` with
   a fall winds the matter into a spiral that tightens toward the hole; 0 is a straight fall.
+- The radii and the band reach 200: at the default `blackHoleSize` 8 the frame's sides are about 11 radii
+  out, and round the smallest hole (0.5) its corners about 200, so a disc much wider than the hole is a
+  small hole with a large `flowAFrom` and `flowASpread`.
 - `flowASwirl` is the turn rate at one radius whatever `flowAFalloff` says, so a falloff below Kepler's
   speeds up a flow that lies far out: lower `flowASwirl` with it. A falloff of 0 turns the flow as a
   wheel, and a spiral's arms stop winding up. A ring has no fall, so `flowAFall` leaves it alone.
@@ -995,7 +998,8 @@ section 4):
   particles slide past faster than far ones (parallax, which no pan or zoom gives), and a move in is a real
   approach, which under `lensingTraced` brings the lens's camera nearer too. A fly-by is `cameraMoveRight`
   held at a few radii while `cameraMoveIn` runs from below 0 to past the camera distance, with
-  `cameraLookYaw` turning to keep the hole in frame.
+  `cameraLookYaw` turning to keep the hole in frame; it turns up to 180, so once the camera has passed the
+  hole it looks back at it, shadow, lens and all.
 
 The sheet seen by the 3D camera. In 3D the sheet of section 9 lies across the line of flight while the
 hole does not spin, `gridDepth` radii nearer a camera looking down the flight than the hole, its well
