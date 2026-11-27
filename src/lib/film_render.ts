@@ -10,7 +10,7 @@ import { getIntroDuration } from './intro_timeline'
 import type { TitleSprite, TitleStyle } from './title_sprite'
 import type { StreamTargetChunk } from 'mediabunny'
 import { applyTracks, filmFade, filmSpeed, planFilm, type FilmPlan } from './film'
-import { drawCaptions, loadCaptionFonts } from './film_captions'
+import { createCrowd, crowdNotes, drawCaptions, loadCaptionFonts } from './film_captions'
 import { drawGraphics, loadGraphicImages, type FilmImages } from './film_graphics'
 import { clamp, fail } from './agent_values'
 import { createFramePacker, packable, type FramePacker } from './frame_pack'
@@ -98,6 +98,8 @@ export async function createFilmPlayer (plan: FilmPlan, pixel: number, imageUrls
     gl.getExtension('WEBGL_lose_context')?.loseContext()
   }
   scene.resize(plan.width, plan.height, pixel, true)
+  // What crowds the film's words on the frames drawn, gathered as they are drawn
+  const crowd = createCrowd()
 
   const canvas = document.createElement('canvas')
   canvas.width = glCanvas.width
@@ -185,11 +187,12 @@ export async function createFilmPlayer (plan: FilmPlan, pixel: number, imageUrls
       ctx.fillRect(0, 0, canvas.width, canvas.height)
       ctx.globalAlpha = 1
     }
-    if (images) drawGraphics(ctx, plan, time, scene.frame.composite, canvas.width / plan.width, images, scene.frame.grid)
-    if (plan.captions.length > 0) drawCaptions(ctx, plan, time, scene.frame.composite, canvas.width / plan.width, scene.frame.grid)
+    crowd.strokes.length = 0
+    if (images) drawGraphics(ctx, plan, time, scene.frame.composite, canvas.width / plan.width, images, scene.frame.grid, crowd)
+    if (plan.captions.length > 0) drawCaptions(ctx, plan, time, scene.frame.composite, canvas.width / plan.width, scene.frame.grid, crowd)
   }
 
-  return { canvas, drawFrame, dispose }
+  return { canvas, drawFrame, dispose, crowded: () => crowdNotes(crowd) }
 }
 
 // One film at a time, with the page's own scene paused so the machine draws only the film. A fractal film
@@ -568,7 +571,7 @@ export async function renderFilm (source: unknown, options: RenderOptions = {}) 
     try {
       const job = { canvas: player.canvas, fps: plan.fps, frames: plan.frames, duration: plan.duration, draw: player.drawFrame }
       const { blob, facts } = await encodeVideo(job, options, started)
-      return { blob, summary: { ...facts, seed: plan.seed, notes: plan.notes } }
+      return { blob, summary: { ...facts, seed: plan.seed, notes: plan.notes, crowded: player.crowded() } }
     } finally {
       player.dispose()
     }
@@ -712,7 +715,9 @@ export async function previewFilm (source: unknown, options: PreviewOptions = {}
         columns,
         film: { duration: plan.duration, fps: plan.fps, frames: plan.frames, width: plan.width * plan.scale, height: plan.height * plan.scale },
         timeline: plan.timeline,
-        notes: plan.notes
+        notes: plan.notes,
+        // Words crowded on the frames drawn: by each other, or by a shape's stroke
+        crowded: player.crowded()
       }
     } finally {
       player.dispose()

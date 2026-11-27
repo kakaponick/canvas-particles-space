@@ -142,6 +142,11 @@ and lays it under the picture from the first second.
 - A preview writes each frame's second, and in a storyboard the shot's name, in a strip along its top
   edge; that label is the preview's only, and a still (`still`) and the render carry none. Judge a caption
   in the top-left corner with a still.
+- Read the `Crowded:` lines under a preview or a render: the drawing measured them on the frames it drew,
+  two captions on one another or a shape's stroke through a caption, each with the seconds it was seen.
+  Every one is a defect a viewer sees; move the words (`anchor`, another place, one line instead of two)
+  until a preview of those seconds prints none. A preview measures only the frames it draws, so ask for the
+  seconds where words and shapes arrive and move; the render measures every frame.
 - A frame that shows nothing where the effect should be has a shut gate: the `Gate:` line of the law's
   section in knobs.md names the knob that opens it.
 - Two previews of one film are the same picture byte for byte. If a change to the code breaks that, the
@@ -482,14 +487,26 @@ the words at the edges. `films/infographic_style.js` puts every rule below on on
 - **The physics in the middle, the words in the corners.** A title top-left with a smaller grey subtitle
   (`weight` 400, a grey `color`); a legend bottom-left; an inset top-right; labels beside what they name with
   a leader line (`at: 'hole'`, `angle`, `radius`) or at a place of the scene. A caption at `[0, y]` stands
-  against the left margin, so a corner needs no measuring; any other `[x, y]` is the middle of the block,
-  and `align` lines up its lines inside it, so a column of rows is placed row by row by each one's middle.
+  against the left margin, so a corner needs no measuring; any other `[x, y]` is the middle of the block
+  unless `anchor` names the edge that stands there.
 - **Plates are quiet.** A legend or an inset sits on a `rect` with `round` 0.012, a thin grey edge (`width`
   0.0012) and a dark `fill` at about 0.7 `fillOpacity`; never a bright frame. Small italic words
   (`italic: true`) under an inset say what it shows.
 - **A direction is told once, halfway.** `arrow: 'middle'` puts one head halfway along a path, the way it
   runs, so the path keeps its ends for a source and an observer; a turn round an axis is an ellipse drawn as
   a smooth line with an arrow (a script makes its points), with Ω beside it.
+- **A path in front of a body clears it.** On the frame the path and its glow pass beside the body's disc,
+  never across its face, and the tip of a path drawing itself in never stops on it: at a tilted sheet the
+  near side of the sheet lands on the body, so push a path laid on the sheet out until a still at the film's
+  tilt shows the gap. A ring round a body in an inset is taller than the body, so it passes round it.
+- **The body is there from the first frame.** A body drawn over a black hole is drawn before the fade lifts,
+  or the hole's bare shadow shows where the star should be.
+- **Words come with what they name and ride with it.** A label for a place of the scene takes that place
+  (`{ sheet: [...] }`, `{ hole: [...] }`, `at: 'hole'`), so a change of tilt, lift or camera carries the words
+  with the thing; a legend row arrives once the thing it names is drawn. A legend, a column or the words in
+  a plate stand by their left edge (`anchor: 'left'`), so each row starts where it is put.
+- **A body is lit.** `fillTo` with `fillAt` shades a circle into a sphere lit from one side; a flat fill
+  reads as a disc.
 - **The frame is a diagram, and says so.** The path is drawn, not traced: a path laid on the sheet
   (`{ sheet: [x, y] }`) dips into the well, which is the textbook's picture of bending, not where light
   goes. Say it in the words when a viewer could take it for the tracer's.

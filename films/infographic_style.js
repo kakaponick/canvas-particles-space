@@ -7,9 +7,14 @@
 film({
   seed: 3,
   settings: {
-    fieldEnabled: false, lensingEnabled: false, ringEnabled: false, blackHoleY: 0.5,
-    gridSheet: 0.75, gridTilt: 70, gridDepth: 4, gridRings: 26, gridSpokes: 40, gridSpan: 2.6,
-    gridLift: 0.7,gridThroatGlow: 2.5, gridLight: 1.4, gridLightReach: 3
+    fieldEnabled: false, lensingEnabled: false, ringEnabled: false, blackHoleX: 0.57, blackHoleY: 0.55,
+    // The star is 1.15 hole radii across its radius, and a hole radius is the shadow's, 2.6 Schwarzschild
+    // radii: about 3 of them, a real neutron star's size. Its well is a bowl that ends at its surface, not a
+    // black hole's long throat: shallow, its rings spread toward even radii so they do not pack against the
+    // star, and no glow at a throat the star covers. 42 spokes keep a spoke from lying under the spin axis (a
+    // multiple of 4 would)
+    gridSheet: 0.75, gridTilt: 52, gridDepth: 1.2, gridRings: 16, gridRingSpacing: 0.7, gridSpokes: 42, gridSpan: 2.6,
+    gridLift: 0.6, gridThroatGlow: 0, gridLight: 1.2, gridLightReach: 3
   }
 })
 set({ fade: 1 })
@@ -18,64 +23,93 @@ const WARM = '#ffb35c'
 const STAR = '#5aa8ff'
 const QUIET = '#9aa6b8'
 const PLATE = '#070b14'
-const text = (more = {}) => ({ font: 'noto', size: 0.026, align: 'left', ...more })
-// A plate: a quiet rounded frame on a dark ground, in shares of the frame and of its short side
+// Words in a corner or a column stand by their left edge, so a row starts where it is put
+const text = (more = {}) => ({ font: 'noto', size: 0.026, anchor: 'left', ...more })
+// A plate: a quiet rounded frame on a dark ground; its centre and its size in shares of the frame's short side
 const plate = (center, size) => ({ kind: 'rect', center, size, round: 0.012, color: QUIET, width: 0.0012, opacity: 0.8, fill: PLATE, fillOpacity: 0.72 })
-// An ellipse round a point as a smooth line, so it can carry an arrow; tilt 0 is flat across the frame
-const ellipse = (place, rx, ry, from, to, steps = 24) => Array.from({ length: steps + 1 }, (_, i) => {
-  const angle = (from + (to - from) * i / steps) * Math.PI / 180
-  return place(rx * Math.cos(angle), ry * Math.sin(angle))
+// A sphere lit from the top left: its colour at the light, its own at the edge, and its glow
+const sphere = (center, radius, glow) => ({ kind: 'circle', center, radius, color: STAR, width: 0.002, fill: '#bfe2ff', fillTo: '#1d4f9a', fillAt: [-0.35, 0.4], glow })
+
+// The light, laid on the sheet so it dips with the well wherever it goes, and running from the depth toward
+// the camera so its bend lies across the frame, where a tilted sheet does not squash it. Without the star it
+// would run straight from the source to the observer, through the star, which blocks it: the dashed line,
+// whose middle the star hides. Gravity bends the light round the star's left flank instead, 2.4 hole radii
+// out: two straight legs mirrored about the point of closest approach, each turned 13 degrees toward the
+// star there, 26 in all, about 1.4 times what a neutron star gives light passing there. The star is there
+// from the first frame, so the black hole under it is never seen bare, and drawn over the dashed line,
+// under the bent one, which passes in front of the well
+const source = { sheet: [-0.9, 6.5] }
+const closest = { sheet: [-2.4, 0] }
+const observer = { sheet: [-1, -6] }
+draw({ kind: 'line', points: [source, observer], color: '#ffffff', width: 0.002, dash: [0.012, 0.008], opacity: 0.8 })
+draw(sphere({ hole: [0, 0] }, 1.15, 0.05))
+draw({
+  kind: 'line', smooth: true, arrow: 'middle', color: WARM, width: 0.0035, glow: 0.012, draw: 3,
+  points: [source, { sheet: [-1.63, 4] }, { sheet: [-2.14, 2] }, closest, { sheet: [-2.14, -2] }, { sheet: [-1.63, -4] }, observer]
 })
+draw({ kind: 'circle', center: source, radius: 0.08, fill: '#ffd9a0', color: '#ffd9a0', glow: 0.02 })
+draw({ kind: 'circle', center: observer, radius: 0.08, fill: '#ffffff', color: '#ffffff', glow: 0.012 })
 
 to({ fade: 0 }, 1)
 
-// The axis it turns about, and the way it turns
-draw({ kind: 'line', points: [{ hole: [0, 1.4] }, { hole: [0, 4.2] }], color: '#ffffff', width: 0.0015, dash: [0.008, 0.006], opacity: 0.85 })
-draw({ kind: 'line', smooth: true, arrow: 'end', points: ellipse((x, y) => ({ hole: [x, 3.3 + y] }), 0.75, 0.2, 200, 520), color: '#ffffff', width: 0.002 })
-caption('Ω', { at: { hole: [0.75, 4] }, font: 'noto', size: 0.04, italic: true })
+// The axis it turns about, rising from its pole, and the way it turns
+draw({ kind: 'line', arrow: 'end', points: [{ hole: [0, 1.15] }, { hole: [0, 2.8] }], color: QUIET, width: 0.0018 })
+// Its stub under the star, dashed, so the arrow reads as an axis through the star and not a line on the sheet
+draw({ kind: 'line', points: [{ hole: [0, -1.15] }, { hole: [0, -1.9] }], color: QUIET, width: 0.0018, dash: [0.006, 0.006] })
+draw({ kind: 'circle', center: { hole: [0, 0] }, radius: 1.5, radiusY: 0.92, arc: [-40, 35], arrow: 'end', color: '#ffffff', width: 0.0025 })
+caption('Ω', { at: { hole: [0.35, 2.9] }, font: 'noto', size: 0.04, italic: true })
 
-// The light: its bent path in the accent, glowing, and the straight one it would take without the star
+// Words: the title against the top-left margin, labels beside what they name, a legend and an inset in the corners
 wait(0.3)
-const source = { sheet: [-10, 2] }
-const observer = { sheet: [8, -8.5] }
-draw({ kind: 'line', points: [source, observer], color: '#ffffff', width: 0.0012, dash: [0.007, 0.006], opacity: 0.55 })
-// The body over the straight path and under the bent one: a glowing disc over the hole, sitting in its well,
-// whose throat glows and is lit by it
-draw({ kind: 'circle', center: { hole: [0, 0] }, radius: 1.25, color: STAR, fill: '#1d4f9a', glow: 0.05, width: 0.003 })
-draw({ kind: 'circle', center: { hole: [-0.25, 0.25] }, radius: 0.8, color: '#9fd0ff', fill: '#3f86e0', fillOpacity: 0.55, width: 0, glow: 0.02 })
-draw({
-  kind: 'line', smooth: true, arrow: 'middle', color: WARM, width: 0.0035, glow: 0.012, draw: 2,
-  points: [source, { sheet: [-5, -1] }, { sheet: [-2.2, -3.6] }, { sheet: [1.2, -4.6] }, { sheet: [4.5, -6] }, observer]
+caption('Light bent by a neutron star', text({ at: [0, 0.07], size: 0.045 }))
+caption('(schematic; bend exaggerated)', text({ at: [0, 0.135], size: 0.034, color: '#c6cfdc', weight: 400, plate: 0.5 }))
+caption('Neutron star\n(rapid rotation)', { at: 'hole', angle: -60, radius: 1.2, font: 'noto', size: 0.026, plate: 0.5 })
+// The two ends are named where they are, on the sheet, so their words go wherever the sheet takes them
+caption('Distant light source', { at: { sheet: [-1.4, 6.5] }, font: 'noto', size: 0.026, anchor: 'right' })
+caption('Observer', { at: { sheet: [-0.4, -6] }, font: 'noto', size: 0.026, anchor: 'left' })
+
+// Once the path has drawn itself in: the legend that names it
+wait(2)
+
+// The legend: a plate whose left edge is the frame's margin, its samples and their words in two columns
+draw(plate([0.231, 0.86], [0.7, 0.2]))
+draw({ kind: 'line', points: [[0.05, 0.8], [0.1, 0.8]], color: WARM, width: 0.0035, glow: 0.008 })
+draw({ kind: 'line', points: [[0.05, 0.86], [0.1, 0.86]], color: '#ffffff', width: 0.002, dash: [0.012, 0.008], opacity: 0.8 })
+draw({ kind: 'line', points: [[0.05, 0.92], [0.1, 0.92]], color: '#8fa6c8', width: 0.0022 })
+caption('Lensed light path', text({ at: [0.115, 0.8] }))
+caption('Path without lensing', text({ at: [0.115, 0.86] }))
+caption('Spacetime curvature (grid)', text({ at: [0.115, 0.92] }))
+
+// The inset: frame dragging. Space turns with the star, fastest close to it: the Lense-Thirring rate falls as
+// the cube of the distance, so a ring twice as far turns eight times slower. Each ring carries a dot that
+// goes round at its ring's rate, and a head that says which way
+const INSET = [0.83, 0.2]
+// A frame place is a share of the width and of the height; this keeps a ring round on a 16:9 frame
+const WIDE = 9 / 16
+draw(plate(INSET, [0.48, 0.32]))
+caption('Frame dragging', text({ at: [0.71, 0.075], size: 0.028 }))
+// Each ring is taller than the star, so no ring or its dot crosses the star's face
+draw(sphere(INSET, 0.022, 0.02))
+const rings = [[0.075, 0.034], [0.11, 0.046], [0.145, 0.058]]
+const TURNS = 0.5 // turns a second of the innermost ring
+rings.forEach(([across, tall], index) => {
+  // A whole ring's head is halfway round from where it starts: each starts a third of a turn on, so the heads
+  // do not stand in a column
+  const from = 240 + index * 120
+  draw({ kind: 'circle', center: INSET, radius: across, radiusY: tall, arc: [from, from + 360], arrow: 'middle', color: '#7fc4ff', width: 0.0016, glow: 0.006, opacity: 0.85 })
+  const rate = TURNS * (rings[0][0] / across) ** 3 * 2 * Math.PI
+  const start = index * 2.1
+  draw({
+    kind: 'circle', center: ['x', 'y'], radius: 0.006, fill: '#e8f4ff', color: '#e8f4ff', glow: 0.012, width: 0,
+    values: {
+      x: s => INSET[0] + Math.cos(start + rate * s) * across * WIDE,
+      y: s => INSET[1] - Math.sin(start + rate * s) * tall
+    }
+  })
 })
-draw({ kind: 'circle', center: source, radius: 0.08, fill: '#ffd9a0', color: '#ffd9a0', glow: 0.02 })
+draw({ kind: 'line', arrow: 'end', points: [[INSET[0], 0.178], [INSET[0], 0.112]], color: '#ffffff', width: 0.0016 })
+caption('Ω', text({ at: [INSET[0] + 0.012, 0.108], size: 0.024, italic: true }))
+caption('Rotation twists spacetime\naround the star · rate ∝ 1/r³', { at: [INSET[0], 0.31], font: 'noto', size: 0.022, italic: true, color: '#c6cfdc' })
 
-// Words: the title in the top-left corner, labels with leader lines, a legend and an inset in the corners
-caption('Gravitational lensing around a rotating star', text({ at: [0.03, 0.07], size: 0.045, color: '#ffffff' }))
-caption('(Kerr metric)', text({ at: [0.03, 0.135], size: 0.034, color: QUIET, weight: 400 }))
-caption('Neutron star\n(rapid rotation)', { at: 'hole', angle: 50, radius: 1.4, font: 'noto', size: 0.026 })
-caption('Distant\nlight source', text({ at: [0.1, 0.36] }))
-caption('Observer', text({ at: [0.91, 0.6] }))
-draw({ kind: 'circle', center: observer, radius: 0.08, fill: '#ffffff', color: '#ffffff', glow: 0.012 })
-
-draw(plate([0.165, 0.86], [0.5, 0.2]))
-draw({ kind: 'line', points: [[0.04, 0.8], [0.09, 0.8]], color: WARM, width: 0.0035, glow: 0.008 })
-draw({ kind: 'line', points: [[0.04, 0.86], [0.09, 0.86]], color: '#ffffff', width: 0.0012, dash: [0.007, 0.006] })
-draw({ kind: 'line', points: [[0.04, 0.92], [0.09, 0.92]], color: '#80bdff', width: 0.0015 })
-// A caption's [x, y] is the middle of its block, so each row is placed by its own middle
-caption('Lensed light path', text({ at: [0.165, 0.8] }))
-caption('Path without lensing', text({ at: [0.176, 0.86] }))
-caption('Spacetime curvature (grid)', text({ at: [0.197, 0.92] }))
-
-draw(plate([0.85, 0.2], [0.48, 0.32]))
-caption('Frame dragging', text({ at: [0.73, 0.08], size: 0.028 }))
-draw({ kind: 'circle', center: [0.85, 0.2], radius: 0.028, color: STAR, fill: '#2f6fc8', glow: 0.02, width: 0.002 })
-for (const [rx, ry, turn] of [[0.07, 0.025, 0], [0.105, 0.04, 60], [0.14, 0.055, 120]]) {
-  draw({ kind: 'line', smooth: true, arrow: 'middle', color: '#7fc4ff', width: 0.0016, glow: 0.006, opacity: 0.85,
-    points: ellipse((x, y) => [0.85 + x * 0.5625, 0.2 + y], rx, ry, turn, turn + 360, 36) })
-}
-draw({ kind: 'line', arrow: 'end', points: [[0.85, 0.16], [0.85, 0.1]], color: '#ffffff', width: 0.0016 })
-caption('Ω', { at: [0.87, 0.1], font: 'noto', size: 0.024, italic: true })
-caption('Rotation twists spacetime\naround the star', { at: [0.85, 0.31], font: 'noto', size: 0.022, italic: true, color: '#c6cfdc' })
-
-meanwhile(() => { to({ gridTilt: 72 }, 6) })
+meanwhile(() => { to({ gridTilt: 55 }, 6) })
 wait(6)

@@ -43,6 +43,58 @@ const LOWERED = 0.2
 // bundled, so a letter the caption's own face lacks is the same letter on every machine
 const BEHIND = '"Noto Sans", "Noto Sans Math", "Noto Sans Symbols", system-ui, sans-serif'
 
+// What crowds the words of a film, found as its frames are drawn: two captions on one another, or a stroke
+// of a shape through a caption. The film's shapes hand over the strokes of each frame (drawGraphics), the
+// captions check their blocks against them and against each other, and each meeting is kept once with the
+// first and last second it was seen at, for the preview, the render and the review to print
+export interface FrameCrowd {
+  strokes: { graphic: number, what: string, points: (readonly [number, number])[] }[]
+  found: Map<string, { what: string, from: number, to: number }>
+}
+
+export const createCrowd = (): FrameCrowd => ({ strokes: [], found: new Map() })
+
+export function crowdNotes (crowd: FrameCrowd): string[] {
+  return [...crowd.found.values()].map(({ what, from, to }) => `${what}, ${from === to ? `at ${from}` : `${from}-${to}`} s`)
+}
+
+// A share of a letter's height the blocks may touch by before they count as on one another: the room a
+// descender or an accent takes outside its line
+const CROWD_SLACK = 0.15
+
+function noteCrowd (crowd: FrameCrowd, key: string, what: string, time: number) {
+  const second = Number(time.toFixed(2))
+  const seen = crowd.found.get(key)
+  if (seen) seen.to = second
+  else crowd.found.set(key, { what, from: second, to: second })
+}
+
+interface Block { left: number, top: number, right: number, bottom: number }
+
+// Whether a segment passes through a block: an end inside it, or a crossing of one of its sides
+function crosses (block: Block, [ax, ay]: readonly [number, number], [bx, by]: readonly [number, number]) {
+  const inside = (x: number, y: number) => x > block.left && x < block.right && y > block.top && y < block.bottom
+  if (inside(ax, ay) || inside(bx, by)) return true
+  // Clipped against the block's four sides, the segment keeps a stretch inside it (Liang-Barsky)
+  let enter = 0
+  let leave = 1
+  const dx = bx - ax
+  const dy = by - ay
+  for (const [p, q] of [[-dx, ax - block.left], [dx, block.right - ax], [-dy, ay - block.top], [dy, block.bottom - ay]]) {
+    if (p === 0) {
+      if (q < 0) return false
+      continue
+    }
+    const t = q / p
+    if (p < 0) enter = Math.max(enter, t)
+    else leave = Math.min(leave, t)
+    if (enter > leave) return false
+  }
+  return true
+}
+
+const captionName = (index: number, caption: FilmCaption) => `captions[${index}] "${caption.text.split('\n')[0].slice(0, 32)}"`
+
 function captionFont (caption: FilmCaption, size: number) {
   // The bundled faces have no italic of their own, so the browser leans the upright one
   const style = `${caption.italic ? 'italic ' : ''}${caption.weight} ${size}px`
@@ -303,14 +355,17 @@ export function loadCaptionFonts (plan: Pick<FilmPlan, 'captions'> & Partial<Pic
  * `sheet` the space sheet as it laid it, for words on it.
  */
 export function drawCaptions (
-  ctx: CanvasRenderingContext2D, plan: CaptionPlan, time: number, composite: CaptionFrame, pixel: number, sheet: GridSettings | null = null
+  ctx: CanvasRenderingContext2D, plan: CaptionPlan, time: number, composite: CaptionFrame, pixel: number, sheet: GridSettings | null = null,
+  crowd: FrameCrowd | null = null
 ) {
   const width = plan.width * pixel
   const height = plan.height * pixel
   const shortSide = Math.min(width, height)
   const margin = Math.max(SAFE_MARGIN * shortSide, composite.letterbox * pixel + 0.02 * shortSide)
 
-  for (const caption of plan.captions) {
+  // The blocks of the words already drawn on this frame, for the ones after to be checked against
+  const blocks: { index: number, caption: FilmCaption, block: Block }[] = []
+  for (const [index, caption] of plan.captions.entries()) {
     const alpha = captionAlpha(caption, time)
     if (alpha <= 0) continue
 
@@ -385,12 +440,30 @@ export function drawCaptions (
       x = caption.at[0] * width
       y = caption.at[1] * height
     }
+    // A block given its edge stands there by that edge: a legend's rows, a column inside a plate
+    const pointing = caption.at === 'hole' || caption.at === 'einstein' || caption.at === 'companion'
+    if (caption.anchor && !pointing && caption.at !== 'bottom' && caption.at !== 'top' && caption.at !== 'center') ctx.textAlign = caption.anchor
 
     // The words stay inside the frame, whatever they point at and however far the camera has moved in
     const left = ctx.textAlign === 'center' ? x - widest / 2 : ctx.textAlign === 'right' ? x - widest : x
     x += Math.max(margin - left, 0) - Math.max(left + widest - (width - margin), 0)
     y = Math.min(Math.max(y, margin + blockHeight / 2), Math.max(height - margin - blockHeight / 2, margin + blockHeight / 2))
     const blockLeft = ctx.textAlign === 'center' ? x - widest / 2 : ctx.textAlign === 'right' ? x - widest : x
+    // Words that are there to be read are checked for what crowds them: other words, and the shapes' strokes
+    if (crowd && alpha >= 0.5) {
+      const slack = size * CROWD_SLACK
+      const block = { left: blockLeft + slack, top: y - blockHeight / 2 + slack, right: blockLeft + widest - slack, bottom: y + blockHeight / 2 - slack }
+      for (const other of blocks) {
+        const apart = other.block.right <= block.left || block.right <= other.block.left || other.block.bottom <= block.top || block.bottom <= other.block.top
+        if (!apart) noteCrowd(crowd, `c${other.index}-${index}`, `${captionName(other.index, other.caption)} and ${captionName(index, caption)} lie on one another`, time)
+      }
+      for (const stroke of crowd.strokes) {
+        if (stroke.points.some((point, at) => at > 0 && crosses(block, stroke.points[at - 1], point))) {
+          noteCrowd(crowd, `g${stroke.graphic}-${index}`, `graphics[${stroke.graphic}] (${stroke.what}) runs through ${captionName(index, caption)}`, time)
+        }
+      }
+      blocks.push({ index, caption, block })
+    }
 
     if (caption.plate > 0) {
       const pad = size * 0.6

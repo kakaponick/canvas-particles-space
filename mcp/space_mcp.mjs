@@ -662,6 +662,12 @@ function describeText (settings, intro, presets, introPresets, layerInfo, filter
   return lines.length > 0 ? lines.join('\n') : `Nothing matches "${filter}". Call space_describe without a filter for every key.`
 }
 
+// Words the frames drew crowded, by other words or by a shape's stroke, one to a line: each is a defect a
+// viewer sees, for the film's maker to move before the review
+function crowdedLines (crowded) {
+  return Array.isArray(crowded) && crowded.length > 0 ? `\nCrowded:\n${crowded.map(line => '  ' + line).join('\n')}` : ''
+}
+
 async function runTool (name, args, report) {
   const text = value => ({ content: [{ type: 'text', text: typeof value === 'string' ? value : JSON.stringify(value, null, 1) }] })
   const page = await getStudio()
@@ -731,7 +737,7 @@ async function runTool (name, args, report) {
     if (pictures.missing.length > 0) throw new Error(pictures.missing.join('\n'))
     options.images = pictures.images
     const sheet = await withProgress(page, report, () => page.evaluate(inPage('film.preview', film, options))).finally(pictures.release)
-    const note = sheet.notes.length > 0 ? `\nAdjusted: ${sheet.notes.join('; ')}` : ''
+    const note = (sheet.notes.length > 0 ? `\nAdjusted: ${sheet.notes.join('; ')}` : '') + crowdedLines(sheet.crowded)
     // The film as it was understood, so what was meant can be checked against it before a render
     const timeline = `\nTimeline:\n${sheet.timeline.map(line => '  ' + line).join('\n')}`
     let written = ''
@@ -855,8 +861,8 @@ async function runTool (name, args, report) {
       if (target.error || !arrived) throw target.error ?? new Error('The file did not arrive from the page')
       closeFile()
       fs.renameSync(target.path, out)
-      const { notes, ...facts } = summary
-      const note = (notes.length > 0 ? `\nAdjusted: ${notes.join('; ')}` : '') + stopped
+      const { notes, crowded, ...facts } = summary
+      const note = (notes.length > 0 ? `\nAdjusted: ${notes.join('; ')}` : '') + crowdedLines(crowded) + stopped
       return text(`Wrote ${out}\n${Object.entries(facts).filter(([, value]) => value !== null).map(([key, value]) => `${key}: ${value}`).join(', ')}${note}`)
     } finally {
       for (const release of tokens) release()

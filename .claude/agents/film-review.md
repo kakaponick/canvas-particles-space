@@ -14,6 +14,10 @@ read (all, if none are named). For each clip it gives the clip's script (`film`)
 and its sheets: each sheet a jpg of up to 12 frames, four across, each labelled with the film's own second;
 `reel` gives each frame's time in the whole video (m:ss), which is how you name a place. `captions` lists the
 words alive on that sheet and `frameShapes` the lines, curves and arrows fixed to the frame there.
+`crowded` lists what the drawing itself measured on those frames: two captions whose blocks lie on one
+another, or a shape's stroke running through a caption. Each entry is a defect 7 found for certain; report
+it, and look for what it cannot measure (words over the scene's own bright matter, a label too far from what
+it names, words on a body).
 
 ## How you read
 

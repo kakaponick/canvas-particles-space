@@ -118,6 +118,10 @@ export interface FilmGraphic {
   glow: number
   fill: string | null
   fillOpacity: FilmNumber
+  // The colour the fill turns to: across a circle from the point fillAt to its edge, a sphere lit there; down
+  // any other outline from its top to its bottom. null keeps one colour
+  fillTo: string | null
+  fillAt: readonly [FilmNumber, FilmNumber]
   // Numbers of its own, each along keyframes
   values: Record<string, FilmTrack>
   // Seconds over which the stroke draws itself from "from"; 0 is there at once
@@ -134,6 +138,8 @@ export interface FilmGraphic {
   radiusY: FilmNumber | null
   // Degrees an arc runs between, 0 to the right and 90 up; null is the whole circle
   arc: readonly [FilmNumber, FilmNumber] | null
+  // Degrees an ellipse is turned by, the way the clock does not go
+  turn: FilmNumber
   size: readonly [FilmNumber, FilmNumber]
   round: FilmNumber
   // A plot: its place on the frame as [left, top, width, height] in shares of it, the numbers its sides
@@ -177,6 +183,9 @@ export interface FilmCaption {
   accent: string
   // How the lines stand in their block; null leaves it to the place (centred, or beside a pointer)
   align: typeof CAPTION_ALIGNS[number] | null
+  // Which point of the block stands at the x of a place on the frame or in the scene: its left edge, its
+  // middle or its right edge; null is its middle
+  anchor: typeof CAPTION_ALIGNS[number] | null
   // The widest a line may be, as a share of the frame's width
   width: number
   // A dark plate behind the words, 0 (none) to 1 (solid), for words over a bright picture
@@ -346,10 +355,10 @@ function faceFor<Face extends string> (text: string, face: Face, where: string, 
 
 export const FILM_KEYS = ['duration', 'fps', 'size', 'width', 'height', 'scale', 'seed', 'preset', 'settings', 'intro', 'warmup', 'speed', 'fade', 'tracks', 'layers', 'cues', 'captions', 'graphics', 'shots']
 // What every shape takes, and what each kind takes besides
-export const GRAPHIC_COMMON = ['kind', 'from', 'to', 'fade', 'color', 'opacity', 'width', 'dash', 'glow', 'fill', 'fillOpacity', 'values', 'draw']
+export const GRAPHIC_COMMON = ['kind', 'from', 'to', 'fade', 'color', 'opacity', 'width', 'dash', 'glow', 'fill', 'fillOpacity', 'fillTo', 'values', 'draw']
 export const GRAPHIC_KEYS: Record<GraphicKind, readonly string[]> = {
   line: ['points', 'smooth', 'close', 'arrow'],
-  circle: ['center', 'radius', 'radiusY', 'arc'],
+  circle: ['center', 'radius', 'radiusY', 'arc', 'turn', 'arrow', 'fillAt'],
   rect: ['center', 'size', 'round'],
   plot: ['box', 'x', 'y', 'points', 'series', 'xLabel', 'yLabel', 'labelSize', 'plate', 'upTo', 'marker'],
   image: ['src', 'center']
@@ -360,7 +369,7 @@ const GRAPHIC_DASH = [0.012, 0.009] as const
 export const CAPTION_WEIGHT = 500
 const CUE_KEYS = ['at', 'play', 'params', 'title', 'font', 'uppercase']
 const INTRO_FILM_KEYS = ['at', 'preset', 'params', 'title', 'font', 'uppercase', 'hide']
-const CAPTION_KEYS = ['text', 'from', 'to', 'at', 'angle', 'size', 'color', 'font', 'fade', 'accent', 'align', 'width', 'plate', 'weight', 'italic', 'reveal', 'revealOver', 'values', 'radius']
+const CAPTION_KEYS = ['text', 'from', 'to', 'at', 'angle', 'size', 'color', 'font', 'fade', 'accent', 'align', 'anchor', 'width', 'plate', 'weight', 'italic', 'reveal', 'revealOver', 'values', 'radius']
 // The switches a film can flip along its tracks; it has no cursor for the black hole to follow
 export const TRACK_SWITCHES = SETTING_KEYS.filter(key => key in TOGGLES && key !== 'blackHoleFollowing')
 
@@ -664,6 +673,7 @@ export function readCaptions (source: unknown, duration: number, notes: string[]
       fade: clamp(entry.fade === undefined ? CAPTION_FADE : asNumber(`${where}.fade`, entry.fade), 0, (to - from) / 2),
       accent: colorOf('accent', entry.accent, CAPTION_ACCENT),
       align: oneOf('align', entry.align, CAPTION_ALIGNS),
+      anchor: oneOf('anchor', entry.anchor, CAPTION_ALIGNS),
       width: clamp(entry.width === undefined ? 1 : asNumber(`${where}.width`, entry.width), 0.1, 1),
       plate: clamp(entry.plate === undefined ? 0 : asNumber(`${where}.plate`, entry.plate), 0, 1),
       weight: clamp(entry.weight === undefined ? CAPTION_WEIGHT : Math.round(asNumber(`${where}.weight`, entry.weight)), 100, 900),
@@ -706,6 +716,13 @@ function readGraphics (source: unknown, duration: number, notes: string[], attem
       if (!Array.isArray(source) || source.length !== 2) fail(`${where}.${key} takes ${what}`)
       return [asNumber(`${where}.${key}[0]`, source[0]), asNumber(`${where}.${key}[1]`, source[1])] as const
     }
+    // Where an open stroke carries heads: true is its end
+    const readArrow = (): FilmGraphic['arrow'] => {
+      if (entry.arrow === undefined || entry.arrow === false) return null
+      const arrow = entry.arrow === true ? 'end' : String(entry.arrow)
+      if (!(GRAPHIC_ARROWS as readonly string[]).includes(arrow)) fail(`${where}.arrow takes one of: ${GRAPHIC_ARROWS.join(', ')}`)
+      return arrow as FilmGraphic['arrow']
+    }
 
     let dash: FilmGraphic['dash'] = null
     if (entry.dash === true) dash = GRAPHIC_DASH
@@ -726,6 +743,8 @@ function readGraphics (source: unknown, duration: number, notes: string[], attem
       glow: clamp(entry.glow === undefined ? 0 : asNumber(`${where}.glow`, entry.glow), 0, 0.2),
       fill: entry.fill === undefined ? null : colorOf('fill', entry.fill, ''),
       fillOpacity: number('fillOpacity', 1),
+      fillTo: entry.fillTo === undefined ? null : colorOf('fillTo', entry.fillTo, ''),
+      fillAt: [0, 0],
       values,
       draw: clamp(entry.draw === undefined ? 0 : asNumber(`${where}.draw`, entry.draw), 0, to - from),
       points: [],
@@ -736,6 +755,7 @@ function readGraphics (source: unknown, duration: number, notes: string[], attem
       radius: 1,
       radiusY: null,
       arc: null,
+      turn: 0,
       size: [1, 1],
       round: 0,
       box: [0, 0, 1, 1],
@@ -755,11 +775,7 @@ function readGraphics (source: unknown, duration: number, notes: string[], attem
     if (kind === 'line') {
       if (!Array.isArray(entry.points) || entry.points.length < 2) fail(`${where}.points takes two or more places: ${PLACE_FORMS}`)
       graphic.points = entry.points.map((point, at) => readPlace(`${where}.points[${at}]`, point, values))
-      if (entry.arrow !== undefined && entry.arrow !== false) {
-        const arrow = entry.arrow === true ? 'end' : String(entry.arrow)
-        if (!(GRAPHIC_ARROWS as readonly string[]).includes(arrow)) fail(`${where}.arrow takes one of: ${GRAPHIC_ARROWS.join(', ')}`)
-        graphic.arrow = arrow as FilmGraphic['arrow']
-      }
+      graphic.arrow = readArrow()
     } else if (kind === 'circle') {
       graphic.center = place('center')
       if (entry.radius === undefined) fail(`${where}.radius takes a number, or the name of a value such as "lensingRadius"`)
@@ -768,6 +784,12 @@ function readGraphics (source: unknown, duration: number, notes: string[], attem
       if (entry.arc !== undefined) {
         if (!Array.isArray(entry.arc) || entry.arc.length !== 2) fail(`${where}.arc takes [from, to] in degrees, 0 to the right and 90 up`)
         graphic.arc = [number('arc[0]', 0, entry.arc[0]), number('arc[1]', 360, entry.arc[1])]
+      }
+      if (entry.turn !== undefined) graphic.turn = number('turn', 0)
+      graphic.arrow = readArrow()
+      if (entry.fillAt !== undefined) {
+        if (!Array.isArray(entry.fillAt) || entry.fillAt.length !== 2) fail(`${where}.fillAt takes [dx, dy] in shares of the radius, x to the right and y up`)
+        graphic.fillAt = [number('fillAt[0]', 0, entry.fillAt[0]), number('fillAt[1]', 0, entry.fillAt[1])]
       }
     } else if (kind === 'rect') {
       graphic.center = place('center')
@@ -1295,7 +1317,10 @@ comes to this same object: see "A film as a script" below. Names and ranges are 
                              "values": { "years": [[2, 0], [8, 13.8, "linear"]] }. Greek, mathematics and
                              the signs of the sky (λ Δ ∞ ≈ √ → ☉ ⊕ ♃) are the same on every machine.
                              "reveal": ${CAPTION_REVEALS.join(' | ')} brings the words in one at a time over
-                             "revealOver" seconds. "align": ${CAPTION_ALIGNS.join(' | ')}; "width", the share of
+                             "revealOver" seconds. An [x, y] or a place is the middle of the block; "anchor":
+                             ${CAPTION_ALIGNS.join(' | ')} stands the block there by its left edge, middle or right
+                             edge instead (a legend's rows, words inside a plate), and "align" lines up the
+                             lines inside the block (${CAPTION_ALIGNS.join(' | ')}, the anchor's when left out); "width", the share of
                              the frame a line may take; "plate", 0-1, a dark plate behind the words;
                              "weight", 100-900 (500 when left out; orbitron has 400 alone), "italic": true; size,
                              color and accent '#rrggbb', fade; font: ${CAPTION_FONTS.join(' | ')}
@@ -1316,7 +1341,9 @@ comes to this same object: see "A film as a script" below. Names and ranges are 
                              line: "points" (two or more places), "smooth" (a curve through them), "close",
                                "arrow": ${GRAPHIC_ARROWS.join(' | ')} (middle: one head halfway along, the way it runs)
                              circle: "center", "radius", "radiusY" (an ellipse), "arc": [from, to] in degrees,
-                               0 to the right and 90 up
+                               0 to the right and 90 up, "turn" (degrees the ellipse is turned by), "arrow" as a
+                               line's (on an arc, or middle on a whole ring), "fillAt": [dx, dy] in shares of the
+                               radius, where "fill" lies when "fillTo" shades it out to the edge (a lit sphere)
                              rect: "center", "size": [width, height], "round"
                              plot: "box": [left, top, width, height] in shares of the frame, "x": [min, max],
                                "y": [min, max], "points": [[x, y], ...] in the plot's own numbers (or "series":
@@ -1327,7 +1354,8 @@ comes to this same object: see "A film as a script" below. Names and ranges are 
                                or a data URL; through the film server also a path on its machine, from the
                                folder the server runs in. Read before the first frame
                              Every kind: from, to, fade, "color" and "fill" '#rrggbb', "opacity",
-                             "fillOpacity", "width" (the stroke, a share of the short side, so a zoom does not
+                             "fillOpacity", "fillTo" '#rrggbb' (the fill turns to it: from fillAt to the edge
+                             of a circle, from the top to the bottom of any other outline), "width" (the stroke, a share of the short side, so a zoom does not
                              thicken it), "dash": true or [dash, gap], "glow": the reach of a soft light in its
                              own colour round it (a share of the short side, 0.01 a halo, 0.03 a wide one),
                              "values", and "draw": seconds over which the stroke draws itself

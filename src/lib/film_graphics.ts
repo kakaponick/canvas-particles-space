@@ -3,8 +3,8 @@
 // hole, and any of its numbers can be read from the film as it plays, so a ring follows the setting it marks
 // and a dot walks along a curve with the number a caption counts. A film without shapes never comes here.
 import type { CompositeSettings } from './particle_renderer'
-import { captionAlpha, captionValue, type FilmGraphic, type FilmNumber, type FilmPlace, type FilmPlan } from './film'
-import { drawMarked, placeOnFrame, plainFont } from './film_captions'
+import { captionAlpha, captionValue, type FilmGraphic, type FilmNumber, type FilmPlace, type FilmPlan, type FilmPoint } from './film'
+import { drawMarked, placeOnFrame, plainFont, type FrameCrowd } from './film_captions'
 import type { GridSettings } from './space_grid'
 import { clamp, fail } from './agent_values'
 
@@ -17,6 +17,9 @@ const MARKER_WIDTHS = 2.4
 // Pieces a curve between two places is cut into, and the pixels one piece of a circle spans
 const SMOOTH_PIECES = 16
 const ARC_PIXELS = 2
+// The longest piece of a line laid on the space sheet, in the well's radii: short enough that the line bends
+// with the dent between its places, long enough that a line across the whole sheet stays a few hundred points
+const SHEET_STEP = 0.25
 const PLOT_INK = 0.7
 
 export type FilmImages = Map<string, ImageBitmap>
@@ -66,6 +69,38 @@ function smoothed (points: Point[], closed: boolean): Point[] {
   }
   if (!closed) out.push(points[count - 1])
   return out
+}
+
+// A line through places on the frame: straight between them, or a curve through them. Null while a place
+// is not there to be seen
+function onFrame (places: ({ x: number, y: number } | null)[], smooth: boolean, close: boolean): Point[] | null {
+  if (!places.every(place => place !== null)) return null
+  const corners = (places as { x: number, y: number }[]).map(place => [place.x, place.y] as const)
+  return smooth ? smoothed(corners, close) : corners
+}
+
+// A line through places on the space sheet lies on the sheet along its whole length: its curve is worked out
+// on the sheet, its pieces are cut no longer than SHEET_STEP of the well's radii, and each point is sunk
+// into the well and seen as the sheet is, so it dips with the dent between its places as at them
+function onSheet (
+  points: FilmPoint[], smooth: boolean, close: boolean, read: (value: FilmNumber) => number,
+  at: (place: FilmPlace) => { x: number, y: number } | null
+): Point[] | null {
+  const corners: Point[] = points.map(point => [read(point.x), read(point.y)] as const)
+  const curve = smooth ? smoothed(corners, close) : close ? [...corners, corners[0]] : corners
+  const path: Point[] = []
+  for (let index = 0; index < curve.length; index++) {
+    const [toX, toY] = curve[index]
+    const pieces = index === 0 ? 1 : Math.max(1, Math.ceil(Math.hypot(toX - curve[index - 1][0], toY - curve[index - 1][1]) / SHEET_STEP))
+    for (let piece = index === 0 ? pieces : 1; piece <= pieces; piece++) {
+      const share = piece / pieces
+      const [fromX, fromY] = index === 0 ? curve[0] : curve[index - 1]
+      const seen = at({ anchor: 'sheet', x: fromX + (toX - fromX) * share, y: fromY + (toY - fromY) * share })
+      if (!seen) return null
+      path.push([seen.x, seen.y])
+    }
+  }
+  return path
 }
 
 // The first `share` of a path by its length
@@ -162,13 +197,14 @@ const short = (value: number) => String(+value.toPrecision(4))
  * the space sheet as it laid it, for shapes that lie on it.
  */
 export function drawGraphics (
-  ctx: CanvasRenderingContext2D, plan: FilmPlan, time: number, composite: CompositeSettings, pixel: number, images: FilmImages, sheet: GridSettings | null = null
+  ctx: CanvasRenderingContext2D, plan: FilmPlan, time: number, composite: CompositeSettings, pixel: number, images: FilmImages, sheet: GridSettings | null = null,
+  crowd: FrameCrowd | null = null
 ) {
   const width = plan.width * pixel
   const height = plan.height * pixel
   const shortSide = Math.min(width, height)
 
-  for (const graphic of plan.graphics) {
+  for (const [index, graphic] of plan.graphics.entries()) {
     const read = (value: FilmNumber) => typeof value === 'number' ? value : captionValue(plan, graphic, value, time)
     const alpha = captionAlpha(graphic, time) * clamp(read(graphic.opacity), 0, 1)
     if (alpha <= 0) continue
@@ -193,57 +229,87 @@ export function drawGraphics (
       ctx.shadowBlur = graphic.glow * shortSide
     }
 
+    // The fill's paint: one colour, or a sphere lit at a point (`light`, with the radius it spreads over), or
+    // a fall from the outline's top to its bottom
+    const paint = (points: Point[], light: { x: number, y: number, radius: number, centerX: number, centerY: number } | null) => {
+      if (!graphic.fillTo) return graphic.fill as string
+      if (light) {
+        const gradient = ctx.createRadialGradient(light.x, light.y, 0, light.centerX, light.centerY, light.radius)
+        gradient.addColorStop(0, graphic.fill as string)
+        gradient.addColorStop(1, graphic.fillTo)
+        return gradient
+      }
+      let top = Infinity
+      let bottom = -Infinity
+      for (const [, y] of points) {
+        top = Math.min(top, y)
+        bottom = Math.max(bottom, y)
+      }
+      const gradient = ctx.createLinearGradient(0, top, 0, bottom > top ? bottom : top + 1)
+      gradient.addColorStop(0, graphic.fill as string)
+      gradient.addColorStop(1, graphic.fillTo)
+      return gradient
+    }
+
     // A closed outline is filled whole and stroked as far as it is drawn
-    const outline = (points: Point[], closed: boolean) => {
+    const outline = (points: Point[], closed: boolean, light: Parameters<typeof paint>[1] = null, stroked = true) => {
       if (fillAlpha > 0 && points.length > 2) {
         ctx.globalAlpha = fillAlpha
-        ctx.fillStyle = graphic.fill as string
+        ctx.fillStyle = paint(points, light)
         trace(ctx, points, true)
         ctx.fill()
         ctx.globalAlpha = alpha
         ctx.fillStyle = graphic.color
       }
-      if (stroke <= 0 || drawn <= 0) return
-      trace(ctx, partOf(closed ? [...points, points[0]] : points, drawn), closed && drawn >= 1)
+      if (!stroked || stroke <= 0 || drawn <= 0) return
+      const shown = partOf(closed ? [...points, points[0]] : points, drawn)
+      trace(ctx, shown, closed && drawn >= 1)
       ctx.stroke()
+      // The stroke as it stands on this frame, for the words to be checked against (film_captions.ts)
+      if (crowd && alpha >= 0.5) crowd.strokes.push({ graphic: index, what: graphic.kind, points: shown })
+    }
+
+    // An open stroke with its heads: at an end it stops inside the head, halfway it runs on under it
+    const withArrows = (path: Point[]) => {
+      const head = Math.max(stroke * ARROW_WIDTHS, ARROW_LEAST * shortSide)
+      if (graphic.arrow === 'middle') {
+        // The whole stroke, and one head halfway along its length once the stroke has drawn that far
+        outline(path, false)
+        const half = partOf(path, 0.5)
+        if (drawn >= 0.5 && half.length > 1) {
+          ctx.setLineDash([])
+          arrowHead(ctx, half[half.length - 1], half[half.length - 2], head)
+        }
+        return
+      }
+      if (drawn <= 0) return
+      let shown = partOf(path, drawn)
+      if (shown.length < 2) return
+      const end = shown[shown.length - 1]
+      const start = shown[0]
+      const tips: [Point, Point][] = []
+      if (graphic.arrow !== 'start') {
+        tips.push([end, shown[shown.length - 2]])
+        shown = pulledBack(shown, head * 0.7)
+      }
+      if (graphic.arrow !== 'end' && shown.length > 1) {
+        tips.push([start, shown[1]])
+        shown = pulledBack([...shown].reverse(), head * 0.7).reverse()
+      }
+      trace(ctx, shown, false)
+      ctx.stroke()
+      if (crowd && alpha >= 0.5) crowd.strokes.push({ graphic: index, what: graphic.kind, points: shown })
+      ctx.setLineDash([])
+      for (const [tip, before] of tips) arrowHead(ctx, tip, before, head)
     }
 
     if (graphic.kind === 'line') {
-      const places = graphic.points.map(at)
-      if (places.every(place => place !== null)) {
-        const corners = places.map(place => [place.x, place.y] as const)
-        const path = graphic.smooth ? smoothed(corners, graphic.close) : corners
-        if (!graphic.arrow || graphic.close) {
-          outline(path, graphic.close)
-        } else if (graphic.arrow === 'middle') {
-          // The whole stroke, and one head halfway along its length once the stroke has drawn that far
-          outline(path, false)
-          const half = partOf(path, 0.5)
-          if (drawn >= 0.5 && half.length > 1) {
-            ctx.setLineDash([])
-            arrowHead(ctx, half[half.length - 1], half[half.length - 2], Math.max(stroke * ARROW_WIDTHS, ARROW_LEAST * shortSide))
-          }
-        } else if (drawn > 0) {
-          const head = Math.max(stroke * ARROW_WIDTHS, ARROW_LEAST * shortSide)
-          let shown = partOf(path, drawn)
-          if (shown.length > 1) {
-            const end = shown[shown.length - 1]
-            const start = shown[0]
-            const tips: [Point, Point][] = []
-            if (graphic.arrow !== 'start') {
-              tips.push([end, shown[shown.length - 2]])
-              shown = pulledBack(shown, head * 0.7)
-            }
-            if (graphic.arrow !== 'end' && shown.length > 1) {
-              tips.push([start, shown[1]])
-              shown = pulledBack([...shown].reverse(), head * 0.7).reverse()
-            }
-            trace(ctx, shown, false)
-            ctx.stroke()
-            ctx.setLineDash([])
-            for (const [tip, before] of tips) arrowHead(ctx, tip, before, head)
-          }
-        }
+      const path = sheet && graphic.points.every(point => point.anchor === 'sheet')
+        ? onSheet(graphic.points as FilmPoint[], graphic.smooth, graphic.close, read, at)
+        : onFrame(graphic.points.map(at), graphic.smooth, graphic.close)
+      if (path) {
+        if (!graphic.arrow || graphic.close) outline(path, graphic.close)
+        else withArrows(path)
       }
     } else if (graphic.kind === 'circle' && graphic.center) {
       const center = at(graphic.center)
@@ -254,13 +320,36 @@ export function drawGraphics (
         const to = graphic.arc ? read(graphic.arc[1]) : 360
         const whole = Math.abs(to - from) >= 360
         const sweep = whole ? 360 : to - from
+        const turn = read(graphic.turn) * Math.PI / 180
+        const cosTurn = Math.cos(turn)
+        const sinTurn = Math.sin(turn)
         const pieces = clamp(Math.ceil(Math.max(radiusX, radiusY) * Math.abs(sweep) * Math.PI / 180 / ARC_PIXELS), 16, 2048)
+        // A head halfway along a whole ring needs the ring's end joined to its start
+        const ends = whole && graphic.arrow === 'middle' ? 1 : whole ? 0 : 1
         const path: Point[] = []
-        for (let piece = 0; piece < pieces + (whole ? 0 : 1); piece++) {
+        for (let piece = 0; piece < pieces + ends; piece++) {
           const angle = (from + sweep * piece / pieces) * Math.PI / 180
-          path.push([center.x + Math.cos(angle) * radiusX, center.y - Math.sin(angle) * radiusY])
+          const alongX = Math.cos(angle) * radiusX
+          const alongY = Math.sin(angle) * radiusY
+          path.push([center.x + alongX * cosTurn - alongY * sinTurn, center.y - (alongX * sinTurn + alongY * cosTurn)])
         }
-        if (radiusX > 0 && radiusY > 0) outline(path, whole)
+        const radius = Math.max(radiusX, radiusY)
+        const light = {
+          x: center.x + read(graphic.fillAt[0]) * radius,
+          y: center.y - read(graphic.fillAt[1]) * radius,
+          radius: radius * (1 + Math.hypot(read(graphic.fillAt[0]), read(graphic.fillAt[1]))),
+          centerX: center.x,
+          centerY: center.y
+        }
+        if (radiusX > 0 && radiusY > 0) {
+          if (graphic.arrow && (!whole || graphic.arrow === 'middle')) {
+            // The ring's fill under its stroke, then the stroke with its heads
+            if (fillAlpha > 0) outline(whole ? path.slice(0, -1) : path, true, light, false)
+            withArrows(path)
+          } else {
+            outline(path, whole, light)
+          }
+        }
       }
     } else if (graphic.kind === 'rect' && graphic.center) {
       const center = at(graphic.center)

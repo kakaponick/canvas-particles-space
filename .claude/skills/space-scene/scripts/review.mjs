@@ -93,7 +93,10 @@ function sheets (file, { input, every, only }) {
     for (let first = 0; first < sorted.length; first += PER_SHEET) {
       const batch = sorted.slice(first, first + PER_SHEET)
       const sheet = path.join(out, `clip${String(clip.index + 1).padStart(2, '0')}_${String(first / PER_SHEET + 1).padStart(2, '0')}.jpg`)
-      space(['preview', clip.film, sheet, batch.join(','), ...(inputFile ? ['--input', inputFile] : [])])
+      const printed = space(['preview', clip.film, sheet, batch.join(','), ...(inputFile ? ['--input', inputFile] : [])])
+      // Words the preview found crowded on these frames, by other words or a shape's stroke: certain defects
+      const crowded = (/\nCrowded:\n([\s\S]*?)(?:\nTimeline:|$)/.exec(printed)?.[1] ?? '').split('\n').map(line => line.trim()).filter(Boolean)
+      for (const line of crowded) console.log(`clip ${clip.index + 1}, crowded: ${line}`)
       const from = batch[0]
       const to = batch.at(-1)
       const during = item => item.from <= to && item.to >= from
@@ -103,6 +106,7 @@ function sheets (file, { input, every, only }) {
         reel: batch.map(second => clock(start + second)),
         shots: shots.filter(during).map(shot => shot.name),
         captions: entries.filter(item => during(item) && /^caption "/.test(item.what)).map(item => `${item.from}-${item.to} s ${item.what}`),
+        crowded,
         // The first suspects: a line, curve or arrow fixed to the frame while the scene under it moves or curves
         frameShapes: entries.filter(item => during(item) && /^draws (a line|a curve|an arrow)\b.* on the frame/.test(item.what)).map(item => `${item.from}-${item.to} s ${item.what}`)
       })

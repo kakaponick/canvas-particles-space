@@ -119,7 +119,8 @@ object; anything longer is a script that plays it forward. Several films joined 
    each shot a look (its section "The particle field: a look for every shot").
 4. `space_preview` with no seconds draws one frame of every shot (the storyboard) and prints the timeline
    the film was understood as; ask for the seconds where something changes as well. Done when every shot's
-   frame shows its sentence with the captions covered. `space_check` reads the timeline without drawing:
+   frame shows its sentence with the captions covered, and the preview prints no `Crowded:` line (words on
+   words, or a shape's stroke through words, measured on the frames it drew). `space_check` reads the timeline without drawing:
    for a script's JSON, or a film too long to draw yet.
 5. `space_render` writes the mp4 once, at the default quality.
 6. **The review gate.** A film is not finished until reviewers who did not make it have looked at all of it:
