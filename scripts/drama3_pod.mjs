@@ -101,14 +101,14 @@ async function main () {
   const voices = voice ? voice.split(',') : [null]
   const script = path.join(root, 'films', `${film}_voice.mjs`)
   if (!fs.existsSync(script)) throw new Error(`no ${path.relative(root, script)}`)
-  // The voice script with no server named lists the lines it would speak and stops at the first
-  const speakOne = (servers, one) => new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [script, 'speak', ...(one ? [one] : [])], { cwd: root, stdio: 'inherit', env: { ...process.env, DRAMA3_SERVERS: servers.join(',') } })
+  // A job of the voice script (speak on the servers named, or plan: the lines it would speak, asking no server)
+  const runOne = (job, servers, one) => new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [script, job, ...(one ? [one] : [])], { cwd: root, stdio: 'inherit', env: { ...process.env, DRAMA3_SERVERS: servers.join(',') } })
     child.on('exit', code => code === 0 ? resolve() : reject(new Error(`the voice script${one ? ` (${one})` : ''} stopped with ${code}`)))
   })
-  const speak = async servers => { for (const one of voices) await speakOne(servers, one) }
+  const speak = async servers => { for (const one of voices) await runOne('speak', servers, one) }
   if (dry) {
-    for (const one of voices) await speakOne([], one).catch(error => console.log(error.message))
+    for (const one of voices) await runOne('plan', [], one).catch(error => console.log(error.message))
     return
   }
   keyOf()
