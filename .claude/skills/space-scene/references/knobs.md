@@ -695,6 +695,7 @@ straight-on (section 11).
 | The sheet's shape: where its rings stand (equal steps of depth to equal radii), the share of the well's depth it is lifted by, how far a second well reaches toward its own hole | `gridRingSpacing`, `gridLift`, `gridWell2Bottom` |
 | The sheet in the picture: the share of it behind the holes drawn through the lens, and how its pose turns while 3D eases in | `gridLensed`, `gridEaseTurn` |
 | The sheet's light: how many times brighter a line is at a throat and how close to it that glow keeps; the light the holes shed on it, where it falls to half, and its colour | `gridThroatGlow`, `gridThroatCurve`, `gridLight`, `gridLightReach`, `gridLightColor` |
+| A flash running over the sheet's lines: its band's brightness (0 is off), where it flashed (the main well's radii, x right, y away, as a film's sheet places), how far it has run along the surface, the band's width and its rising share, the slope its way counts, the radius a hole takes a ray at, and its colour | `gridFront`, `gridFrontX`, `gridFrontY`, `gridFrontRun`, `gridFrontWidth`, `gridFrontLead`, `gridFrontSlope`, `gridFrontCapture`, `gridFrontColor` |
 
 - The sheet is a surface of the scene: a piece of the main hole's equator (the plane matter, the flows and
   the orbiting stars follow; across the line of flight while the hole does not spin), dented where the
@@ -730,6 +731,19 @@ straight-on (section 11).
   matter round the hole, or of a body drawn over it (films.md), on the surface it sits in. A second hole
   glows and lights the sheet by its own radii. Both add to `gridColor` and each channel stops at full, so
   high values turn the throat white; 0 for both draws the sheet in its one colour.
+- `gridFront` is a flash of light spreading across the sheet, drawn by its own lines lighting up where the
+  front is (`gridFrontColor`, added to their colour: no line, no light). Its gate is `gridFront` above 0 and
+  `gridFrontRun` moved on a track: 0 to 30 over 11 s from `gridFrontX` -10 crosses the default well. The
+  light's way to a point is the straight line from the flash on the flat sheet measured along the surface,
+  so over a well, which goes down and back up, the band lags behind its flat circle (the Shapiro delay as
+  the sheet tells it), more with a deeper `gridDepth` or a steeper `gridFrontSlope`; a way passing within
+  `gridFrontCapture` radii of a hole is taken, so a wedge of lines behind the hole, as seen from the flash,
+  stays dark for good: straight ways never close behind it. A second hole delays and takes rays too. From
+  straight above (3D `cameraPitch` 0, or the flat mode's `gridTilt` 0) the band is a circle dented behind
+  the well; from the side the throat's wall lights as the band runs down it. On rings and spokes the band
+  lights short pieces of the few rings and spokes it crosses far out: square cells (`gridRings` 0) draw
+  its whole shape. Added to the sheet's blue the default warm white turns white at any strength; a
+  stronger warm colour reads warm: `gridFrontColor` #ffa040 at `gridFront` 1.2 over `gridSheet` 0.35.
 - `gridEaseTurn` 1 turns the sheet's pose as a camera turns while 3D eases in (`threeDEase`), the plane
   flat and square; 0 squeezes it midway and slides its lines across the screen. The well's bottom stays on
   the hole either way.

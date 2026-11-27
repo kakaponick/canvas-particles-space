@@ -273,6 +273,19 @@ export interface ParticleState extends FlowState {
   gridLight: number
   gridLightReach: number
   gridLightColor: string
+  // A flash of light running across the sheet on its lines: the band's brightness (0: none), where it
+  // flashed in the main well's radii, how far it has run along the surface, the band's width and the share
+  // of it that is the leading edge, the slope its way is capped at, the radius round a hole that takes a
+  // ray, and its colour
+  gridFront: number
+  gridFrontX: number
+  gridFrontY: number
+  gridFrontRun: number
+  gridFrontWidth: number
+  gridFrontLead: number
+  gridFrontSlope: number
+  gridFrontCapture: number
+  gridFrontColor: string
   bloom: number
   bloomThreshold: number
   bloomKnee: number
@@ -660,6 +673,15 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   gridLight: 1,
   gridLightReach: 3,
   gridLightColor: '#d6ebff',
+  gridFront: 0,
+  gridFrontX: -10,
+  gridFrontY: 0,
+  gridFrontRun: 12,
+  gridFrontWidth: 3,
+  gridFrontLead: 0.15,
+  gridFrontSlope: 2.5,
+  gridFrontCapture: 1.25,
+  gridFrontColor: '#fff1c8',
   bloom: 0,
   bloomThreshold: 0.3,
   bloomKnee: 0.25,

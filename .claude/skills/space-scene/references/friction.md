@@ -183,6 +183,18 @@ the friction cannot happen any more.
 
 ## The grid
 
+### A light front on the sheet that read white, and a "view from above" that was edge on (2026-11-27)
+- Wanted / got: a warm band of light sweeping the sheet, seen in 3D from above; the default warm white
+  `gridFrontColor` added to the blue lines came out white at every `gridFront`, and the brief's
+  `cameraPitch` -89 drew the sheet edge on.
+- Cause: the band adds to the line's colour, so a pale warm colour over cyan fills all three channels. In 3D
+  `cameraPitch` 0 faces the sheet and -89 is the textbook's cut (knobs.md section 11 says so; the brief had
+  it the other way round).
+- Now: knobs.md, the sheet, `gridFront`: #ffa040 at 1.2 over `gridSheet` 0.35 reads warm; from straight
+  above is 3D `cameraPitch` 0 or the flat mode's `gridTilt` 0. On 60 contour rings the band lights only
+  short pieces far out: square cells show its whole shape.
+- Where: the tracers in the light-front commit's message.
+
 ### The lattice as a blurred cross, and a turn that showed nothing (2026-11-27)
 - Wanted / got: the 3D lattice arriving as the clip turns 3D; got a thick blurred "+" through the hole at
   the change, and a camera yaw from 34 to 70 degrees whose first and last frames looked alike.

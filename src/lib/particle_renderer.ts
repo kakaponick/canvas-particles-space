@@ -773,7 +773,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   const compositeUniforms = getUniforms(gl, compositeProgram, COMPOSITE_UNIFORMS)
   const gridUniforms = getUniforms(gl, gridProgram, [
     'resolution', 'pixelRatio', ...SHEET_UNIFORMS, 'lines', 'lens', 'jolt', 'color',
-    'shadow', 'frame', 'shadow2', 'sheet', 'clearing', 'rings', 'front', 'kept', 'glow', 'lightColor'
+    'shadow', 'frame', 'shadow2', 'sheet', 'clearing', 'rings', 'front', 'kept', 'glow', 'lightColor', 'flash', 'flashShape', 'flashColor'
   ] as const)
 
   const latticeUniforms = getUniforms(gl, latticeProgram, [
@@ -1761,6 +1761,14 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     const light = grid.lightReach > 0 ? Math.max(grid.light, 0) : 0
     setUniform4f(gl, u.glow, Math.max(grid.throatGlow, 0), Math.max(grid.throatCurve, 0.01), light, grid.lightReach)
     setUniform3f(gl, u.lightColor, grid.lightColor.r * grid.brightness, grid.lightColor.g * grid.brightness, grid.lightColor.b * grid.brightness)
+    // The flash running over the lines, its lengths from the main well's radii into the plane's units; its
+    // place against the plane's second direction, as sheetPoint takes it. Off, the shader works none of it out
+    const flash = grid.front > 0 && grid.throat > 0 ? grid.front : 0
+    setUniform4f(gl, u.flash, flash, grid.frontX * grid.throat, -grid.frontY * grid.throat, grid.frontRun * grid.throat)
+    if (flash > 0) {
+      setUniform4f(gl, u.flashShape, grid.frontLead * grid.throat, grid.frontTail * grid.throat, Math.max(grid.frontSlope, 0), Math.max(grid.frontCapture, 0))
+      setUniform3f(gl, u.flashColor, grid.frontColor.r * flash, grid.frontColor.g * flash, grid.frontColor.b * flash)
+    }
     if (intoLayer) {
       setUniform2f(gl, u.kept, lensed, 0)
       setUniform4f(gl, u.lens, layerZoomX, layerZoomY, layerZoom, 0)

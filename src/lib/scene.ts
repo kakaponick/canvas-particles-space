@@ -2206,6 +2206,19 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       grid.light = state.gridLight
       grid.lightReach = state.gridLightReach
       readSceneColor(grid.lightColor, state.gridLightColor)
+      grid.front = state.gridFront
+      if (state.gridFront > 0) {
+        grid.frontX = state.gridFrontX
+        grid.frontY = state.gridFrontY
+        grid.frontRun = state.gridFrontRun
+        const width = Math.max(state.gridFrontWidth, 0.01)
+        const lead = Math.min(Math.max(state.gridFrontLead, 0), 1)
+        grid.frontLead = width * lead
+        grid.frontTail = width * (1 - lead)
+        grid.frontSlope = state.gridFrontSlope
+        grid.frontCapture = state.gridFrontCapture
+        readSceneColor(grid.frontColor, state.gridFrontColor)
+      }
     }
     // The sheet's waves, which the grid program draws and the particles on the sheet ride, from the sky's
     if (state.gridSheet > 0 || (settings.ride > 0 && state.gridRideWave > 0)) waveSheet(grid, composite)
