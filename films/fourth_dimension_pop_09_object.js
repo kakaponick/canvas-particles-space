@@ -8,7 +8,7 @@ const LINES = {
   deeper: 'Pile on more mass, and the well gets deeper, and its walls get steeper.',
   dark: 'At some point they are so steep that even light cannot climb out. From outside, the star goes dark. That is a black hole.',
   thing: 'In this picture it is not a hole in space, and not a tear. It is an object. Very heavy, very small, sitting at the bottom of a very deep well.',
-  bold: 'That would mean no singularity where physics breaks. No wormhole. No white hole. It is a bold claim, and so far, nobody has proved it.'
+  bold: 'That would mean no singularity where physics breaks. No wormhole. No white hole. Just a heavy object at the bottom of a well. It is one way to picture it.'
 }
 
 // ---- the film's kit: the same text in every clip of films/fourth_dimension_pop.json ----
@@ -195,8 +195,7 @@ shot('thing', () => {
   const start = now()
   const spoken = say('thing')
   const end = start + spoken + 0.6
-  // One status over this shot and the next, until "nobody has proved it"
-  status('idea', spoken + 0.6 + heard('bold', 'nobody', 0.8))
+  status('idea', spoken + 0.6)
   at(start + heard('thing', 'hole', 0.22) - 0.2, () => {
     caption('a hole', end - now(), { at: [0.36, 0.2], size: 0.05, font: 'unbounded', color: SOFT })
   })
@@ -217,25 +216,22 @@ shot('thing', () => {
 shot('bold', () => {
   const start = now()
   const spoken = say('bold')
-  const end = start + spoken + 0.6
-  const nobody = start + heard('bold', 'nobody', 0.8)
-  at(nobody - 0.1, () => { status('open', end - now()) })
-  const named = (word, share, text, row, width) => {
-    const y = 0.3 + row * 0.1
+  // held 1.2 s past the line, so its last caption reads
+  const end = start + spoken + 1.8
+  status('idea', spoken + 0.6)
+  // What the picture would do without, said plainly as the line names it: no verdict on anyone's idea
+  const named = (word, share, text, row) => {
     at(start + heard('bold', word, share) - 0.3, () => {
-      caption(text, end - now(), { at: [0.8, y], size: 0.04, font: 'unbounded', color: INK, fade: 0.3 })
-    })
-    at(start + heard('bold', word, share) + 0.4, () => {
-      draw({ kind: 'line', points: [[0.8 - width / 2, y], [0.8 + width / 2, y]], color: W, width: 0.006, draw: 0.3, fade: 0.3 }, end - now())
+      caption(text, end - now(), { at: [0.8, 0.3 + row * 0.1], size: 0.036, font: 'unbounded', color: SOFT, fade: 0.3 })
     })
   }
-  named('singularity', 0.16, 'singularity', 0, 0.19)
-  named('wormhole', 0.27, 'wormhole', 1, 0.15)
-  named('white', 0.37, 'white hole', 2, 0.17)
-  at(nobody, () => {
-    caption('not proven', end - now(), { at: [0.8, 0.62], size: 0.045, font: 'unbounded', color: INK, fade: 0.3 })
+  named('singularity', 0.16, 'no singularity', 0)
+  named('wormhole', 0.27, 'no wormhole', 1)
+  named('white', 0.37, 'no white hole', 2)
+  at(start + heard('bold', 'way', 0.85) - 0.3, () => {
+    caption('*{one way} to picture it', end - now(), { at: [0.8, 0.62], size: 0.04, font: 'unbounded', color: INK, accent: W, fade: 0.3 })
   })
-  wait(spoken + 0.6)
+  wait(spoken + 1.8)
 })
 
 leave()
