@@ -418,6 +418,10 @@ kind.
   camera comes down to it. The spokes are every 360 / `gridSpokes` degrees; the rings are the well's
   contour lines (`gridRingSpacing` 0), ring k of n at `0.3849 / ((1 - c * c) * c)` radii with
   `c = 1 - k / (n + 1) / 2.3660254`. `films/fourth_dimension_pop_10_test.js` lays a ruler on them.
+- A shape leaves the scene for the frame through `{ between: [place, place], share: 'lift' }`: the place
+  that share of the way from the first to the second on the frame, the share a value of the shape keyed
+  from 0 to 1. Give every point the same two kinds of place and the shape lifts off whole: the ruler of
+  `films/fourth_dimension_pop_10_test.js` leaves the sheet and lies straight across the frame.
 - Let a shape read the number it shows. `radius: 'lensingRadius'` keeps a ring on the Einstein ring while
   a track moves it; `radius: 'companionDistance'` around the main hole is the second hole's orbit seen
   from it. A plot's `marker` and a caption's `#{...}` given the same value move together, which is what

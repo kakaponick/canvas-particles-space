@@ -69,7 +69,15 @@ export function holeOnFrame (composite: CaptionFrame, pixel: number, second: boo
 export function placeOnFrame (
   place: FilmPlace, read: (value: FilmNumber) => number, composite: CaptionFrame, pixel: number, width: number, height: number, orMain = false,
   sheet: GridSettings | null = null
-) {
+): { x: number, y: number, unit: number } | null {
+  if (place.anchor === 'between') {
+    const share = Math.min(Math.max(read(place.share), 0), 1)
+    const from = share < 1 ? placeOnFrame(place.from, read, composite, pixel, width, height, orMain, sheet) : null
+    const to = share > 0 ? placeOnFrame(place.to, read, composite, pixel, width, height, orMain, sheet) : null
+    // An end that is not there (a sheet not laid) leaves the place at the other
+    if (!from || !to) return from ?? to
+    return { x: from.x + (to.x - from.x) * share, y: from.y + (to.y - from.y) * share, unit: from.unit + (to.unit - from.unit) * share }
+  }
   if (place.anchor === 'frame') return { x: read(place.x) * width, y: read(place.y) * height, unit: Math.min(width, height) }
   if (place.anchor === 'sheet') {
     const point = sheet ? sheetPoint(sheet, read(place.x), read(place.y)) : null

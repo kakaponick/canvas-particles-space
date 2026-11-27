@@ -73,11 +73,25 @@ export type FilmNumber = number | string
 // hole's radii from its centre, x to the right and y up, and rides with the hole, the zoom and the camera.
 // On the sheet it is the main well's radii from the well's middle, x to the right and y away from the flat
 // camera, and it lies on the surface, down into the wells, however the sheet is turned and seen
-export interface FilmPlace {
+export interface FilmPoint {
   anchor: 'frame' | typeof GRAPHIC_ANCHORS[number]
   x: FilmNumber
   y: FilmNumber
 }
+
+// A place `share` of the way on the frame from one point to another, so that a shape can leave the scene
+// for the frame: a ruler lifted off the sheet and laid out straight
+export interface FilmBetween {
+  anchor: 'between'
+  from: FilmPoint
+  to: FilmPoint
+  share: FilmNumber
+}
+
+export type FilmPlace = FilmPoint | FilmBetween
+
+// The points a place is made of
+export const placePoints = (place: FilmPlace): FilmPoint[] => place.anchor === 'between' ? [place.from, place.to] : [place]
 
 export interface PlotSeries {
   // In the plot's own units, in the order they are joined
@@ -499,9 +513,17 @@ function readNumber (where: string, value: unknown, values: Record<string, FilmT
   return value
 }
 
-const PLACE_FORMS = '[x, y] in shares of the frame, { "hole": [dx, dy] } or { "companion": [dx, dy] } in that hole\'s radii, or { "sheet": [x, y] } on the space sheet in its well\'s radii'
+const PLACE_FORMS = '[x, y] in shares of the frame, { "hole": [dx, dy] } or { "companion": [dx, dy] } in that hole\'s radii, or { "sheet": [x, y] } on the space sheet in its well\'s radii; or { "between": [place, place], "share": 0..1 }, that share of the way from the first to the second'
 
 function readPlace (where: string, source: unknown, values: Record<string, FilmTrack>): FilmPlace {
+  if (isObject(source) && 'between' in source) {
+    const ends = source.between
+    if (Array.isArray(ends) && ends.length === 2 && Object.keys(source).every(key => key === 'between' || key === 'share')) {
+      const [from, to] = ends.map((end, index) => readPlace(`${where}.between[${index}]`, end, values))
+      if (from.anchor === 'between' || to.anchor === 'between') fail(`${where}.between takes two places that are not between others`)
+      return { anchor: 'between', from, to, share: readNumber(`${where}.share`, source.share ?? 0, values) }
+    }
+  }
   if (Array.isArray(source) && source.length === 2) {
     return { anchor: 'frame', x: readNumber(`${where}[0]`, source[0], values), y: readNumber(`${where}[1]`, source[1], values) }
   }
@@ -926,12 +948,12 @@ export function planFilm (source: unknown): FilmPlan {
   const moved = (key: string) => tracks.some(track => track.key === key && track.target !== 'layers' && track.values.some(value => value !== track.values[0]))
   if (settings.companionSize === 0 && !tracks.some(track => track.key === 'companionSize')) {
     graphics.forEach((graphic, index) => {
-      if ([...graphic.points, graphic.center].some(place => place?.anchor === 'companion')) {
+      if ([...graphic.points, graphic.center].some(place => place && placePoints(place).some(point => point.anchor === 'companion'))) {
         notes.push(`graphics[${index}] rides with the second black hole, and this film has none (companionSize is 0), so it is not drawn`)
       }
     })
     captions.forEach((caption, index) => {
-      if (typeof caption.at === 'object' && 'anchor' in caption.at && caption.at.anchor === 'companion') {
+      if (typeof caption.at === 'object' && 'anchor' in caption.at && placePoints(caption.at).some(point => point.anchor === 'companion')) {
         notes.push(`captions[${index}] rides with the second black hole, and this film has none (companionSize is 0), so it stands at the main one`)
       }
     })
@@ -1044,7 +1066,7 @@ function describeTimeline (plan: FilmPlan) {
     const words = caption.text.replace(/\s+/g, ' ')
     entries.push({ at: caption.from, text: `${span(caption.from, caption.to)}  caption "${words.length > 40 ? words.slice(0, 40) + '...' : words}"` })
   }
-  const where = (place: FilmPlace | null | undefined) => !place || place.anchor === 'frame' ? 'on the frame' : place.anchor === 'hole' ? 'at the black hole' : place.anchor === 'sheet' ? 'on the space sheet' : 'at the second black hole'
+  const where = (place: FilmPlace | null | undefined): string => !place || place.anchor === 'frame' ? 'on the frame' : place.anchor === 'hole' ? 'at the black hole' : place.anchor === 'sheet' ? 'on the space sheet' : place.anchor === 'between' ? `between ${where(place.from)} and ${where(place.to)}` : 'at the second black hole'
   for (const graphic of plan.graphics) {
     const amount = (value: FilmNumber) => typeof value === 'number' ? seconds(value) : `"${value}"`
     const what = graphic.kind === 'line'
