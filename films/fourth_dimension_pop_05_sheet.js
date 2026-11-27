@@ -2,7 +2,7 @@
 // The narration sets the pace: LINES is what is said, say() marks where a line starts, and until a voice has
 // spoken the lines each takes what its words would (input.lines and input.cues bring a voice's own seconds).
 //   node .claude/skills/space-scene/scripts/space.mjs preview films/fourth_dimension_pop_05_sheet.js out.jpg -
-/* global film, set, to, wait, shot, caption, draw, mark, now, at, meanwhile, input */
+/* global film, set, to, wait, shot, caption, draw, mark, now, at, meanwhile, input, hide, show */
 const LINES = {
   textbook: 'Now, how do you draw gravity? Every textbook does it the same way. Space is a stretched sheet, and a mass makes a dent in it.',
   roll: 'Things roll toward the dent. That is your orbit, your falling apple, your weight.',
@@ -48,11 +48,17 @@ const keep = (text, seconds, more = {}) => caption(text, seconds, { at: [0.5, 0.
 const leave = () => { to({ fade: 1 }, 0.8) }
 // ---- end of the kit ----
 
-// The sheet is seen from the side from the first frame, tipped as a textbook draws it, flat until the mass
-// arrives; its matter lies on it (gridRide), and the lens is off: the textbook picture has none
+// The sheet is seen from the side from the first frame, tipped as a textbook draws it: an even ruled sheet
+// with nothing on it until the mass arrives. Its matter lies on it (gridRide), and the lens is off: the
+// textbook picture has none
 const TILT = 68
 const HOLE_Y = 0.68
 const DEEP = 6
+// The textbook's mass is a ball, drawn over the hole: it drops onto the flat sheet and sinks with the dent
+const MASS = '#ffc861'
+// Before the dent the hole stands where the flat sheet will stay, the rim of the dent to come (5.646 radii
+// above the hole once it has sunk, by laySheet below), so the sheet holds still and only the mass goes down
+const RIM_Y = 0.2283
 // What lies on the sheet is swung round as it falls: it rolls toward the dent and circles it
 const WHIRL = {
   gravityInertia: 0.75, orbitalStrength: 80, gravityStrength: 4, gravityReach: 16, gravityDepth: 100, baseSpeed: 0, speedGlowKnee: 0.03, trailIntensity: 0.15,
@@ -66,7 +72,7 @@ film({
     numParticles: 20000,
     lensingEnabled: false,
     lensingRadius: 0,
-    nebula: 0.6,
+    nebula: 0.45,
     nebulaScale: 700,
     nebulaSparseness: 0.4,
     nebulaColor: '#6a2cc0',
@@ -74,20 +80,22 @@ film({
     starsBrightness: 1.2,
     starDensity: 0.22,
     gridColor: '#4de3ff',
-    gridSheet: 0.85,
+    gridSheet: 1,
+    gridLine: 2,
     gridTilt: TILT,
     gridDepth: 0,
-    gridRings: 40,
-    gridSpokes: 24,
-    gridSpan: 0.6,
-    gridFade: 0.3,
+    // Square cells, as the textbook rules its sheet (and as chapter 06 opens), reaching the frame's edges
+    gridRings: 0,
+    gridCell: 4,
+    gridSpan: 1.6,
+    gridFade: 0.4,
     gridRide: 1,
     // The whole column lies on the sheet: a share of the ride fading with depth left the matter the hole
     // gathers hanging between where it flies and the surface, a white ball over the shadow. Laid wholly,
     // it crowds the steep throat, so half as many particles, dimmer, let the wall show through it
     gridRideSoft: 0.01,
     fieldAtHole: 1,
-    blackHoleY: HOLE_Y,
+    blackHoleY: RIM_Y,
     ...WHIRL,
     // Before the mass arrives nothing pulls: the matter only drifts over the flat sheet
     gravityStrength: 0,
@@ -95,6 +103,9 @@ film({
     baseSpeed: 0.3
   }
 })
+// No mass yet: the hole is not there to see
+hide('hole')
+hide('ring')
 chapter('05', 'THE TEXTBOOK PICTURE')
 
 // ---- the sheet as the scene lays it out, so that a drawing can lie on it (as in fourth_dimension_well.js) ----
@@ -134,19 +145,34 @@ const X_TIP = [3.6, 0, 0]
 const Y_TIP = [-1.5, -3.6, 0]
 const W_TOP = [0, 0, 0]
 const W_TIP = [0, 0, 0.8]
-const wSide = (() => { const [x, y] = here(0, 0, 0.45); return { hole: [part(x - 4.2), part(y)] } })()
+const wSide = (() => { const [x, y] = here(0, 0, 0.45); return { hole: [part(x - 5.2), part(y)] } })()
 const label = (text, seconds, place, more) => caption(text, seconds, { at: place, size: 0.03, font: 'unbounded', fade: 0.4, ...more })
+// A place on the sheet, `away` of the well's radii from its middle, `angle` degrees round from the right
+// toward the far side
+const onSheet = (away, angle) => {
+  const turn = angle * Math.PI / 180
+  return { sheet: [part(away * Math.cos(turn)), part(away * Math.sin(turn))] }
+}
 
 shot('textbook', () => {
   const start = now()
   const spoken = say('textbook')
   status('known', spoken + 0.6)
-  at(start + heard('textbook', 'sheet', 0.62), () => { label('a stretched sheet', 3, [0.5, 0.2], { color: INK }) })
-  // "a mass makes a dent": the pull comes on and the dent sinks
-  at(start + heard('textbook', 'mass', 0.84), () => {
-    label('a mass', 3.4, { hole: [2.6, 0.3] }, { color: GOLD })
-    to({ gridDepth: DEEP, gravityStrength: WHIRL.gravityStrength, orbitalStrength: WHIRL.orbitalStrength, baseSpeed: 0 }, 2.4)
-
+  at(start + heard('textbook', 'sheet', 0.62), () => { label('a stretched sheet', 3, [0.5, 0.14], { color: INK, plate: 0.5 }) })
+  // "a mass makes a dent": a ball drops onto the sheet, the hole under it, the pull comes on and the dent
+  // sinks, the ball with it, while the sheet round it stays where it was. The ball stays to the clip's end
+  const lands = start + heard('textbook', 'mass', 0.84)
+  at(lands - 0.45, () => {
+    draw({ kind: 'circle', center: [0.5, 'y'], radius: 0.084, fill: MASS, color: '#ffe3a8', width: 0.002, glow: 0.03, fade: 0, values: { y: [[now(), -0.1], [lands, RIM_Y, 'in']] } }, lands - now())
+  })
+  at(lands, () => {
+    show('hole')
+    show('ring')
+    const clipEnd = start + spoken + 0.6 + long('roll') + 1.4 + long('axes') + 0.6 + long('metaphor') + 0.6 + long('whatif') + 0.6 + 0.8
+    // Shapes lie over the fade, so the ball goes dark with the picture as the clip leaves
+    draw({ kind: 'circle', center: { hole: [0, 0] }, radius: 1.05, fill: MASS, color: '#ffe3a8', width: 0.002, glow: 0.03, fade: 0, opacity: 'lit', values: { lit: [[now(), 1], [clipEnd - 0.8, 1], [clipEnd, 0]] } }, clipEnd - now())
+    label('a mass', 3.4, { hole: [2.8, 0.3] }, { color: GOLD })
+    to({ gridDepth: DEEP, blackHoleY: HOLE_Y, gravityStrength: WHIRL.gravityStrength, orbitalStrength: WHIRL.orbitalStrength, baseSpeed: 0 }, 2.4)
   })
   wait(spoken + 0.6)
 })
@@ -154,16 +180,31 @@ shot('textbook', () => {
 shot('roll', () => {
   const start = now()
   const spoken = say('roll')
-  status('known', spoken + 0.6)
-  // The dent's own move ends inside this line; then the pull grows and more of the sheet rolls in
-  at(start + 1.6, () => { to({ gravityStrength: 5, baseBrightness: 0.5 }, spoken - 1.6) })
-  const word = (name, share, text, point) => {
-    at(start + heard('roll', name, share), () => { label(text, start + spoken + 0.6 - now(), on(point), { size: 0.026, color: INK }) })
-  }
-  word('orbit', 0.55, 'orbit', [-3.2, 1.2, 0])
-  word('apple', 0.72, 'apple', [3.2, 1.6, 0])
-  word('weight', 0.92, 'weight', [0, -3.6, 0])
-  wait(spoken + 0.6)
+  // The three things named are drawn on the sheet; the line holds until the last of them has been read
+  const end = start + spoken + 1.4
+  status('known', end - start - 0.2)
+  // The dent's own move ends inside this line; then the pull grows and the matter, brighter, rolls in
+  at(start + 1.2, () => { to({ gravityStrength: 5, baseBrightness: 0.9, minOpacity: 0.2 }, 2) })
+  const look = { color: INK, width: 0.0035, fade: 0.4 }
+  // "your orbit": a path round the dent, lying on the sheet, its way told once
+  at(start + heard('roll', 'orbit', 0.55) - 0.2, () => {
+    const ring = []
+    for (let step = 0; step < 36; step++) ring.push(onSheet(3.4, step * 10))
+    draw({ kind: 'line', points: ring, smooth: true, close: true, arrow: 'middle', draw: 0.8, ...look }, end - now())
+    label('orbit', end - now(), onSheet(5, 160), { size: 0.026, color: INK, plate: 0.4 })
+  })
+  // "your falling apple": a small ball runs down a spoke into the dent
+  at(start + heard('roll', 'apple', 0.72) - 0.2, () => {
+    const away = s => 5.2 - 4.08 * Math.min(1, s / 1.4) ** 2
+    draw({ kind: 'circle', center: { sheet: ['ax', 'ay'] }, radius: 0.28, fill: '#ff6b5c', color: '#ff6b5c', fade: 0.3, values: { ax: s => part(away(s) * Math.cos(Math.PI / 6)), ay: s => part(away(s) * Math.sin(Math.PI / 6)) } }, end - now())
+    label('apple', end - now(), onSheet(6.2, 30), { size: 0.026, color: INK, plate: 0.4 })
+  })
+  // "your weight": the push down the wall of the dent
+  at(start + heard('roll', 'weight', 0.92) - 0.2, () => {
+    draw({ kind: 'line', points: [4.4, 3.2, 2.3, 1.7, 1.35, 1.15].map(away => onSheet(away, 230)), smooth: true, arrow: 'end', draw: 0.5, ...look, width: 0.0055, glow: 0.008 }, end - now())
+    label('weight', end - now(), onSheet(5.6, 235), { size: 0.026, color: INK, plate: 0.4 })
+  })
+  wait(end - start)
 })
 
 // The W axis, solid or dashed; each drawing lasts until the next replaces it
@@ -174,7 +215,8 @@ let axesEnd = 0
 shot('axes', () => {
   const start = now()
   const spoken = say('axes')
-  status('known', spoken + 0.6)
+  // Naming the picture's axes is geometry, not a claim about nature
+  status('math', spoken + 0.6)
   axesEnd = start + spoken + 0.6 + long('metaphor') + 0.6 + long('whatif') + 0.6
   at(start + heard('axes', 'x', 0.3), () => {
     draw({ kind: 'line', points: [on(W_TOP), on(X_TIP)], arrow: 'end', color: X, width: 0.006, draw: 0.5, fade: 0.5 }, axesEnd - now())
@@ -183,10 +225,14 @@ shot('axes', () => {
   at(start + heard('axes', 'y', 0.35), () => {
     draw({ kind: 'line', points: [on(W_TOP), on(Y_TIP)], arrow: 'end', color: Y, width: 0.006, draw: 0.5, fade: 0.5 }, axesEnd - now())
     label('Y', axesEnd - now(), on([-1.8, -4.1, 0]), { size: 0.034, color: Y })
+    // X and Y stand square on the sheet: a corner mark between them, lying on it
+    const c = 0.7
+    const k = c / Math.hypot(1.5, 3.6)
+    draw({ kind: 'line', points: [on([c, 0, 0]), on([c - 1.5 * k, -3.6 * k, 0]), on([-1.5 * k, -3.6 * k, 0])], color: INK, width: 0.0025, opacity: 0.8, draw: 0.3, fade: 0.5 }, axesEnd - now())
   })
   at(start + heard('axes', 'third', 0.6), () => {
     wAxis(start + spoken + 0.6 - now())
-    label('*{W}: the depth of the dent', start + spoken + 0.6 - now(), wSide, { size: 0.034, accent: W })
+    label('*{W}: the depth of the dent', start + spoken + 0.6 - now(), wSide, { size: 0.034, accent: W, plate: 0.4 })
   })
   wait(spoken + 0.6)
 })
@@ -198,7 +244,7 @@ shot('metaphor', () => {
   // "only a picture": W goes dashed and pale
   wAxis(spoken + 0.6, { dash: true, opacity: 0.35, draw: 0 })
   at(start + heard('metaphor', 'picture', 0.5), () => {
-    label('only a picture', start + spoken + 0.6 - now(), wSide, { size: 0.034, color: SOFT })
+    label('only a picture', start + spoken + 0.6 - now(), wSide, { size: 0.034, color: SOFT, plate: 0.4 })
   })
   wait(spoken + 0.6)
 })

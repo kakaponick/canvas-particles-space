@@ -77,7 +77,7 @@ film({
     gridSheet: 0.85,
     gridCell: 4,
     gridTilt: 68,
-    gridDepth: 10,
+    gridDepth: 6,
     gridRings: 0,
     gridSpokes: 24,
     gridSpan: 0.6,
@@ -87,7 +87,7 @@ film({
     // gathers hanging between where it flies and the surface, a white ball over the shadow. Laid wholly,
     // it crowds the steep throat, so half as many particles, dimmer, let the wall show through it
     gridRideSoft: 0.01,
-    blackHoleY: 0.6,
+    blackHoleY: 0.68,
     fieldAtHole: 1,
     // What falls toward the hole on the sheet, swung round as it comes: a whirl that drains down the well
     gravityInertia: 0.75,
@@ -175,7 +175,7 @@ const RISE = 4
 // the rim the arrows of the last line start from
 const R_OUT = 3.2
 const R_IN = 2.4
-const RIM = 4.4
+const RIM = 3.7
 
 shot('flyup', () => {
   const start = now()
@@ -204,9 +204,9 @@ shot('rings', () => {
   const start = now()
   const spoken = say('rings')
   status('math', spoken + 0.4)
-  // "Paint a ring": one ring for every step of the well's depth
+  // "Paint a ring": one ring for every step of the well's depth, painted in over two seconds
   at(start + heard('rings', 'ring', 0.4), () => {
-    set({ gridRings: 40 })
+    meanwhile(() => { to({ gridRings: 40 }, 2, 'linear') })
     caption('one ring = one step down', spoken - heard('rings', 'ring', 0.4) + 0.6, { at: [0.5, 0.12], size: 0.036, font: 'unbounded', color: INK, fade: 0.4 })
   })
   at(start + heard('rings', 'crowd', 0.85), () => {
@@ -234,11 +234,11 @@ shot('same', () => {
   })
   // "The cube inside the cube": the rhyme, drawn small beside the picture
   at(start + heard('same', 'cube', 0.75), () => {
-    hypercube([0.86, 0.36], 0.16, end - now())
+    hypercube([0.86, 0.33], 0.2, end - now())
     draw({ kind: 'circle', center: [0.86, 0.6], radius: 0.06, color: INK, width: 0.003, draw: 0.6, fade: 0.4 }, end - now())
     draw({ kind: 'circle', center: [0.86, 0.6], radius: 0.025, color: INK, width: 0.003, draw: 0.6, fade: 0.4 }, end - now())
     draw({ kind: 'line', points: [[0.86 - 0.06 * ASPECT, 0.6], [0.86 - 0.025 * ASPECT, 0.6]], color: W, width: 0.0045, draw: 0.5, fade: 0.4 }, end - now())
-    caption('the same trick,\none dimension lower', end - now(), { at: [0.86, 0.72], size: 0.022, font: 'noto', color: SOFT, fade: 0.4 })
+    caption('the same trick,\none dimension lower', end - now(), { at: [0.86, 0.75], size: 0.03, font: 'noto', color: SOFT, fade: 0.4 })
   })
   wait(spoken + 0.6)
 })
@@ -252,7 +252,7 @@ shot('points', () => {
   meanwhile(() => { to({ gravityInertia: 0.3, orbitalStrength: 0, gravityStrength: 6, gravityReach: 14, speedGlowKnee: 0.02, trailIntensity: 0.05, minOpacity: 0.2, baseBrightness: 0.5 }, 2) })
   at(start + heard('points', 'points', 0.6), () => {
     for (let index = 0; index < 8; index++) {
-      const angle = index * Math.PI / 4 + Math.PI / 8
+      const angle = index * Math.PI / 4
       draw({ kind: 'line', points: [onTop(RIM, angle), onTop(1.7, angle)], arrow: 'end', color: W, width: 0.006, draw: 0.6, fade: 0.4 }, end - now())
     }
   })

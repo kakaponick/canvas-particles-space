@@ -87,7 +87,7 @@ film({
     gridRideSoft: 0.01,
     fieldAtHole: 1,
     blackHoleSize: 8,
-    blackHoleY: 0.62,
+    blackHoleY: 0.64,
     companionSize: 0,
     companionWaves: 0,
     companionSpeed: 2,
@@ -96,38 +96,92 @@ film({
 })
 chapter('08', 'SPACE CAN RIPPLE')
 
+// The sheet as the scene lays it out (the sums of fourth_dimension_well.js), to place a label beside the well
+const LONG = 1920
+const SHORT = 1080
+const SHADOW = 0.08 * SHORT
+const dent = (away, edge) => {
+  const x = away > edge ? edge / away : 1
+  return (1 - Math.sqrt(Math.max(1 - x / (3 * Math.cos(Math.acos(-x) / 3)), 0))) * 2.3660254
+}
+function laySheet (tilt, radii, holeY) {
+  const distance = 2.5 * LONG
+  const sin = Math.sin(tilt * Math.PI / 180)
+  const cos = Math.cos(tilt * Math.PI / 180)
+  const down = (holeY - 0.5) * SHORT
+  let throat = SHADOW
+  let depth = 0
+  let away = 0
+  for (let round = 0; round < 3; round++) {
+    depth = radii * throat
+    away = (down * (distance + depth * cos) - distance * depth * sin) / Math.max(distance * cos + down * sin, distance * 0.05)
+    if (round < 2) throat = SHADOW * Math.max(distance + depth * cos - away * sin, distance * 0.05) / distance
+  }
+  return (across, toward, level) => {
+    const x = across * throat
+    const y = toward * throat + away
+    const deep = depth * (level ?? dent(Math.hypot(x, toward * throat), throat))
+    const scale = distance / (distance + deep * cos - y * sin)
+    return [x * scale / SHADOW, (down - (y * cos + deep * sin) * scale) / SHADOW]
+  }
+}
+const part = value => +value.toFixed(4)
+// The well once it has stretched
+const STRETCHED = { gridDepth: 8, blackHoleY: 0.72 }
+const stretched = laySheet(66, STRETCHED.gridDepth, STRETCHED.blackHoleY)
+// W runs down the left wall of the well, along its spoke from the flat sheet to the throat's bottom: laid on the
+// sheet, it sinks with the well as it deepens
+const W_LINE = [4.6, 3.6, 2.8, 2.2, 1.8, 1.5, 1.3, 1.15].map(away => ({ sheet: [-away, 0] }))
+const W_LABEL = (() => { const [x, y] = stretched(-1.9, 0); return { hole: [part(x - 1.5), part(y)] } })()
+
 shot('stretch', () => {
   const start = now()
   const spoken = say('stretch')
   const einstein = start + heard('stretch', 'Einstein', 0.45)
   const stretches = start + heard('stretch', 'stretches', 0.72)
-  status('idea', spoken + 0.4)
+  // The line holds a beat after it is said, so that W down the deepened well is read
+  const end = start + spoken + 1.4
+  status('idea', end - start - 0.2)
   at(einstein - 0.3, () => {
     caption('Einstein: mass *{curves} space', stretches - now(), { at: [0.78, 0.3], width: 0.34, size: 0.04, font: 'noto', accent: GRID, plate: 0.5 })
   })
   at(stretches - 0.3, () => {
-    caption('hypothesis: mass *{stretches} space', start + spoken + 0.6 - now(), { at: [0.78, 0.3], width: 0.34, size: 0.04, font: 'noto', accent: W, plate: 0.5 })
-    // The well deepens along W, and a red arrow points the way it goes
-    meanwhile(() => { to({ gridDepth: 8, blackHoleY: 0.72, gravityStrength: 6 }, 3, 'out') })
-    draw({ kind: 'line', points: [[0.3, 0.42], [0.3, 0.74]], arrow: 'end', color: W, width: 0.006, draw: 0.8, fade: 0.4 }, start + spoken + 0.6 - now())
-    caption('W', start + spoken + 0.6 - now(), { at: [0.26, 0.58], size: 0.05, font: 'unbounded', color: W, fade: 0.4 })
+    caption('hypothesis: mass *{stretches} space', end - now(), { at: [0.78, 0.3], width: 0.34, size: 0.04, font: 'noto', accent: W, plate: 0.5 })
+    // The well deepens along W, and W is drawn down its wall, sinking with it
+    meanwhile(() => { to({ ...STRETCHED, gravityStrength: 6 }, 3, 'out') })
+    draw({ kind: 'line', points: W_LINE, smooth: true, arrow: 'end', color: W, width: 0.0065, draw: 0.8, fade: 0.4 }, end - now())
   })
-  wait(spoken + 0.6)
+  // Its name stands beside the wall once the well has nearly settled
+  at(stretches + 1.2, () => { caption('W', end - now(), { at: W_LABEL, size: 0.05, font: 'unbounded', color: W, fade: 0.4 }) })
+  wait(end - start)
 })
+
+// The pair on a wide sheet of fine square cells with nothing on it, seen low so the crests stand up: the
+// ripple is the whole picture
+const PAIR = {
+  blackHoleSize: 3.5, blackHoleY: 0.5, gridRings: 0, gridCell: 1.6, gridTilt: 66, gridDepth: 3, gridSpan: 1.8, gridFade: 0.5, gridRide: 0, gridSheet: 1, gridLine: 1.5, nebula: 0.4,
+  baseBrightness: 0, companionSize: 0.8, companionDistance: 6, companionWaves: 6, gridWaveLift: 8,
+  // The wave is strongest right at the wells, where it folds the steep throats into needles at any strength
+  // that reads farther out: the sheet's lines fade in from the shadow over a few radii, so the wells read as
+  // dark pits and the crests are drawn only where the sheet stays a surface
+  gridClearing: 1.3, gridClearingEdge: 4.5
+}
 
 shot('small', () => {
   const start = now()
   const spoken = say('small')
   const ripple = start + heard('small', 'ripple', 0.85)
-  // Anything that stretches can ripple: a second, small body sets the sheet waving
-  at(start + heard('small', 'anything', 0.6) - 0.2, () => {
-    set({ companionSize: 0.6, companionDistance: 5, gridWaveLift: 20 })
-    meanwhile(() => { to({ companionWaves: 2.5 }, 1.5) })
+  status('idea', spoken + 0.4)
+  // "Anything that can stretch can also ripple": a cut through black to two black holes circling on a wide
+  // sheet, their waves running out over it
+  at(start + heard('small', 'anything', 0.6) - 0.6, () => {
+    to({ fade: 1 }, 0.35)
+    set(PAIR)
+    to({ fade: 0 }, 0.5)
   })
   at(ripple - 0.2, () => {
-    caption('a *{ripple} of space', start + spoken + 0.6 - now(), { at: [0.5, 0.2], size: 0.045, font: 'unbounded', accent: GRID, fade: 0.4 })
+    caption('a *{ripple} of space', start + spoken + 0.6 - now(), { at: [0.5, 0.16], size: 0.045, font: 'unbounded', accent: GRID, fade: 0.4, plate: 0.55 })
   })
-  status('idea', spoken + 0.4)
   wait(spoken + 0.6)
 })
 
@@ -135,13 +189,11 @@ shot('shake', () => {
   const start = now()
   const spoken = say('shake')
   status('known', spoken + 0.4)
-  // The sheet is seen from higher and wider, ready for the pair
-  meanwhile(() => { to({ gridDepth: 4, blackHoleSize: 3.5, blackHoleY: 0.5, gridRings: 0, gridCell: 3, gridTilt: 60, gridSpan: 3, gridFade: 0.5, companionSize: 0.8, companionDistance: 6, companionWaves: 3, gridWaveLift: 30, baseBrightness: 0.3 }, 2.5) })
   at(start + heard('shake', 'fifteen', 0.2), () => {
-    caption('14 September 2015', start + spoken + 0.6 - now(), { at: [0.5, 0.16], size: 0.05, font: 'unbounded', color: GOLD, fade: 0.4 })
+    caption('14 September 2015', start + spoken + 0.6 - now(), { at: [0.5, 0.16], size: 0.05, font: 'unbounded', color: GOLD, fade: 0.4, plate: 0.5 })
   })
   at(start + heard('shake', 'detectors', 0.4), () => {
-    caption('LIGO · two detectors', start + spoken + 0.6 - now(), { at: [0.5, 0.24], size: 0.032, font: 'noto', color: INK, fade: 0.4 })
+    caption('LIGO · two detectors', start + spoken + 0.6 - now(), { at: [0.5, 0.245], size: 0.032, font: 'noto', color: INK, fade: 0.4, plate: 0.5 })
   })
   at(start + heard('shake', 'shake', 0.95) - 0.2, () => { keep('space itself *{shook}', spoken * 0.3 + 0.6) })
   wait(spoken + 0.6)
@@ -154,13 +206,14 @@ shot('source', () => {
   status('known', spoken + 0.4)
   // The two close in slowly, then fast, and merge before the line ends; the waves run out over the sheet
   meanwhile(() => { to({ companionDistance: 0 }, spoken - 0.8, 'in') })
-  meanwhile(() => { to({ gridWaveLift: 11, companionWaves: 1.6 }, spoken - 0.8, 'in') })
+  // The wave grows by itself as they close; its strengths come down against it, or the merger tears the sheet
+  meanwhile(() => { to({ gridWaveLift: 3, companionWaves: 3 }, spoken - 0.8, 'in') })
   at(start + heard('source', 'thirty', 0.3), () => {
-    caption('36 + 29 M_{☉}', end - now(), { at: [0.18, 0.2], size: 0.05, font: 'unbounded', color: GOLD, fade: 0.4 })
-    caption('two black holes', end - now(), { at: [0.18, 0.27], size: 0.026, font: 'noto', color: SOFT, fade: 0.4 })
+    caption('36 + 29 M_{☉}', end - now(), { at: [0.18, 0.2], size: 0.05, font: 'unbounded', color: GOLD, fade: 0.4, plate: 0.5 })
+    caption('two black holes', end - now(), { at: [0.18, 0.275], size: 0.028, font: 'noto', color: INK, fade: 0.4, plate: 0.5 })
   })
   at(start + heard('source', 'billion', 0.8), () => {
-    caption('1.3 billion light years', end - now(), { at: [0.8, 0.2], size: 0.04, font: 'unbounded', color: GOLD, fade: 0.4 })
+    caption('1.3 billion light years', end - now(), { at: [0.8, 0.2], size: 0.04, font: 'unbounded', color: GOLD, fade: 0.4, plate: 0.5 })
   })
   wait(spoken + 0.6)
 })
@@ -170,15 +223,16 @@ shot('proton', () => {
   const spoken = say('proton')
   const end = start + spoken + 0.6
   status('known', spoken + 0.4)
-  meanwhile(() => { to({ baseBrightness: 0.15 }, 2) })
-  // The detector's arm: a bar, and its stretch
+  // The ringing has died: the sheet closes round the one hole again, its throat drawn to the shadow
+  meanwhile(() => { to({ baseBrightness: 0.15, gridClearing: 1.04, gridClearingEdge: 1.2 }, 2) })
+  // The detector's arm: a bar, and its stretch, all above the merged hole
   at(start + heard('proton', 'kilometre', 0.4) - 0.2, () => {
-    draw({ kind: 'line', points: [[0.2, 0.3], [0.8, 0.3]], color: INK, width: 0.008, draw: 0.8, fade: 0.4 }, end - now())
-    caption('4 km detector arm', end - now(), { at: [0.5, 0.25], size: 0.03, font: 'unbounded', color: INK, fade: 0.4 })
+    draw({ kind: 'line', points: [[0.2, 0.2], [0.8, 0.2]], color: INK, width: 0.008, draw: 0.8, fade: 0.4 }, end - now())
+    caption('4 km detector arm', end - now(), { at: [0.5, 0.15], size: 0.03, font: 'unbounded', color: INK, fade: 0.4, plate: 0.5 })
   })
   at(start + heard('proton', 'thousandth', 0.55) - 0.2, () => {
-    caption('ΔL ≈ 10^{-18} m', end - now(), { at: [0.5, 0.42], size: 0.07, font: 'unbounded', color: GOLD, fade: 0.4 })
-    caption('a thousandth of a proton', end - now(), { at: [0.5, 0.52], size: 0.034, font: 'noto', color: GOLD, fade: 0.4 })
+    caption('ΔL ≈ 10^{-18} m', end - now(), { at: [0.5, 0.29], size: 0.07, font: 'unbounded', color: GOLD, fade: 0.4, plate: 0.5 })
+    caption('a thousandth of a proton', end - now(), { at: [0.5, 0.37], size: 0.034, font: 'noto', color: GOLD, fade: 0.4, plate: 0.5 })
   })
   at(start + heard('proton', 'caught', 0.95) - 0.3, () => { keep('and we *{caught} it', end - now()) })
   wait(spoken + 0.6)

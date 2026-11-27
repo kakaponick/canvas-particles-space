@@ -52,7 +52,7 @@ const leave = () => { to({ fade: 1 }, 0.8) }
 // slides along the spokes toward the hole, with nothing to swing it round
 const SLIDE = { gravityInertia: 0.3, orbitalStrength: 0, gravityStrength: 6, gravityReach: 14, gravityDepth: 100, baseSpeed: 0, speedGlowKnee: 0.02, trailIntensity: 0.05, depthFade: 0, minOpacity: 0.2, particleSize: 2, particleSizeMin: 2, baseBrightness: 0.6 }
 // What falls in space: straight in from every side, with a slow drift that brings new matter
-const FALLING = { orbitalStrength: 0, gravityInertia: 0.5, gravityStrength: 7, gravityReach: 18, baseSpeed: 0.25, baseBrightness: 1.3, speedGlow: 0.3, trailIntensity: 0.06 }
+const FALLING = { orbitalStrength: 0, gravityInertia: 0.5, gravityStrength: 7, gravityReach: 18, baseSpeed: 0.25, baseBrightness: 0.7, speedGlow: 0.3, trailIntensity: 0.06 }
 
 film({
   fps: 60,
@@ -74,9 +74,16 @@ film({
     gridSpan: 0.6,
     gridFade: 0.3,
     gridRide: 1,
-    gridLatticeCell: 1.6,
+    // The lattice of 3D space, once it comes: a ball of fine cells the camera sees from outside, drawn in hard
+    // toward the hole. Only what lies behind the hole is drawn, read through the lens: its lines bend into the
+    // Einstein ring and the shadow covers them, so the shadow stays black
+    gridLatticeCell: 1,
     gridLatticeWarp: 0,
-    gridLatticeLine: 2,
+    gridLatticeLine: 3,
+    gridLatticeNear: 1.15,
+    gridLatticeNearEdge: 0.9,
+    gridLatticeFar: 0.7,
+    threeDFrontDepth: 0,
     threeDEase: 2.6,
     cameraYaw: 0,
     cameraPitch: 0,
@@ -127,7 +134,7 @@ shot('blind', () => {
   const end = start + spoken + 0.6
   // It cannot look down: under it the well is only the rings crowding inward
   at(start + heard('blind', 'see', 0.12), () => {
-    caption('?', end - now() + long('word') * 0.4, { at: near(0, 1.4), size: 0.07, font: 'unbounded', color: INK, fade: 0.4 })
+    caption('?', end - now() + long('word') * 0.4, { at: near(-1.1, 1.0), size: 0.07, font: 'unbounded', color: INK, fade: 0.4 })
   })
   // Everything it drops slides toward the same spot
   at(start + heard('blind', 'drops', 0.72), () => {
@@ -153,8 +160,14 @@ shot('us', () => {
   const start = now()
   const spoken = say('us')
   status('idea', spoken + 0.6)
-  at(start + heard('us', 'creature', 0.42), () => {
-    caption('we = the creature?', flatEnd - now(), { at: [0.5, 0.12], size: 0.034, font: 'unbounded', color: INK, fade: 0.4 })
+  // The question stays long enough to be read, past the turn into 3D; the new space is named after it
+  const asked = start + heard('us', 'creature', 0.42) - 0.3
+  const named = Math.max(asked + 2.6, flatEnd + 0.8)
+  at(asked, () => {
+    caption('we = the creature?', named - 0.3 - now(), { at: [0.5, 0.12], size: 0.034, font: 'unbounded', color: INK, fade: 0.4 })
+  })
+  at(named, () => {
+    caption('2D sheet  →  3D space', start + spoken + 0.6 - now() + 1.5, { at: [0.5, 0.12], size: 0.036, font: 'unbounded', color: INK, fade: 0.4 })
   })
   // The sheet goes and its matter is let off it; space gets its third dimension: a lattice, drawn inward
   at(flatEnd - 1.4, () => { to({ gridSheet: 0 }, 1.4) })
@@ -162,8 +175,7 @@ shot('us', () => {
   at(flatEnd + 0.04, () => { set({ numParticles: 30000 }) })
   at(flatEnd + 0.06, () => {
     set({ threeD: true, lensingEnabled: true, cameraCutTurn: 0, speedGlowKnee: 0.15, gravityDepth: 18, depthFade: 1, minOpacity: 0.02, particleSize: 3, particleSizeMin: 0.3 })
-    caption('2D sheet  →  3D space', start + spoken + 0.6 - now() + 1.5, { at: [0.5, 0.12], size: 0.036, font: 'unbounded', color: INK, fade: 0.4 })
-    to({ cameraYaw: 34, cameraPitch: 18, gridLattice: 0.6, gridLatticeWarp: 5, lensingRadius: 1.6, ...FALLING }, 2.8)
+    to({ cameraYaw: 34, cameraPitch: 18, gridLattice: 0.75, gridLatticeWarp: 8, lensingRadius: 1.6, ...FALLING }, 2.8)
     at(now() + 0.2, () => { set({ cameraCutTurn: 0.35 }) })
   })
   wait(spoken + 0.6)
@@ -175,11 +187,17 @@ shot('chair', () => {
   const end = start + spoken + 0.6
   status('idea', spoken + 0.6)
   meanwhile(() => { to({ cameraYaw: 70, cameraPitch: 22 }, spoken + 0.6) })
-  // The well we cannot see drops into a fourth direction: W points inward at the mass
+  // The well we cannot see drops into a fourth direction: W is no one way of our space, it points inward
+  // from every side at once, and the arrows ride the hole as the camera turns round it
   at(start + heard('chair', 'fourth', 0.18), () => {
     to({ gravityStrength: 10 }, 2)
-    draw({ kind: 'line', points: [[0.3, 0.3], [0.44, 0.44]], arrow: 'end', color: W, width: 0.007, draw: 0.6, fade: 0.4 }, end - now())
-    caption('W', end - now(), { at: [0.27, 0.27], size: 0.05, font: 'unbounded', color: W, fade: 0.4 })
+    for (let index = 0; index < 8; index++) {
+      const angle = index * Math.PI / 4
+      const from = { hole: [+(3.8 * Math.cos(angle)).toFixed(3), +(3.8 * Math.sin(angle)).toFixed(3)] }
+      const into = { hole: [+(1.7 * Math.cos(angle)).toFixed(3), +(1.7 * Math.sin(angle)).toFixed(3)] }
+      draw({ kind: 'line', points: [from, into], arrow: 'end', color: W, width: 0.006, draw: 0.6, fade: 0.4 }, end - now())
+    }
+    caption('W', end - now(), { at: { hole: [-3.5, 3.5] }, size: 0.05, font: 'unbounded', color: W, fade: 0.4, plate: 0.5 })
   })
   at(start + heard('chair', 'point', 0.45), () => {
     keep('You cannot point at it, but you can *{feel} it.', end - now())
@@ -188,14 +206,18 @@ shot('chair', () => {
   at(start + heard('chair', 'feel', 0.72), () => {
     const seconds = end - now()
     const look = { color: INK, width: 0.004, draw: 0.5, fade: 0.4 }
-    draw({ kind: 'line', points: [[0.78, 0.62], [0.86, 0.62]], ...look }, seconds)
-    draw({ kind: 'line', points: [[0.78, 0.62], [0.78, 0.72]], ...look }, seconds)
+    // A dark card behind it, so it reads over the lattice
+    draw({ kind: 'rect', center: [0.855, 0.47], size: [0.4, 0.62], round: 0.012, color: '#5a6480', width: 0.0012, fill: '#05070f', fillOpacity: 0.72, fade: 0.4 }, seconds)
+    // The chair: seat, two legs, back
+    draw({ kind: 'line', points: [[0.79, 0.62], [0.86, 0.62]], ...look }, seconds)
+    draw({ kind: 'line', points: [[0.79, 0.62], [0.79, 0.72]], ...look }, seconds)
     draw({ kind: 'line', points: [[0.86, 0.62], [0.86, 0.72]], ...look }, seconds)
     draw({ kind: 'line', points: [[0.86, 0.62], [0.86, 0.48]], ...look }, seconds)
+    // The figure sits on the seat, its shin in front of the chair's leg
     draw({ kind: 'circle', center: [0.835, 0.425], radius: 0.022, color: INK, width: 0.004, fade: 0.4 }, seconds)
-    draw({ kind: 'line', points: [[0.835, 0.46], [0.835, 0.6]], ...look }, seconds)
-    draw({ kind: 'line', points: [[0.835, 0.6], [0.79, 0.6]], ...look }, seconds)
-    draw({ kind: 'line', points: [[0.79, 0.6], [0.79, 0.72]], ...look }, seconds)
+    draw({ kind: 'line', points: [[0.835, 0.46], [0.835, 0.612]], ...look }, seconds)
+    draw({ kind: 'line', points: [[0.835, 0.612], [0.77, 0.612]], ...look }, seconds)
+    draw({ kind: 'line', points: [[0.77, 0.612], [0.77, 0.72]], ...look }, seconds)
     draw({ kind: 'line', points: [[0.835, 0.5], [0.8, 0.56]], ...look }, seconds)
     draw({ kind: 'line', points: [[0.835, 0.24], [0.835, 0.36]], arrow: 'end', color: W, width: 0.007, draw: 0.5, fade: 0.4 }, seconds)
     caption('weight', seconds, { at: [0.92, 0.3], size: 0.032, font: 'unbounded', color: W, fade: 0.4 })
