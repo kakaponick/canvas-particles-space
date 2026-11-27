@@ -535,6 +535,8 @@ function SettingsBody () {
           <SettingSlider field="gridFrontX" />
           <SettingSlider field="gridFrontY" />
           <SettingSlider field="gridFrontPhotons" />
+          <SettingSlider field="gridBeams" />
+          <SettingSlider field="gridBeamRun" />
         </div>
         <div className="mt-3 flex flex-col gap-1">
           <SettingSlider field="gridLattice" />
@@ -555,6 +557,7 @@ function SettingsBody () {
           <SettingColor field="gridLightColor" />
           <SettingColor field="gridFrontColor" />
           <SettingColor field="gridPhotonColor" />
+          <SettingColor field="gridBeamColor" />
         </div>
         <SettingsFine id="space-grid">
           {/* The sheet (its lines, its flat camera, its edges, the wave, the slab its particles ride in, then its laws: rings, lift, second well, lens, 3D ease, how the particles ride, its light, the flash's band and its photons), the lattice, the grid behind the lens and the grid on the horizon */}
@@ -593,6 +596,11 @@ function SettingsBody () {
             <SettingSlider field="gridPhotonTrail" />
             <SettingSlider field="gridPhotonWidth" />
             <SettingSlider field="gridPhotonFade" />
+            <SettingSlider field="gridBeamX" />
+            <SettingSlider field="gridBeamNear" />
+            <SettingSlider field="gridBeamFar" />
+            <SettingSlider field="gridBeamTrail" />
+            <SettingSlider field="gridBeamWidth" />
           </div>
           <div className="mt-3 flex flex-col gap-1">
             <SettingSlider field="gridLatticeLine" />

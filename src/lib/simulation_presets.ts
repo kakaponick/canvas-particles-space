@@ -33,6 +33,7 @@ export const SIMULATION_SETTING_KEYS = [
   'gridThroatGlow', 'gridThroatCurve', 'gridLight', 'gridLightReach', 'gridLightColor',
   'gridFront', 'gridFrontX', 'gridFrontY', 'gridFrontRun', 'gridFrontWidth', 'gridFrontLead', 'gridFrontGhost', 'gridFrontPulses', 'gridFrontPulseGap', 'gridFrontColor',
   'gridFrontPhotons', 'gridPhotonCount', 'gridPhotonTrail', 'gridPhotonWidth', 'gridPhotonFade', 'gridPhotonColor',
+  'gridBeams', 'gridBeamX', 'gridBeamNear', 'gridBeamFar', 'gridBeamRun', 'gridBeamTrail', 'gridBeamWidth', 'gridBeamColor',
   'bloom', 'bloomThreshold', 'bloomKnee', 'bloomReach', 'bloomTail', 'bloomColor',
   'gridHorizon', 'gridHorizonCells', 'gridHorizonPace', 'gridHorizonLine', 'gridHorizonHaze',
   'gridHorizonHazeFrom', 'gridHorizonHazeTo', 'gridHorizonCellsAround', 'gridHorizonShift', 'gridHorizonCompanion',

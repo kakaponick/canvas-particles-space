@@ -501,7 +501,7 @@ function dent (away: number, edge: number) {
 
 // sheetDent() of SHEET_GLSL: dent() for the well of a star whose surface is seen `star` throat radii from
 // its middle (0: a hole), which closes in a round bottom within the surface
-function sheetDent (away: number, edge: number, star: number) {
+export function sheetDent (away: number, edge: number, star: number) {
   if (!(star >= 1) || away >= star * edge) return dent(away, edge)
   const x = 1 / star
   const shallow = x / (3 * Math.cos(Math.acos(-x) / 3))

@@ -17,6 +17,7 @@ import { clearRingEnergy, createRingEnergy, feedRing, stepRingEnergy } from './r
 import { layFlatSheet, laySpaceSheet, orbitOnSheet, placeSheet, waveSheet } from './space_grid'
 import { createPhotonSettings } from './photon_program'
 import { createPhotonTrace, followFlash } from './photons'
+import { createBeamSettings } from './beams'
 import { LATTICE_LINES_PER_SIDE, createLatticeSettings, latticeAnchor } from './space_lattice'
 import { FLOW_KEYS, createFlowSettings, leanPlane, resetFlow, shareFlow, stepFlow, turnFlow } from './flows'
 import { LIGHT_SPEED, SHADOW_RADII, clearOrbiters, createOrbitTuning, createOrbiters, stepOrbiters } from './orbiters'
@@ -634,6 +635,7 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     flowSeed: 0,
     bloom: { strength: 0, threshold: 0.3, knee: 0.25, reach: 0.08, tail: 0.85, color: createSceneColor() },
     photons: createPhotonSettings(),
+    beams: createBeamSettings(),
     step: settings
   }
 
@@ -1539,7 +1541,7 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     const onSheet = state.gridRide > 0 && horizon > 0
     const wellWidth = Math.max(state.gridWellWidth, 0.01)
     // The flash's photons ride the sheet too, drawn or not
-    if (state.gridSheet > 0 || onSheet || state.gridFrontPhotons > 0) {
+    if (state.gridSheet > 0 || onSheet || state.gridFrontPhotons > 0 || state.gridBeams > 0) {
       const shared = threeD ? eased : 0
       // Wave Turn: the second hole along its orbit laid flat onto each layout's plane, the flat one the
       // scene's x and y, the 3D one the equator
@@ -2323,7 +2325,31 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       readSceneColor(photons.color, state.gridPhotonColor)
     }
     // The sheet's waves, which the grid program draws and the particles and photons on the sheet ride, from the sky's
-    if (state.gridSheet > 0 || (settings.ride > 0 && state.gridRideWave > 0) || state.gridFrontPhotons > 0) waveSheet(grid, composite)
+    // Sheet Beams (beams.ts): two beams along the dented surface, one near the well and one far, at one pace
+    const beams = frame.beams
+    beams.brightness = grid.throat > 0 ? state.gridBeams : 0
+    if (beams.brightness > 0) {
+      beams.count = 2
+      beams.x = 0
+      beams.y = 0
+      beams.traceX = 0
+      beams.traceY = 0
+      beams.run = state.gridBeamRun
+      beams.trail = state.gridBeamTrail
+      beams.width = state.gridBeamWidth
+      beams.fade = 1
+      const depth = grid.depth / grid.throat
+      if (beams.start !== state.gridBeamX || beams.near !== state.gridBeamNear || beams.far !== state.gridBeamFar || beams.depth !== depth || beams.star !== grid.star) {
+        beams.start = state.gridBeamX
+        beams.near = state.gridBeamNear
+        beams.far = state.gridBeamFar
+        beams.depth = depth
+        beams.star = grid.star
+        beams.version++
+      }
+      readSceneColor(beams.color, state.gridBeamColor)
+    }
+    if (state.gridSheet > 0 || (settings.ride > 0 && state.gridRideWave > 0) || state.gridFrontPhotons > 0 || state.gridBeams > 0) waveSheet(grid, composite)
 
     // The lattice stands in the scene around the black hole and is seen by the 3D camera, or straight on
     // in the flat mode. Its cells are counted in the hole's full radius, so it is there before the hole

@@ -314,6 +314,14 @@ export interface ParticleState extends FlowState {
   gridPhotonWidth: number
   gridPhotonFade: number
   gridPhotonColor: string
+  gridBeams: number
+  gridBeamX: number
+  gridBeamNear: number
+  gridBeamFar: number
+  gridBeamRun: number
+  gridBeamTrail: number
+  gridBeamWidth: number
+  gridBeamColor: string
   bloom: number
   bloomThreshold: number
   bloomKnee: number
@@ -736,6 +744,14 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   gridPhotonWidth: 1.5,
   gridPhotonFade: 2,
   gridPhotonColor: '#fff1c8',
+  gridBeams: 0,
+  gridBeamX: -12,
+  gridBeamNear: 1.3,
+  gridBeamFar: 8,
+  gridBeamRun: 0,
+  gridBeamTrail: 3,
+  gridBeamWidth: 3,
+  gridBeamColor: '#ffd27a',
   bloom: 0,
   bloomThreshold: 0.3,
   bloomKnee: 0.25,

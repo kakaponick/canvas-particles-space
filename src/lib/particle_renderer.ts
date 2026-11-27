@@ -36,6 +36,7 @@ import { DISC_MAP_SIZE } from './disc_trace'
 import { CRITICAL_IMPACT } from './lens_trace'
 import { createFrontField, FRONT_FIELD_ANGLES, FRONT_FIELD_RADII, type FrontField } from './light_front'
 import { createPhotonDrawer, type PhotonDrawer, type PhotonSettings } from './photon_program'
+import { traceBeams, type BeamSettings } from './beams'
 
 const STRETCH_STRIDE = STRETCH_FLOATS * 4
 const INSTANCED_ATTRIBUTES = [ATTRIBUTE_LOCATIONS.segment, ATTRIBUTE_LOCATIONS.style, ATTRIBUTE_LOCATIONS.color]
@@ -616,6 +617,8 @@ export interface FrameInput extends FieldInput {
   bloom: BloomSettings
   // The photons of the sheet's flash (photons.ts), drawn on the sheet over it
   photons: PhotonSettings
+  // Sheet Beams' two beams along the dented surface (beams.ts), drawn by the photon program
+  beams: BeamSettings
 }
 
 // The bloom (Bloom, Bloom Threshold, Bloom Knee, Bloom Reach, Bloom Tail, Bloom Color): 0 strength draws
@@ -779,6 +782,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   const field: FieldFeedback = madeField
   // The photons' program and table, built the first time Photons is above 0 (null: it did not build)
   let photonDrawer: PhotonDrawer | null | undefined
+  let beamDrawer: PhotonDrawer<BeamSettings> | null | undefined
   // Where the main hole's shadow stands for the photons, filled each frame they are drawn
   const photonShadow: [number, number, number, number] = [0, 0, 0, 0]
   // Whether the composite pass reads the ring's light from the field this frame
@@ -2027,8 +2031,9 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     }
     composite(frame.composite, frame.title, frame.background)
     if (frame.grid.brightness > 0) drawGrid(frame.grid, frame.composite, sheetFront(frame), false)
-    if (frame.photons.brightness > 0 && frame.photons.count > 0 && frame.grid.throat > 0) {
-      if (photonDrawer === undefined) photonDrawer = createPhotonDrawer(gl)
+    const photonsShown = frame.photons.brightness > 0 && frame.photons.count > 0 && frame.grid.throat > 0
+    const beamsShown = frame.beams.brightness > 0 && frame.grid.throat > 0
+    if (photonsShown || beamsShown) {
       const c = frame.composite
       const zoom = Math.max(c.cameraZoom, 0.05)
       // The main hole's shadow where the composite pass put it, and the radii Hole Clearing clears, as drawGrid sends them
@@ -2037,7 +2042,15 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
       photonShadow[1] = (c.zoomY + (c.holeY - c.shakeY - c.zoomY) * zoom) * ratio
       photonShadow[2] = radius * frame.grid.clearFrom
       photonShadow[3] = radius * Math.max(frame.grid.clearTo, frame.grid.clearFrom)
-      photonDrawer?.draw(frame.photons, frame.grid, c.zoomX, c.zoomY, zoom, c.shakeX, c.shakeY, width, height, ratio, photonShadow, sheetFront(frame))
+      const front = sheetFront(frame)
+      if (photonsShown) {
+        if (photonDrawer === undefined) photonDrawer = createPhotonDrawer(gl)
+        photonDrawer?.draw(frame.photons, frame.grid, c.zoomX, c.zoomY, zoom, c.shakeX, c.shakeY, width, height, ratio, photonShadow, front)
+      }
+      if (beamsShown) {
+        if (beamDrawer === undefined) beamDrawer = createPhotonDrawer<BeamSettings>(gl, traceBeams)
+        beamDrawer?.draw(frame.beams, frame.grid, c.zoomX, c.zoomY, zoom, c.shakeX, c.shakeY, width, height, ratio, photonShadow, front)
+      }
     }
     if (bloomed) bloom(frame.bloom, frame.composite.letterbox)
   }
@@ -2153,6 +2166,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
 
   function dispose () {
     photonDrawer?.dispose()
+    beamDrawer?.dispose()
     for (const location of INSTANCED_ATTRIBUTES) gl.vertexAttribDivisor(location, 0)
     gl.vertexAttribDivisor(ATTRIBUTE_LOCATIONS.gridLine, 0)
     gl.vertexAttribDivisor(ATTRIBUTE_LOCATIONS.latticeLine, 0)

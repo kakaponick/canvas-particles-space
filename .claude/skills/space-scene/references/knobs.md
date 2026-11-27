@@ -726,6 +726,7 @@ straight-on (section 11).
 | The sheet's light: how many times brighter a line is at a throat and how close to it that glow keeps; the light the holes shed on it, where it falls to half, and its colour | `gridThroatGlow`, `gridThroatCurve`, `gridLight`, `gridLightReach`, `gridLightColor` |
 | A flash running over the sheet's lines: its band's brightness (0 is off), where it flashed (the main well's radii, x right, y away, as a film's sheet places), how long its light has run, the band's width and its rising share, a ghost ring where the light would be with no hole, a train of flashes and the run between them, and its colour | `gridFront`, `gridFrontX`, `gridFrontY`, `gridFrontRun`, `gridFrontWidth`, `gridFrontLead`, `gridFrontGhost`, `gridFrontPulses`, `gridFrontPulseGap`, `gridFrontColor` |
 | The flash's light as photons on the paths of light past the hole: their brightness (0 is off), how many, how far their trails reach back (radii of run), the strokes' width, the run a fallen photon fades over, and their colour | `gridFrontPhotons`, `gridPhotonCount`, `gridPhotonTrail`, `gridPhotonWidth`, `gridPhotonFade`, `gridPhotonColor` |
+| Two beams racing along the dented sheet, one far from the well and one down its wall: their brightness (0 is off), where they start, how near and how far from the well they pass (radii), how far each has run along the surface, the trail, the strokes' width and their colour | `gridBeams`, `gridBeamX`, `gridBeamNear`, `gridBeamFar`, `gridBeamRun`, `gridBeamTrail`, `gridBeamWidth`, `gridBeamColor` |
 
 - The sheet is a surface of the scene: a piece of the main hole's equator (the plane matter, the flows and
   the orbiting stars follow; across the line of flight while the hole does not spin), dented where the
@@ -833,6 +834,14 @@ straight-on (section 11).
   bends them round where the hole stood at the last trace. A second hole is not traced: its well
   neither bends nor takes them; a star (`neutronSurface`) is taken as a hole. 2048 photons close the front
   and catch the echo; `gridPhotonTrail` 1 draws the front as a line, 3 and more as rays.
+- `gridBeams` is the textbook's "light has the longer way past a mass": two beams set off together from
+  `gridBeamX` and run at one pace along the sheet's surface, `gridBeamNear` radii from the well on one side
+  and `gridBeamFar` on the other; `gridBeamRun` is how far each has run along the surface, so on a track the
+  near one, whose way dips down the well's wall and back up, falls behind its twin by what the dip added.
+  Only the drawn depth lengthens it (`gridDepth`: deeper, a bigger lag), and the beams go straight across
+  the plane, unbent: a picture, not the delay of general relativity, which `gridFront` draws. Legible in
+  3D tilted (`cameraPitch` about -35) with `gridLift` 0, so the hole sits on the sheet and its shadow stays
+  whole: `gridBeamNear` 1.2 to 1.5, `gridBeamTrail` long enough to draw the dip (6 to 10).
 - `gridEaseTurn` 1 turns the sheet's pose as a camera turns while 3D eases in (`threeDEase`), the plane
   flat and square; 0 squeezes it midway and slides its lines across the screen. The well's bottom stays on
   the hole either way.

@@ -162,10 +162,13 @@ export interface PhotonSettings {
   fade: number
   // Their colour
   color: SceneColor
+  // Bumped by whoever fills the settings when what the table is filled from changes in a way x, y and the count
+  // do not say (Sheet Beams' lanes and well); 0 for the flash's photons
+  version: number
 }
 
 export function createPhotonSettings (): PhotonSettings {
-  return { brightness: 0, count: 0, x: 0, y: 0, traceX: NaN, traceY: NaN, run: 0, trail: 0, width: 1, fade: 1, color: createSceneColor() }
+  return { brightness: 0, count: 0, x: 0, y: 0, traceX: NaN, traceY: NaN, run: 0, trail: 0, width: 1, fade: 1, color: createSceneColor(), version: 0 }
 }
 
 interface Uniform {
@@ -176,18 +179,28 @@ interface Uniform {
   w: number
 }
 
-export interface PhotonDrawer {
+export interface PhotonDrawer<S extends PhotonSettings = PhotonSettings> {
   // Draws the photons over what is bound, through the sheet as `grid` lays it, at the scene camera's zoom
   // (centre zoomX, zoomY, in CSS pixels) and shake, hidden behind the main hole's shadow (where the frame has it
   // and the radii the clearing takes, in device pixels; a radius of 0: no shadow) unless nearer the camera than
   // the holes (front, as the sheet takes it). Traces them first when the flash's place or the count changed
-  draw: (photons: PhotonSettings, grid: GridSettings, zoomX: number, zoomY: number, zoom: number, shakeX: number, shakeY: number,
+  draw: (photons: S, grid: GridSettings, zoomX: number, zoomY: number, zoom: number, shakeX: number, shakeY: number,
     width: number, height: number, pixelRatio: number, shadow: readonly [number, number, number, number], front: number) => void
   dispose: () => void
 }
 
-/** The photon program and its table; null when it does not build. Made inside createParticleRenderer */
-export function createPhotonDrawer (gl: WebGL2RenderingContext): PhotonDrawer | null {
+// The flash's photons fill the table by tracing them from the flash's place
+function traceFlash (table: Float32Array, count: number, photons: PhotonSettings) {
+  tracePhotons(table, count, photons.traceX, photons.traceY)
+}
+
+/**
+ * The photon program and its table; null when it does not build. Made inside createParticleRenderer. `fill`
+ * fills the table for the settings it is drawn with: the flash's photons by default, Sheet Beams' walk along the
+ * surface for the beams
+ */
+export function createPhotonDrawer<S extends PhotonSettings = PhotonSettings> (gl: WebGL2RenderingContext,
+  fill: (table: Float32Array, count: number, settings: S) => void = traceFlash): PhotonDrawer<S> | null {
   const program = createProgram(gl, photonVertexShaderSource, photonFragmentShaderSource, { a_position: ATTRIBUTE_LOCATIONS.position })
   if (!program) return null
   const names = ['table', 'frame', 'lens', 'jolt', 'run', 'place', 'color', 'hole', 'shadow', ...SHEET_UNIFORMS] as const
@@ -221,17 +234,18 @@ export function createPhotonDrawer (gl: WebGL2RenderingContext): PhotonDrawer | 
   let tracedX = NaN
   let tracedY = NaN
   let tracedCount = 0
+  let tracedVersion = NaN
 
-  function draw (photons: PhotonSettings, grid: GridSettings, zoomX: number, zoomY: number, zoom: number, shakeX: number, shakeY: number,
+  function draw (photons: S, grid: GridSettings, zoomX: number, zoomY: number, zoom: number, shakeX: number, shakeY: number,
     width: number, height: number, pixelRatio: number, shadow: readonly [number, number, number, number], front: number) {
     const count = Math.min(Math.max(Math.round(photons.count), 1), MAX_PHOTONS)
     // The scene says where to trace from (followFlash); the table here only follows it
     if (photons.run <= 0 || Number.isNaN(photons.traceX)) return
     const x = photons.traceX
     const y = photons.traceY
-    if (x !== tracedX || y !== tracedY || count !== tracedCount) {
+    if (x !== tracedX || y !== tracedY || count !== tracedCount || photons.version !== tracedVersion) {
       if (table.length < count * PHOTON_COLUMNS * 2) table = new Float32Array(count * PHOTON_COLUMNS * 2)
-      tracePhotons(table, count, x, y)
+      fill(table, count, photons)
       gl.activeTexture(gl.TEXTURE0 + PHOTON_TEXTURE_UNIT)
       if (count !== rows) {
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG32F, PHOTON_COLUMNS, count, 0, gl.RG, gl.FLOAT, table, 0)
@@ -243,6 +257,7 @@ export function createPhotonDrawer (gl: WebGL2RenderingContext): PhotonDrawer | 
       tracedX = x
       tracedY = y
       tracedCount = count
+      tracedVersion = photons.version
     }
 
     gl.useProgram(program)
