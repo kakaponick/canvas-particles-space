@@ -62,8 +62,35 @@ export const KERR_PRESET: Readonly<SimulationPreset> = {
   }
 }
 
+// A white hole: the time-reverse of the hole above, as far as the scene draws one. Its shadow is the lit surface
+// of the horizon (whiteHole), the grid on it dark across the light, and the sky behind it is lensed as before. No
+// particle falls in: matter leaves the surface (a flow whose radii run out from the shadow's edge), so the particle
+// field is off. It is a stand-in: the light is drawn flat and the outflow is told, not computed
+export const WHITE_HOLE_PRESET: Readonly<SimulationPreset> = {
+  id: 'white-hole',
+  name: 'White Hole',
+  description: 'A white hole: its surface lit in the shadow, its grid across it, matter leaving it',
+  settings: {
+    ...SCHWARZSCHILD_PRESET.settings,
+    fieldEnabled: false,
+    whiteHole: 1,
+    gridHorizon: 0.8,
+    gridHorizonCells: 12,
+    gridSky: 0.5,
+    flowC: 2,
+    flowCCount: 1500,
+    flowCFrom: 1.1,
+    flowCTo: 14,
+    flowCSpread: 0.4,
+    flowCSwirl: 0,
+    flowCLife: 3,
+    flowCTrail: 0.3,
+    flowCSize: 1.4
+  }
+}
+
 // Presets that come with the page: they can be applied, never changed or deleted
-export const BUILT_IN_PRESETS: readonly Readonly<SimulationPreset>[] = [DEFAULT_PRESET, SCHWARZSCHILD_PRESET, KERR_PRESET]
+export const BUILT_IN_PRESETS: readonly Readonly<SimulationPreset>[] = [DEFAULT_PRESET, SCHWARZSCHILD_PRESET, KERR_PRESET, WHITE_HOLE_PRESET]
 
 export const isBuiltInPreset = (id: string) => BUILT_IN_PRESETS.some(preset => preset.id === id)
 

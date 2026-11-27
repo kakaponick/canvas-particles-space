@@ -435,6 +435,9 @@ export interface CompositeSettings {
   // How far that grid is drawn in towards the hole (0 leaves it flat), and the colour of every grid
   gridPull: number
   gridColor: SceneColor
+  // The white hole: the share of the shadow its surface's light fills (0 = a black hole's shadow), and that light's colour
+  whiteHole: number
+  whiteColor: SceneColor
   // CSS pixels a cell of it pulled in shrinks to before its lines start to merge into a haze, and the share
   // of that by which the haze is whole
   gridHaze: number
@@ -813,7 +816,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   const particleUniforms = getUniforms(gl, particleProgram, ['floor', 'resolution', 'pixelRatio', 'center', 'flight', 'doppler', 'tintAhead', 'tintEdge', 'tintBehind', 'tint', 'shiftToward', 'shiftAway', 'zoom', 'zoomFrom'] as const)
   const orbitUniforms = getUniforms(gl, orbitProgram, ['resolution', 'zoom', 'orbit', 'dimmed', 'turnX', 'turnY', 'turnZ', 'orbitFrom', 'side', 'sideMain', 'sideSecond', 'sideBend', 'sideShape'] as const)
   const COMPOSITE_UNIFORMS = [
-    'background', 'resolution', 'pixelRatio', 'time', 'hole', 'horizon', 'einstein', 'falloff', 'falloffPivot', 'lensCore', 'maxBend', 'lensReach', 'lensBubble', 'twistLimit', 'swirl', 'absorption', 'trace', 'spin', 'disc', 'discLook', 'discX', 'discY', 'discAxis', 'horizonGrid', 'horizonAxis', 'horizonTurn', 'horizonLook', 'companionGrid', 'companionHole', 'ring',
+    'background', 'resolution', 'pixelRatio', 'time', 'hole', 'horizon', 'einstein', 'falloff', 'falloffPivot', 'lensCore', 'maxBend', 'lensReach', 'lensBubble', 'twistLimit', 'swirl', 'absorption', 'trace', 'spin', 'disc', 'discLook', 'discX', 'discY', 'discAxis', 'horizonGrid', 'horizonAxis', 'horizonTurn', 'horizonLook', 'companionGrid', 'companionHole', 'whiteHole', 'whiteColor', 'ring',
     'ringWidth', 'ringGlow', 'ringDoppler', 'ringSide', 'ringPhase', 'ringField', 'ringBase', 'ringFeed', 'ringLine', 'ringGlowShape', 'ringColor', 'ringApproaching', 'ringReceding',
     'center', 'starGlow', 'starRadius', 'sourcePower', 'glareRadius', 'exposure',
     'lightRadius', 'lightWidth', 'lightPower', 'lightSpeed', 'echoPower', 'echoDecay',
@@ -1633,6 +1636,8 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
       setUniform4f(gl, u.companionGrid, Math.max(settings.companionGridScale * ratio, 0.0001), settings.companionGridAxis, settings.companionGridTurn, settings.companionGridRate)
       setUniform4f(gl, u.companionHole, settings.companionGridSpin, Math.cos(settings.companionGridTilt), Math.sin(settings.companionGridTilt), settings.companionGridU)
     }
+    setUniform1f(gl, u.whiteHole, settings.whiteHole)
+    if (settings.whiteHole > 0) setUniform3f(gl, u.whiteColor, settings.whiteColor.r, settings.whiteColor.g, settings.whiteColor.b)
     if (settings.shadowShape.version !== shadowVersion) {
       shadowVersion = settings.shadowShape.version
       gl.activeTexture(gl.TEXTURE0 + SHADOW_TEXTURE_UNIT)

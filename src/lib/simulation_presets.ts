@@ -38,7 +38,7 @@ export const SIMULATION_SETTING_KEYS = [
   'gridBeams', 'gridBeamX', 'gridBeamNear', 'gridBeamFar', 'gridBeamRun', 'gridBeamTrail', 'gridBeamWidth', 'gridBeamColor',
   'bloom', 'bloomThreshold', 'bloomKnee', 'bloomReach', 'bloomTail', 'bloomColor',
   'gridHorizon', 'gridHorizonCells', 'gridHorizonPace', 'gridHorizonLine', 'gridHorizonHaze',
-  'gridHorizonHazeFrom', 'gridHorizonHazeTo', 'gridHorizonCellsAround', 'gridHorizonShift', 'gridHorizonCompanion',
+  'gridHorizonHazeFrom', 'gridHorizonHazeTo', 'gridHorizonCellsAround', 'gridHorizonShift', 'gridHorizonCompanion', 'whiteHole', 'whiteHoleColor',
   'gridLatticeLine', 'gridLatticeGain', 'gridLatticeReach', 'gridLatticeFade', 'gridLatticeNear', 'gridLatticeFar', 'gridLatticeNearEdge', 'gridLatticeUnit',
   'orbitCount', 'orbitSize', 'orbitEccentricity', 'orbitSpeed', 'orbitTrail', 'orbitStarSize',
   'orbitDrag', 'orbitSizeSpread', 'orbitEccentricitySpread', 'orbitInclination', 'orbitTiltSky', 'orbitNodeSpread', 'orbitRetrograde', 'orbitClosest', 'orbitEscape', 'orbitFadeIn', 'orbitTidal', 'orbitTidalShare', 'orbitTidalSpread',

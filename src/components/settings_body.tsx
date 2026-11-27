@@ -573,9 +573,11 @@ function SettingsBody () {
         <div className="mt-3 flex flex-col gap-1">
           <SettingSlider field="gridHorizon" />
           <SettingSlider field="gridHorizonCells" />
+          <SettingSlider field="whiteHole" />
         </div>
         <div className="mt-3 flex flex-col gap-1">
           <SettingColor field="gridColor" />
+          <SettingColor field="whiteHoleColor" />
           <SettingColor field="gridLightColor" />
           <SettingColor field="gridFrontColor" />
           <SettingColor field="gridPhotonColor" />

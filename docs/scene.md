@@ -31,6 +31,14 @@ The holes, the pair's centre, the blast and a swallowed star's flare are places 
 
 The Ray Traced lens (`u_trace.x`) is the one effect that works every pixel (`traceSweep`); the main thread only places its camera (`cameraFor` in `src/lib/lens_trace.ts`, redone only when Einstein Radius changes). A spinning hole (`u_spin.x` above 0) takes the Kerr ray (`kerrRay`, or `kerrRayFrom` where the sines and cosines are at hand, in `src/lib/kerr_glsl.ts`; its reference is `src/lib/kerr_trace.ts`), and its shadow and ring follow the outline `updateShadowShape` works out when spin, tilt or the camera change. The Horizon Grid (`u_horizonGrid.x`) follows the rays of the shadow back to the horizon (`kerrHorizonFrom`, three rays a pixel there, for the width of its lines). The GPU's `asin` and `sin` lose near-equal differences, so take such a quantity (the ray's remaining fall) from an identity, never by subtracting.
 
+The White Hole (`u_whiteHole`, its colour `u_whiteColor`) lights the shadow instead of blacking it. The composite's
+shadow block multiplies the colour by `besideHole` (0 inside the shadow), and adds the surface's light where
+`besideHole` is 0, weighted by the second hole's shadow (`besideCompanion`) and darkened by the horizon grid's
+lines (`gridShade`, the same `horizonLines` that paint a black hole's grid, so the lines are lensed the same way).
+At 0 the shadow stays black and the grid light is added as it was; the shadow's edge, the lens and the photon ring
+do not change. The surface is the shadow itself, so it needs one (`horizon` above 0), and the field's laws are
+untouched: a white hole's matter is a flow told to leave (knobs.md, section 4).
+
 ## The zoom
 
 The camera's zoom redraws, it does not magnify. A zoom above 1 (the Zoom setting, the intro's camera) is applied to the geometry: the particle and orbit vertex shaders draw at `u_zoom`, and the composite pass reads the layers through `u_layerZoom`, the zoom they were drawn at. Every edge and hairline in that pass is measured in `px`, the scene pixels under one screen pixel, so nothing softens or thickens with the zoom; a new shape there follows the same rule. A zoom below 1 is left to the composite pass. The camera pans by moving the point its zoom leaves in place (`zoomX`, `zoomY` in `advance`), kept inside the frame, with nothing new in any shader; whatever places things on the screen (captions, the sheet, `scene.holeShiftX`) reads that point. A stroke starts where the particle stood in the last frame's picture (`u_zoomFrom`), so a moving camera streaks the trails and a camera cut (a jump past `cameraCutZoom` or `cameraCutShift` in one frame) starts them afresh. The title sprite and the intro's dust still soften when magnified.

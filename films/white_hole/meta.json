@@ -1,0 +1,20 @@
+{
+  "title": "White hole",
+  "about": "A black hole turns into a white one: its shadow lights up as the surface of the horizon, its grid dark across the light, matter leaving it.",
+  "kind": "film",
+  "film": "white_hole.js",
+  "made": [
+    {
+      "model": "claude-haiku-5-5",
+      "agent": "Claude Code",
+      "at": "2026-11-28",
+      "did": "made the white hole scene: the shadow lit as the surface, its grid, the outflow"
+    },
+    {
+      "model": "claude-haiku-5-5",
+      "agent": "Claude Code",
+      "at": "2026-11-28",
+      "did": "the black shot's caption; the horizon haze off under the black shadow"
+    }
+  ]
+}

@@ -623,6 +623,8 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       gridHaze: 6,
       gridHazeSpan: 0.5,
       gridColor: createSceneColor(),
+      whiteHole: 0,
+      whiteColor: createSceneColor(),
       skyGridLine: 1.5,
       gridSphere: 0,
       gridSlant: 0.75,
@@ -2018,6 +2020,9 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     // The grid on the horizon: the same camera and scale as the Ray Traced lens, for either lens. The
     // horizon's generators turn at Omega_H = a / (2 r+) per M (radii in M), Horizon Pace M a second
     composite.horizonGrid = horizon > 0 ? state.gridHorizon : 0
+    // The white hole's surface is the shadow itself, so it needs one (its share is 0 without)
+    composite.whiteHole = horizon > 0 ? Math.min(Math.max(state.whiteHole, 0), 1) : 0
+    if (composite.whiteHole > 0) readSceneColor(composite.whiteColor, state.whiteHoleColor)
     const horizonRate = spin / (2 * (1 + Math.sqrt(1 - spin * spin)))
     horizonTurned = (horizonTurned + horizonRate * (reducedMotion ? 0 : state.gridHorizonPace) * dt) % (2 * Math.PI)
     if (composite.horizonGrid > 0) {

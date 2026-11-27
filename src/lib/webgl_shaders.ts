@@ -593,6 +593,8 @@ export const compositeFragmentShaderSource = `
   uniform vec4 u_horizonLook;    // the cell size in pixels of the screen below which its lines start to turn to haze and that at which the haze is whole, the share of the shift the horizon's turn gives its light, the share of its brightness the second hole's grid has
   uniform vec4 u_companionGrid;  // the second hole's grid, as horizonCells's look: pixels of tan(angle / 2) from it, its axis's turn on screen, the camera's meridian less its horizon's turn, its rate of turn per M
   uniform vec4 u_companionHole;  // and as its hole: its spin, the cosine and sine of its axis's angle to the line to the camera, 1 / the camera's distance in its Schwarzschild radii
+  uniform float u_whiteHole;     // the share of the shadow the light of a white hole's surface fills (0 = a black hole's black shadow)
+  uniform vec3 u_whiteColor;     // that light's colour
   uniform float u_ring;          // photon ring brightness
   uniform float u_ringWidth;     // thickness of the line beyond its floor, in black hole radii
   uniform vec4 u_ringLine;       // the line: its floor in screen pixels, how far outside the shadow's edge it stands in its own widths, how far from the hole the ring is drawn in shadow radii, the width of its bell of light as a share of its own
@@ -1935,15 +1937,21 @@ ${DENT_GLSL}
       color *= besideHole;
 
       // The grid on the horizon, in the shadow it fills (horizonLines), in Grid Color shifted as far as Horizon
-      // Shift says by the horizon's turn (horizonShift)
+      // Shift says by the horizon's turn (horizonShift). A white hole's shadow is its surface instead: the
+      // same lines run across its light as dark ones, so the grid is the surface's, and the light is what the
+      // shadow shows as its share of the white hole grows
+      float whiteShare = u_whiteHole * (1.0 - besideHole) * besideCompanion;
+      float gridShade = 0.0;
       if (u_horizonGrid.x > 0.0 && (dist < shadowEdge + px || fallen > 0.0)) {
         float oval = dist / max(length(offset), 0.0001);
         float lines = horizonLines(offset, dist, oval, px, vec4(u_spin.x, u_horizonAxis.xy, u_horizonGrid.y),
           vec4(u_horizonGrid.z, u_horizonAxis.z, u_horizonTurn.x, u_horizonTurn.y));
         vec3 gridLight = u_gridColor;
         if (u_horizonLook.z > 0.0 && u_horizonTurn.y > 0.0) gridLight = shiftedLight(u_gridColor, horizonShift(offset, dist), u_horizonLook.z);
-        color += gridLight * u_horizonGrid.x * lines * (1.0 - besideHole) * besideCompanion;
+        color += gridLight * u_horizonGrid.x * lines * (1.0 - besideHole) * besideCompanion * (1.0 - u_whiteHole);
+        gridShade = u_horizonGrid.x * lines;
       }
+      color += u_whiteColor * whiteShare * (1.0 - gridShade);
       // The second hole's horizon carries the same grid, about its own spin's axis (the main grid's while it does
       // not spin), twisted and turning as its spin gives; the main hole's shadow covers it as its covers the
       // main one's

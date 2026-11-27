@@ -517,6 +517,30 @@ and `frameDrag` above 0 and particles within a few radii; the sky's lean needs `
 - The sheet is drawn over the finished frame, star included: set `gridClearing` to `neutronSurface` and
   `gridClearingEdge` a little above it to keep the lines off its face.
 
+### A white hole: the shadow lit as its surface
+
+Gate: `whiteHole` above 0 and a shadow (`blackHoleSize` above 0; a hole still growing in the opening has none
+yet). `horizonScale` does not matter: the surface is the shadow itself.
+
+| What you want | Keys |
+|---|---|
+| The share of the shadow lit as the surface: 0 a black hole, 1 a white one | `whiteHole` |
+| The light of that surface | `whiteHoleColor` |
+| Its grid, dark across the light: brightness, cells, line width | `gridHorizon`, `gridHorizonCells`, `gridHorizonLine` |
+| Matter leaving the surface: a flow whose radii run out from the shadow's edge | `flowC`, `flowCFrom`, `flowCTo`, `flowCCount`, `flowCLife`, `flowCSwirl` |
+
+- The surface is painted in the composite pass's shadow block: the lens still bends the sky behind it, the
+  photon ring still stands on the edge, and the grid is the horizon grid (the previous section) bent by the
+  same lens, so its lines crowd toward the rim. With `gridHorizon` 0 the surface is a plain lit disc.
+- Its lines are dark, not Grid Color: `gridColor` and `gridHorizonShift` do not reach them, and their darkness
+  is `gridHorizon`.
+- Matter does not come out of the hole by the field's laws (the field falls in). The outflow is a flow: `flowC`
+  2, `flowCFrom` 1.1 (the slider's step: 1.05 is set to 1.1), `flowCTo` 14, `flowCSwirl` 0, a life of 3 seconds,
+  with `fieldEnabled` off. The `White Hole` preset (section 15) sets all of it.
+- A stand-in: a white hole's surface is the horizon run backward in time, and its light is drawn flat, not
+  computed from its emission. A second hole's shadow stays black; its own grid (`gridHorizonCompanion`) lies on
+  black.
+
 ## 5. The lens: how light bends
 
 Gate: `lensingEnabled` on and `lensingRadius` above 0, with something behind the hole to bend: `gridSky`,
@@ -1097,6 +1121,10 @@ needs `gridHorizonPace` above 0 and the shift `gridHorizonShift` above 0.
   since no light leaves a real horizon.
 - `gridHorizonHazeFrom` and `gridHorizonHazeTo` raised dissolve more of the crowded rim into a glow; brought
   together, the turn is abrupt.
+- Trap: the haze lights the crowded cells, and in a shadow that a grid crowds (`gridHorizonCells` 12 at
+  `blackHoleSize` 8) the default `gridHorizonHaze` 0.3 fills the black disc with a blue light, so it no longer
+  reads black. Under a black shadow set `gridHorizonHaze` 0 (the crowded cells then stay dark between their
+  lines), as `films/white_hole/white_hole.js` does; a white hole's shadow is lit anyway (section 4).
 - A few meridians over many latitudes (`gridHorizonCellsAround` low, `gridHorizonCells` high) reads as a
   striped globe; many meridians as a comb that the spin twists.
 - `gridHorizonShift` gives the lines the shift of the horizon's turn: blue and brighter on the side turning
@@ -1454,14 +1482,16 @@ parameters in the table of section 13.
 
 ## 15. Presets, fonts, sizes, caption places
 
-- Simulation presets: `Default`, `Schwarzschild`, `Kerr`; preset.list() on the page names them with a
+- Simulation presets: `Default`, `Schwarzschild`, `Kerr`, `White Hole`; preset.list() on the page names them with a
   line each, and each is defined in `src/store/preset_store.ts`. `Default` is the store's defaults.
   `Schwarzschild` is `Default` with the physics left untuned: `horizonScale` 1, `orbitalStrength` 0,
   `blackHoleSpin` 0, the lens traced with `lensingRadius` 2.5 and `lensingAbsorption` 0, and its stylized
   keys a point mass (`lensingReach` 1, `lensingFalloff` 2, `lensingRotation` 0, `lensingCore` 0.1,
   `lensingMaxBend` 256); the field's look, gravity and the ring stay at their defaults. `Kerr` is
   `Schwarzschild` with `blackHoleSpin` 0.99, `spinTilt` 80, `spinAxis` 0, `lensingRadius` 2.2 and
-  `ringSide` on the flat, approaching side.
+  `ringSide` on the flat, approaching side. `White Hole` is `Schwarzschild` with `whiteHole` 1 (the shadow lit
+  as its surface, `whiteHoleColor` its light), `gridHorizon` 0.8 with 12 `gridHorizonCells`, `gridSky` 0.5 (the
+  sky's grid, bent round it), the field off and the outflow of section 4 (`flowC`).
 - Looks of the opening: `Default`, `Slow Burn`, `Flashbang`, `Anamorphic`, `Event Horizon`, `Nebula`,
   `Silent Dark`, `Supernova`, `Whirlpool`, `Swallowed`, `Requiem`. A look sets intro parameters, sometimes
   the title's face and some scene settings; parameters given beside it are laid over it.

@@ -370,6 +370,9 @@ export interface ParticleState extends FlowState {
   gridHorizonCellsAround: number
   gridHorizonShift: number
   gridHorizonCompanion: number
+  // The white hole: the share of the shadow its surface's light fills (0 = a black hole's shadow), and that light's colour
+  whiteHole: number
+  whiteHoleColor: string
   // The space lattice (space_lattice.ts): brightness (0 = off), its cell in black hole radii, and how
   // strongly its nodes are pulled in, in shadow radii of the slowing of time
   gridLattice: number
@@ -817,6 +820,8 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   gridHorizonCellsAround: 0,
   gridHorizonShift: 0,
   gridHorizonCompanion: 1,
+  whiteHole: 0,
+  whiteHoleColor: '#fff4e6',
   gridLatticeLine: 1.5,
   gridLatticeGain: 1.6,
   gridLatticeReach: 6,
