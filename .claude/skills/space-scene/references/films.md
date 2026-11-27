@@ -90,6 +90,9 @@ The rules of zoom, pan and cut are knobs.md section 11; this is how to use them.
   - Keep the subject a little off centre while the camera travels and let it settle in the frame as the
     move lands; a slight overshoot and settle (`spring`) sells a whip.
   - Approach by moving the camera (`cameraMoveIn`, in 3D), not by `cameraZoom`: a zoom is a longer lens.
+    A flat clip that flies goes to 3D first (`threeD`, `threeDEase` 0, `cameraYaw` 0, `cameraPitch` about
+    -62 frames as the flat `gridTilt` 62), then flies with `cameraMoveIn`, `cameraPitch` and
+    `cameraLookPitch`: 15 radii in at pitch -42 with the head up 12 framed a well's far wall.
     `films/grs1915_free.js` is a camera that never stops.
 
 - The zoom redraws the scene: at 4x the ring is still a hairline and the traces still sharp. Push in on
@@ -219,6 +222,29 @@ mirrored image and the photon rings as a hole that does not spin makes them.
 A merger: `companionDistance` to 0 with the `in` ease, the sheet on, `companionSpeed` at 2 in a short
 film; its wave strengths are knobs.md section 8. Look at the frames half a second either side of the
 merger: that is where the hole is an oval and the wave is at its peak.
+
+A hole arriving in the flat mode with the Ray Traced lens draws a black band across the field, since that
+lens shows the field as if it lay behind the hole: bring such a hole in 3D, with a traced disc
+(`flowTrace`).
+
+A body over a hole (a planet, a star) keeps the hole and its well and covers the hole's shadow:
+- Leave the hole shown: a hidden hole (`hide('hole')`) takes the sheet's dent, its rings and every
+  `{ hole }` place with it. `hide('ring')` alone keeps the ring off the picture's edge.
+- Draw the body's picture from the chapter card's last second (`at(1.6, ...)`) for as long as the hole is
+  there, at a radius of about 1.05, which covers the shadow from above and from the side at tilt 68; the
+  shadow is wider than the picture's disc from some angles, so widen the picture or shrink
+  `blackHoleSize` when a rim shows.
+- Turn off what the body could not have: `gravityRedshift` 0, `gridThroatGlow` 0, `gridLight` 0 (the
+  Earth's well is a billionth of a black hole's; the throat glow also washes out white marks on the wall),
+  and `gridClearing` with `gridClearingEdge` 0, which otherwise cut a dark disc where the hole is seen
+  when the picture stands below it in the well.
+- `films/fourth_dimension_pop_06_above.js` and `films/infographic_style.js` do it.
+
+A small black hole beside words, quiet: the field at `baseSpeed` 0 lights only as noise round a small hole,
+since its light is its speed. One flow falling in and winding instead (`flowA` 1.8, From 7, To 0.8, Spread
+4, Swirl 0.8, the field off), its count swept at the framing: 3000 read as a spiral round the shadow, 5000
+and up a disc that pulls the eye. A ring flow (From equal to To) beside it draws a solid tube.
+`films/fourth_dimension_pop_11_known.js`.
 
 The opening in slow motion: `lightCrossTime` at its top, `matterSpeed` low, and every later moment
 (`remnantAt`, `horizonAt`, `dissolveAt`, `releaseAt`, `introEnd`) moved out to match, so the light takes
@@ -444,7 +470,15 @@ kind.
   sheet through `gridTilt`, the zoom and the 3D camera, so a ruler down a spoke stays on the spoke while the
   camera comes down to it. The spokes are every 360 / `gridSpokes` degrees; the rings are the well's
   contour lines (`gridRingSpacing` 0), ring k of n at `0.3849 / ((1 - c * c) * c)` radii with
-  `c = 1 - k / (n + 1) / 2.3660254`. `films/fourth_dimension_pop_10_test.js` lays a ruler on them.
+  `c = 1 - k / (n + 1) / 2.3660254`. `films/fourth_dimension_pop_10_test.js` lays a ruler on them. A path
+  up the well and back (light climbing the wall and falling back) is a smooth run of `{ sheet }` points on
+  the near wall, its radius rising and falling along it; the angle about -90 faces the camera.
+- A device the eye must read (a clock, a pair of mirrors) drawn in the hole's radii shrinks with the scene:
+  a light clock on the Earth came out 40 px tall once the 3D camera pulled back. Draw it large on the
+  frame's empty side with a dashed lead and a dot to its place, lead and dot in the accent colour, width
+  about 0.0024, since a thin pale lead vanishes over a lit field. Far out on the flat a `{ sheet }` point
+  lands away from where a flat guess puts it: probe with a few labelled dots in a throwaway still before
+  aiming a lead (`clockBody`, `clockLead`, `inset` in `films/fourth_dimension_pop_10_test.js`).
 - A shape leaves the scene for the frame through `{ between: [place, place], share: 'lift' }`: the place
   that share of the way from the first to the second on the frame, the share a value of the shape keyed
   from 0 to 1. Give every point the same two kinds of place and the shape lifts off whole: the ruler of
@@ -607,6 +641,15 @@ with the field off, as `films/flows.json` films them:
 - A flow that ends inside the horizon lights the photon ring (`ringFeedEnabled`), evenly all the way round.
 - With a second hole each flow says what it turns round (`flowAPair`): a fall into the main hole, a ring
   round the second and a wide ring round both were seen on one frame.
+- Matter falling in from every side in 3D is flows, never the field with a drift to refill it: the drift
+  moves every particle one way, and a turning camera streaks it into parallel rain. Three flows tipped 0,
+  60 and 120 degrees, each `Thick` 0.5 with `Bell` 1 and `Swirl` 0, falling from 5.5 radii (`Spread` 3) to
+  0.9 with the field off, are a ball of strokes all pointing at the hole, lines of the scene a turn does
+  not smear (`FALL` in `films/fourth_dimension_pop_07_creature.js`). The band matters as much as the
+  count: from 9 or 10 radii wide 6 or 7 the near matter carpets the flat or streaks the frame like a
+  starburst at any count, so narrow the band to the part of the frame the shot is about, then sweep the
+  count.
+- A flow's colour is `flowAColor`, orange by default: set it for every flow a film shows.
 
 What decides whether a field look shows:
 
@@ -719,6 +762,11 @@ In 3D the scene's camera sees the sheet where it lies, the well's bottom on the 
 
 What keeps the picture on the sheet right:
 
+- Matter down the throat fades in a gradient only when each particle differs: every particle equally
+  bright, stamped brighter-of-two, with long strokes where the throat is steep, is a hard white tube. Give
+  each its own light and width (`particleLightSpread`, `particleSizeSpread`), dim it near the hole
+  (`gravityRedshift`), and let a stroke the sheet stretches keep its own light (`gridRideStretch` 1).
+- Dim the matter on the well (`flowA` 0.6) while something is read on its wall.
 - From above, the square cells hardly show the well: the depth reads from above through `gridRings`,
   whose contour lines crowd toward the hole, or from the side at `gridTilt` 60 and more.
 - For a shot about something beside the hole, the strokes in the well are few, thin and of the sheet's

@@ -729,7 +729,8 @@ straight-on (section 11).
   toward the hole, where the well is steepest. 40 rings fill a 1080p frame at the default size. Half of
   them stand close round the shadow, where `gridClearing` thins them. Waves read better on square cells.
   `gridRingSpacing` 1 moves the rings to equal steps of radius: from above a target with no depth, from
-  the side bunched at the bottom of the well.
+  the side bunched at the bottom of the well; at 72 rings it fills the frame with fine rings. Keep the
+  contour rings (0): each ring is the same step down the well, which is what a ruler on the wall reads.
 - `gridLift` 1 puts the well's bottom on the hole, so a 3D camera nearer the hole than `gridDepth` along
   the flight stands on the hole's side of the sheet; at 0 the sheet runs through the hole and the funnel
   hangs below it, the textbook's ball resting on a sheet seen from the side.
@@ -827,7 +828,8 @@ Gate: `gridRide` above 0, and the setup of films.md, section 16, which makes the
   flat part that, where gravity gathers it at the hole, is the white ball above. `gridRideSoft` 0.01 lays
   the whole slab on the surface, and the gathered matter then streaks the well's wall. A low value
   rides only the matter near the hole's depth, and the flight streams across the sheet and hides it: lower
-  it only for a shot about a thin disc.
+  it only for a shot about a thin disc. It is in hole radii, so a small hole (`blackHoleSize` 4) has a thin
+  slab and its gathered matter hangs as a cloud off the well: raise it to 400, with `gridRideSoft` 0.01.
 - `gridRideWave` 1 lifts the riders with the sheet's waves by `gridWaveLift`, and their motion on the
   moving surface lights them, so a ringdown sweeps a bright ring across the matter; 0 holds them on a
   still sheet while it ripples beneath them.
@@ -887,6 +889,14 @@ line of flight).
   at `gridLatticeNearEdge` of that; behind the hole a line dims down to `gridLatticeFar`.
   `gridLatticeNear` low with `gridLatticeFar` 1 is a cage drawn alike near and far; `gridLatticeNear`
   above 1 leaves only the far side.
+- While `threeDEase` eases the camera in, the lattice is seen down the line of flight and its rows pile up
+  into a thick blurred cross through the hole (the lens is not the cause): keep `gridLattice` at 0 until
+  about 1.9 s into a 2.6 s ease, then bring it up.
+- A cube of cells is its own mirror image across yaw 45, so a turn through 45 reads as no change. Turn on
+  one side of 45 and carry the move in pitch and a small `cameraMoveIn` too, the near half drawn
+  (`gridLatticeNear` below 1, `threeDFrontDepth` above 0) and the far half dimmed (`gridLatticeFar` 0.25):
+  the near cells slide past the far ones (shots "us" and "chair" of
+  `films/fourth_dimension_pop_07_creature.js`).
 - With `blackHoleSize` 0 the lattice is a plain cage of space, its cells multiples of `gridLatticeUnit`.
 
 ### The horizon grid

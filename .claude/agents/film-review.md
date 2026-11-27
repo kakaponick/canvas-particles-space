@@ -45,7 +45,9 @@ it names, words on a body).
    bare patch where the field should be; everything frozen where the line says matter falls; the wrong
    amount, a well burned white or a wall so sparse it reads as noise, often a close shot and a far shot
    given the same count (name the shots: their counts were copied, not swept). The project's
-   aim is nature: anything that reads as a rendering artefact is a defect. Major, blocker when it draws the eye.
+   aim is nature: anything that reads as a rendering artefact is a defect, and so is any part of the scene's
+   own drawing that no physics explains, even where a body or a picture could cover it. Major, blocker when
+   it draws the eye.
 4. **The body and the scene disagree.** An image over the hole (a planet, a star) that does not cover what it
    stands for, a bare black hole showing before or around a body that is not one, a glow or redshift the body
    could not have (the Earth is a billionth of a black hole's well), a scene that reads as two pictures laid
