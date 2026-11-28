@@ -79,7 +79,7 @@ const LINES = {
   outside: 'Но мы не внутри чёрной дыры: у Вселенной нет ни центра, ни «снаружи».'
 }
 const SAID = {
-  title: 0.6, planck: 3.8, collider: 12.9, proton: 20, atom: 26.3, virus: 33.3, cell: 37.6, earthHole: 42.2,
+  title: 0.4, planck: 4.7, collider: 13.6, proton: 21, atom: 26.3, virus: 33.3, cell: 37.6, earthHole: 42.2,
   man: 49, cygnus: 57.3, earth: 66.2, sun: 72.2, sgr: 78.3, m87: 89.3, stars: 99.6, milky: 108.3, group: 119.8,
   virgo: 132.3, laniakea: 143, web: 154, even: 160.8, universe: 167.3, outside: 174.5
 }
