@@ -15,7 +15,7 @@ const { lines } = linesOfReel('scale')
 const FIELDS = { num_step: '48', speed: '1.0' }
 // Lines the recognizer heard said wrong in the first takes (seed 7) get a seed of their own
 const VOICES = {
-  omnivoice: { engine: 'omnivoice', fields: FIELDS, own: true, seeds: { proton: 11, cygnus: 11, sun: 11, m87: 11, laniakea: 11, even: 11 } }
+  omnivoice: { engine: 'omnivoice', fields: FIELDS, own: true, seeds: { proton: 11, cygnus: 11, sun: 11, m87: 11, laniakea: 11, even: 11, back: 11, helium: 11 } }
 }
 
 await voiceFilm({ film: 'scale', lines, cues: {}, profile: 'Владимир Сурдин', language: 'Russian', seed: 7, delivery: JSON.stringify(FIELDS), voices: VOICES, takes: 'sc_' })
