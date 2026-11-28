@@ -185,6 +185,9 @@ interface FramePlayer {
   goesBack: boolean
   draw: (index: number, show: boolean) => unknown
   dispose: () => void
+  // The viewer's turn of a 3D camera, and whether the frame now has one to turn; a fractal film has none
+  setLook: (yaw: number, pitch: number) => void
+  looks: () => boolean
 }
 
 // `first`: the frame the player is made for, so a reel opens the clip that frame is in first
@@ -192,17 +195,17 @@ async function makePlayer (film: LoadedFilm, pixel: number, first = 0): Promise<
   if (film.kind === 'film') {
     // A fresh plan each time: a player writes the tracks into its plan as it plays
     const player = await createFilmPlayer(planFilm(film.source), pixel, film.images)
-    return { canvas: player.canvas, stepsEvery: true, goesBack: false, draw: (index, show) => player.drawFrame(index, show), dispose: player.dispose }
+    return { canvas: player.canvas, stepsEvery: true, goesBack: false, draw: (index, show) => player.drawFrame(index, show), dispose: player.dispose, setLook: player.setLook, looks: player.looks }
   }
   if (film.kind === 'fractal') {
     const plan = planFractal(film.source)
     await loadFonts(plan)
     const player = createFractalPlayer(plan, pixel)
-    return { canvas: player.canvas, stepsEvery: false, goesBack: true, draw: (index, show) => show ? player.drawFrame(index) : undefined, dispose: player.dispose }
+    return { canvas: player.canvas, stepsEvery: false, goesBack: true, draw: (index, show) => show ? player.drawFrame(index) : undefined, dispose: player.dispose, setLook: () => {}, looks: () => false }
   }
   const plan = planReel(film.source)
   const player = await createReelPlayer(plan, pixel, { images: film.images }, Math.min(first, plan.frames - 1))
-  return { canvas: player.canvas, stepsEvery: false, goesBack: false, draw: (index, show) => show ? player.drawFrame(index) : undefined, dispose: player.dispose }
+  return { canvas: player.canvas, stepsEvery: false, goesBack: false, draw: (index, show) => show ? player.drawFrame(index) : undefined, dispose: player.dispose, setLook: player.setLook, looks: player.looks }
 }
 
 // Video pixels per film pixel for a film shown in a box of this many device pixels: its own scale, or less
@@ -227,6 +230,8 @@ export interface LiveState {
   // How much of that seek's stepping is done, 0 to 1
   seekDone: number
   sound: LiveSound
+  // The frame on screen has a 3D camera the viewer can turn
+  looks: boolean
 }
 
 export interface LiveOptions {
@@ -325,7 +330,8 @@ export async function createLivePlayer (film: LoadedFilm, pixel: number, report:
       ended: wanted === null && shown >= last && !playing,
       seekTo: wanted !== null ? wanted / film.fps : null,
       seekDone: Math.max(0, Math.min(1, done)),
-      sound: soundState()
+      sound: soundState(),
+      looks: player.looks()
     })
   }
   const anchor = () => {
@@ -399,9 +405,12 @@ export async function createLivePlayer (film: LoadedFilm, pixel: number, report:
   }
 
   // A new player, made for frame `first`: the way back, since a scene only goes forward
+  // The viewer's turn of the camera, kept for a player made anew
+  const look = { yaw: 0, pitch: 0 }
   const renew = async (first: number) => {
     player.dispose()
     player = await makePlayer(film, pixel, first)
+    player.setLook(look.yaw, look.pitch)
     if (disposed) player.dispose()
     drawn = -1
   }
@@ -545,6 +554,12 @@ export async function createLivePlayer (film: LoadedFilm, pixel: number, report:
       if (!on) blocked = false
       if (sound) sound.muted = on
       send(true)
+    },
+    // The viewer's turn of a 3D film's camera, in degrees over the film's own: the frames that follow show it
+    setLook (yaw: number, pitch: number) {
+      look.yaw = yaw
+      look.pitch = pitch
+      player.setLook(yaw, pitch)
     },
     // The loudness of the sound, 0 to 1
     setVolume (volume: number) {

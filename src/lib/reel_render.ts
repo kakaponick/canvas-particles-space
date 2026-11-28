@@ -24,6 +24,9 @@ interface ClipPlayer {
   canvas: HTMLCanvasElement
   draw: (index: number, show: boolean) => unknown
   dispose: () => void
+  // A film clip's camera turned by the viewer, and whether it has a 3D camera to turn (film_render.ts)
+  setLook?: (yaw: number, pitch: number) => void
+  looks?: () => boolean
 }
 
 // The playing half of a kind of clip (its reading half is CLIP_READERS in reel.ts): how its player is made
@@ -31,7 +34,7 @@ const CLIP_PLAYERS: { [Kind in ReelClip['kind']]: (clip: Extract<ReelClip, { kin
   // A scene only goes forward, so every frame before the one shown is stepped
   film: async (clip, pixel, images) => {
     const player = await createFilmPlayer(clip.plan, pixel, images)
-    return { canvas: player.canvas, draw: (index, show) => player.drawFrame(index, show), dispose: player.dispose }
+    return { canvas: player.canvas, draw: (index, show) => player.drawFrame(index, show), dispose: player.dispose, setLook: player.setLook, looks: player.looks }
   },
   // A fractal frame depends on its second alone, so a frame that is not shown is not drawn
   fractal: async (clip, pixel) => {
@@ -56,7 +59,15 @@ export async function createReelPlayer (plan: ReelPlan, pixel: number, options: 
   // any whose second scene could not be made
   const through = clips.map(clip => clip.transition === 'dissolve' && (options.oneScene ?? plan.oneScene))
 
-  const open = async (index: number) => players[index] ?? (players[index] = await makePlayer(clips[index], pixel, options.images))
+  // The viewer's turn of the camera, given to every film clip, those opened later too
+  const look = { yaw: 0, pitch: 0 }
+  // The clip the last frame drawn was of
+  let current = 0
+  const open = async (index: number) => {
+    const made = players[index] ?? (players[index] = await makePlayer(clips[index], pixel, options.images))
+    made.setLook?.(look.yaw, look.pitch)
+    return made
+  }
   const close = (index: number) => {
     players[index]?.dispose()
     players[index] = null
@@ -118,6 +129,7 @@ export async function createReelPlayer (plan: ReelPlan, pixel: number, options: 
   const drawFrame = async (frame: number) => {
     clips.forEach((clip, index) => { if (players[index] && clip.start + clip.count <= frame) close(index) })
     const index = clipAt(frame)
+    current = index
     const clip = clips[index]
     const own = frame - clip.start
     const before = index > 0 ? clips[index - 1] : null
@@ -167,7 +179,14 @@ export async function createReelPlayer (plan: ReelPlan, pixel: number, options: 
     }
   }
 
-  return { canvas, drawFrame, dispose, notes }
+  const setLook = (yaw: number, pitch: number) => {
+    look.yaw = yaw
+    look.pitch = pitch
+    for (const player of players) player?.setLook?.(yaw, pitch)
+  }
+  const looks = () => players[current]?.looks?.() ?? false
+
+  return { canvas, drawFrame, dispose, notes, setLook, looks }
 }
 
 // What a reel will be, without drawing it

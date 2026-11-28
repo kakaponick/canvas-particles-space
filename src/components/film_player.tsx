@@ -10,7 +10,7 @@ import { cn, isTextEntry } from '@/lib/utils'
 import { FILM_RATES, useFilmStore } from '../store/film_store'
 import { clock, pickFiles, saveLeft, setFilmStage, setMenuHoldsEscape, titleOf } from '../lib/film_ui'
 import {
-  FILM_SEEK_LONG_STEP, FILM_SEEK_STEP, attachStage, cancelVideo, libraryNeighbour, openNeighbour, seekFilm, seekFilmBy, setFilmRate, setFilmVolume,
+  FILM_SEEK_LONG_STEP, FILM_SEEK_STEP, attachStage, cancelVideo, releaseLook, turnFilm, libraryNeighbour, openNeighbour, seekFilm, seekFilmBy, setFilmRate, setFilmVolume,
   stepFilm, toggleLoop, toggleMuted, togglePlaying
 } from '../lib/film_session'
 
@@ -32,6 +32,14 @@ const VOLUME_STEP = 0.05
 const TOUCH_SLOP = 8
 // Two taps of a finger this close in time are a double tap, in ms; a single tap waits this long to be sure
 const DOUBLE_TAP_MS = 280
+// Looking around a 3D film, as the page's 3D camera turns (particle_canvas.tsx, camera_keys.ts): a drag
+// turns it once it has gone this many pixels, by this many degrees a pixel; a key by these degrees
+const LOOK_DRAG_SLOP = 4
+const LOOK_DEGREES_PER_PIXEL = 0.3
+const LOOK_KEY_DEGREES = 5
+const LOOK_FINE_KEY_DEGREES = 1
+// The keys that turn the camera, as the page's arrows do: right and up are positive
+const LOOK_KEYS: Record<string, [number, number]> = { a: [-1, 0], d: [1, 0], w: [0, 1], s: [0, -1] }
 // The seconds the end of a film counts down before the next film of the library starts
 const UP_NEXT_S = 5
 // How long the word that a long film was taken up where it was left stays, in ms
@@ -158,6 +166,14 @@ const SHORTCUTS: { group: string, keys: { keys: string[], does: string }[] }[] =
     ]
   },
   {
+    group: 'Camera of a 3D film, while it plays',
+    keys: [
+      { keys: ['W', 'A', 'S', 'D'], does: 'Turn the camera; or drag the film' },
+      { keys: ['Shift'], does: 'With W A S D: a finer turn' },
+      { keys: ['R'], does: 'Back to the film\'s own camera' }
+    ]
+  },
+  {
     group: 'Films',
     keys: [
       { keys: ['F'], does: 'Full screen; or double-click the film' },
@@ -273,6 +289,19 @@ function usePlayerKeys (toggleFullscreen: () => void, openShortcuts: () => void,
         const level = Math.round(Math.max(0, Math.min(1, state.volume + (key === 'ArrowUp' ? VOLUME_STEP : -VOLUME_STEP))) * 100) / 100
         setFilmVolume(level)
         flash(level === 0 ? 'muted' : 'volume', `${Math.round(level * 100)}%`)
+        return
+      }
+      // The camera of a 3D film turns while it plays, and goes back to the film's a moment after the last key
+      const turn = LOOK_KEYS[key.toLowerCase()]
+      if ((turn || key.toLowerCase() === 'r') && state.looks && state.playing) {
+        take()
+        if (turn) {
+          const degrees = event.shiftKey ? LOOK_FINE_KEY_DEGREES : LOOK_KEY_DEGREES
+          turnFilm(turn[0] * degrees, turn[1] * degrees)
+          releaseLook()
+        } else {
+          releaseLook(true)
+        }
         return
       }
       if (event.shiftKey && (key === 'ArrowLeft' || key === 'ArrowRight') && (state.facts?.chapters.length ?? 0) > 0) {
@@ -1248,9 +1277,46 @@ export function Stage () {
   const taps = useRef<{ at: number, timer: number, run: TapZone | null }>({ at: 0, timer: 0, run: null })
   useEffect(() => () => window.clearTimeout(taps.current.timer), [])
 
+  // A press on a 3D film that turns into a drag looks around: where it is now, and whether it has moved
+  // far enough to be a drag, after which its click neither plays nor pauses
+  const drag = useRef<{ id: number, x: number, y: number, turning: boolean } | null>(null)
+  const dragged = useRef(false)
+  const [turning, setTurning] = useState(false)
+  const looks = useFilmStore(state => state.looks && state.playing && state.saving === null)
+
   const onPicturePress = (event: ReactPointerEvent<HTMLDivElement>) => {
     pointerKind.current = event.pointerType
     wokeControls.current = event.pointerType === 'touch' && hideControls
+    dragged.current = false
+    // Any button turns the camera, the right one too, as on the page in 3D
+    drag.current = looks && onTheFilm(event) && (event.button === 0 || event.button === 2)
+      ? { id: event.pointerId, x: event.clientX, y: event.clientY, turning: false }
+      : null
+  }
+  const onPictureMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const press = drag.current
+    if (!press || press.id !== event.pointerId) return
+    const dx = event.clientX - press.x
+    const dy = event.clientY - press.y
+    if (!press.turning) {
+      if (Math.hypot(dx, dy) <= LOOK_DRAG_SLOP) return
+      press.turning = true
+      dragged.current = true
+      try {
+        event.currentTarget.setPointerCapture(event.pointerId)
+      } catch {
+        // A pointer already gone: the drag still turns while it moves over the film
+      }
+      setTurning(true)
+    }
+    press.x = event.clientX
+    press.y = event.clientY
+    turnFilm(dx * LOOK_DEGREES_PER_PIXEL, dy * LOOK_DEGREES_PER_PIXEL)
+  }
+  const endDrag = () => {
+    if (drag.current?.turning) releaseLook()
+    drag.current = null
+    setTurning(false)
   }
   const onTheFilm = (event: ReactMouseEvent<HTMLDivElement>) => {
     const target = event.target as Node
@@ -1290,6 +1356,11 @@ export function Stage () {
     tap.timer = window.setTimeout(playOrPause, DOUBLE_TAP_MS)
   }
   const onPicture = (event: ReactMouseEvent<HTMLDivElement>) => {
+    // The click that ends a drag only ends it
+    if (dragged.current) {
+      dragged.current = false
+      return
+    }
     if (!onTheFilm(event)) return
     if (wokeControls.current) {
       wokeControls.current = false
@@ -1316,9 +1387,21 @@ export function Stage () {
     >
       <div
         onPointerDown={onPicturePress}
+        onPointerMove={onPictureMove}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+        onLostPointerCapture={endDrag}
         onClick={onPicture}
         onDoubleClick={onPictureDouble}
-        className={cn('relative min-h-0 flex-1 touch-manipulation select-none', !fullscreen && 'px-3 pb-3 pt-[60px]')}
+        // The right button turns a 3D film's camera, so the browser's menu stays away from the film
+        onContextMenu={looks ? (event) => event.preventDefault() : undefined}
+        className={cn(
+          'relative min-h-0 flex-1 select-none',
+          !fullscreen && 'px-3 pb-3 pt-[60px]',
+          // A finger drags a 3D film round; on another the page keeps its own gestures
+          looks ? 'touch-none' : 'touch-manipulation',
+          turning ? 'cursor-grabbing' : looks && !hideControls && 'cursor-grab'
+        )}
       >
         <div ref={picture} className="h-full w-full">
           <div ref={host} className={cn('h-full w-full', (!ready || waiting) && 'invisible')} />

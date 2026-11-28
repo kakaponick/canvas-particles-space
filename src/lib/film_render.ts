@@ -78,6 +78,9 @@ function titleStyle (plan: FilmPlan, words = plan.title, set: Partial<FilmPlan['
   }
 }
 
+// The Elevation a viewer's turn may take the camera to, as the slider's range (simulation_specs.ts)
+const MAX_LOOK_PITCH = 89
+
 // The film's own scene and the canvas its finished frames land on, captions included
 export async function createFilmPlayer (plan: FilmPlan, pixel: number, imageUrls?: Record<string, string>) {
   const glCanvas = document.createElement('canvas')
@@ -144,13 +147,36 @@ export async function createFilmPlayer (plan: FilmPlan, pixel: number, imageUrls
   let drawn = -1
   let nextCue = 0
 
+  // The viewer's own turn of a 3D film's camera, in degrees over the film's Orbit and Elevation, as the film
+  // mode's player lets one look around (setLook). The pose only sees the scene, so the particles go on as
+  // they would; a render never sets it, and with it at 0 every frame is the render's
+  const look = { yaw: 0, pitch: 0 }
+  const lookAdded = { yaw: 0, pitch: 0 }
+  const track = (time: number) => {
+    // Untouched, the camera is left to the tracks alone, so a render's arithmetic is the same as ever
+    if (look.yaw === 0 && look.pitch === 0 && lookAdded.yaw === 0 && lookAdded.pitch === 0) {
+      applyTracks(plan, time)
+      return
+    }
+    const settings = plan.settings
+    // A track that does not move the camera leaves the turn added last time: it is taken off first
+    settings.cameraYaw -= lookAdded.yaw
+    settings.cameraPitch -= lookAdded.pitch
+    applyTracks(plan, time)
+    const pitch = Math.max(-MAX_LOOK_PITCH, Math.min(MAX_LOOK_PITCH, settings.cameraPitch + look.pitch))
+    lookAdded.yaw = look.yaw
+    lookAdded.pitch = pitch - settings.cameraPitch
+    settings.cameraYaw += lookAdded.yaw
+    settings.cameraPitch = pitch
+  }
+
   // Draws frame `index`, the film at index / fps seconds. Frames come in order; `show` false only moves
   // the scene on, for a contact sheet that skips to its next frame
   const drawFrame = (index: number, show = true) => {
     if (index !== drawn + 1) fail(`Frames are drawn in order: ${drawn + 1} is next, not ${index}`)
     drawn = index
     const time = index / plan.fps
-    applyTracks(plan, time)
+    track(time)
     while (nextCue < plan.cues.length && plan.cues[nextCue].at <= time) {
       // A cue's parameters stay as it set them, unless a track moves the same one
       const words = cueTitles[nextCue]
@@ -173,7 +199,7 @@ export async function createFilmPlayer (plan: FilmPlan, pixel: number, imageUrls
       const scale = plan.speed ? pace * REFERENCE_FPS / count : frameScale
       const seconds = plan.speed ? pace / count : dt
       for (let step = 1; step <= count; step++) {
-        if (count > 1) applyTracks(plan, (index - 1 + step / count) / plan.fps)
+        if (count > 1) track((index - 1 + step / count) / plan.fps)
         scene.advance(scale, seconds, input, show && step === count)
       }
     }
@@ -192,7 +218,14 @@ export async function createFilmPlayer (plan: FilmPlan, pixel: number, imageUrls
     if (plan.captions.length > 0) drawCaptions(ctx, plan, time, scene.frame.composite, canvas.width / plan.width, scene.frame.grid, crowd)
   }
 
-  return { canvas, drawFrame, dispose, crowded: () => crowdNotes(crowd) }
+  // The turn takes effect at the next step; only a 3D camera has one to take
+  const setLook = (yaw: number, pitch: number) => {
+    look.yaw = yaw
+    look.pitch = pitch
+  }
+  const looks = () => plan.settings.threeD === true
+
+  return { canvas, drawFrame, dispose, crowded: () => crowdNotes(crowd), setLook, looks }
 }
 
 // One film at a time, with the page's own scene paused so the machine draws only the film. A fractal film

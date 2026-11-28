@@ -11,6 +11,14 @@ const PROGRESS_MS = 250
 // ?film=kerr_around&t=12. A film's folder names it, a part its path in films/ (fourth_dimension_pop/clips/01_down)
 const FILM_PARAM = 'film'
 const TIME_PARAM = 't'
+// After the viewer lets go of the camera it waits this long, in ms, then eases back to the film's own at
+// this rate (the share of the way left it goes in a second, as 1 - e^-rate)
+const LOOK_BACK_AFTER_MS = 1000
+const LOOK_BACK_RATE = 5
+// A turn this small, in degrees, is the film's own camera again
+const LOOK_SETTLED = 0.05
+// How far up or down a viewer can turn: from any Elevation to either end of its range (film_render.ts)
+const LOOK_PITCH_REACH = 178
 // The step of the seek keys and buttons, in seconds, and of J and L
 const SEEK_STEP = 5
 const SEEK_LONG_STEP = 10
@@ -61,6 +69,7 @@ function keepPosition (now: boolean) {
 // The player goes; `keep` writes down where its film was first
 function stopPlayer (keep = true) {
   if (keep) keepPosition(true)
+  settleLook()
   players++
   player?.dispose()
   player = null
@@ -78,7 +87,7 @@ async function startPlayer () {
   const { entry, positions } = useFilmStore.getState()
   const kept = entry && film.duration >= RESUME_LONGER && startSecond === 0 ? positions[entry.name] ?? 0 : 0
   if (kept > 0) startSecond = kept
-  useFilmStore.setState({ waiting: true, playing: false, ended: false, time: 0, seekTo: null, seekDone: 0, sound: 'none' })
+  useFilmStore.setState({ waiting: true, playing: false, ended: false, time: 0, seekTo: null, seekDone: 0, sound: 'none', looks: false })
   const { createLivePlayer, livePixel } = await engine()
   const ratio = window.devicePixelRatio || 1
   // Drawn for the larger of the stage and the screen, so the film stays sharp when it goes full screen; never
@@ -271,6 +280,66 @@ export function togglePlaying () {
   if (!player) return
   if (useFilmStore.getState().playing) player.pause()
   else player.play()
+}
+
+// The viewer's own turn of a 3D film's camera, in degrees over the film's Orbit and Elevation: view only, as
+// film_render.ts says, and never in a saved video
+const look = { yaw: 0, pitch: 0 }
+let lookTimer = 0
+let lookFrame = 0
+
+function showLook () {
+  player?.setLook(look.yaw, look.pitch)
+  const turned = look.yaw !== 0 || look.pitch !== 0
+  if (useFilmStore.getState().turned !== turned) useFilmStore.setState({ turned })
+}
+
+// The camera is the film's own again at once, with nothing waiting to ease it back
+function settleLook () {
+  window.clearTimeout(lookTimer)
+  cancelAnimationFrame(lookFrame)
+  look.yaw = 0
+  look.pitch = 0
+  showLook()
+}
+
+// Turns the camera by these degrees: right and up are positive. Whatever was easing it back stops
+export function turnFilm (yaw: number, pitch: number) {
+  window.clearTimeout(lookTimer)
+  cancelAnimationFrame(lookFrame)
+  look.yaw += yaw
+  look.pitch = Math.max(-LOOK_PITCH_REACH, Math.min(LOOK_PITCH_REACH, look.pitch + pitch))
+  showLook()
+}
+
+// The viewer has let go: after a moment the camera eases back to the film's, the short way round; with
+// reduced motion asked for, or `now`, it is back at once
+export function releaseLook (now = false) {
+  window.clearTimeout(lookTimer)
+  cancelAnimationFrame(lookFrame)
+  if (look.yaw === 0 && look.pitch === 0) return
+  if (now || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    settleLook()
+    return
+  }
+  // A whole turn is the same camera: the way back is never longer than half of one
+  look.yaw -= 360 * Math.round(look.yaw / 360)
+  lookTimer = window.setTimeout(() => {
+    let last = performance.now()
+    const ease = (at: number) => {
+      const keep = Math.exp(-LOOK_BACK_RATE * Math.max(0, at - last) / 1000)
+      last = at
+      look.yaw *= keep
+      look.pitch *= keep
+      if (Math.abs(look.yaw) < LOOK_SETTLED && Math.abs(look.pitch) < LOOK_SETTLED) {
+        settleLook()
+        return
+      }
+      showLook()
+      lookFrame = requestAnimationFrame(ease)
+    }
+    lookFrame = requestAnimationFrame(ease)
+  }, LOOK_BACK_AFTER_MS)
 }
 
 // Goes to the film's second `second`; it plays on from there if it was playing

@@ -68,6 +68,9 @@ interface FilmState {
   seekTo: number | null
   seekDone: number
   sound: FilmSound
+  // The frame on screen has a 3D camera the viewer can turn, and the viewer has it turned now
+  looks: boolean
+  turned: boolean
   // The person's mute and loudness (0 to 1), kept across films and reloads
   muted: boolean
   volume: number
@@ -138,6 +141,8 @@ export const useFilmStore = create<FilmState>((set, get) => ({
   seekTo: null,
   seekDone: 0,
   sound: 'none',
+  looks: false,
+  turned: false,
   rate: 1,
   resumedAt: null,
   ...(typeof window === 'undefined' ? STORED_DEFAULTS : readStored()),
