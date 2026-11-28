@@ -573,6 +573,14 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       webSize: 0.12,
       webHole: 0,
       webColor: createSceneColor(),
+      plasma: 0,
+      plasmaRadius: 0,
+      plasmaDepth: 1,
+      plasmaGrain: 18,
+      plasmaMottle: 0.35,
+      plasmaBoil: 0.3,
+      plasmaColor: createSceneColor(),
+      plasmaHot: createSceneColor(),
       nebulaColor: createSceneColor(),
       nebulaColorDeep: createSceneColor(),
       nebulaColorCore: createSceneColor(),
@@ -2293,6 +2301,15 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     composite.webSize = state.cosmicWebSize
     composite.webHole = state.cosmicWebHole / 100 * shortSide
     readSceneColor(composite.webColor, state.cosmicWebColor)
+    // The primordial plasma beyond the cosmic web, round the same centre
+    composite.plasma = intro.backgroundStars * state.plasma
+    composite.plasmaRadius = state.plasmaRadius / 100 * shortSide
+    composite.plasmaDepth = state.plasmaDepth / 100 * shortSide
+    composite.plasmaGrain = state.plasmaGrain
+    composite.plasmaMottle = state.plasmaMottle
+    composite.plasmaBoil = state.plasmaBoil
+    readSceneColor(composite.plasmaColor, state.plasmaColor)
+    readSceneColor(composite.plasmaHot, state.plasmaHotColor)
     readSceneColor(composite.nebulaColor, state.nebulaColor)
     readSceneColor(composite.nebulaColorDeep, state.nebulaColorDeep)
     readSceneColor(composite.nebulaColorCore, state.nebulaColorCore)

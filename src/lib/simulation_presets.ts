@@ -9,7 +9,7 @@ export const SIMULATION_SETTING_KEYS = [
   'particleSize', 'particleSizeMin', 'particleSizeSpread', 'particleLightSpread', 'gravityRedshift', 'spawnRadius', 'fieldAtHole', 'blackHoleDepth', 'gravityDepth', 'scrollSpeedStep',
   'baseBrightness', 'depthFade', 'minOpacity', 'maxOpacity', 'pulseIntensity', 'pulseSpeedMultiplier',
   'flightTintAhead', 'flightTintEdge', 'flightTintBehind', 'flightTintGradient', 'flightTintLimit', 'flightTintFrom', 'flightTintFull',
-  'starsBrightness', 'starDensity', 'starCell', 'cosmicWeb', 'cosmicWebCell', 'cosmicWebWidth', 'cosmicWebGalaxies', 'cosmicWebSize', 'cosmicWebHole', 'cosmicWebColor', 'nebula', 'nebulaColor', 'nebulaColorDeep', 'nebulaColorCore',
+  'starsBrightness', 'starDensity', 'starCell', 'cosmicWeb', 'cosmicWebCell', 'cosmicWebWidth', 'cosmicWebGalaxies', 'cosmicWebSize', 'cosmicWebHole', 'cosmicWebColor', 'plasma', 'plasmaRadius', 'plasmaDepth', 'plasmaGrain', 'plasmaMottle', 'plasmaBoil', 'plasmaColor', 'plasmaHotColor', 'nebula', 'nebulaColor', 'nebulaColorDeep', 'nebulaColorCore',
   'nebulaScale', 'nebulaSparseness', 'nebulaEdge', 'nebulaWarp', 'nebulaContrast', 'nebulaGrain', 'nebulaDrift', 'nebulaDriftAngle', 'nebulaPatch', 'nebulaPatchShare', 'nebulaPatchSoftness', 'nebulaCore', 'nebulaCoreFrom',
   'nebulaDriftFollow', 'nebulaDetail', 'nebulaLacunarity', 'nebulaRoughness', 'nebulaCurlSize', 'nebulaGrainSize',
   'starsSize', 'starsColorWarm', 'starsColorCool', 'starsTwinkle', 'starsTwinkleSpeed', 'starsFaintest',

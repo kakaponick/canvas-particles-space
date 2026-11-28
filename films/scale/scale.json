@@ -1,0 +1,14 @@
+{
+  "size": "1080p",
+  "fps": 60,
+  "clips": [
+    {
+      "name": "Шестьдесят один порядок",
+      "film": "films/scale/clips/01_space.js"
+    },
+    {
+      "name": "Назад к Большому взрыву",
+      "film": "films/scale/clips/02_back.js"
+    }
+  ]
+}

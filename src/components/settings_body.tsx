@@ -742,6 +742,20 @@ function SettingsBody () {
         </SettingsFine>
       </SettingsSection>
 
+      <SettingsSection id="plasma" title="Primordial Plasma">
+        {/* The young universe's glowing wall beyond the cosmic web: how bright, where, how hot, how mottled */}
+        <SettingSlider field="plasma" />
+        <SettingSlider field="plasmaRadius" />
+        <SettingSlider field="plasmaDepth" />
+        <SettingColor field="plasmaColor" />
+        <SettingColor field="plasmaHotColor" />
+        <SettingsFine id="plasma">
+          <SettingSlider field="plasmaGrain" />
+          <SettingSlider field="plasmaMottle" />
+          <SettingSlider field="plasmaBoil" />
+        </SettingsFine>
+      </SettingsSection>
+
       <SettingsSection id="bloom" title="Bloom">
         {/* How bright the halo is, what is bright enough for it and how far it spreads; then the threshold's edge, the halo's skirt and its tint */}
         <SettingSlider field="bloom" />

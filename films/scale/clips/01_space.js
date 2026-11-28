@@ -1,5 +1,6 @@
-// Sixty-one orders: one pull back from the Planck length to the Hubble sphere, the frame's height running from
-// 10^-34 to 10^27 metres. A black hole stands at every scale it can have, each at its true size for the frame:
+// Sixty-one orders, the first clip: one pull back from the Planck length to the edge of the observable
+// universe, the frame's height running from 10^-34 to 10^27 metres; the second clip (02_back.js) runs time
+// back from there to the Big Bang. A black hole stands at every scale it can have, each at its true size for the frame:
 // a Planck-mass hole that evaporates, the Earth squeezed into one, Cygnus X-1 with Moscow inside its shadow,
 // Sgr A* with the Sun a dot in its middle, M87* with the whole Solar System and Voyager 1 inside its shadow.
 // Between them the proton, the atom (flow B as the electron's cloud), a virus, a cell, a man, the Earth, the
@@ -12,7 +13,8 @@
 // NASA's GALEX photographs of Andromeda and the Triangulum over it. On it the Local Group, the Virgo Cluster
 // with the infall round it (flow A), Laniakea, its motions converging on the Great Attractor (flow C), and
 // past the catalogues' reach the cosmic web (a layer of the scene whose voids merge into an even glow as the
-// frame grows), then the observable universe.
+// frame grows), then the observable universe and, past its wall of the microwave background, the hotter
+// plasma of the young universe out to the Big Bang's horizon (the Primordial Plasma layer): never dark.
 //
 // Everything is one number: L(t), the base-10 logarithm of the frame's height in metres, a monotone curve
 // through the keys below that slows at every stop. A thing of R metres is R / 10^L of the short side; the
@@ -22,9 +24,10 @@
 // and a glow is never wider than what it lies round. The ruler is
 // the lensed grid drawn in powers of ten (Grid Decades), one cell one power of ten of metres, which the
 // counter and the bar under it name; the Earth and the Sun are NASA's photographs.
-//   node .claude/skills/space-scene/scripts/space.mjs preview films/scale/scale.js out.jpg
-//   node .claude/skills/space-scene/scripts/space.mjs render films/scale/scale.js films/scale/out/scale.mp4
-// The narration is LINES below, spoken by films/scale/voice.mjs into films/scale/out/scale.wav.
+//   node .claude/skills/space-scene/scripts/space.mjs preview films/scale/clips/01_space.js out.jpg
+//   node .claude/skills/space-scene/scripts/space.mjs render films/scale/scale.json films/scale/out/scale.mp4
+// The narration is LINES below and in the second clip, spoken by films/scale/voice.mjs into
+// films/scale/out/scale.wav.
 /* global film, set, drive, wait, caption, draw, meanwhile, at, mark */
 film({
   size: '1080p', fps: 60, seed: 61, preset: 'Schwarzschild',
@@ -44,7 +47,10 @@ film({
     flowCCount: 12000, flowCFalloff: 1, flowCLife: 2.2, flowCTrail: 0.8, flowCSize: 1, flowCColor: '#cfe0ff',
     flowCArms: 2, flowCArmWidth: 0.1, flowCArmPitch: 13,
     // The cosmic web's galaxies and their size; its brightness and its voids are driven below
-    cosmicWebGalaxies: 16, cosmicWebSize: 0.14
+    cosmicWebGalaxies: 16, cosmicWebSize: 0.14,
+    // The young universe's plasma past the wall of the microwave background, off the frame until it comes in
+    // Still, as the background we see is, so its spots are the same where the second clip takes it up
+    plasma: 1, plasmaGrain: 60, plasmaMottle: 0.3, plasmaBoil: 0, plasmaColor: '#ff7a2e', plasmaHotColor: '#ffc88a'
   }
 })
 
@@ -187,7 +193,8 @@ const MPC = 3.086e22
 const GALAXY = 4.73e20 // the Milky Way's disc, 50 000 light years
 const SUN_FROM_CENTRE = 2.46e20 // 26 000 light years
 const HUBBLE = 1.32e26 // c / H0 at 70 km/s/Mpc
-const OBSERVABLE = 4.40e26
+const OBSERVABLE = 4.40e26 // the Big Bang's horizon, 46.5 billion light years
+const LAST_SCATTERING = 4.32e26 // the wall of the microwave background, 45.7 billion light years
 
 // The holes, by their shadows: when each grows into the frame, how bright its disc, and when it evaporates
 const HOLES = [
@@ -303,7 +310,7 @@ const aFrom = phased([{ ...CYG_DISC, value: fixedAt(1.9) }, { ...MILKY, value: u
 const cFrom = phased([{ ...MILKY, value: units(SUN_ORBIT * GALAXY) }, { ...STREAMS, value: units(0.95 * LANIAKEA) }])
 
 meanwhile(() => drive({
-  fade: s => s < 2.5 ? 1 : s < 4 ? 1 - smooth((s - 2.5) / 1.5) : smooth((s - 177) / 2.5),
+  fade: s => s < 2.5 ? 1 : 1 - smooth((s - 2.5) / 1.5),
   blackHoleSize: s => holeSize(s),
   blackHoleX: s => holePlace(s, 0),
   blackHoleY: s => holePlace(s, 1),
@@ -316,9 +323,10 @@ meanwhile(() => drive({
   flowAFrom: aFrom,
   flowATo: phased([{ ...CYG_DISC, value: fixedAt(1.9) }, { ...MILKY, value: units(SUN_ORBIT * GALAXY) }, { ...CLUSTER, value: units(1.2 * MPC) }]),
   flowASpread: phased([{ ...CYG_DISC, value: fixedAt(1) }, { ...MILKY, value: units(0.85 * GALAXY) }, { ...CLUSTER, value: units(4 * MPC) }]),
-  flowASwirl: s => s < 100
+  // Held inside Swirl's range while the flow is dark and its radii are at their own limits
+  flowASwirl: s => Math.min(s < 100
     ? 0.5 + (GALAXY_PACE * aFrom(s) - 0.5) * smooth((s - 95) / 5)
-    : GALAXY_PACE * aFrom(s) * (1 - smooth((s - GAL_OUT) / (C_TO_STREAMS - GAL_OUT))),
+    : GALAXY_PACE * aFrom(s) * (1 - smooth((s - GAL_OUT) / (C_TO_STREAMS - GAL_OUT))), 5),
   // The electron's cloud, then the galaxy's bulge
   flowB: s => s < 60 ? 1.1 * lit(s, ATOM_IN, ATOM_OUT) : 2 * lit(s, GAL_IN, GAL_OUT),
   flowBFrom: phased([{ ...ATOM, value: units(0.9 * BOHR) }, { ...MILKY, value: units(0.07 * GALAXY) }]),
@@ -329,12 +337,15 @@ meanwhile(() => drive({
   flowCFrom: cFrom,
   flowCTo: phased([{ ...MILKY, value: units(SUN_ORBIT * GALAXY) }, { ...STREAMS, value: units(0.06 * LANIAKEA) }]),
   flowCSpread: phased([{ ...MILKY, value: units(0.85 * GALAXY) }, { ...STREAMS, value: units(0.25 * LANIAKEA) }]),
-  flowCSwirl: s => GALAXY_PACE * cFrom(s) * (1 - smooth((s - GAL_OUT) / (C_TO_STREAMS - GAL_OUT))),
+  flowCSwirl: s => Math.min(GALAXY_PACE * cFrom(s) * (1 - smooth((s - GAL_OUT) / (C_TO_STREAMS - GAL_OUT))), 5),
   // The cosmic web past the catalogues' reach, cleared where the map lies: in from Laniakea, round the map;
   // when a void is a few pixels across the layer is an even glow, the universe the same everywhere on the
   // largest scales
   cosmicWeb: s => 1.6 * smooth((L(s) - 24.9) / 0.4),
   cosmicWebHole: s => Math.min(100 * share(250 * MPC, s), 400),
+  // The wall of the microwave background and the hotter plasma past it, out to the Big Bang's horizon
+  plasmaRadius: s => Math.min(100 * share(LAST_SCATTERING, s), 400),
+  plasmaDepth: s => Math.min(100 * share(OBSERVABLE - LAST_SCATTERING, s), 100),
   cosmicWebCell: s => clamp(100 * VOID / Math.pow(10, L(s)), 0.05, 2000),
   // The ruler of the whole film: the lensed grid in powers of ten (Grid Decades), its cell one power of ten
   // of metres. Grid Zoom is the log of the frame itself, a number that only rises, so the cell shrinks from
@@ -364,7 +375,8 @@ const WHITE = '#ffffff'
 const SOFT = '#9fb0c8'
 const BLUE = '#8fc7ff'
 const GOLD = '#ffd27a'
-const name = { at: [0.955, 0.1], anchor: 'right', align: 'right', font: 'noto', size: 0.032, weight: 600, fade: 0.5 }
+// A plate under the words, which the dark leaves unseen and the young universe's bright plasma needs
+const name = { at: [0.955, 0.1], anchor: 'right', align: 'right', font: 'noto', size: 0.032, weight: 600, fade: 0.5, plate: 0.45 }
 const note = { at: 'bottom', font: 'noto', size: 0.03, plate: 0.45, fade: 0.5 }
 const named = (text, from, to) => at(from, () => caption(text, to - from, name))
 const noted = (text, from, to) => at(from, () => caption(text, to - from, note))
@@ -458,7 +470,8 @@ at(0.4, () => {
     if (cellPower(t) !== cellPower(steps[steps.length - 1])) steps.push(t)
   }
   steps.push(END)
-  const o = (a, s) => smooth((a + s - START) / 0.8) * smooth((END - a - s) / 1.5)
+  // In at the start; at the end it runs on into the second clip, which draws it from its first frame
+  const o = (a, s) => smooth((a + s - START) / 0.8)
   const ruler = { kind: 'line', color: WHITE, width: 0.003, opacity: 'o' }
   for (let k = 0; k < steps.length - 1; k++) {
     const a = steps[k]
@@ -467,14 +480,14 @@ at(0.4, () => {
     // Each ends a hair before the next begins, so no frame holds two
     const span = steps[k + 1] - a - 1e-4
     at(a, () => {
-      caption(`10^{${n}} м`, span, { at: [0.045, 0.09], anchor: 'left', align: 'left', font: 'unbounded', size: 0.055, fade: 0, opacity: 'o', values: { o: s => o(a, s) } })
+      caption(`10^{${n}} м`, span, { at: [0.045, 0.09], anchor: 'left', align: 'left', font: 'unbounded', size: 0.055, fade: 0, opacity: 'o', plate: 0.35, values: { o: s => o(a, s) } })
       draw({ ...ruler, points: [[0.045, 0.16], ['x', 0.16]], values: { x: cell, o: s => o(a, s) } }, span)
       draw({ ...ruler, points: [['x', 0.148], ['x', 0.172]], values: { x: cell, o: s => o(a, s) } }, span)
     })
   }
   at(START, () => {
     draw({ ...ruler, points: [[0.045, 0.148], [0.045, 0.172]], values: { o: s => o(START, s) } }, END - START)
-    caption('одна клетка сетки', END - START, { at: [0.045, 0.2], anchor: 'left', align: 'left', font: 'noto', size: 0.022, color: SOFT, fade: 0.8 })
+    caption('одна клетка сетки', END - START, { at: [0.045, 0.2], anchor: 'left', align: 'left', font: 'noto', size: 0.022, color: SOFT, fade: 0, plate: 0.35, opacity: 'o', values: { o: s => smooth(s / 0.8) } })
   })
 }
 
@@ -573,7 +586,7 @@ credit('снимок NASA, «Аполлон-17»', 66, 70.5)
 // A halo under the Sun, which carries it as a point once the disc is a few pixels across
 body(SUN, { color: '#ffb347', glow: 0.025, width: 0.0015 }, 0.45, 0.0005)
 picture(SUN, 'films/scale/sun.png', 1, 0.45, 0.0005)
-body(MOON, { color: WHITE, dash: [0.006, 0.006], width: 0.0014, peak: 0.8 }, 1.5, 0.004)
+body(MOON, { color: WHITE, dash: [0.006, 0.006], width: 0.0014, peak: 0.8 }, 0.85, 0.004)
 tag('орбита Луны', 72.5, 76.5, edge(MOON, 42), 42, WHITE, t => share(SUN, t) - share(MOON, t) + 0.04)
 named('Солнце\n1,39 млн км', 72, 76.3)
 credit('снимок NASA SDO, 28.11.2026', 72, 76.3)
@@ -741,13 +754,12 @@ noted('Дальше паутина сливается: на самых боль�
 
 // --- The universe -------------------------------------------------------------------------------------------
 
-body(HUBBLE, { color: GOLD, width: 0.0018, dash: [0.01, 0.006], stop: 177.6, start: 166.7 }, 0.85, 0.0001)
-body(OBSERVABLE, { color: '#ff9a5a', width: 0.0025, glow: 0.02, stop: 177.6, start: 166.7 }, 0.85, 0.0001)
-tag('хаббловская сфера\n14 млрд св. лет', 168, 173.5, edge(HUBBLE, 25), 25, GOLD, t => share(OBSERVABLE, t) - share(HUBBLE, t) + 0.035)
-tag('реликтовое излучение', 168.5, 177, edge(OBSERVABLE, 205), 205, '#ff9a5a')
+// Today's, so it leaves before the second clip turns time back
+body(HUBBLE, { color: GOLD, width: 0.0018, dash: [0.01, 0.006], start: 166.7, stop: 179 }, 0.85, 0.0001)
+tag('хаббловская сфера\n14 млрд св. лет', 168, 173.5, edge(HUBBLE, 25), 25, GOLD, t => share(LAST_SCATTERING, t) - share(HUBBLE, t) + 0.035)
+tag('реликтовое излучение', 168.5, 177.4, edge(LAST_SCATTERING, 205), 205, '#ffb27a')
 named('Наблюдаемая Вселенная\n93 млрд световых лет', 167, 177)
 noted('Масса внутри хаббловской сферы дала бы\nрадиус Шварцшильда, равный самой сфере', 167.7, 173.1)
 noted('Но мы не внутри чёрной дыры:\nу Вселенной нет центра и нет «снаружи»', 173.2, 177.7)
-at(177.4, () => caption('61 порядок: от 10^{-34} до 10^{27} м', 2.6, { at: [0.5, 0.5], font: 'unbounded', size: 0.045, fade: 0.4 }))
 
 wait(END)

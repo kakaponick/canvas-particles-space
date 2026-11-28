@@ -1,6 +1,6 @@
-// The narration of films/scale/scale.js, a film that is one script: its LINES are read from the script and
+// The narration of films/scale/scale.json, a reel of two clips: their LINES are read from the clips and
 // spoken by VoiceStudio on this machine in the voice of the profile named below, and laid at the seconds the
-// script marks (say: in its marks). The film does not wait for the voice, so each line must end before the
+// clips mark (say: in their marks). The clips do not wait for the voice, so each line must end before the
 // next one starts; the mix says which do not. The jobs are scripts/voice.mjs's:
 //   node films/scale/voice.mjs          speaks the lines not yet spoken
 //   node films/scale/voice.mjs verify   shows where the words heard differ from the line

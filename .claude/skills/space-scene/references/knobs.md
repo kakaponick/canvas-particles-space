@@ -236,7 +236,7 @@ same path behind it (`flowATrail`), lit by the flow's brightness rather than by 
   radius (Falloff 1), and its arms are density waves they run through. A spiral galaxy is three flows: an
   old disc without arms and a long Life; young stars born on 2 arms of pitch about 13, width 0.15, with a
   Life a small share of an orbit, so they light the arms and drift off them ahead inside, behind outside;
-  and a bulge turning as a wheel (Falloff 0), as a galaxy's inner kiloparsec does (`films/scale/scale.js`,
+  and a bulge turning as a wheel (Falloff 0), as a galaxy's inner kiloparsec does (`films/scale/clips/01_space.js`,
   the Milky Way).
 - A flow whose radii follow a zoom keeps its pace only at Falloff 0, since Swirl is the pace at a radius of
   1: at another falloff drive Swirl as the pace you want times `flowAFrom` to the falloff's power, so the
@@ -1086,7 +1086,7 @@ Gate: `gridSky` above 0, with the lens on to see it bent; `gridSkyPull` above 0 
   wide at 60%. With it, `gridSkyZoom` shrinks the grid for ever: give `gridCell` 40, the top of a decade, and
   `gridSkyZoom` the log of the frame's height in metres plus a constant, a number that only rises; the scene
   folds its part after the point into the decade and draws the same picture at every whole number, so the
-  grid is a ruler a viewer reads as "one cell is 10^n" (`films/scale/scale.js`: the log of the frame plus
+  grid is a ruler a viewer reads as "one cell is 10^n" (`films/scale/clips/01_space.js`: the log of the frame plus
   log10 0.4 plus 40). Never drive `gridCell` itself from 40 down to 4 and back: a track carries the jump,
   and every frame drawn between the two keys around it (the live page draws at any time) shows the cell
   growing back, a pulse a viewer reads as a fake. Its lines cross at `skyCenter`'s point, the frame's middle
@@ -1253,7 +1253,29 @@ grid, in 2D only.
   10 to 3 pixels across the whole web becomes an even glow: the universe the same everywhere.
 - `cosmicWebHole` fades the web from its radius to 60% of it, so real galaxies (a catalogue map drawn as a
   film's image) can stand in the middle and the web go on round them; drive it at the map's reach over the
-  frame, as `films/scale/scale.js` does.
+  frame, as `films/scale/clips/01_space.js` does.
+
+### The primordial plasma
+
+Gate: `plasma` above 0, and the `stars` layer shown. Drawn flat round the sky's centre, as the cosmic web is,
+in 2D only.
+
+| What it changes | Keys |
+|---|---|
+| How bright (0 is off) | `plasma` |
+| Where its wall stands, the surface of last scattering, % of the short side (0 fills the frame) | `plasmaRadius` |
+| How far past the wall it is hottest, % of the short side | `plasmaDepth` |
+| Its colours at the wall and where it is hottest | `plasmaColor`, `plasmaHotColor` |
+| Its mottles: size, share of its light, how fast they change | `plasmaGrain`, `plasmaMottle`, `plasmaBoil` |
+
+- Looking further is looking further back: past the cosmic web's galaxies lies the wall where the young
+  universe's light was let go (the microwave background, 45.7 billion light years today) and, past it, ever
+  hotter plasma out to the Big Bang's horizon (46.5 billion), so the frame beyond the observable universe is
+  never dark. A pull back drives `plasmaRadius` as 45.7 billion light years over the frame's height, times
+  100, and `plasmaDepth` as the 0.8 billion between the two.
+- Going back in time the wall closes in on us: at 380 000 years the whole universe is plasma (`plasmaRadius`
+  0), and hotter before; warm `plasmaColor` and `plasmaHotColor` from an orange 3000 K through white to blue,
+  `films/scale/` does it.
 
 ## 11. Where the black hole is, and the camera
 

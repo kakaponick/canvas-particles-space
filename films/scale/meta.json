@@ -1,8 +1,8 @@
 {
   "title": "Sixty-one orders",
-  "about": "From the Planck length to the Hubble sphere in one pull back, a black hole at every scale it can have.",
-  "kind": "film",
-  "film": "scale.js",
+  "about": "From the Planck length to the edge of the observable universe in one pull back, then time run back to the Big Bang: a black hole at every scale it can have, real galaxies, the young universe's plasma.",
+  "kind": "reel",
+  "film": "scale.json",
   "made": [
     {
       "model": "claude-opus-5-5",
@@ -45,9 +45,12 @@
       "agent": "Claude Code",
       "at": "2026-11-28",
       "did": "narration in the VoiceStudio profile Vladimir Surdin (OmniVoice, 48 steps): 23 lines at the film's stops, audio/scale.m4a"
+    },
+    {
+      "model": "claude-opus-5-5",
+      "agent": "Claude Code",
+      "at": "2026-11-28",
+      "did": "past the observable universe the young universe's plasma, never dark; a second clip runs time back to the Big Bang: the wall closes in at 380 000 years, the plasma heats through helium, quarks and inflation down to the Planck length; a reel of two clips"
     }
-  ],
-  "audio": {
-    "scale.js": "audio/scale.m4a"
-  }
+  ]
 }

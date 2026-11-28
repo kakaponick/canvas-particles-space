@@ -130,6 +130,14 @@ export interface ParticleState extends FlowState {
   cosmicWebSize: number
   cosmicWebHole: number
   cosmicWebColor: string
+  plasma: number
+  plasmaRadius: number
+  plasmaDepth: number
+  plasmaGrain: number
+  plasmaMottle: number
+  plasmaBoil: number
+  plasmaColor: string
+  plasmaHotColor: string
   nebulaColor: string
   nebulaColorDeep: string
   nebulaColorCore: string
@@ -647,6 +655,14 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   cosmicWebSize: 0.12,
   cosmicWebHole: 0,
   cosmicWebColor: '#ffe6c8',
+  plasma: 0,
+  plasmaRadius: 40,
+  plasmaDepth: 3,
+  plasmaGrain: 18,
+  plasmaMottle: 0.35,
+  plasmaBoil: 0.3,
+  plasmaColor: '#ff9a4a',
+  plasmaHotColor: '#fff2e0',
   nebulaColor: '#1c8c78',
   nebulaColorDeep: '#2a4fb0',
   nebulaColorCore: '#d8e88a',

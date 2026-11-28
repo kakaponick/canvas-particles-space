@@ -439,6 +439,17 @@ export interface CompositeSettings {
   // The radius round the sky's centre the web is faded inside, CSS pixels (0: none)
   webHole: number
   webColor: SceneColor
+  // The primordial plasma: brightness (0 turns it off), the wall's radius and the depth past it where it is
+  // hottest in CSS pixels, its mottles' size in CSS pixels, their share of its light and how fast they change,
+  // and its colours at the wall and where it is hottest
+  plasma: number
+  plasmaRadius: number
+  plasmaDepth: number
+  plasmaGrain: number
+  plasmaMottle: number
+  plasmaBoil: number
+  plasmaColor: SceneColor
+  plasmaHot: SceneColor
   // Brightness of the flat grid on the sky behind the black hole (0 turns it off) and its cell size
   skyGrid: number
   gridCell: number
@@ -842,7 +853,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     'titleFringe', 'titleHalo', 'titleRedshift', 'titleGrain', 'titleBurn', 'titleFall', 'titleTidal', 'titleSpiral', 'titleSpread', 'titleStream', 'titleOrder', 'titleTrail', 'titleTrailShape', 'titleHeat', 'dustSweep', 'echoFloor', 'dustShock', 'dustBlow', 'dustDrift',
     'titleSpeck', 'titleWinkRest', 'titleWind', 'titleBurnShape', 'titleBurnRimWidth', 'titleFallShape', 'titleDustShape', 'titleDustCut', 'titleBurnEdge',
     'echoShape', 'echoSwell', 'dustMotion', 'dustFlare', 'dustNoise', 'dustWarp', 'echoTintEase', 'starFlareRate', 'remnantShape', 'vignetteSpan', 'knee',
-    'web', 'webShape', 'webHole', 'webColor', 'skyGrid', 'gridCell', 'gridDecades', 'skyGridLine', 'orbits', 'front', 'nebula', 'nebulaColor', 'nebulaColorDeep', 'nebulaColorCore', 'nebulaShape', 'nebulaLook', 'nebulaPatch', 'nebulaDrift', 'nebulaSpace', 'nebulaNoise', 'nebulaNorm', 'gridPull', 'gridColor', 'gridHaze', 'gridShape',
+    'web', 'webShape', 'webHole', 'webColor', 'plasma', 'plasmaShape', 'plasmaBoil', 'plasmaColor', 'plasmaHot', 'skyGrid', 'gridCell', 'gridDecades', 'skyGridLine', 'orbits', 'front', 'nebula', 'nebulaColor', 'nebulaColorDeep', 'nebulaColorCore', 'nebulaShape', 'nebulaLook', 'nebulaPatch', 'nebulaDrift', 'nebulaSpace', 'nebulaNoise', 'nebulaNorm', 'gridPull', 'gridColor', 'gridHaze', 'gridShape',
     'colorFlash', 'colorLight', 'colorDust', 'colorTitle', 'colorEmber', 'neutron', 'neutronVeins', 'neutronShade', 'neutronColor', 'neutronVein', 'neutronPlasma', 'neutronCore', 'neutronFlow',
     'cameraZoom', 'zoomCenter', 'layerZoom', 'shake', 'lensFringe', 'lensFringeEase', 'vignette', 'filmGrain', 'letterbox'
   ] as const
@@ -1816,6 +1827,13 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     // while the last stepped frame drew them; Front Add and Front Waves say how they are laid over the rest
     setUniform4f(gl, u.front, frontScene.lit ? 1 : 0, frontScene.lit && frontLinesShown ? 1 : 0, settings.frontAdd, settings.frontWaves)
     setUniform1f(gl, u.web, settings.web)
+    setUniform1f(gl, u.plasma, settings.plasma)
+    if (settings.plasma > 0) {
+      setUniform4f(gl, u.plasmaShape, Math.max(settings.plasmaRadius, 0), Math.max(settings.plasmaDepth, 0), Math.max(settings.plasmaGrain, 1), Math.min(Math.max(settings.plasmaMottle, 0), 1))
+      setUniform1f(gl, u.plasmaBoil, settings.plasmaBoil)
+      setUniform3f(gl, u.plasmaColor, settings.plasmaColor.r, settings.plasmaColor.g, settings.plasmaColor.b)
+      setUniform3f(gl, u.plasmaHot, settings.plasmaHot.r, settings.plasmaHot.g, settings.plasmaHot.b)
+    }
     if (settings.web > 0) {
       setUniform4f(gl, u.webShape, Math.max(settings.webCell, 0.01), Math.max(settings.webWidth, 0.001), Math.max(settings.webGalaxies, 1), Math.max(settings.webSize, 0.001))
       setUniform3f(gl, u.webColor, settings.webColor.r, settings.webColor.g, settings.webColor.b)

@@ -697,6 +697,11 @@ export const compositeFragmentShaderSource = `
   uniform float u_webHole;         // the radius round the sky's centre the web fades inside, CSS pixels (0: none)
   uniform vec4 u_webShape;         // a void's width in CSS pixels, the filaments' half width as a share of it, galaxy places across a void, a galaxy's width as a share of the gap between places
   uniform vec3 u_webColor;
+  uniform float u_plasma;          // brightness of the primordial plasma beyond the last scattering surface (0: none)
+  uniform vec4 u_plasmaShape;      // the wall's radius round the sky's centre and how far past it the plasma is hottest, CSS pixels; its mottles' size in CSS pixels and their share of its light
+  uniform float u_plasmaBoil;      // how fast the mottles change, in their own sizes a second
+  uniform vec3 u_plasmaColor;      // the plasma at the wall, as it is seen there
+  uniform vec3 u_plasmaHot;        // the plasma where it is hottest
   uniform float u_skyGrid;        // brightness of the flat grid on the sky behind the hole; 0 turns it off
   uniform float u_gridCell;        // CSS pixels per cell of that grid
   uniform vec2 u_gridDecades;      // how far it is drawn at every power of ten of its cell (0 the one grid), and the frame's short side in CSS pixels
@@ -961,6 +966,25 @@ ${DENT_GLSL}
       mix(mix(hash13(i + e.yyx), hash13(i + e.xyx), u.x), mix(hash13(i + e.yxx), hash13(i + e.xxx), u.x), u.y),
       u.z
     ) - 0.5);
+  }
+
+  // The primordial plasma at a point of the picture, from the sky's centre: nothing inside the wall, the
+  // surface of last scattering, where the young universe's light was let go; past it, looking further is
+  // looking further back, so the plasma grows hotter and brighter out to the Big Bang's horizon, mottled by
+  // the young universe's slight differences of density
+  vec3 primordialPlasma (vec2 fromCentre) {
+    float past = length(fromCentre) - u_plasmaShape.x;
+    // With no wall left the plasma fills the frame, hottest everywhere
+    float wall = u_plasmaShape.x <= 0.0 ? 1.0 : smoothstep(-1.5, 1.5, past);
+    if (wall <= 0.0) return vec3(0.0);
+    float heat = u_plasmaShape.x <= 0.0 ? 1.0 : clamp(past / max(u_plasmaShape.y, 0.5), 0.0, 1.0);
+    vec2 p = fromCentre / max(u_plasmaShape.z, 1.0);
+    float boil = u_time * u_plasmaBoil;
+    // Three octaves, each finer and fainter, so the mottles are soft spots, not the noise's cells
+    float n = 0.5 * valueNoise3(vec3(p, boil)) + 0.3 * valueNoise3(vec3(p * 2.13 + 7.1, boil * 1.7))
+      + 0.2 * valueNoise3(vec3(p * 4.37 + 3.7, boil * 2.3));
+    float mottle = 1.0 + u_plasmaShape.w * (2.0 * n - 1.0);
+    return mix(u_plasmaColor, u_plasmaHot, heat) * (0.55 + 0.45 * heat) * mottle * wall;
   }
 
   vec3 hash33 (vec3 p) {
@@ -1900,6 +1924,10 @@ ${DENT_GLSL}
     if (u_web > 0.0) {
       // On the screen round the sky's centre, under the grid; nothing at these scales bends it
       emitted += cosmicWeb(cssPx - u_skyLens.xy) * u_web;
+    }
+    if (u_plasma > 0.0) {
+      // Round the sky's centre too, the wall the cosmic web lies within
+      emitted += primordialPlasma(cssPx - u_skyLens.xy) * u_plasma;
     }
     if (u_skyGrid > 0.0) {
       // A square grid on the sky, with a line through the sky's centre. It is read where the bent ray comes

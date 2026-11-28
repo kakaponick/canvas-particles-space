@@ -43,7 +43,7 @@ The devices this scene has, each a law it keeps rather than a trick laid over it
 - **A reveal by motion.** The camera, the zoom or the light uncovers the subject; nothing pops in. A thing
   that comes into a pull back enters from outside the frame or grows from where it is, as its law says.
 - **Rhythm.** Neighbouring shots differ in length and in how much moves; the zoom or the camera slows at
-  every subject (a monotone curve through stops, `films/scale/scale.js`), and the climax is set up by its
+  every subject (a monotone curve through stops, `films/scale/clips/01_space.js`), and the climax is set up by its
   quietest moment just before it. A film whose every stop reads "name top right, sentence at the bottom"
   is a slideshow: give the climax a shot of its own, longer, with fewer words.
 - **One ruler.** Whatever measures (a grid, a counter, a scale bar) is the scene's own and moves with the
@@ -263,7 +263,7 @@ and up a disc that pulls the eye. A ring flow (From equal to To) beside it draws
 
 ### A pull back over orders of magnitude
 
-`films/scale/scale.js` is the film to copy. Everything that changes size reads one number, L(t), the log of
+`films/scale/clips/01_space.js` is the film to copy. Everything that changes size reads one number, L(t), the log of
 the frame's height in metres, a monotone cubic through the stops (it slows at each subject and never turns
 back); a thing of R metres is R / 10^L of the short side, so the hole, the circles, the pictures and the
 flows cannot drift apart.
