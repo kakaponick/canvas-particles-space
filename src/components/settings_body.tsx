@@ -514,6 +514,7 @@ function SettingsBody () {
               <SettingSlider field={keys.bell} />
               <SettingSlider field={keys.arms} />
               <SettingSlider field={keys.armWidth} />
+              <SettingSlider field={keys.armPitch} />
             </div>
           ))}
           {/* What every flow shares: the plane round a pair, the draws of a disc's heights, the fades, brightness and trail, the 3D near fade, the seed and the ring; then how the traced disc hides and shifts */}

@@ -345,13 +345,13 @@ lineOf('a script that fires an event inside the opening', 'opening()\nat(1, () =
 // 8. A caption's text: every face, way of arriving and way of standing is taken; the marks are read and a
 // broken one is refused; a number in the text is the caption's own, the film's second or any number of the
 // scene; the letters of science are held by the bundled faces, so no film is told its face is the machine's
-const captionOf = (what, caption) => attempt(what, () => planFilm({ duration: 4, intro: false, captions: [{ text: 'x', from: 0, to: 4, ...caption }] }))
+const captionOf = (what, caption) => attempt(what, () => planFilm({ duration: 10, intro: false, captions: [{ text: 'x', from: 0, to: 10, ...caption }] }))
 for (const font of CAPTION_FONTS) captionOf(`a caption in the face ${font}`, { font })
 for (const reveal of CAPTION_REVEALS) captionOf(`a caption arriving by ${reveal}`, { reveal, revealOver: 1 })
 for (const align of CAPTION_ALIGNS) captionOf(`a caption standing ${align}`, { align })
 const marked = captionOf('a caption with every mark', {
   text: 'r_{s} = 2GM / c^{2}, *{a term with c^{2} and #{own:2,}}, #{seconds:1}, #{cameraZoom:1}, #{gravityWaveGain}',
-  values: { own: [[0, 0], [4, 1, 'linear']] },
+  values: { own: [[0, 0], [10, 1, 'linear']] },
   accent: '#88ccff',
   plate: 0.5,
   weight: 300,

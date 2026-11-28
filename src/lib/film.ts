@@ -30,6 +30,10 @@ export const FILM_SIZES: Record<string, readonly [number, number]> = {
 const FILM_SCALES = [0.5, 1, 1.5, 2]
 export const MIN_DURATION = 0.5
 export const MAX_DURATION = 180
+// Reading a caption: seconds for the eye to find it, then letters a second at a quick reader's pace (about
+// 200 words a minute)
+export const READ_FIND = 0.8
+export const READ_PACE = 17
 export const MIN_FPS = 12
 // Up to 60 for the web; above it for a fast display, or to slow the film down afterwards
 export const MAX_FPS = 240
@@ -1081,6 +1085,18 @@ export function planFilm (source: unknown): FilmPlan {
       }
     })
   }
+  // Words a viewer cannot read in the time they are shown: a caption whose whole strength (its time less one
+  // fade, each fade counting half) is shorter than a beat to find it and its letters at a quick reader's pace.
+  // A caption whose strength is a value is left alone: its author drives it, as a counter's numbers are
+  captions.forEach((caption, index) => {
+    if (typeof caption.opacity === 'string' || caption.reveal) return
+    const letters = caption.lines.flat().map(run => run.text).join('').replace(/[\s^{}_*#]/g, '').length
+    const needed = READ_FIND + letters / READ_PACE
+    const shown = caption.to - caption.from - caption.fade
+    if (letters > 0 && shown < needed - 0.05) {
+      notes.push(`captions[${index}] "${caption.text.replace(/\n/g, ' ').slice(0, 32)}" is whole for ${shown.toFixed(1)} s, and its ${letters} letters want ${needed.toFixed(1)} s to read: hold it longer, or slow what it rides with`)
+    }
+  })
   graphics.forEach((graphic, index) => {
     for (const key of ['upTo', 'marker'] as const) {
       const name = graphic[key]

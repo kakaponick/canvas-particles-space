@@ -1780,7 +1780,7 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       stepFlow(
         flow, frame.updateScene ? dt : 0, flowUnit > 0 ? state[keys.brightness] : 0, state[keys.count], state[keys.from], state[keys.to],
         state[keys.spread], swirl, life, state[keys.trail], state[keys.size], state[keys.thick],
-        fall, falloff, state[keys.flare], state[keys.bell], state[keys.arms], state[keys.armWidth], state.flowArmTurn
+        fall, falloff, state[keys.flare], state[keys.bell], state[keys.arms], state[keys.armWidth], state.flowArmTurn, state[keys.armPitch]
       )
       shareFlow(
         flow, state.flowLiftPower, state.flowPhaseSpread, state.flowLiftRenew, state.flowFadeIn, state.flowFadeOut,

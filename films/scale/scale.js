@@ -3,8 +3,10 @@
 // a Planck-mass hole that evaporates, the Earth squeezed into one, Cygnus X-1 with Moscow inside its shadow,
 // Sgr A* with the Sun a dot in its middle, M87* with the whole Solar System and Voyager 1 inside its shadow.
 // Between them the proton, the atom (flow B as the electron's cloud), a virus, a cell, a man, the Earth, the
-// Sun with the Moon's orbit inside it, the Sun's real neighbours, the Milky Way (flows B and C round its centre,
-// the hole taken away so they are measured in Lattice Unit). Beyond it the map turns to the supergalactic
+// Sun with the Moon's orbit inside it, the Sun's real neighbours, the Milky Way (the hole taken away, so its
+// flows are measured in Lattice Unit): stars on circular orbits at its flat rotation curve, an old disc
+// (flow A), young stars lit where they are born in two arms they then drift through (flow C), and a bulge
+// turning as a wheel (flow B). Beyond it the map turns to the supergalactic
 // plane, where the nearby universe lies flat, and every galaxy is a real one: a map of 47 000 from two
 // catalogues (map_*.png, drawn by galaxy_map.py beside this file) in eleven levels a power of two apart, with
 // NASA's GALEX photographs of Andromeda and the Triangulum over it. On it the Local Group, the Virgo Cluster
@@ -28,15 +30,18 @@ film({
   settings: {
     fieldEnabled: false, blackHoleSize: 26, followFrequency: 60, cameraFloat: 0, cameraBank: 0,
     gridLatticeUnit: 0.01, gridSky: 0.3, gridCell: 40, gridSkyDecades: 1, gridSkyLine: 1.4, starsBrightness: 0, starDensity: 0.25,
-    // Flow A: Cygnus X-1's disc, in the hole's radii, then the infall round the Virgo Cluster
+    // Flow A: Cygnus X-1's disc, in the hole's radii, the Milky Way's old disc, then the infall round the
+    // Virgo Cluster
     flowACount: 7000, flowASwirl: 0.5, flowALife: 10, flowATrail: 0.6, flowASize: 1.3, flowAColor: '#ffcf9a', flowTrace: 1,
     // Flow B: the electron's cloud first, the galaxy's bulge later. Turned as a wheel (Falloff 0), so its
     // radii can follow the zoom without moving a particle round
     flowBCount: 9000, flowBFalloff: 0, flowBSwirl: 1.2, flowBLife: 0.5, flowBTrail: 0.02, flowBSize: 1.2,
     flowBColor: '#9fd0ff',
-    // Flow C: the galaxy's disc, a fall wound into spiral strokes, also a wheel; then Laniakea's motions
-    flowCCount: 26000, flowCFall: 1, flowCFalloff: 0, flowCSwirl: 0.04, flowCLife: 24, flowCTrail: 2.5,
-    flowCSize: 1.1, flowCColor: '#c8d4ff', flowCArms: 2, flowCArmWidth: 0.12,
+    // Flow C: the galaxy's young stars, born on two arms of the Milky Way's pitch, on circular orbits at a flat
+    // rotation curve (Falloff 1), living a small share of an orbit, as its blue giants do; then Laniakea's
+    // motions
+    flowCCount: 12000, flowCFalloff: 1, flowCLife: 2.2, flowCTrail: 0.8, flowCSize: 1, flowCColor: '#cfe0ff',
+    flowCArms: 2, flowCArmWidth: 0.1, flowCArmPitch: 13,
     // The cosmic web's galaxies and their size; its brightness and its voids are driven below
     cosmicWebGalaxies: 16, cosmicWebSize: 0.14
   }
@@ -47,10 +52,12 @@ film({
 // [second, log10 of the frame's height in metres]: travel between the stops, a slow drift at each
 const KEYS = [
   [0, -33.5], [9, -33.3], // the Planck-mass hole
-  [13, -19.5], [16, -18.5], // the collider's limit
+  [13, -18.7], [16, -18.3], // the collider's limit
   [19, -14.8], [22.5, -14.35], // the proton
-  [26.5, -10.0], [31.5, -9.7], // the atom
-  [39, -1.25], [45, -1.0], // the Earth as a black hole
+  [26.5, -10.0], [30.5, -9.75], // the atom
+  [32.8, -6.75], [35.3, -6.55], // a virus
+  [37.3, -4.85], [39.8, -4.65], // a red blood cell
+  [42, -1.25], [45, -1.0], // the Earth as a black hole
   [49, 0.45], [51.5, 0.6], // a man
   [56, 5.65], [62, 5.85], // Cygnus X-1
   [65.5, 7.35], [68, 7.5], // the Earth
@@ -147,7 +154,7 @@ const OBSERVABLE = 4.40e26
 // The holes, by their shadows: when each grows into the frame, how bright its disc, and when it evaporates
 const HOLES = [
   { R: SHADOW * PLANCK_RS, grow: null, gone: 8, disc: 0 },
-  { R: SHADOW * EARTH_RS, grow: 39.5, disc: 0 },
+  { R: SHADOW * EARTH_RS, grow: when(SHADOW * EARTH_RS, 0.46), disc: 0 },
   { R: SHADOW * 21.2 * RS_SUN, grow: 56.5, disc: 0.55 },
   { R: SHADOW * 4.3e6 * RS_SUN, grow: 77.5, disc: 0 },
   { R: SHADOW * 6.5e9 * RS_SUN, grow: 88.5, disc: 0 }
@@ -241,6 +248,11 @@ const phased = stretches => t => {
   return Math.exp(Math.log(last.value(t)) * (1 - u) + Math.log(now.value(t)) * u)
 }
 const CYG_DISC = { from: 0, to: 70 }
+// The galaxy's pace: turns a second at the Sun's orbit, the first radius of both discs. At a flat rotation
+// curve (Falloff 1) Swirl is the pace at a radius of 1 Lattice Unit, so it is driven as this pace times the
+// first radius, and the zoom, which shrinks the radii, leaves every star's pace alone
+const GALAXY_PACE = 0.03
+const SUN_ORBIT = SUN_FROM_CENTRE / GALAXY
 const ATOM = { from: 0, to: ATOM_OUT }
 const MILKY = { from: GAL_IN, to: GAL_OUT }
 const CLUSTER = { from: V_IN, to: V_OUT }
@@ -248,30 +260,38 @@ const STREAMS = { from: G_IN, to: G_OUT }
 // The second between the galaxy and Laniakea, while flow C is dark: its other settings change there
 const C_TO_STREAMS = (GAL_OUT + V_IN) / 2
 
+// The first radii the discs' pace is driven from
+const aFrom = phased([{ ...CYG_DISC, value: fixedAt(1.9) }, { ...MILKY, value: units(SUN_ORBIT * GALAXY) }, { ...CLUSTER, value: units(11 * MPC) }])
+const cFrom = phased([{ ...MILKY, value: units(SUN_ORBIT * GALAXY) }, { ...STREAMS, value: units(0.95 * LANIAKEA) }])
+
 meanwhile(() => drive({
   fade: s => s < 2.5 ? 1 : s < 4 ? 1 - smooth((s - 2.5) / 1.5) : smooth((s - 177) / 2.5),
   blackHoleSize: s => holeSize(s),
   blackHoleX: s => holePlace(s, 0),
   blackHoleY: s => holePlace(s, 1),
   flowA: s => {
-    if (s > 100) return 0.3 * lit(s, V_IN, V_OUT)
+    if (s > 100) return s < C_TO_STREAMS ? 0.7 * lit(s, GAL_IN, GAL_OUT) : 0.3 * lit(s, V_IN, V_OUT)
     const on = holeAt(s)
     return on && holeSize(s) > 0 ? on.hole.disc * on.g : 0
   },
-  // Cygnus X-1's disc, then the infall: galaxies from all round falling into the cluster
-  flowAFrom: phased([{ ...CYG_DISC, value: fixedAt(1.9) }, { ...CLUSTER, value: units(11 * MPC) }]),
-  flowATo: phased([{ ...CYG_DISC, value: fixedAt(1.9) }, { ...CLUSTER, value: units(1.2 * MPC) }]),
-  flowASpread: phased([{ ...CYG_DISC, value: fixedAt(1) }, { ...CLUSTER, value: units(4 * MPC) }]),
+  // Cygnus X-1's disc; the galaxy's old disc, circular orbits round the Sun's; the infall into the cluster
+  flowAFrom: aFrom,
+  flowATo: phased([{ ...CYG_DISC, value: fixedAt(1.9) }, { ...MILKY, value: units(SUN_ORBIT * GALAXY) }, { ...CLUSTER, value: units(1.2 * MPC) }]),
+  flowASpread: phased([{ ...CYG_DISC, value: fixedAt(1) }, { ...MILKY, value: units(0.85 * GALAXY) }, { ...CLUSTER, value: units(4 * MPC) }]),
+  flowASwirl: s => s < 100
+    ? 0.5 + (GALAXY_PACE * aFrom(s) - 0.5) * smooth((s - 95) / 5)
+    : GALAXY_PACE * aFrom(s) * (1 - smooth((s - GAL_OUT) / (C_TO_STREAMS - GAL_OUT))),
   // The electron's cloud, then the galaxy's bulge
   flowB: s => s < 60 ? 1.1 * lit(s, ATOM_IN, ATOM_OUT) : 2 * lit(s, GAL_IN, GAL_OUT),
   flowBFrom: phased([{ ...ATOM, value: units(0.9 * BOHR) }, { ...MILKY, value: units(0.07 * GALAXY) }]),
   flowBTo: phased([{ ...ATOM, value: units(0.9 * BOHR) }, { ...MILKY, value: units(0.07 * GALAXY) }]),
   flowBSpread: phased([{ ...ATOM, value: units(1.8 * BOHR) }, { ...MILKY, value: units(0.14 * GALAXY) }]),
-  // The galaxy's disc, then Laniakea's motions
-  flowC: s => s < C_TO_STREAMS ? 1.4 * lit(s, GAL_IN, GAL_OUT) : 0.45 * lit(s, G_IN, G_OUT),
-  flowCFrom: phased([{ ...MILKY, value: units(0.85 * GALAXY) }, { ...STREAMS, value: units(0.95 * LANIAKEA) }]),
-  flowCTo: phased([{ ...MILKY, value: units(0.1 * GALAXY) }, { ...STREAMS, value: units(0.06 * LANIAKEA) }]),
-  flowCSpread: phased([{ ...MILKY, value: units(0.16 * GALAXY) }, { ...STREAMS, value: units(0.25 * LANIAKEA) }]),
+  // The galaxy's young stars, on the same orbits as its old disc, then Laniakea's motions
+  flowC: s => s < C_TO_STREAMS ? 1.1 * lit(s, GAL_IN, GAL_OUT) : 0.45 * lit(s, G_IN, G_OUT),
+  flowCFrom: cFrom,
+  flowCTo: phased([{ ...MILKY, value: units(SUN_ORBIT * GALAXY) }, { ...STREAMS, value: units(0.06 * LANIAKEA) }]),
+  flowCSpread: phased([{ ...MILKY, value: units(0.85 * GALAXY) }, { ...STREAMS, value: units(0.25 * LANIAKEA) }]),
+  flowCSwirl: s => GALAXY_PACE * cFrom(s) * (1 - smooth((s - GAL_OUT) / (C_TO_STREAMS - GAL_OUT))),
   // The cosmic web past the catalogues' reach, cleared where the map lies: in from Laniakea, round the map;
   // when a void is a few pixels across the layer is an even glow, the universe the same everywhere on the
   // largest scales
@@ -288,13 +308,17 @@ meanwhile(() => drive({
   starsBrightness: s => 1.3 * smooth((L(s) - 0.5) / 2) * (1 - smooth((L(s) - 16.3) / 1.5))
 }, END))
 
-// Flow B becomes the bulge while it is dark between the atom and the galaxy
-at(60, () => set({ flowBSwirl: 0.04, flowBLife: 14, flowBTrail: 1.2, flowBSize: 1.3, flowBColor: '#ffd9a0', flowBCount: 7000 }))
-// Flow A becomes the infall while it is dark: a straight fall into the cluster from every side, the motion
-// the galaxies round it have on top of the universe's expansion
-at(100, () => set({ flowTrace: 0, flowASwirl: 0, flowALife: 20, flowATrail: 1.5, flowAFall: 1.5, flowAFalloff: 0, flowACount: 1500, flowAColor: '#ffd9b0' }))
-// Flow C becomes Laniakea's motions while it is dark: a fall from the whole basin to the Great Attractor
-at(C_TO_STREAMS, () => set({ flowCArms: 0, flowCSwirl: 0, flowCLife: 40, flowCTrail: 3, flowCFall: 1.5, flowCCount: 12000, flowCColor: '#ffd9b0' }))
+// Flow B becomes the bulge while it is dark between the atom and the galaxy: the inner kiloparsec turns as a
+// wheel, as fast as the disc where they meet
+at(60, () => set({ flowBSwirl: 0.08, flowBLife: 14, flowBTrail: 1.2, flowBSize: 1.3, flowBColor: '#ffd9a0', flowBCount: 7000 }))
+// Flow A becomes the galaxy's old disc while it is dark: old stars all round, on circular orbits at the flat
+// rotation curve, living long
+at(100, () => set({ flowTrace: 0, flowAFalloff: 1, flowALife: 40, flowATrail: 1, flowACount: 14000, flowASize: 1, flowAColor: '#ffe2bd' }))
+// Between the galaxy and the cluster, while both are dark, flow A becomes the infall (a straight fall into the
+// cluster from every side, the motion the galaxies round it have on top of the universe's expansion) and flow
+// C Laniakea's motions (a fall from the whole basin to the Great Attractor)
+at(C_TO_STREAMS, () => set({ flowALife: 20, flowATrail: 1.5, flowAFall: 1.5, flowAFalloff: 0, flowACount: 1500, flowASize: 1.3, flowAColor: '#ffd9b0',
+  flowCArms: 0, flowCFalloff: 0, flowCLife: 40, flowCTrail: 3, flowCFall: 1.5, flowCCount: 12000, flowCColor: '#ffd9b0' }))
 
 // --- Words ------------------------------------------------------------------------------------------------
 
@@ -382,8 +406,8 @@ function dot (R, a, color, size, hi, lo) {
 
 // The opening card, on black
 at(0.4, () => {
-  caption('Шестьдесят один порядок', 2.8, { at: [0.5, 0.45], font: 'unbounded', size: 0.06, fade: 0.6 })
-  caption('от планковской длины до края Вселенной', 2.8, { at: [0.5, 0.56], font: 'noto', size: 0.03, color: SOFT, fade: 0.6 })
+  caption('Шестьдесят один порядок', 3.4, { at: [0.5, 0.45], font: 'unbounded', size: 0.06, fade: 0.6 })
+  caption('от планковской длины до края Вселенной', 3.4, { at: [0.5, 0.56], font: 'noto', size: 0.03, color: SOFT, fade: 0.6 })
 })
 
 // The counter: one cell of the grid as a power of ten of metres, with a bar as long as one cell under it.
@@ -402,10 +426,12 @@ at(0.4, () => {
     const a = steps[k]
     const n = cellPower(a + 1e-6)
     const cell = s => 0.045 + Math.pow(10, n - L(a + s)) * W
+    // Each ends a hair before the next begins, so no frame holds two
+    const span = steps[k + 1] - a - 1e-4
     at(a, () => {
-      caption(`10^{${n}} м`, steps[k + 1] - a, { at: [0.045, 0.09], anchor: 'left', align: 'left', font: 'unbounded', size: 0.055, fade: 0, opacity: 'o', values: { o: s => o(a, s) } })
-      draw({ ...ruler, points: [[0.045, 0.16], ['x', 0.16]], values: { x: cell, o: s => o(a, s) } }, steps[k + 1] - a)
-      draw({ ...ruler, points: [['x', 0.148], ['x', 0.172]], values: { x: cell, o: s => o(a, s) } }, steps[k + 1] - a)
+      caption(`10^{${n}} м`, span, { at: [0.045, 0.09], anchor: 'left', align: 'left', font: 'unbounded', size: 0.055, fade: 0, opacity: 'o', values: { o: s => o(a, s) } })
+      draw({ ...ruler, points: [[0.045, 0.16], ['x', 0.16]], values: { x: cell, o: s => o(a, s) } }, span)
+      draw({ ...ruler, points: [['x', 0.148], ['x', 0.172]], values: { x: cell, o: s => o(a, s) } }, span)
     })
   }
   at(START, () => {
@@ -417,18 +443,18 @@ at(0.4, () => {
 // --- The Planck scale -------------------------------------------------------------------------------------
 
 named('Планковская длина\n1,6·10^{-35} м', 3.5, 10.5)
-noted('Чёрная дыра планковской массы, 22 микрограмма:\nменьше чёрной дыры не бывает', 3.8, 7.9)
-noted('По формуле Хокинга она испаряется за 10^{-39} секунды', 8, 11)
+noted('Чёрная дыра планковской массы, 22 микрограмма:\nменьше чёрной дыры не бывает', 3.3, 8.5)
+noted('По формуле Хокинга она испаряется за 10^{-39} секунды', 8.6, 12.6)
 // Its evaporation: a flash where it was
 at(8, () => draw({
   kind: 'circle', center: [0.5, 0.5], radius: 'r', fill: WHITE, color: WHITE, glow: 0.05, opacity: 'o',
   values: { r: s => 0.02 + 0.5 * smooth(s / 1.2), o: s => 1 - smooth(s / 1.2) }
 }, 1.3))
-at(11.5, () => caption('Следующие 16 порядков не видел никто:\nБольшой адронный коллайдер различает около 10^{-19} м', 7, { ...note, at: [0.5, 0.1] }))
+at(12.7, () => caption('Следующие 16 порядков не видел никто:\nБольшой адронный коллайдер различает около 10^{-19} м', 6.5, note))
 // The collider's limit, passing through the frame where the zoom slows for it
 const LHC = 1e-19
-body(LHC, { color: SOFT, dash: [0.01, 0.008], width: 0.002 }, 0.8, 0.02)
-tag('предел разрешения БАК', when(LHC, 0.6), when(LHC, 0.06), edge(LHC, 35), 35)
+body(LHC, { color: SOFT, dash: [0.01, 0.008], width: 0.002 }, 0.35, 0.02)
+tag('предел разрешения БАК', when(LHC, 0.35), when(LHC, 0.03), edge(LHC, 35), 35)
 
 // --- The proton and the atom ------------------------------------------------------------------------------
 
@@ -451,26 +477,26 @@ body(PROTON, { color: '#ffb38a', fill: '#ff7a4a', fillOpacity: 0.18, glow: 0.01,
 named('Протон\n0,84·10^{-15} м', 19.5, 25)
 noted('Три кварка и поле, которое их держит', 20.5, 25)
 
-named('Атом водорода\n0,53·10^{-10} м', 26, 33)
+named('Атом водорода\n0,53·10^{-10} м', 26, 32.2)
 // Its nucleus, the proton, a point at the middle of the cloud
 at(ATOM_IN, () => draw({ kind: 'circle', center: [0.5, 0.5], radius: POINT, fill: '#ffb38a', color: '#ffb38a', glow: 1.6 * POINT }, ATOM_OUT - ATOM_IN))
-noted('Облако — где может оказаться электрон.\nЯдро в 60 000 раз меньше самого атома', 26.8, 33)
+noted('Облако — где может оказаться электрон.\nЯдро в 60 000 раз меньше самого атома', 26.8, 32.2)
 
 // --- Life ---------------------------------------------------------------------------------------------------
 
 const VIRUS = 5e-8
 const CELL = 3.9e-6
 body(VIRUS, { color: '#9be39b', fill: '#4fae4f', fillOpacity: 0.15, dash: [0.006, 0.004], width: 0.003 }, 0.8, 0.004)
-tag('вирус · 100 нм', when(VIRUS, 0.45), when(VIRUS, 0.03), edge(VIRUS, 35), 35, '#9be39b')
+tag('вирус · 100 нм', when(VIRUS, 0.5), when(VIRUS, 0.04), edge(VIRUS, 35), 35, '#9be39b')
 body(CELL, { color: '#ff7a7a', fill: '#ff5a5a', fillOpacity: 0.2, width: 0.003 }, 0.8, 0.004)
-tag('эритроцит · 8 мкм', when(CELL, 0.45), when(CELL, 0.03), edge(CELL, 145), 145, '#ff9a9a')
+tag('эритроцит · 8 мкм', when(CELL, 0.5), when(CELL, 0.04), edge(CELL, 145), 145, '#ff9a9a')
 
 // --- The Earth as a black hole ------------------------------------------------------------------------------
 
-body(EARTH_RS, { color: BLUE, dash: [0.008, 0.006], width: 0.0016, start: 41 }, 0.3, 0.012)
-tag('горизонт событий', 41, 47, edge(EARTH_RS, 40), 40, BLUE)
-named('Земля, сжатая в чёрную дыру\nгоризонт — 9 мм', 40, 47.5)
-noted('Чтобы стать чёрной дырой, Земле нужно сжаться\nв шарик 18 мм. Тень в 2,6 раза шире горизонта', 41, 47.5)
+body(EARTH_RS, { color: BLUE, dash: [0.008, 0.006], width: 0.0016, start: 42.3 }, 0.3, 0.012)
+tag('горизонт событий', 42.5, 47.5, edge(EARTH_RS, 40), 40, BLUE)
+named('Земля, сжатая в чёрную дыру\nгоризонт — 9 мм', 41.5, 47.8)
+noted('Чтобы стать чёрной дырой, Земле нужно сжаться\nв шарик 18 мм. Тень в 2,6 раза шире горизонта', 42, 48.2)
 
 // --- A man --------------------------------------------------------------------------------------------------
 
@@ -511,19 +537,19 @@ body(SUN, { color: '#ffb347', glow: 0.025, width: 0.0015 }, 0.45, 0.0005)
 picture(SUN, 'films/scale/sun.png', 1, 0.45, 0.0005)
 body(MOON, { color: WHITE, dash: [0.006, 0.006], width: 0.0014, peak: 0.8 }, 1.5, 0.004)
 tag('орбита Луны', 72.5, 76.5, edge(MOON, 42), 42, WHITE, t => share(SUN, t) - share(MOON, t) + 0.04)
-named('Солнце\n1,39 млн км', 72, 76.8)
-credit('снимок NASA SDO, 28.11.2026', 72, 76.8)
+named('Солнце\n1,39 млн км', 72, 76.3)
+credit('снимок NASA SDO, 28.11.2026', 72, 76.3)
 noted('Орбита Луны поместилась бы внутри Солнца', 72.5, 76.8)
 
 // --- Sgr A* and the planets ---------------------------------------------------------------------------------
 
 const PLANETS = [0.387, 1, 5.2, 9.58, 19.2, 30.1]
-PLANETS.forEach(a => body(a * AU, { color: a === 1 ? BLUE : '#a9bcd8', width: 0.0014, peak: a === 1 ? 0.9 : 0.55 }, 1.5, 0.005))
-tag('Солнце', 79, 84.8, edge(SUN, -135), -135, '#ffe7a0')
-tag('орбита Меркурия', 79.5, 85.3, edge(0.387 * AU, 52), 52)
-tag('орбита Земли', 80, 85.5, edge(AU, 172), 172, BLUE)
-named('Sgr A* · центр Млечного Пути\n4,3 млн масс Солнца', 78, 85.6)
-noted('Солнце — точка в центре её тени.\nОрбита Меркурия шире тени всего в 1,75 раза', 79, 85.6)
+PLANETS.forEach(a => body(a * AU, { color: a === 1 ? BLUE : '#a9bcd8', width: 0.0014, peak: a === 1 ? 0.9 : 0.55 }, 0.85, 0.005))
+tag('Солнце', 79, 84.2, edge(SUN, -135), -135, '#ffe7a0')
+tag('орбита Меркурия', 79.5, 83, edge(0.387 * AU, 52), 52)
+tag('орбита Земли', 80, 84.2, edge(AU, 172), 172, BLUE)
+named('Sgr A* · центр Млечного Пути\n4,3 млн масс Солнца', 78, 84.3)
+noted('Солнце — точка в центре её тени.\nОрбита Меркурия шире тени всего в 1,75 раза', 78.8, 84.3)
 
 // --- M87* ---------------------------------------------------------------------------------------------------
 
@@ -560,7 +586,8 @@ for (const k of [0, 2]) {
   tag(NEIGHBOURS[k][0], 100, 104.8, t => placeAt(R, a, t), a, NEIGHBOURS[k][4])
 }
 named('Соседи Солнца\nдо 12 световых лет', 99.5, 105.8)
-noted('Вид сверху на плоскость Галактики:\nближайшая звезда — в 4,2 светового года', 100.5, 105.8)
+// Gone before the first of the real stars, which close in on the middle, passes under it
+noted('Ближайшая звезда — в 4,2 светового года', 99.4, 102.8)
 
 // --- The Milky Way ------------------------------------------------------------------------------------------
 
@@ -662,10 +689,10 @@ credit('карта: каталоги 2MRS и UNGC', 132, 150)
   }, to - from))
   tag('Ланиакея', 154, 164.5, t => placeAt(ATTRACTOR.R + LANIAKEA, ATTRACTOR.a, t), ATTRACTOR.a, '#ffe9cf')
 }
-tag('Великий аттрактор', 143, 149.3, t => placeAt(ATTRACTOR.R, ATTRACTOR.a, t), ATTRACTOR.a + 90, '#ffe9cf')
+tag('Великий аттрактор', 143, 148, t => placeAt(ATTRACTOR.R, ATTRACTOR.a, t), -90, '#ffe9cf')
 tag('Местная группа', 143.5, 149.3, () => [0.5, 0.5], 200, GOLD)
 named('Ланиакея\n520 млн световых лет', 142.8, 150)
-noted('Сто тысяч галактик, чьи движения сходятся\nк Великому аттрактору. Мы — на её окраине', 143.5, 150)
+noted('Сто тысяч галактик, чьи движения сходятся\nк Великому аттрактору. Мы — на её окраине', 144.4, 150)
 
 // --- The cosmic web -----------------------------------------------------------------------------------------
 
@@ -681,8 +708,8 @@ body(OBSERVABLE, { color: '#ff9a5a', width: 0.0025, glow: 0.02, stop: 177.6, sta
 tag('хаббловская сфера\n14 млрд св. лет', 168, 173.5, edge(HUBBLE, 25), 25, GOLD, t => share(OBSERVABLE, t) - share(HUBBLE, t) + 0.035)
 tag('реликтовое излучение', 168.5, 177, edge(OBSERVABLE, 205), 205, '#ff9a5a')
 named('Наблюдаемая Вселенная\n93 млрд световых лет', 167, 177)
-noted('Масса внутри хаббловской сферы дала бы радиус\nШварцшильда, равный самой сфере. Так устроена плоская Вселенная', 168.8, 173.3)
-noted('Это не значит, что мы внутри чёрной дыры:\nу Вселенной нет центра и нет «снаружи»', 173.4, 177)
-at(177.2, () => caption('61 порядок: от 10^{-34} до 10^{27} м', 2.6, { at: [0.5, 0.5], font: 'unbounded', size: 0.045, fade: 0.6 }))
+noted('Масса внутри хаббловской сферы дала бы\nрадиус Шварцшильда, равный самой сфере', 167.7, 173.1)
+noted('Но мы не внутри чёрной дыры:\nу Вселенной нет центра и нет «снаружи»', 173.2, 177.7)
+at(177.4, () => caption('61 порядок: от 10^{-34} до 10^{27} м', 2.6, { at: [0.5, 0.5], font: 'unbounded', size: 0.045, fade: 0.4 }))
 
 wait(END)

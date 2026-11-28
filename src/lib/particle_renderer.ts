@@ -1505,7 +1505,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
       const style = flow.style
       setUniform4f(gl, u.style, style[0], style[1], style[2], style[3])
       setUniform4f(gl, u.path, flow.from, flow.to, flow.spread, flow.wound)
-      setUniform3f(gl, u.arms, flow.arms, flow.armWidth, flow.armTurn)
+      setUniform4f(gl, u.arms, flow.arms, flow.armWidth, flow.armTurn, flow.armWind)
       setUniform3f(gl, u.age, flow.phase, flow.lives, flow.piece)
       setUniform4f(gl, u.light, flow.color.r, flow.color.g, flow.color.b, brightness)
       gl.drawArraysInstanced(gl.TRIANGLES, 0, FLOW_VERTEX_COUNT, flow.count)

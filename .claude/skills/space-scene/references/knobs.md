@@ -199,9 +199,9 @@ same path behind it (`flowATrail`), lit by the flow's brightness rather than by 
 | The path's law: the power of the radius that runs evenly, the power the turn falls with | `flowAFall`, `flowAFalloff` |
 | How far its plane turns from the equator to face the camera | `flowAFace` |
 | The disc's shape: how its height grows with the radius, how far its heights are a bell | `flowAFlare`, `flowABell` |
-| Spiral arms its matter is born on, and each arm's share of the gap to the next | `flowAArms`, `flowAArmWidth` |
-| The second flow, the same | `flowB`, `flowBCount`, `flowBFrom`, `flowBTo`, `flowBSpread`, `flowBSwirl`, `flowBLife`, `flowBTrail`, `flowBSize`, `flowBPair`, `flowBTilt`, `flowBNode`, `flowBThick`, `flowBFall`, `flowBFalloff`, `flowBFace`, `flowBFlare`, `flowBBell`, `flowBArms`, `flowBArmWidth`, `flowBColor` |
-| The third | `flowC`, `flowCCount`, `flowCFrom`, `flowCTo`, `flowCSpread`, `flowCSwirl`, `flowCLife`, `flowCTrail`, `flowCSize`, `flowCPair`, `flowCTilt`, `flowCNode`, `flowCThick`, `flowCFall`, `flowCFalloff`, `flowCFace`, `flowCFlare`, `flowCBell`, `flowCArms`, `flowCArmWidth`, `flowCColor` |
+| Spiral arms its matter is born on, each arm's share of the gap to the next, and their pitch | `flowAArms`, `flowAArmWidth`, `flowAArmPitch` |
+| The second flow, the same | `flowB`, `flowBCount`, `flowBFrom`, `flowBTo`, `flowBSpread`, `flowBSwirl`, `flowBLife`, `flowBTrail`, `flowBSize`, `flowBPair`, `flowBTilt`, `flowBNode`, `flowBThick`, `flowBFall`, `flowBFalloff`, `flowBFace`, `flowBFlare`, `flowBBell`, `flowBArms`, `flowBArmWidth`, `flowBArmPitch`, `flowBColor` |
+| The third | `flowC`, `flowCCount`, `flowCFrom`, `flowCTo`, `flowCSpread`, `flowCSwirl`, `flowCLife`, `flowCTrail`, `flowCSize`, `flowCPair`, `flowCTilt`, `flowCNode`, `flowCThick`, `flowCFall`, `flowCFalloff`, `flowCFace`, `flowCFlare`, `flowCBell`, `flowCArms`, `flowCArmWidth`, `flowCArmPitch`, `flowCColor` |
 | Shared by all three: round a pair, how far a flow lies in the pair's orbit | `flowPairPlane` |
 | Shared: how a particle draws its share of the height and its orbit's phase, and whether anew each life | `flowLiftPower`, `flowPhaseSpread`, `flowLiftRenew` |
 | Shared: the shares of a life to appear and to leave, the dimmest particle, the trail's dimming | `flowFadeIn`, `flowFadeOut`, `flowDimmest`, `flowTrailFade` |
@@ -228,11 +228,19 @@ same path behind it (`flowATrail`), lit by the flow's brightness rather than by 
 - `flowASwirl` is the turn rate at one radius whatever `flowAFalloff` says, so a falloff below Kepler's
   speeds up a flow that lies far out: lower `flowASwirl` with it. A falloff of 0 turns the flow as a
   wheel, and a spiral's arms stop winding up. A ring has no fall, so `flowAFall` leaves it alone.
-- `flowAArms` above 0 bears the matter on that many arms, each `flowAArmWidth` of the gap to the next; the
-  fall and the turn carry every particle born on an arm along one streamline, so an arm is the spiral the
-  flow's own path winds, as far round as a particle turns in its life. A spiral galaxy: a wide fall with 2
-  arms of width 0.12, Swirl about 0.04 over a Life of 24 (one turn of winding), Falloff 0, Spread a sixth
-  of the disc, and a ring without arms for the bulge (`films/scale/scale.js`, the Milky Way).
+- `flowAArms` above 0 bears the matter on that many arms, each `flowAArmWidth` of the gap to the next, each
+  a logarithmic spiral of `flowAArmPitch` that trails the turn (90 a straight spoke). With a fall the fall
+  and the turn carry every particle born on an arm along one streamline, so the arm winds as far as a
+  particle turns in its life: matter spiralling in. A galaxy's stars do not fall in: they keep circular
+  orbits (From equal to To, Spread the disc's width) at a flat rotation curve, the same speed at every
+  radius (Falloff 1), and its arms are density waves they run through. A spiral galaxy is three flows: an
+  old disc without arms and a long Life; young stars born on 2 arms of pitch about 13, width 0.15, with a
+  Life a small share of an orbit, so they light the arms and drift off them ahead inside, behind outside;
+  and a bulge turning as a wheel (Falloff 0), as a galaxy's inner kiloparsec does (`films/scale/scale.js`,
+  the Milky Way).
+- A flow whose radii follow a zoom keeps its pace only at Falloff 0, since Swirl is the pace at a radius of
+  1: at another falloff drive Swirl as the pace you want times `flowAFrom` to the falloff's power, so the
+  pace at the first radius stays put while the radii shrink.
 - `flowAFrom`, `flowATo` and `flowASpread` on a track scale the flow about its hole, a zoom of it, only at
   `flowAFalloff` 0: above it the turn a particle has made is worked out from the first radius, so a radius
   that changes turns every particle round at once. With no hole (`blackHoleSize` 0) the radii are in
