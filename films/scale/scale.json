@@ -4,11 +4,13 @@
   "clips": [
     {
       "name": "Шестьдесят один порядок",
-      "film": "films/scale/clips/01_space.js"
+      "film": "films/scale/clips/01_space.js",
+      "input": {"lines":{},"cues":{}}
     },
     {
       "name": "Назад к Большому взрыву",
-      "film": "films/scale/clips/02_back.js"
+      "film": "films/scale/clips/02_back.js",
+      "input": {"lines":{},"cues":{}}
     }
   ]
 }
