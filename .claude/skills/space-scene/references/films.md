@@ -291,11 +291,17 @@ flows cannot drift apart.
   subject, so a stretch of several orders crossed in seconds with nothing named in it is a gap the viewer
   sees (the Milky Way to the universe was once five seconds over six orders).
 - Past the Milky Way the galaxies are real: a catalogue map (`films/scale/galaxy_map.py` draws one from
-  UNGC and 2MRS on the supergalactic plane, where the nearby universe lies flat) in levels a power of four
-  apart, each image shown while its pixel is half to two of the frame's. A flux-limited survey thins with
+  UNGC and 2MRS on the supergalactic plane, where the nearby universe lies flat) in levels a power of two
+  apart, each strongest where its pixel is the frame's and sharing the frame with the next between, as
+  mipmaps do. A galaxy is a disc of its own size on every level, a point once smaller: a dot of a fixed
+  pixel size on each level grows fourfold every time the next level comes in. A flux-limited survey thins with
   distance and puts us in the middle of a ball: weight each galaxy by the light the survey misses at its
   distance, and fade the map where the survey ends. Past that the cosmic web layer goes on round it
   (`cosmicWebHole`), its voids at their real width, until they merge into an even glow.
+- Everything that has a size is drawn at it and shrinks with the pull back, as it comes in too: a dot or a
+  marker of a fixed radius stays while the rest shrinks a hundredfold (a Magellanic Cloud bigger than the
+  Milky Way). Below two pixels a thing is a point and stays one. A glow is a value no wider than half what
+  it lies round, or a shrinking body keeps a halo of fixed size.
 - A flow over a real map is a hint of motion, faint: a dense one covers the galaxies it claims to move.
   Symmetric arms read as a spiral galaxy, not as filaments; a fall from all round (Arms 0) is the infall.
 - Shapes lie over `fade`: end every circle before the closing card, or it stays on the black.

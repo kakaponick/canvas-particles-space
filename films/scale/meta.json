@@ -27,6 +27,12 @@
       "agent": "Claude Code",
       "at": "2026-11-28",
       "did": "past the Milky Way: real galaxies from UNGC and 2MRS on the supergalactic plane, the Local Group with Andromeda and the Triangulum, Virgo, Laniakea, the cosmic web round the catalogues' reach"
+    },
+    {
+      "model": "claude-opus-5-5",
+      "agent": "Claude Code",
+      "at": "2026-11-28",
+      "did": "every thing at its own size, shrinking with the pull back: the galaxy map in eleven levels blended as mipmaps, true sizes for galaxies, the Magellanic Clouds and the Milky Way, points for stars, glows that shrink"
     }
   ]
 }

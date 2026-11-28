@@ -6,7 +6,7 @@
 // Sun with the Moon's orbit inside it, the Sun's real neighbours, the Milky Way (flows B and C round its centre,
 // the hole taken away so they are measured in Lattice Unit). Beyond it the map turns to the supergalactic
 // plane, where the nearby universe lies flat, and every galaxy is a real one: a map of 47 000 from two
-// catalogues (map_*.png, drawn by galaxy_map.py beside this file) in six levels a power of four apart, with
+// catalogues (map_*.png, drawn by galaxy_map.py beside this file) in eleven levels a power of two apart, with
 // NASA's GALEX photographs of Andromeda and the Triangulum over it. On it the Local Group, the Virgo Cluster
 // with the infall round it (flow A), Laniakea, its motions converging on the Great Attractor (flow C), and
 // past the catalogues' reach the cosmic web (a layer of the scene whose voids merge into an even glow as the
@@ -15,7 +15,9 @@
 // Everything is one number: L(t), the base-10 logarithm of the frame's height in metres, a monotone curve
 // through the keys below that slows at every stop. A thing of R metres is R / 10^L of the short side; the
 // hole's size, the radii of the circles, the cloud and the galaxy all read that, so they cannot drift apart.
-// Bodies stand round the frame's middle, where the hole is, so every comparison is concentric. The ruler is
+// Bodies stand round the frame's middle, where the hole is, so every comparison is concentric. Every thing
+// is drawn at its own size and shrinks with the pull back; what is smaller than a point (POINT) stays one,
+// and a glow is never wider than what it lies round. The ruler is
 // the lensed grid drawn in powers of ten (Grid Decades), one cell one power of ten of metres, which the
 // counter and the bar under it name; the Earth and the Sun are NASA's photographs.
 //   node .claude/skills/space-scene/scripts/space.mjs preview films/scale/scale.js out.jpg
@@ -112,6 +114,7 @@ const when = (R, s) => {
 }
 
 const W = 1080 / 1920 // a share of the short side, as a share of the frame's width
+const POINT = 0.0018 // the radius of a thing smaller than a point, a share of the short side: two pixels
 const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi)
 const smooth = u => {
   const c = clamp(u, 0, 1)
@@ -329,15 +332,17 @@ function tag (text, from, to, point, a, color = SOFT, reach = null) {
 const edge = (R, a) => t => placeAt(R, a, t)
 
 // A circle of R metres round the frame's middle, from when it is `hi` of the short side to when it is `lo`
-// (`peak` its brightest opacity, `start` the earliest second it may come in)
-function body (R, { peak = 1, start = 0, stop = END, ...spec }, hi = 1.5, lo = 0.003) {
+// (`peak` its brightest opacity, `start` the earliest second it may come in, `glow` its widest glow, which
+// shrinks with it once the circle is under twice as wide)
+function body (R, { peak = 1, start = 0, stop = END, glow = 0, ...spec }, hi = 1.5, lo = 0.003) {
   const from = Math.max(when(R, hi), start)
   const to = Math.min(when(R, lo), stop)
   if (to - from < 0.2) return
   at(from, () => draw({
-    kind: 'circle', center: [0.5, 0.5], radius: 'r', opacity: 'o', ...spec,
+    kind: 'circle', center: [0.5, 0.5], radius: 'r', opacity: 'o', glow: 'g', ...spec,
     values: {
       r: s => share(R, from + s),
+      g: s => Math.min(glow, 0.5 * share(R, from + s)),
       o: s => (from === 0 ? 1 : smooth(s / 0.6)) * smooth(Math.log(share(R, from + s) / lo) / Math.log(2.5)) * smooth((to - from - s) / 0.8) * peak
     }
   }, to - from))
@@ -357,15 +362,19 @@ function picture (R, src, disc, hi, lo) {
 }
 const credit = (text, from, to) => at(from, () => caption(text, to - from, { ...name, at: [0.955, 0.19], size: 0.02, weight: 400, color: SOFT }))
 
-// A dot of a fixed size at R metres and `a` degrees: a probe, a star
+// A thing of `size` metres across at R metres and `a` degrees, a point once it is smaller than one: a probe,
+// a star
 function dot (R, a, color, size, hi, lo) {
   const from = when(R, hi)
   const to = when(R, lo)
+  const r = s => Math.max(share(size / 2, from + s), POINT)
   at(from, () => draw({
-    kind: 'circle', center: ['x', 'y'], radius: size, fill: color, color, glow: 0.008, opacity: 'o',
+    kind: 'circle', center: ['x', 'y'], radius: 'r', fill: color, color, glow: 'g', opacity: 'o',
     values: {
       x: s => placeAt(R, a, from + s)[0],
       y: s => placeAt(R, a, from + s)[1],
+      r,
+      g: s => 1.6 * r(s),
       o: s => smooth(s / 0.6) * smooth((to - from - s) / 0.8)
     }
   }, to - from))
@@ -429,11 +438,12 @@ body(PROTON, { color: '#ffb38a', fill: '#ff7a4a', fillOpacity: 0.18, glow: 0.01,
   const from = when(PROTON, 0.6)
   const to = when(PROTON, 0.004)
   ;['#ff6a6a', '#6aff8a', '#6a9aff'].forEach((color, k) => at(from, () => draw({
-    kind: 'circle', center: ['x', 'y'], radius: 'r', fill: color, color, glow: 0.006, opacity: 'o',
+    kind: 'circle', center: ['x', 'y'], radius: 'r', fill: color, color, glow: 'g', opacity: 'o',
     values: {
       x: s => 0.5 + 0.42 * share(PROTON, from + s) * Math.cos(rad(90 + 120 * k + 12 * s)) * W,
       y: s => 0.5 - 0.42 * share(PROTON, from + s) * Math.sin(rad(90 + 120 * k + 12 * s)),
       r: s => 0.16 * share(PROTON, from + s),
+      g: s => Math.min(0.006, 0.16 * share(PROTON, from + s)),
       o: s => smooth(s / 0.6) * smooth((to - from - s) / 0.6)
     }
   }, to - from)))
@@ -443,7 +453,7 @@ noted('Три кварка и поле, которое их держит', 20.5,
 
 named('Атом водорода\n0,53·10^{-10} м', 26, 33)
 // Its nucleus, the proton, a point at the middle of the cloud
-at(ATOM_IN, () => draw({ kind: 'circle', center: [0.5, 0.5], radius: 0.004, fill: '#ffb38a', color: '#ffb38a', glow: 0.008 }, ATOM_OUT - ATOM_IN))
+at(ATOM_IN, () => draw({ kind: 'circle', center: [0.5, 0.5], radius: POINT, fill: '#ffb38a', color: '#ffb38a', glow: 1.6 * POINT }, ATOM_OUT - ATOM_IN))
 noted('Облако — где может оказаться электрон.\nЯдро в 60 000 раз меньше самого атома', 26.8, 33)
 
 // --- Life ---------------------------------------------------------------------------------------------------
@@ -518,7 +528,7 @@ noted('Солнце — точка в центре её тени.\nОрбита 
 // --- M87* ---------------------------------------------------------------------------------------------------
 
 const VOYAGER = 173 * AU // one light day, which it reaches in November 2026
-dot(VOYAGER, -25, WHITE, 0.004, 0.85, 0.004)
+dot(VOYAGER, -25, WHITE, 0, 0.85, 0.004)
 tag('Вояджер-1 · 1 световые сутки', 90, 96.5, t => placeAt(VOYAGER, -25, t), -25, WHITE)
 tag('орбита Нептуна', 90.5, 96.5, edge(30.1 * AU, 50), 50)
 named('M87*\n6,5 млрд масс Солнца', 89, 97)
@@ -543,7 +553,7 @@ body(LY, { color: SOFT, dash: [0.008, 0.008], width: 0.0014, peak: 0.7 }, 1, 0.0
 tag('1 световой год', 98.5, 103.5, edge(LY, 290), 290)
 for (const star of NEIGHBOURS) {
   const { R, a } = starPlace(star)
-  dot(R, a, star[4], 0.0045, 0.85, 0.004)
+  dot(R, a, star[4], 2 * SUN, 0.85, 0.004)
 }
 for (const k of [0, 2]) {
   const { R, a } = starPlace(NEIGHBOURS[k])
@@ -554,8 +564,8 @@ noted('Вид сверху на плоскость Галактики:\nближ
 
 // --- The Milky Way ------------------------------------------------------------------------------------------
 
-at(108, () => draw({ kind: 'circle', center: [0.5, 0.5], radius: 0.012, color: GOLD, width: 0.0016 }, 8))
-tag('Солнце', 108.5, 116, () => [0.5 + 0.012 * Math.cos(rad(30)) * W, 0.5 - 0.012 * Math.sin(rad(30))], 30, GOLD)
+at(108, () => draw({ kind: 'circle', center: [0.5, 0.5], radius: POINT, fill: GOLD, color: GOLD, glow: 1.6 * POINT }, 8))
+tag('Солнце', 108.5, 116, () => [0.5, 0.5], 30, GOLD)
 tag('Sgr A*', 109, 116, galaxyCentre, 200, '#ffd9a0')
 named('Млечный Путь\n100 000 световых лет', 108, 116.5)
 noted('Солнце — в 26 000 световых лет от центра,\nгде живёт Sgr A*', 109, 116.5)
@@ -566,19 +576,30 @@ noted('Солнце — в 26 000 световых лет от центра,\nг
 // measured distances, to 9 Mpc, and the 2MASS Redshift Survey (Huchra and others, 2012) beyond, each galaxy at
 // its redshift's distance, the big clusters' fingers of god pulled back into them and the strip the Milky Way
 // hides filled from the strips beside it, each galaxy's light multiplied by how much the survey thins at its
-// distance, faded out from 150 to 230 Mpc where the survey ends; the cosmic web goes on round it. Six levels, each 2048 pixels across and E Mpc from us to its edge, a
-// power of four apart: each is shown while its pixel is half to two of the frame's, and gives way to the next
-const MAPS = [0.5, 2, 8, 32, 128, 512]
+// distance, faded out from 150 to 230 Mpc where the survey ends; the cosmic web goes on round it. Every galaxy
+// is a disc of its own size on every level, so it shrinks with the frame until it is a point. Eleven levels,
+// each 2048 pixels across and E Mpc from us to its edge, a power of two apart; each is strongest where its
+// pixel is the frame's and shares the frame with the next between, as mipmaps do, so no galaxy grows when a
+// level gives way
+const MAPS = [0.5, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
+const native = E => Math.log10(2 * E * MPC / (2048 / 1080))
+const OCTAVE = Math.log10(2)
 MAPS.forEach((E, k) => {
-  const into = k === 0 ? 21.75 : Math.log10(MAPS[k - 1] * 2 * MPC) - 0.08
-  const away = k === MAPS.length - 1 ? 26.0 : Math.log10(E * 2 * MPC) - 0.08
+  const first = k === 0
+  const last = k === MAPS.length - 1
+  const into = first ? 21.75 : native(MAPS[k - 1])
+  const away = last ? 26.3 : native(MAPS[k + 1])
   const from = atL(into)
-  const to = atL(away + (k === MAPS.length - 1 ? 0.3 : 0.16))
+  const to = atL(away)
+  const weight = l => {
+    if (l < native(E)) return first ? smooth((l - 21.75) / 0.25) : 1 - (native(E) - l) / OCTAVE
+    return last ? 1 - smooth((l - 26.0) / 0.3) : 1 - (l - native(E)) / OCTAVE
+  }
   at(from, () => draw({
     kind: 'image', src: `films/scale/map_${E}.png`, center: [0.5, 0.5], width: 'w', opacity: 'o',
     values: {
       w: s => share(2 * E * MPC, from + s),
-      o: s => smooth((L(from + s) - into) / (k === 0 ? 0.25 : 0.16)) * (1 - smooth((L(from + s) - away) / (k === MAPS.length - 1 ? 0.3 : 0.16)))
+      o: s => clamp(weight(L(from + s)), 0, 1)
     }
   }, to - from))
 })
@@ -586,13 +607,11 @@ MAPS.forEach((E, k) => {
 // --- The Local Group ----------------------------------------------------------------------------------------
 
 // Andromeda and the Triangulum are NASA's GALEX photographs, cut out by their own light, each disc spanning
-// 0.926 of its picture's width, set where the map would have them (the map leaves them out). The Magellanic
-// Clouds stay where the Milky Way's own map put them, beside its disc
+// 0.926 of its picture's width, laid over their own discs on the map, which carries them on once they go.
+// The Magellanic Clouds are the map's
 const M31 = { ...onPlane(2.5e6 * LY / MPC, -23.8, 12.5), width: 1.44e21 / 0.926 }
 const M33 = { ...onPlane(2.73e6 * LY / MPC, -31.5, -0.1), width: 5.77e20 / 0.926 }
-const galactic = (ly, l, b) => ({ R: ly * LY * Math.cos(rad(b)), a: GAL_ANGLE + l })
-const LMC = galactic(1.63e5, 280.5, -32.9)
-const SMC = galactic(1.99e5, 302.8, -44.3)
+const LMC = onPlane(0.05, -144.2, -34.1)
 function galaxyPicture (src, g) {
   const from = when(g.R, 0.85)
   const to = when(g.width, 0.004)
@@ -608,8 +627,6 @@ function galaxyPicture (src, g) {
 }
 galaxyPicture('films/scale/m31.png', M31)
 galaxyPicture('films/scale/m33.png', M33)
-dot(LMC.R, LMC.a, '#dfe6ff', 0.0035, 0.85, 0.003)
-dot(SMC.R, SMC.a, '#dfe6ff', 0.0025, 0.85, 0.003)
 tag('Андромеда', 120.5, 125.8, t => placeAt(M31.R, M31.a, t), 180, '#cfe0ff')
 tag('Треугольник', 121, 125.8, t => placeAt(M33.R, M33.a, t), 0, '#cfe0ff')
 tag('Магеллановы Облака', 121, 125.5, t => placeAt(LMC.R, LMC.a, t), 120, '#cfe0ff')
@@ -620,8 +637,12 @@ noted('Андромеда — в 2,5 млн световых лет.\nОна с�
 
 // --- The Virgo Cluster --------------------------------------------------------------------------------------
 
-// The Local Group, a point from here on, at the middle of every map that follows
-at(GAL_OUT - 0.5, () => draw({ kind: 'circle', center: [0.5, 0.5], radius: 0.004, fill: GOLD, color: GOLD, glow: 0.008, opacity: 'o', values: { o: s => smooth(s / 0.8) * smooth((165.5 - GAL_OUT - s) / 0.8) } }, 166 - GAL_OUT))
+// The Milky Way, at the middle of every map that follows: its own disc, shrinking into a point
+at(GAL_OUT - 0.5, () => {
+  const from = GAL_OUT - 0.5
+  const r = s => Math.max(share(GALAXY, from + s), POINT)
+  draw({ kind: 'circle', center: [0.5, 0.5], radius: 'r', fill: GOLD, color: GOLD, glow: 'g', opacity: 'o', values: { r, g: s => 1.6 * r(s), o: s => smooth(s / 0.8) * smooth((165.5 - from - s) / 0.8) } }, 166 - from)
+})
 tag('скопление Девы', 132.5, 138.3, t => placeAt(VIRGO.R, VIRGO.a, t), 30, '#ffe9cf')
 tag('Местная группа', 133, 138.3, () => [0.5, 0.5], -30, GOLD)
 named('Скопление Девы\n54 млн световых лет', 132, 138.8)

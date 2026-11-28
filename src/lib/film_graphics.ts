@@ -224,9 +224,10 @@ export function drawGraphics (
     if (graphic.dash) ctx.setLineDash([graphic.dash[0] * shortSide, graphic.dash[1] * shortSide])
     // A glow is the canvas's shadow, unmoved and blurred, in the shape's own colour: it lies round the stroke,
     // the fill and an arrow's head alike
-    if (graphic.glow > 0) {
+    const glow = clamp(read(graphic.glow), 0, 0.2)
+    if (glow > 0) {
       ctx.shadowColor = graphic.color
-      ctx.shadowBlur = graphic.glow * shortSide
+      ctx.shadowBlur = glow * shortSide
     }
 
     // The fill's paint: one colour, or a sphere lit at a point (`light`, with the radius it spreads over), or

@@ -3,8 +3,10 @@
 cz / 70 beyond it). The big clusters' fingers of god are pulled back to their clusters, the strip the Milky
 Way's disc hides (the zone of avoidance) is filled with clones of the strips beside it, as maps made from 2MRS
 do. Each level is a square N pixels across, E Mpc from its middle (us) to its edge, rotated so a place stands
-at the film's map angle SG_ANGLE + SGL, every galaxy a soft dot that also carries the light the survey
-misses at its distance.
+at the film's map angle SG_ANGLE + SGL; the levels are a power of two apart. Every galaxy is a soft disc of
+its own size in kiloparsecs, by its luminosity, the same on every level, so it shrinks with the pull back
+until it is a point (FLOOR pixels of its level), and its light per area is the same at any size; it also
+carries the light the survey misses at its distance.
 
 The catalogues come from VizieR (J/AJ/145/101/catalog: Name, RAJ2000, DEJ2000, Dist, KLum, a26 as TSV;
 J/ApJS/199/26/table3: GLON, GLAT, Ktmag, cz, CAT).
@@ -19,8 +21,19 @@ ungc_path, mrs_path, out = sys.argv[1:4]
 SG_ANGLE = 47.1
 H0 = 70.0
 N = 2048
-LEVELS = [(0.5, 1.0, 14.0), (2, 2.0, 14.0), (8, 5.0, 12.0), (32, 10.0, 10.0), (128, 15.0, 3.5), (512, 25.0, 2.5)]  # E, half thickness Mpc, gain
-SKIP = {'MESSIER031', 'MESSIER033', 'LMC', 'SMC', 'Milky Way'}
+FLOOR = 0.7  # the narrowest a galaxy is drawn, pixels of its level: below it a point
+# E Mpc, then the slab's half thickness in Mpc and the light's gain, set at a few levels and read between them
+# on a log scale: the far levels hold many more galaxies a pixel, so less gain each
+ANCHORS = [(0.5, 1.0, 3.5), (2, 2.0, 4.0), (8, 5.0, 4.8), (32, 10.0, 4.0), (128, 15.0, 1.1), (512, 25.0, 0.65)]
+def along(E, k):
+    x = math.log2(E)
+    for a, b in zip(ANCHORS, ANCHORS[1:]):
+        if x <= math.log2(b[0]):
+            u = (x - math.log2(a[0])) / (math.log2(b[0]) - math.log2(a[0]))
+            return math.exp(math.log(a[k]) * (1 - u) + math.log(b[k]) * u)
+    return ANCHORS[-1][k]
+LEVELS = [(0.5 * 2 ** k, along(0.5 * 2 ** k, 1), along(0.5 * 2 ** k, 2)) for k in range(11)]
+SKIP = {'Milky Way'}  # the film draws it as its own disc
 random.seed(7)
 r = math.radians
 
@@ -60,7 +73,7 @@ def rows(path):
         yield cells
 
 
-galaxies = []  # (l, b, distance Mpc, weight)
+galaxies = []  # (l, b, distance Mpc, weight, the survey's thinning, size kpc)
 for c in rows(ungc_path):
     name = c[0].strip()
     if name in SKIP:
@@ -76,7 +89,9 @@ for c in rows(ungc_path):
         continue
     lum = float(c[4]) if c[4].strip() else 6.5
     l, b = galactic_of(15 * (h + m / 60 + s / 3600), sign * (d + dm / 60 + ds / 3600))
-    galaxies.append((l, b, dist, min(max(10 ** (0.3 * (lum - 10)), 0.6), 2.0), 1.0))
+    # a disc's scale in kpc grows as its light to the power 0.35: 6 kpc for Andromeda, 2 for the LMC
+    size = min(max(5 * 10 ** (0.35 * (lum - 10.5)), 0.15), 8.0)
+    galaxies.append((l, b, dist, min(max(10 ** (0.3 * (lum - 10)), 0.6), 2.0), 1.0, size))
 print('UNGC', len(galaxies))
 
 # clusters: galactic l, b, mean cz, radius in degrees on the sky, velocity spread, physical radius Mpc
@@ -102,7 +117,8 @@ for c in rows(mrs_path):
         continue
     absk = k - 5 * math.log10(dist * 1e5)
     weight = min(max(10 ** (-0.4 * (absk + 23.5) * 0.3), 0.4), 2.0)
-    mrs.append((l, b, dist, weight))
+    size = min(max(5 * 10 ** (-0.4 * (absk + 23.55) * 0.35), 0.3), 10.0)
+    mrs.append((l, b, dist, weight, size))
 print('2MRS', len(mrs))
 # The survey keeps only galaxies brighter than K = 11.75, so it thins with distance and a map of it puts us at
 # the middle of a ball. Each galaxy stands for the light too faint to be seen beside it: of a Schechter
@@ -114,13 +130,13 @@ def thinning(dist):
     return min(math.exp(seen(dist) - seen(20.0)), 6.0)
 for d in (20, 50, 100, 150, 200):
     print('at', d, 'Mpc: x', round(thinning(d), 2))
-mrs = [(l, b, dist, w, thinning(dist)) for l, b, dist, w in mrs]
+mrs = [(l, b, dist, w, thinning(dist), size) for l, b, dist, w, size in mrs]
 # the zone of avoidance: 2MRS has |b| >= 5 deg, 8 deg toward the bulge; the strips as wide beside it are cloned in
 clones = []
-for l, b, dist, w, sel in mrs:
+for l, b, dist, w, sel, size in mrs:
     lim = 8 if (l < 30 or l > 330) else 5
     if lim <= abs(b) < 2 * lim:
-        clones.append((l, b - math.copysign(lim, b), dist * (1 + random.uniform(-0.02, 0.02)), w, sel))
+        clones.append((l, b - math.copysign(lim, b), dist * (1 + random.uniform(-0.02, 0.02)), w, sel, size))
 print('clones', len(clones))
 everything = galaxies + mrs + clones
 
@@ -130,27 +146,29 @@ REACH_IN, REACH_OUT = 150.0, 230.0
 def smooth(u):
     u = min(max(u, 0.0), 1.0)
     return u * u * (3 - 2 * u)
-for l, b, dist, w, sel in everything:
+for l, b, dist, w, sel, size in everything:
     p = unit(l, b)
     sx, sy, sz = dist * dot(p, X), dist * dot(p, Y), dist * dot(p, Z)
     ca, sa = math.cos(r(SG_ANGLE)), math.sin(r(SG_ANGLE))
     fade = 1 - smooth((math.hypot(sx, sy) - REACH_IN) / (REACH_OUT - REACH_IN))
     if fade > 0:
-        placed.append((sx * ca - sy * sa, sx * sa + sy * ca, sz, w * sel * fade, sel))
+        placed.append((sx * ca - sy * sa, sx * sa + sy * ca, sz, w * fade, sel, size / 1000))
 
 for E, half, gain in LEVELS:
     scale = 2 * E / N  # Mpc a pixel
     buf = [0.0] * (N * N)
     count = 0
-    for x, y, z, w, sel in placed:
-        if abs(z) > half or abs(x) >= E or abs(y) >= E:
+    for x, y, z, w, sel, size in placed:
+        # a soft slab, so a galaxy near its face fades instead of popping between levels
+        if abs(z) > 2.5 * half or abs(x) >= E or abs(y) >= E:
             continue
         count += 1
         px = N / 2 + x / scale
         py = N / 2 - y / scale
-        sigma = min(max(0.8, 0.012 / scale) * math.sqrt(sel), 4.0)
+        # its own size, at least a point; the survey's thinning spreads it wider at the same light per area
+        sigma = min(max(size / scale, FLOOR) * math.sqrt(sel), 12.0)
         reach = int(math.ceil(2.5 * sigma))
-        flux = w / (2 * math.pi * sigma * sigma)
+        flux = w * math.exp(-(z / half) ** 2)
         cx, cy = int(px), int(py)
         for yy in range(max(cy - reach, 0), min(cy + reach + 1, N)):
             dy = yy + 0.5 - py

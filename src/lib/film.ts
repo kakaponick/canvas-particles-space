@@ -115,7 +115,7 @@ export interface FilmGraphic {
   // Lengths of a dash and of the gap after it, shares of the short side; null is a solid stroke
   dash: readonly [number, number] | null
   // Reach of the soft light it spreads round itself in its own colour, a share of the short side; 0 is none
-  glow: number
+  glow: FilmNumber
   fill: string | null
   fillOpacity: FilmNumber
   // The colour the fill turns to: across a circle from the point fillAt to its edge, a sphere lit there; down
@@ -746,7 +746,7 @@ function readGraphics (source: unknown, duration: number, notes: string[], attem
       opacity: number('opacity', 1),
       width: kind === 'image' ? 0 : clamp(entry.width === undefined ? GRAPHIC_WIDTH : asNumber(`${where}.width`, entry.width), 0, 0.1),
       dash,
-      glow: clamp(entry.glow === undefined ? 0 : asNumber(`${where}.glow`, entry.glow), 0, 0.2),
+      glow: number('glow', 0),
       fill: entry.fill === undefined ? null : colorOf('fill', entry.fill, ''),
       fillOpacity: number('fillOpacity', 1),
       fillTo: entry.fillTo === undefined ? null : colorOf('fillTo', entry.fillTo, ''),
@@ -1405,7 +1405,8 @@ comes to this same object: see "A film as a script" below. Names and ranges are 
                              "fillOpacity", "fillTo" '#rrggbb' (the fill turns to it: from fillAt to the edge
                              of a circle, from the top to the bottom of any other outline), "width" (the stroke, a share of the short side, so a zoom does not
                              thicken it), "dash": true or [dash, gap], "glow": the reach of a soft light in its
-                             own colour round it (a share of the short side, 0.01 a halo, 0.03 a wide one),
+                             own colour round it (a share of the short side up to 0.2, 0.01 a halo, 0.03 a wide one; a
+                             name, so a glow can shrink with what it lies round),
                              "values", and "draw": seconds over which the stroke draws itself
 }
 
