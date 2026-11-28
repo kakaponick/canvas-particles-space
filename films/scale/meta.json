@@ -39,6 +39,15 @@
       "agent": "Claude Code",
       "at": "2026-11-28",
       "did": "the Milky Way by its laws: circular orbits at a flat rotation curve, an old disc, young stars born on logarithmic arms, a wheel of a bulge; stops for the virus and the cell, every caption held long enough to read"
+    },
+    {
+      "model": "claude-opus-5-5",
+      "agent": "Claude Code",
+      "at": "2026-11-28",
+      "did": "narration in the VoiceStudio profile Vladimir Surdin (OmniVoice, 48 steps): 23 lines at the film's stops, audio/scale.m4a"
     }
-  ]
+  ],
+  "audio": {
+    "scale.js": "audio/scale.m4a"
+  }
 }
