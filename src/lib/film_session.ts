@@ -2,7 +2,7 @@
 // scene, plays it on the stage, and saves it as a file or an mp4. The engine (film_live.ts) and the
 // renderer behind it load when the first film is opened, so a visitor who never opens one downloads neither.
 import { useFilmStore, type FilmEntry } from '../store/film_store'
-import { addressName, baseName, libraryAudio, libraryText, resolveLibraryFilm } from './film_library'
+import { LIBRARY, addressName, baseName, libraryAudio, libraryFilmOf, libraryText, resolveLibraryFilm } from './film_library'
 import type { GivenFile, LivePlayer, LoadedFilm } from './film_live'
 
 const engine = () => import('./film_live')
@@ -14,6 +14,11 @@ const TIME_PARAM = 't'
 // The step of the seek keys and buttons, in seconds, and of J and L
 const SEEK_STEP = 5
 const SEEK_LONG_STEP = 10
+// A film at least this long, in seconds, is taken up where it was left; not within RESUME_EDGE seconds of
+// its start or its end, and the place is written down at most every POSITION_MS
+const RESUME_LONGER = 120
+const RESUME_EDGE = 5
+const POSITION_MS = 5000
 
 const FILM_FILE = /\.(json|m?js)$/i
 // A sound given beside a film, played under it: what the browser's <audio> plays
@@ -42,7 +47,20 @@ function nameInAddress (name: string | null) {
   if (url.href !== window.location.href) window.history.replaceState(window.history.state, '', url)
 }
 
-function stopPlayer () {
+// Writes down where a long film is, for the next time it opens: forgotten once it has played to its end
+let positionAt = -Infinity
+function keepPosition (now: boolean) {
+  const { entry, facts, time, ended, setPosition } = useFilmStore.getState()
+  if (!entry || !facts || facts.duration < RESUME_LONGER || !player) return
+  const at = performance.now()
+  if (!now && at - positionAt < POSITION_MS) return
+  positionAt = at
+  setPosition(entry.name, ended || time < RESUME_EDGE || time > facts.duration - RESUME_EDGE ? null : Math.floor(time))
+}
+
+// The player goes; `keep` writes down where its film was first
+function stopPlayer (keep = true) {
+  if (keep) keepPosition(true)
   players++
   player?.dispose()
   player = null
@@ -51,21 +69,34 @@ function stopPlayer () {
 
 // Makes the player for the loaded film on the stage, paused on its first frame unless it may start
 async function startPlayer () {
-  stopPlayer()
+  stopPlayer(false)
   const film = loaded
   const host = stage
   if (!film || !host) return
   const mine = players
+  // A long film starts where it was left, unless the address names a second
+  const { entry, positions } = useFilmStore.getState()
+  const kept = entry && film.duration >= RESUME_LONGER && startSecond === 0 ? positions[entry.name] ?? 0 : 0
+  if (kept > 0) startSecond = kept
   useFilmStore.setState({ waiting: true, playing: false, ended: false, time: 0, seekTo: null, seekDone: 0, sound: 'none' })
   const { createLivePlayer, livePixel } = await engine()
   const ratio = window.devicePixelRatio || 1
+  // Drawn for the larger of the stage and the screen, so the film stays sharp when it goes full screen; never
+  // above the film's own size (livePixel)
+  const width = Math.max(host.clientWidth, window.screen.width) * ratio
+  const height = Math.max(host.clientHeight, window.screen.height) * ratio
+  const { muted, volume, rate, loop } = useFilmStore.getState()
   try {
     const made = await createLivePlayer(
       film,
-      livePixel(film, host.clientWidth * ratio, host.clientHeight * ratio),
-      state => { if (mine === players) useFilmStore.setState(state) },
+      livePixel(film, width, height),
+      state => {
+        if (mine !== players) return
+        useFilmStore.setState(state)
+        keepPosition(state.ended)
+      },
       problem => { if (mine === players) useFilmStore.setState({ problem, playing: false }) },
-      { audio: film.audio, muted: useFilmStore.getState().muted }
+      { audio: film.audio, muted, volume, rate, loop }
     )
     if (mine !== players) {
       made.dispose()
@@ -76,7 +107,7 @@ async function startPlayer () {
     made.canvas.setAttribute('role', 'img')
     made.canvas.setAttribute('aria-label', `The film ${useFilmStore.getState().entry?.name ?? ''}`)
     host.replaceChildren(made.canvas)
-    useFilmStore.setState({ waiting: false })
+    useFilmStore.setState({ waiting: false, resumedAt: kept > 0 ? kept : null })
     if (startSecond > 0) made.seek(startSecond)
     startSecond = 0
     // Motion waits for Play when reduced motion is asked for
@@ -91,7 +122,7 @@ export async function openFilm (entry: FilmEntry) {
   const mine = ++loads
   stopPlayer()
   loaded = null
-  useFilmStore.setState({ open: true, entry, status: 'loading', facts: null, problem: '', needs: [], playing: false, ended: false, time: 0, seekTo: null, seekDone: 0, saveProblem: '' })
+  useFilmStore.setState({ open: true, entry, status: 'loading', facts: null, problem: '', needs: [], playing: false, ended: false, time: 0, seekTo: null, seekDone: 0, saveProblem: '', resumedAt: null })
   nameInAddress(entry.origin === 'library' ? addressName(entry.name) : null)
   try {
     const { loadFilm, MissingFiles } = await engine()
@@ -104,7 +135,16 @@ export async function openFilm (entry: FilmEntry) {
       loaded = film
       useFilmStore.setState({
         status: 'ready',
-        facts: { kind: film.kind, duration: film.duration, fps: film.fps, width: film.width, height: film.height, notes: film.notes, audio: film.audio !== null }
+        facts: {
+          kind: film.kind,
+          duration: film.duration,
+          fps: film.fps,
+          width: film.width,
+          height: film.height,
+          notes: film.notes,
+          audio: film.audio !== null,
+          chapters: film.chapters
+        }
       })
       useFilmStore.getState().remember(entry)
       void startPlayer()
@@ -205,6 +245,28 @@ export function toggleMuted () {
   player?.setMuted(next)
 }
 
+// The sound's loudness, 0 to 1, remembered; a loudness above nothing turns a muted sound on, as a player does
+export function setFilmVolume (volume: number) {
+  const level = Math.max(0, Math.min(1, volume))
+  const { muted, sound, setVolume } = useFilmStore.getState()
+  setVolume(level)
+  player?.setVolume(level)
+  if (level > 0 && (muted || sound === 'blocked')) toggleMuted()
+}
+
+// Film seconds a clock second, for this film and the next until the page reloads
+export function setFilmRate (rate: number) {
+  useFilmStore.getState().setRate(rate)
+  player?.setRate(rate)
+}
+
+// Whether a film that ends starts again, remembered
+export function toggleLoop () {
+  const loop = !useFilmStore.getState().loop
+  useFilmStore.getState().setLoop(loop)
+  player?.setLoop(loop)
+}
+
 export function togglePlaying () {
   if (!player) return
   if (useFilmStore.getState().playing) player.pause()
@@ -229,6 +291,46 @@ export function stepFilm (frames: number) {
 
 export const FILM_SEEK_STEP = SEEK_STEP
 export const FILM_SEEK_LONG_STEP = SEEK_LONG_STEP
+
+// The film of the library before or after the one in the mode, in the library's order: a part counts as
+// the film it belongs to. Null for a film from outside the library, and at either end
+export function libraryNeighbour (step: 1 | -1) {
+  const entry = useFilmStore.getState().entry
+  if (entry?.origin !== 'library') return null
+  const key = entry.name.toLowerCase()
+  const index = LIBRARY.findIndex(film => film.path === key || film === libraryFilmOf(key))
+  return index < 0 ? null : LIBRARY[index + step] ?? null
+}
+
+export async function openNeighbour (step: 1 | -1) {
+  const film = libraryNeighbour(step)
+  if (film) await openLibraryFilm(film.path)
+}
+
+// The address that opens the film in the mode at the second on screen, for a film of the library; null for
+// another, which has no address
+export function filmLink () {
+  const { entry, time } = useFilmStore.getState()
+  if (entry?.origin !== 'library') return null
+  const url = new URL(window.location.href)
+  url.search = ''
+  url.hash = ''
+  url.searchParams.set(FILM_PARAM, addressName(entry.name))
+  const second = Math.floor(time)
+  if (second > 0) url.searchParams.set(TIME_PARAM, String(second))
+  return url.href
+}
+
+export async function copyFilmLink () {
+  const link = filmLink()
+  if (!link) return false
+  try {
+    await navigator.clipboard.writeText(link)
+    return true
+  } catch {
+    return false
+  }
+}
 
 // The mode is closed: the film rests and the address forgets it; the film stays loaded for next time
 export function leaveFilms () {

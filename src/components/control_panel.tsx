@@ -18,6 +18,7 @@ import { MeasuredFps } from './controls/frame_rate_control'
 import { INTRO_DOCK_ID, closeIntroDebugger, isInDock, toggleIntroDebugger } from '../lib/intro_dock'
 import HintMenu from './controls/hint_menu'
 import { FilmToggle } from './film_mode'
+import { fullscreenTarget } from '../lib/film_ui'
 import { useFractalStore } from '../store/fractal_store'
 import { useFilmStore } from '../store/film_store'
 
@@ -95,7 +96,7 @@ function ControlPanel () {
   // The fullscreenchange listener below follows the result, Esc and the browser's own exit included
   const toggleFullscreen = async () => {
     try {
-      if (!document.fullscreenElement) await document.documentElement.requestFullscreen()
+      if (!document.fullscreenElement) await fullscreenTarget().requestFullscreen()
       else await document.exitFullscreen()
     } catch (error) {
       console.warn('Fullscreen toggle failed:', error)

@@ -95,6 +95,15 @@ Once the missing piece exists (a knob, a fix in code, a sentence in `knobs.md`, 
 
 ## The tools and the machine
 
+### Checking the film mode on the dev server (2026-11-28)
+- Wanted / got: the film playing on after an edit of `film_mode.tsx`; got a black stage with the transport
+  still counting, which read as a bug of the change.
+- Cause: Vite's hot reload remounts the stage, `attachStage` gives the player a new host, and the canvas of
+  the film that was playing is gone with the old one.
+- Now: reload the page after any edit of the film mode's files before judging the picture; a brief for an
+  agent that checks the player on the dev server says so.
+- Where: `src/components/film_mode.tsx`, `film_player.tsx`, `attachStage` in `src/lib/film_session.ts`.
+
 ### A shader that did not build, with no word of why (2026-11-28)
 - Wanted / got: a preview of a change to the field's step; got "The scene could not start: its shaders did
   not build", and the dev page's console was empty too.

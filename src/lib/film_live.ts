@@ -43,6 +43,13 @@ export interface LoadedFilm {
   notes: string[]
   // The address of the sound it plays under it from its first second, or null
   audio: string | null
+  // A reel's clips as the timeline marks them: each one's name and the second it starts at; none for a film
+  chapters: FilmChapter[]
+}
+
+export interface FilmChapter {
+  name: string
+  start: number
 }
 
 // Files the film names that were not given and are not in the library
@@ -163,7 +170,8 @@ export async function loadFilm (name: string, text: string, files: GivenFiles, a
     scale: plan.scale,
     images,
     notes: [...read.notes, ...plan.notes],
-    audio
+    audio,
+    chapters: 'clips' in plan && plan.clips.length > 1 ? plan.clips.map(clip => ({ name: clip.name, start: clip.start / plan.fps })) : []
   }
 }
 
@@ -225,6 +233,12 @@ export interface LiveOptions {
   // The address of the sound played under the film from its first second
   audio?: string | null
   muted?: boolean
+  // The sound's loudness, 0 to 1
+  volume?: number
+  // Film seconds a second of the clock plays: 1 is the film's own pace
+  rate?: number
+  // From its last frame the film starts again
+  loop?: boolean
 }
 
 // Seconds between two reports of the time while the film plays, so the panel re-renders a few times a second
@@ -270,8 +284,11 @@ export async function createLivePlayer (film: LoadedFilm, pixel: number, report:
   let anchorFrame = 0
   let reportedAt = -Infinity
   let raf = 0
-  // Frames one tick may catch up by before the film slows instead
-  const maxLag = Math.max(2, Math.ceil(film.fps / 15))
+  // The pace, film seconds a clock second, and whether the end starts the film again
+  let rate = options.rate ?? 1
+  let loop = options.loop ?? false
+  // Frames one tick may catch up by before the film slows instead: more at a faster pace
+  const maxLag = () => Math.max(2, Math.ceil(film.fps * rate / 15))
   // The frame a seek goes to, and the frame its stepping started after; steps a tick of it may take
   let wanted: number | null = null
   let seekFrom = 0
@@ -286,6 +303,8 @@ export async function createLivePlayer (film: LoadedFilm, pixel: number, report:
   if (sound && options.audio) {
     sound.preload = 'auto'
     sound.muted = muted
+    sound.volume = options.volume ?? 1
+    sound.playbackRate = rate
     sound.src = options.audio
     sound.addEventListener('error', () => {
       broken = true
@@ -341,7 +360,7 @@ export async function createLivePlayer (film: LoadedFilm, pixel: number, report:
   const followSound = (now: number) => {
     if (!sound || broken || sound.paused || sound.ended || sound.seeking) return
     const frame = sound.currentTime * film.fps
-    if (Math.abs(frame - (anchorFrame + (now - anchorAt) / 1000 * film.fps)) > SOUND_DRIFT_S * film.fps) {
+    if (Math.abs(frame - (anchorFrame + (now - anchorAt) / 1000 * film.fps * rate)) > SOUND_DRIFT_S * film.fps) {
       anchorAt = now
       anchorFrame = frame
     }
@@ -447,15 +466,20 @@ export async function createLivePlayer (film: LoadedFilm, pixel: number, report:
     }
     if (!playing) return
     if (shown >= last) {
+      // Looped, the end goes on from the first frame, as a seek does
+      if (loop) {
+        seekFrame(0)
+        return
+      }
       playing = false
       stopSound()
       send(true)
       return
     }
     followSound(now)
-    const due = Math.min(last, Math.floor(anchorFrame + (now - anchorAt) / 1000 * film.fps))
+    const due = Math.min(last, Math.floor(anchorFrame + (now - anchorAt) / 1000 * film.fps * rate))
     if (due <= drawn) return
-    const target = Math.min(due, drawn + maxLag)
+    const target = Math.min(due, drawn + maxLag())
     if (target < due) {
       // Behind by more than a tick can catch up: the film slows down here instead of jumping ahead, and the
       // sound waits for it
@@ -521,6 +545,19 @@ export async function createLivePlayer (film: LoadedFilm, pixel: number, report:
       if (!on) blocked = false
       if (sound) sound.muted = on
       send(true)
+    },
+    // The loudness of the sound, 0 to 1
+    setVolume (volume: number) {
+      if (sound) sound.volume = Math.max(0, Math.min(1, volume))
+    },
+    // Film seconds a clock second; the clock goes on from the frame on screen at the new pace
+    setRate (next: number) {
+      anchor()
+      rate = next
+      if (sound) sound.playbackRate = next
+    },
+    setLoop (on: boolean) {
+      loop = on
     },
     // Stops the clock without letting the film go, while a render takes the machine
     hold (on: boolean) {

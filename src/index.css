@@ -228,6 +228,41 @@ html::-webkit-scrollbar {
   }
 }
 
+/* The film player's answer to a key or a click on the picture: the action's sign in the middle of the
+   picture, there at once and fading as it grows a little. With reduced motion it only stays, then fades */
+.film-flash {
+  animation: film-flash 600ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes film-flash {
+  from {
+    opacity: 0.95;
+    scale: 0.92;
+  }
+
+  to {
+    opacity: 0;
+    scale: 1.12;
+  }
+}
+
+@keyframes film-flash-still {
+  0%,
+  55% {
+    opacity: 0.95;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .film-flash {
+    animation-name: film-flash-still;
+  }
+}
+
 .overflow-y-auto::-webkit-scrollbar {
   width: 6px;
 }
