@@ -366,7 +366,7 @@ export function drawCaptions (
   // The blocks of the words already drawn on this frame, for the ones after to be checked against
   const blocks: { index: number, caption: FilmCaption, block: Block }[] = []
   for (const [index, caption] of plan.captions.entries()) {
-    const alpha = captionAlpha(caption, time)
+    const alpha = captionAlpha(caption, time) * Math.min(Math.max(typeof caption.opacity === 'number' ? caption.opacity : captionValue(plan, caption, caption.opacity, time), 0), 1)
     if (alpha <= 0) continue
 
     const { size, lines, width: widest, words, letters } = fitCaption(ctx, plan, caption, time, caption.size * shortSide, (width - 2 * margin) * caption.width)

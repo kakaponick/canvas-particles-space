@@ -847,7 +847,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
   ] as const)
 
   const flowUniforms = getUniforms(gl, flowProgram, [
-    'resolution', 'zoom', 'place', 'turnX', 'turnY', 'turnZ', 'law', 'shape', 'draw', 'style', 'path', 'age', 'light', 'ride', 'rideShape', ...SHEET_UNIFORMS, 'inPlaneU', 'inPlaneV', 'inPlaneH', 'flowFrom', 'side', 'sideMain', 'sideSecond', 'sideBend', 'sideShape'
+    'resolution', 'zoom', 'place', 'turnX', 'turnY', 'turnZ', 'law', 'shape', 'draw', 'style', 'path', 'arms', 'age', 'light', 'ride', 'rideShape', ...SHEET_UNIFORMS, 'inPlaneU', 'inPlaneV', 'inPlaneH', 'flowFrom', 'side', 'sideMain', 'sideSecond', 'sideBend', 'sideShape'
   ] as const)
   const bloomDownUniforms = getUniforms(gl, bloomDownProgram, ['source', 'texel', 'target', 'bright'] as const)
   const bloomUpUniforms = getUniforms(gl, bloomUpProgram, ['texel', 'target', 'weight'] as const)
@@ -1495,6 +1495,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
       const style = flow.style
       setUniform4f(gl, u.style, style[0], style[1], style[2], style[3])
       setUniform4f(gl, u.path, flow.from, flow.to, flow.spread, flow.wound)
+      setUniform2f(gl, u.arms, flow.arms, flow.armWidth)
       setUniform3f(gl, u.age, flow.phase, flow.lives, flow.piece)
       setUniform4f(gl, u.light, flow.color.r, flow.color.g, flow.color.b, brightness)
       gl.drawArraysInstanced(gl.TRIANGLES, 0, FLOW_VERTEX_COUNT, flow.count)

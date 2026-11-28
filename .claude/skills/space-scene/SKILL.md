@@ -49,7 +49,8 @@ These words carry the rest of this skill, of `references/` and of the guides.
 3. **Prediction.** Write one sentence: what the particles will do (fall, orbit, swirl, stream, ride the
    sheet, stand dark) and what else changes, which way, and where to look: the shadow's edge, the Einstein
    ring, the strokes round the hole, the sheet's well. Done when the sentence names the particles' motion
-   and a place in the frame.
+   and a place in the frame. In a film the shot's job comes with it, from the idea (below): what the viewer
+   learns or feels there, and the frame's one subject.
 4. **Tracer.** First put it on the operator's screen ([references/live_page.md](references/live_page.md), "On the
    operator's screen"): the operator sees a simulation before you do. Then draw the one still (or sweep) that tests the sentence, its `warmup` by the look: 0 if said, seconds if grown.
 5. **Compare.** Done when the tracer shows the predicted change where it was predicted. When it shows
@@ -114,19 +115,25 @@ page's defaults, and the same film draws the same frames every time it is render
 object; anything longer is a script that plays it forward. Several films joined into one video are a reel
 (`clips`).
 
-1. Read `space_guide` once: the format, the script language, reels and recipes.
-2. Run the loop for every effect the film shows. Its tracers' settings become the film's.
-3. Write the film: a project film is a folder of `films/` with its `meta.json` (`node scripts/films.mjs new`;
+1. **The idea, before any knob**: five lines at the head of the film's file, the one image the viewer
+   keeps, the question the film opens, the turn, the climax, the ending; then each shot's job, its one
+   subject and how its pace differs from its neighbours'. films.md, section 1, gives the devices this scene
+   has. Done when one sentence says what the viewer leaves with and which shot turns it.
+2. Read `space_guide` once: the format, the script language, reels and recipes.
+3. Run the loop for every effect the idea asks for. Its tracers' settings become the film's; a film in
+   `films/` gives tested settings for a law, never the shape of yours.
+4. Write the film: a project film is a folder of `films/` with its `meta.json` (`node scripts/films.mjs new`;
    films.md, section 7, says how, and that your model's id goes into it), a throwaway goes to a temp folder.
    Before a film longer than one shot read [references/films.md](references/films.md): cut it into shots, and give the particles of
    each shot a look (its section "The particle field: a look for every shot").
-4. `space_preview` with no seconds draws one frame of every shot (the storyboard) and prints the timeline
+5. `space_preview` with no seconds draws one frame of every shot (the storyboard) and prints the timeline
    the film was understood as; ask for the seconds where something changes as well. Done when every shot's
-   frame shows its sentence with the captions covered, and the preview prints no `Crowded:` line (words on
+   frame shows its sentence with the captions covered, the frames in order show the turn and the climax
+   without a word, and the preview prints no `Crowded:` line (words on
    words, or a shape's stroke through words, measured on the frames it drew). `space_check` reads the timeline without drawing:
    for a script's JSON, or a film too long to draw yet.
-5. `space_render` writes the mp4 once, at the default quality.
-6. **A review, on the operator's word.** The film is reported after the render; reviewers who did not make
+6. `space_render` writes the mp4 once, at the default quality.
+7. **A review, on the operator's word.** The film is reported after the render; reviewers who did not make
    it look at all of it only when the operator asks for a review:
    - `node .claude/skills/space-scene/scripts/review.mjs sheets <film or reel>` draws the whole film as
      contact sheets (a frame every 1.5 s and both ends of every shot) into
@@ -137,6 +144,10 @@ object; anything longer is a script that plays it forward. Several films joined 
    - Fix every blocker and major, draw the sheets of the changed clips again (`--clips`) and have them read
      again, then draw the whole film once more and record the verdict:
      `review.mjs verdict <film> pass "<what was found and fixed>"`.
+
+Without a browser (a machine with no Chrome, or an operator who forbids it),
+`node .claude/skills/space-scene/scripts/plan.mjs <film>` writes and plans a film in Node and prints what
+a check prints but the frames: the errors, the values moved onto a slider, its length and parts.
 
 Without the `space_*` tools the same commands run from anywhere in the repository:
 

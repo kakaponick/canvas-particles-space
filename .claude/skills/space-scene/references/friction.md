@@ -20,16 +20,6 @@ Once the missing piece exists (a knob, a fix in code, a sentence in `knobs.md`, 
 
 ## Telling the film
 
-### Galaxies drawn as shaded ovals (2026-11-27)
-- Wanted / got: galaxies drifting apart on a growing sheet; ovals with a fill shaded to dark at the edge read
-  as cheap stickers (the operator's note).
-- Now: draw a galaxy as its stars: two logarithmic arms of scattered points round a dense warm core (round
-  ellipticals as a Gaussian ball), each point a circle at the galaxy's place with `shift`, so all ride one
-  pair of values; the unresolved light as five nested faint level ovals, never one shaded fill. A circle lying
-  on the tipped sheet is a level oval whatever the galaxy's own turn. Still missing: a scene object for a
-  galaxy, so the film need not draw some 300 shapes for each.
-- Where: `galaxyOf` in `films/fourth_dimension_pop/clips/10_more.js`.
-
 ### A galaxy laid on a black hole's well (2026-11-27)
 - Wanted / got: a spinning galaxy on the sheet; got the operator's "what are these crooked settings?": the
   disc a solid record at 9000 particles, its core a lit ball at the bottom of a narrow throat, hanging under
@@ -104,16 +94,6 @@ Once the missing piece exists (a knob, a fix in code, a sentence in `knobs.md`, 
 - Where: `PAIR`, `WAVES` in `films/fourth_dimension_pop/clips/08_ripple.js`.
 
 ## The tools and the machine
-
-### Checking a film with no browser allowed (2026-11-28)
-- Wanted / got: the operator forbade the browser for the task; `space.mjs check` and every preview need the
-  film server's Chrome, so nothing read the script before it went on the operator's screen.
-- Now: run the planner in Node through Vite's SSR loader, from the worktree: `createServer({ root, configFile:
-  false, server: { middlewareMode: true }, appType: 'custom' })`, then `ssrLoadModule('/src/lib/film_script.ts')`
-  for `writeFilm(source)` and `/src/lib/film.ts` for `planFilm(film)`; it reports the same errors and the values
-  moved onto a slider. Import vite by its file URL when the checker sits outside the repository. Still
-  missing: `space.mjs check --node`, which would do this itself.
-- Where: `films/scale/scale.js`.
 
 ### A shader that did not build, with no word of why (2026-11-28)
 - Wanted / got: a preview of a change to the field's step; got "The scene could not start: its shaders did

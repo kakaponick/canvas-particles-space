@@ -201,6 +201,9 @@ export interface FilmCaption {
   // Where a pointing caption's line starts, in radii of what it points at (black hole radii, as orbitSize
   // is); null is its edge
   radius: number | null
+  // How much of it shows, 0 to 1, on top of its fades: a number, or a value read at each second, so words can
+  // come and go with what they name (a body that has shrunk to a dot)
+  opacity: FilmNumber
 }
 
 export interface FilmTrack {
@@ -369,7 +372,7 @@ const GRAPHIC_DASH = [0.012, 0.009] as const
 export const CAPTION_WEIGHT = 500
 const CUE_KEYS = ['at', 'play', 'params', 'title', 'font', 'uppercase']
 const INTRO_FILM_KEYS = ['at', 'preset', 'params', 'title', 'font', 'uppercase', 'hide']
-const CAPTION_KEYS = ['text', 'from', 'to', 'at', 'angle', 'size', 'color', 'font', 'fade', 'accent', 'align', 'anchor', 'width', 'plate', 'weight', 'italic', 'reveal', 'revealOver', 'values', 'radius']
+const CAPTION_KEYS = ['text', 'from', 'to', 'at', 'angle', 'size', 'color', 'font', 'fade', 'accent', 'align', 'anchor', 'width', 'plate', 'weight', 'italic', 'reveal', 'revealOver', 'values', 'radius', 'opacity']
 // The switches a film can flip along its tracks; it has no cursor for the black hole to follow
 export const TRACK_SWITCHES = SETTING_KEYS.filter(key => key in TOGGLES && key !== 'blackHoleFollowing')
 
@@ -626,7 +629,9 @@ export function readCaptions (source: unknown, duration: number, notes: string[]
     let at: FilmCaption['at'] = 'bottom'
     if (Array.isArray(entry.at)) {
       if (entry.at.length !== 2) fail(`${where}.at takes [x, y] as shares of the frame, e.g. [0.5, 0.8]`)
-      at = [clamp(asNumber(`${where}.at[0]`, entry.at[0]), 0, 1), clamp(asNumber(`${where}.at[1]`, entry.at[1]), 0, 1)]
+      // Numbers stand still; a value's name moves the words along it, as a shape's place does
+      if (entry.at.every(share => typeof share === 'number')) at = [clamp(asNumber(`${where}.at[0]`, entry.at[0]), 0, 1), clamp(asNumber(`${where}.at[1]`, entry.at[1]), 0, 1)]
+      else at = readPlace(`${where}.at`, entry.at, values)
     } else if (isObject(entry.at)) {
       // A point of the scene the words are centred on and ride with
       if (scope) fail(`${where}.at takes one of ${scope.places.join(', ')} or [x, y]: this picture has no black hole to ride with`)
@@ -682,7 +687,8 @@ export function readCaptions (source: unknown, duration: number, notes: string[]
       // Left out, the words take the first half of the caption's life to arrive, two seconds at most
       revealOver: clamp(entry.revealOver === undefined ? Math.min(2, (to - from) / 2) : asNumber(`${where}.revealOver`, entry.revealOver), 0.05, to - from),
       values,
-      radius: entry.radius === undefined ? null : clamp(asNumber(`${where}.radius`, entry.radius), 0, 40)
+      radius: entry.radius === undefined ? null : clamp(asNumber(`${where}.radius`, entry.radius), 0, 40),
+      opacity: entry.opacity === undefined ? 1 : readNumber(`${where}.opacity`, entry.opacity, values)
     }]
   }, []))
 }
@@ -859,6 +865,34 @@ const FILM_LOOK = ['lensFringe', 'vignette', 'filmGrain', 'letterbox'] as const
 // The settings that turn a zoomed-in camera, which do nothing at a zoom of 1
 const CAMERA_PAN = ['cameraX', 'cameraY', 'cameraPair'] as const
 
+// A track that leaps between two keys a moment apart while the keys round them barely move: a value that
+// falls back carried on the track (a sawtooth from drive, which bakes 60 keys a second). Every frame drawn
+// between those two keys, which the live page draws at any time, shows the value on its way back, a pulse the
+// eye reads as a fake. A hold key is a step meant and is left alone
+const JUMP_SPAN = 0.05
+function noteJumps (tracks: FilmTrack[], notes: string[]) {
+  for (const track of tracks) {
+    if (track.toggle || track.color || track.values.length < 4) continue
+    const { times, values, eases } = track
+    const range = Math.max(...values) - Math.min(...values)
+    if (!(range > 0)) continue
+    const jumps: number[] = []
+    for (let k = 1; k < values.length; k++) {
+      const step = Math.abs(values[k] - values[k - 1])
+      if (eases[k] === 'hold' || times[k] - times[k - 1] > JUMP_SPAN || step < 0.25 * range) continue
+      const before = k > 1 ? Math.abs(values[k - 1] - values[k - 2]) : 0
+      const after = k < values.length - 1 ? Math.abs(values[k + 1] - values[k]) : 0
+      if (before < 0.1 * step && after < 0.1 * step) jumps.push(k)
+    }
+    if (jumps.length === 0) continue
+    const k = jumps[0]
+    const more = jumps.length > 1 ? `, and ${jumps.length - 1} more time${jumps.length > 2 ? 's' : ''}` : ''
+    notes.push(`${track.key} leaps from ${+values[k - 1].toFixed(3)} to ${+values[k].toFixed(3)} between ${seconds(times[k - 1])} and ${seconds(times[k])} s${more}: ` +
+      'a frame drawn between those two keys (the live page draws at any time) shows the way between them; a value that falls back is ' +
+      'one that only rises folded by the scene (gridSkyZoom), a step meant is a hold key, and a change while nothing shows it glides')
+  }
+}
+
 // Checks a film and turns it into the plan the renderer plays. Everything it cannot read is told in one
 // error, each thing with its reason, so a film is put right in one go
 export function planFilm (source: unknown): FilmPlan {
@@ -986,6 +1020,7 @@ export function planFilm (source: unknown): FilmPlan {
     ...attempt(() => readTracks(source.tracks, duration, notes, attempt), []),
     ...attempt(() => readLayers(source.layers, duration, attempt), [])
   ]
+  noteJumps(tracks, notes)
   const captions = attempt(() => readCaptions(source.captions, duration, notes, attempt), [])
   const graphics = attempt(() => readGraphics(source.graphics, duration, notes, attempt), [])
 
@@ -1336,7 +1371,10 @@ comes to this same object: see "A film as a script" below. Names and ranges are 
                              color and accent '#rrggbb', fade; font: ${CAPTION_FONTS.join(' | ')}
                              (noto is a plain text face, for sentences and formulas). A line too long is
                              broken at its spaces; Cyrillic in a display face without it goes to unbounded.
-                             "at": { "hole": [3, 0] } centres the words on a point of the scene, with no line
+                             "at": { "hole": [3, 0] } centres the words on a point of the scene, with no line.
+                             A place's numbers may be names of its "values", as a shape's are, so a label
+                             moves with what it names: "at": ["x", 0.4]; "opacity", 0-1 or a value's name,
+                             dims it on top of its fades (words that leave as their body shrinks to a dot)
   "graphics": [{ "kind": "circle", "center": { "hole": [0, 0] }, "radius": "lensingRadius", "from": 2, "to": 9 }]
                              shapes over the picture and under the captions, in the order written.
                              kind: ${GRAPHIC_KINDS.join(' | ')}.

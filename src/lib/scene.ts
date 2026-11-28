@@ -1773,7 +1773,7 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       stepFlow(
         flow, frame.updateScene ? dt : 0, flowUnit > 0 ? state[keys.brightness] : 0, state[keys.count], state[keys.from], state[keys.to],
         state[keys.spread], swirl, life, state[keys.trail], state[keys.size], state[keys.thick],
-        fall, falloff, state[keys.flare], state[keys.bell]
+        fall, falloff, state[keys.flare], state[keys.bell], state[keys.arms], state[keys.armWidth]
       )
       shareFlow(
         flow, state.flowLiftPower, state.flowPhaseSpread, state.flowLiftRenew, state.flowFadeIn, state.flowFadeOut,
@@ -2366,12 +2366,15 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     // The space grid: the flat one is read through the lens in the composite pass, the sheet is laid
     // over the frame with its well under the black hole
     const gridCell = state.gridCell / 100 * shortSide
+    // Grid Zoom shrinks the lensed grid by powers of ten; with the decades only its part after the point,
+    // which they draw seamlessly, so the cell never grows back on a track's way between two keys
+    const gridZoom = state.gridSkyDecades > 0 ? state.gridSkyZoom - Math.floor(state.gridSkyZoom) : state.gridSkyZoom
     composite.skyGrid = state.gridSky
     composite.gridPull = state.gridSkyPull
     composite.gridHaze = state.gridSkyHaze
     composite.gridHazeSpan = state.gridSkyHazeSpan
     readSceneColor(composite.gridColor, state.gridColor)
-    composite.gridCell = gridCell
+    composite.gridCell = gridCell * Math.pow(10, -gridZoom)
     composite.skyGridLine = state.gridSkyLine
     composite.gridSphere = state.gridSkySphere
     composite.gridSlant = state.gridSkySlant

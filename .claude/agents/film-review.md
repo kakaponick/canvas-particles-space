@@ -66,6 +66,14 @@ measure (words over the scene's own bright matter, a label too far from what it 
    left, or arrives before it. Minor, major when it hides the subject.
 8. **Composition.** The subject cut off by the frame's edge, crowded into a corner, or covered; an empty frame
    where the line is about something. Minor.
+9. **A fake.** Anything the eye catches as drawn rather than happening: a grid, ruler, counter or body that
+   steps back or pulses for a frame (a value that jumps carried on a track), a thing that pops in at full
+   size, a background that stands still while everything at its distance moves, a body drawn as a shaded
+   disc where its photograph exists. Major.
+10. **The film does not build.** Read the idea at the head of the script (the image, the question, the
+    turn, the climax, the ending) and the sheets in order: every stop in one rhythm (the same shot length,
+    name and sentence each time), a climax given no more time or space than a minor stop, no turn, an
+    ending that only stops. Major for a film, minor for a clip of a reel that carries it elsewhere.
 
 ## What you return
 

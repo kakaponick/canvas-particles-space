@@ -50,7 +50,7 @@ const FLOW_SEED = 0x5f10e5
 // many particles it holds, and so on
 const FLOW_PARTS = [
   '', 'Count', 'From', 'To', 'Spread', 'Swirl', 'Life', 'Trail', 'Size', 'Pair', 'Tilt', 'Node', 'Thick',
-  'Fall', 'Falloff', 'Face', 'Flare', 'Bell'
+  'Fall', 'Falloff', 'Face', 'Flare', 'Bell', 'Arms', 'ArmWidth'
 ] as const
 type FlowPart = typeof FLOW_PARTS[number]
 export type FlowSliderKey = `flow${FlowSlot}${FlowPart}`
@@ -71,7 +71,7 @@ export type FlowState = Record<FlowSliderKey, number> & Record<FlowColorKey, str
 // path: r^1.5 falling evenly, turning at Kepler's r^-1.5
 const FLOW_DEFAULTS: Record<FlowPart, number> = {
   '': 0, Count: 6000, From: 12, To: 1, Spread: 4, Swirl: 0.3, Life: 6, Trail: 0.4, Size: 1.5, Pair: -1, Tilt: 0, Node: 0, Thick: 0.06,
-  Fall: 1.5, Falloff: 1.5, Face: 0, Flare: 1, Bell: 0
+  Fall: 1.5, Falloff: 1.5, Face: 0, Flare: 1, Bell: 0, Arms: 0, ArmWidth: 0.35
 }
 // The shared settings: in the main hole's equator round a pair too; a height share drawn evenly from 0 to the
 // whole, a phase all the way round, both anew each life; 6% of a life to appear and to leave; 40% to 100% of
@@ -105,6 +105,8 @@ export interface FlowKeys {
   face: FlowSliderKey
   flare: FlowSliderKey
   bell: FlowSliderKey
+  arms: FlowSliderKey
+  armWidth: FlowSliderKey
   color: FlowColorKey
 }
 
@@ -128,6 +130,8 @@ export const FLOW_KEYS: readonly FlowKeys[] = FLOW_SLOTS.map(slot => ({
   face: `flow${slot}Face`,
   flare: `flow${slot}Flare`,
   bell: `flow${slot}Bell`,
+  arms: `flow${slot}Arms`,
+  armWidth: `flow${slot}ArmWidth`,
   color: `flow${slot}Color`
 }))
 
@@ -197,6 +201,10 @@ export interface FlowSettings {
   // The share of it the traced disc draws (0 = none): its light goes to the disc's map at full brightness and
   // that share of it is read along the paths of light, the rest is drawn as strokes as before
   traced: number
+  // Spiral arms: how many a particle is born on (0 = anywhere round the band), and the share of the gap
+  // between two arms the births spread over (1 = evenly round, no arms)
+  arms: number
+  armWidth: number
 }
 
 export function createFlowSettings (): FlowSettings {
@@ -204,7 +212,7 @@ export function createFlowSettings (): FlowSettings {
     brightness: 0, count: 0, from: 1, to: 1, spread: 0, wound: 0, law: new Float32Array([2 / 3, 1.5, 0, 1]), phase: 0, lives: 0, piece: 0, size: 1,
     shape: new Float32Array([0, 1, 0, 1]), draw: new Float32Array([1, 1, 0.06, 0.06]), style: new Float32Array([0.4, 2, 0.5, 0.2]),
     turn: new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]), plane: new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0]),
-    color: createSceneColor(), x: 0, y: 0, unit: 1, depth: 1, traced: 0
+    color: createSceneColor(), x: 0, y: 0, unit: 1, depth: 1, traced: 0, arms: 0, armWidth: 1
   }
 }
 
@@ -215,7 +223,8 @@ export function createFlowSettings (): FlowSettings {
  */
 export function stepFlow (
   flow: FlowSettings, dt: number, brightness: number, count: number, from: number, to: number, spread: number,
-  swirl: number, life: number, trail: number, size: number, thick: number, fall: number, falloff: number, flare: number, bell: number
+  swirl: number, life: number, trail: number, size: number, thick: number, fall: number, falloff: number, flare: number, bell: number,
+  arms: number, armWidth: number
 ) {
   flow.brightness = brightness
   flow.count = Math.min(Math.max(Math.floor(count), 0), FLOW_CAPACITY)
@@ -239,6 +248,8 @@ export function stepFlow (
   shape[1] = flare
   shape[2] = Math.min(Math.max(bell, 0), 1)
   flow.piece = trail / seconds / FLOW_SEGMENTS
+  flow.arms = Math.max(Math.round(arms), 0)
+  flow.armWidth = Math.min(Math.max(armWidth, 0), 1)
   flow.size = size
   const turn = flow.phase + dt / seconds
   const whole = Math.floor(turn)

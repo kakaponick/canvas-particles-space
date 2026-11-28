@@ -6,7 +6,7 @@ tracer, gate, said and grown, vectors and radii are SKILL.md's.
 
 ## Contents
 
-1. Start from the picture
+1. Start from the idea
 2. How a film starts
 3. Keyframes
 4. The camera
@@ -24,11 +24,30 @@ tracer, gate, said and grown, vectors and radii are SKILL.md's.
 16. The particle field: a look for every shot
 17. The poster: a YouTube thumbnail planned with the film
 
-## 1. Start from the picture
+## 1. Start from the idea
 
-Write down, second by second, what the viewer should see. Then give each moment the one or two knobs that
-make it, from knobs.md. A film built on a single ability of the scene, taken to its end, is the one people
-watch twice; give each moment one thing that moves.
+Before a knob, write the film's idea in five lines at the head of its file: the one image the viewer
+keeps; the question the film opens; the turn, where what the viewer expects breaks; the climax; the
+ending. Then give each shot its job: what the viewer learns or feels there, its one subject, and how its
+pace differs from the shots beside it. Only then write down, second by second, what the viewer should see,
+and give each moment the one or two knobs that make it, from knobs.md. A film built on a single ability of
+the scene, taken to its end, is the one people watch twice; give each moment one thing that moves.
+
+The devices this scene has, each a law it keeps rather than a trick laid over it:
+
+- **Contrast.** Size against size in one frame (the Sun a dot in the middle of Sgr A*'s shadow), slow
+  against fast, a lit thing against the dark. A comparison stands in one frame and round one point, never
+  in two shots the viewer has to hold in mind.
+- **Things the viewer already knows.** A city, the Earth, the Moon's orbit, a spacecraft: a number becomes a
+  size only beside one of them. A body that is not a black hole is its photograph (section 14).
+- **A reveal by motion.** The camera, the zoom or the light uncovers the subject; nothing pops in. A thing
+  that comes into a pull back enters from outside the frame or grows from where it is, as its law says.
+- **Rhythm.** Neighbouring shots differ in length and in how much moves; the zoom or the camera slows at
+  every subject (a monotone curve through stops, `films/scale/scale.js`), and the climax is set up by its
+  quietest moment just before it. A film whose every stop reads "name top right, sentence at the bottom"
+  is a slideshow: give the climax a shot of its own, longer, with fewer words.
+- **One ruler.** Whatever measures (a grid, a counter, a scale bar) is the scene's own and moves with the
+  scene, so the viewer reads the scale without being told it.
 
 The particles, the vectors, are in every one of those pictures: each shot says what they do, and a shot
 with a sheet lays them on it (section 16).
@@ -242,6 +261,34 @@ since its light is its speed. One flow falling in and winding instead (`flowA` 1
 and up a disc that pulls the eye. A ring flow (From equal to To) beside it draws a solid tube.
 `films/fourth_dimension_pop/clips/12_known.js`.
 
+### A pull back over orders of magnitude
+
+`films/scale/scale.js` is the film to copy. Everything that changes size reads one number, L(t), the log of
+the frame's height in metres, a monotone cubic through the stops (it slows at each subject and never turns
+back); a thing of R metres is R / 10^L of the short side, so the hole, the circles, the pictures and the
+flows cannot drift apart.
+
+- The hole is `blackHoleSize` = 100 R / 10^L while that lies between 0.1 and 60, and 0 outside: gone below
+  a speck, since nothing can be drawn smaller, and grown from where it is, never popped in at 60. Leave it
+  before its shadow is 2% of the frame, or a dot sits in the middle of the next subject.
+- Bodies stand concentric at the frame's middle, where the hole and the grid's lines are; the ruler is the
+  lensed grid's decades and zoom (knobs.md, the lensed grid), and a counter of the power of ten is one
+  caption per power, from the second it begins to the second it ends: a number or a bar drawn from a
+  function that jumps is drawn between two keys too.
+- Nothing jumps on a track. A value that must fall back (a cell, a ruler's length, a power) is either
+  folded by the scene from a value that only rises (`gridSkyZoom`) or cut into pieces, one per stretch.
+- A label rides the edge of what it names (`at: ['x', 'y']` with values) and leaves with it (`opacity`);
+  where the words must stand past another circle, a thin lead goes back to its point.
+- A disc in the hole's radii grows with the hole and covers the frame and the comparisons round it: give
+  one only to a hole that has one (Cygnus X-1, fed by its star), small, and drawn as light sees it
+  (`flowTrace`).
+- With no hole the flows are measured in `gridLatticeUnit`: flow radii driven as R / 10^L / unit zoom a
+  flow with the rest, at Turn Falloff 0 (knobs.md, flows).
+- The background stars are at infinity, right while the frame is the Solar System's; among the stars
+  themselves they must close in with the zoom, so fade them and set the real neighbours as dots by their
+  distance and galactic longitude, with longitude 0 pointing where the Galaxy's centre will come in.
+- Shapes lie over `fade`: end every circle before the closing card, or it stays on the black.
+
 The opening in slow motion: `lightCrossTime` at its top, `matterSpeed` low, and every later moment
 (`remnantAt`, `horizonAt`, `dissolveAt`, `releaseAt`, `introEnd`) moved out to match, so the light takes
 seconds to cross the frame.
@@ -250,9 +297,10 @@ seconds to cross the frame.
 
 Every film in `films/`, one line each: what it shows, and the particle looks of section 16 it uses. Each lives
 in its own folder, `films/<film>/`, with its `meta.json` (`node scripts/films.mjs list` shows them all, with
-the models that made them). Copy the nearest one and change it; they all pass the check.
+the models that made them). They all pass the check.
 
-One ability each:
+One ability each (take from the nearest one the settings of its law; the film's shape comes from your
+idea, section 1, never from its skeleton):
 
 - `exposure.json`: a long exposure, the hole moved along a path drawing with its own pull (section 9).
 - `rosette.json`: orbiting stars added one by one, their precessing ellipses laying a rosette (section 9).
@@ -263,6 +311,10 @@ One ability each:
 - `waltz.json`: two holes closing on the sheet, their wave on it; the field a whirlpool round them (an infall leaned by a strong swirl).
 - `frame_drag.js`: frame dragging in the field: an infall that leans into a spiral as the hole spins up,
   then the mirrored spiral as the axis turns (straight infall, carried round a spinning hole).
+- `scale/scale.js`: a pull back over 61 powers of ten on one curve, the log of the frame: a black hole at
+  every scale it can have, bodies as photographs, labels that ride what they name, the lensed grid's decades
+  and zoom as the ruler, the Sun's real neighbours, a spiral galaxy of two flows (section 9, "A pull back
+  over orders of magnitude").
 - `flows.json`: matter told where to go: a ring from its first frame, a fall that a swirl winds, a camera
   that rises over the plane, an outflow, with the field off (the three flows).
 
@@ -494,11 +546,19 @@ kind.
   from it. A plot's `marker` and a caption's `#{...}` given the same value move together, which is what
   ties a chart to the picture.
 - A label for a shape is a caption with the same kind of place: `at: { hole: [dx, dy] }` centres the
-  words on that point of the scene, with no pointer line.
+  words on that point of the scene, with no pointer line. A label for something that moves or shrinks
+  rides it: its place's numbers are names of its `values` (`at: ['x', 'y']`, worked out from the same
+  function the shape reads), and `opacity` takes it away with its body. A label at a fixed place over
+  circles that shrink under it is crossed by every one of them in turn.
 - `draw` (seconds) makes a stroke draw itself, as `reveal` does for words. Use it when the shape arrives
   with the sentence that names it.
 - A plot wants few points where the curve is flat and many where it bends; a script writes them in a
   loop. Its labels take a caption's marks (`r / r_{s}`); a live number goes in a caption beside it.
+- Pictures the films already have, each cut out on a clear ground: `films/fourth_dimension/earth.png`, the
+  Earth from Apollo 17 (NASA), its disc 0.78 of the half side; `films/scale/sun.png`, the Sun in white
+  light from SDO (NASA, 28.11.2026), its disc the whole picture; `films/infographic_style/observatory.png`, a
+  generated observatory; `films/graphics/ring.png`, a framed picture of the photon ring. Look here before
+  drawing a body as a shaded circle, which reads as a sticker.
 - An image is read before the first frame. Through the film server its `src` may be a path, from the
   folder the server runs in (the repository); in the page it is a URL or a data URL. It is a raster file:
   png, jpeg, webp, gif or avif. Say in a caption what a picture is when it is not the scene's own: a

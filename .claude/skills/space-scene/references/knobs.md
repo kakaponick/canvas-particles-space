@@ -199,8 +199,9 @@ same path behind it (`flowATrail`), lit by the flow's brightness rather than by 
 | The path's law: the power of the radius that runs evenly, the power the turn falls with | `flowAFall`, `flowAFalloff` |
 | How far its plane turns from the equator to face the camera | `flowAFace` |
 | The disc's shape: how its height grows with the radius, how far its heights are a bell | `flowAFlare`, `flowABell` |
-| The second flow, the same | `flowB`, `flowBCount`, `flowBFrom`, `flowBTo`, `flowBSpread`, `flowBSwirl`, `flowBLife`, `flowBTrail`, `flowBSize`, `flowBPair`, `flowBTilt`, `flowBNode`, `flowBThick`, `flowBFall`, `flowBFalloff`, `flowBFace`, `flowBFlare`, `flowBBell`, `flowBColor` |
-| The third | `flowC`, `flowCCount`, `flowCFrom`, `flowCTo`, `flowCSpread`, `flowCSwirl`, `flowCLife`, `flowCTrail`, `flowCSize`, `flowCPair`, `flowCTilt`, `flowCNode`, `flowCThick`, `flowCFall`, `flowCFalloff`, `flowCFace`, `flowCFlare`, `flowCBell`, `flowCColor` |
+| Spiral arms its matter is born on, and each arm's share of the gap to the next | `flowAArms`, `flowAArmWidth` |
+| The second flow, the same | `flowB`, `flowBCount`, `flowBFrom`, `flowBTo`, `flowBSpread`, `flowBSwirl`, `flowBLife`, `flowBTrail`, `flowBSize`, `flowBPair`, `flowBTilt`, `flowBNode`, `flowBThick`, `flowBFall`, `flowBFalloff`, `flowBFace`, `flowBFlare`, `flowBBell`, `flowBArms`, `flowBArmWidth`, `flowBColor` |
+| The third | `flowC`, `flowCCount`, `flowCFrom`, `flowCTo`, `flowCSpread`, `flowCSwirl`, `flowCLife`, `flowCTrail`, `flowCSize`, `flowCPair`, `flowCTilt`, `flowCNode`, `flowCThick`, `flowCFall`, `flowCFalloff`, `flowCFace`, `flowCFlare`, `flowCBell`, `flowCArms`, `flowCArmWidth`, `flowCColor` |
 | Shared by all three: round a pair, how far a flow lies in the pair's orbit | `flowPairPlane` |
 | Shared: how a particle draws its share of the height and its orbit's phase, and whether anew each life | `flowLiftPower`, `flowPhaseSpread`, `flowLiftRenew` |
 | Shared: the shares of a life to appear and to leave, the dimmest particle, the trail's dimming | `flowFadeIn`, `flowFadeOut`, `flowDimmest`, `flowTrailFade` |
@@ -226,6 +227,18 @@ same path behind it (`flowATrail`), lit by the flow's brightness rather than by 
 - `flowASwirl` is the turn rate at one radius whatever `flowAFalloff` says, so a falloff below Kepler's
   speeds up a flow that lies far out: lower `flowASwirl` with it. A falloff of 0 turns the flow as a
   wheel, and a spiral's arms stop winding up. A ring has no fall, so `flowAFall` leaves it alone.
+- `flowAArms` above 0 bears the matter on that many arms, each `flowAArmWidth` of the gap to the next; the
+  fall and the turn carry every particle born on an arm along one streamline, so an arm is the spiral the
+  flow's own path winds, as far round as a particle turns in its life. A spiral galaxy: a wide fall with 2
+  arms of width 0.12, Swirl about 0.04 over a Life of 24 (one turn of winding), Falloff 0, Spread a sixth
+  of the disc, and a ring without arms for the bulge (`films/scale/scale.js`, the Milky Way).
+- `flowAFrom`, `flowATo` and `flowASpread` on a track scale the flow about its hole, a zoom of it, only at
+  `flowAFalloff` 0: above it the turn a particle has made is worked out from the first radius, so a radius
+  that changes turns every particle round at once. With no hole (`blackHoleSize` 0) the radii are in
+  `gridLatticeUnit`, so a flow can stand for anything the zoom carries: an atom's cloud, a galaxy.
+- An outflow with `flowAFall` below 1 races through its outer part, its pace growing with distance as
+  Hubble's law has it: receding galaxies. The field's flight streaks toward the camera instead and reads
+  as a ship at warp speed, not as space growing.
 - `flowALife` changes how fast the particles go and never where they are; a long life on a ring is a
   steady ring, a short one twinkles. `flowACount` adds and takes particles at once, wherever they are in
   their lives. Every number of a flow moves along a track.
@@ -1038,9 +1051,10 @@ Gate: `gridSky` above 0, with the lens on to see it bent; `gridSkyPull` above 0 
 | What | Keys |
 |---|---|
 | A flat grid on the sky read through the lens (0 is off), how far it is drawn in towards the hole (0 is flat), and the width of its lines | `gridSky`, `gridSkyPull`, `gridSkyLine` |
+| The size of its cell, shared with the sheet, as a share of the short side | `gridCell` |
 | Where the pulled cells turn to haze, and over what share | `gridSkyHaze`, `gridSkyHazeSpan` |
 | The lensed grid on the sky's box or on its sphere, and the power of the slant its lines keep their width by | `gridSkySphere`, `gridSkySlant` |
-| The grid at every power of ten of its cell: logarithmic paper | `gridSkyDecades` |
+| The grid at every power of ten of its cell, logarithmic paper, and how many powers of ten it has shrunk by | `gridSkyDecades`, `gridSkyZoom` |
 
 - The lensed grid is a measuring tool: it shows the Einstein ring, the mirrored image, the twist and the
   waves. Lower `baseBrightness` when it should be read clearly.
@@ -1060,11 +1074,14 @@ Gate: `gridSky` above 0, with the lens on to see it bent; `gridSkyPull` above 0 
   sphere.
 - `gridSkyDecades` 1 draws the box's grid at a tenth, one, ten and a hundred cells at once, each level lit
   and widened by its own cells' size on the screen: gone below 0.6% of the short side, whole from 6%, twice as
-  wide at 60%. A pull back over many powers of ten is `gridCell` falling from 40 to 4 and set back to 40
-  each time the frame grows tenfold: 100 times ten to the power n minus L, L the log of the frame's
-  height in metres and n the whole number below L - 0.4. The jump draws the same picture, the finest level gone, so the grid is a ruler a
-  viewer reads as "one cell is 10^n" (`films/scale/scale.js`). Its lines cross at `skyCenter`'s point, the
-  frame's middle at 0, so bodies compared against it stand there.
+  wide at 60%. With it, `gridSkyZoom` shrinks the grid for ever: give `gridCell` 40, the top of a decade, and
+  `gridSkyZoom` the log of the frame's height in metres plus a constant, a number that only rises; the scene
+  folds its part after the point into the decade and draws the same picture at every whole number, so the
+  grid is a ruler a viewer reads as "one cell is 10^n" (`films/scale/scale.js`: the log of the frame plus
+  log10 0.4 plus 40). Never drive `gridCell` itself from 40 down to 4 and back: a track carries the jump,
+  and every frame drawn between the two keys around it (the live page draws at any time) shows the cell
+  growing back, a pulse a viewer reads as a fake. Its lines cross at `skyCenter`'s point, the frame's middle
+  at 0, so bodies compared against it stand there.
 
 ### The lattice
 

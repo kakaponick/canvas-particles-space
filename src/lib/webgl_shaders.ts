@@ -2756,6 +2756,7 @@ export const flowVertexShaderSource = MODERN_VERTEX + `
   uniform vec4 u_draw;          // the share of a full turn an orbit's phase is drawn over, 1 to draw anew each life (0 keeps the draws), the shares of a life to appear and to leave
   uniform vec4 u_style;         // the dimmest a particle is among its flow's, the power its trail dims by, the shares of the hole's distance a 3D stroke starts to fade at and is gone at
   uniform vec4 u_path;          // the radii matter appears and leaves at, each to the fall's power; the band's width as a share of the first; radians turned at the first radius in a life
+  uniform vec2 u_arms;          // spiral arms: how many a particle is born on (0 = anywhere), the share of the gap between two the births spread over
   uniform vec3 u_age;           // the flow's clock in lives: the share of the life now running, the whole lives before; the share of a life one piece of trail spans
   uniform vec4 u_light;         // colour, brightness
   uniform vec2 u_flowFrom;      // 3D: the black hole's place from the vanishing point, device pixels
@@ -2825,6 +2826,14 @@ ${RIDE_GLSL}${SIDE_GLSL}
     float age = turns - life;
     float lives = u_age.y + life;
     float turn = 2.0 * PI * fract(a_flowSeed.y + lives * 0.6180340);
+    if (u_arms.x > 0.5) {
+      // Born on one of the arms, spread over its share of the gap to the next; the fall and the turn then
+      // carry every particle born there along one streamline, so each arm is drawn as the spiral the flow's
+      // own path winds. The arms stand still while the matter runs along them
+      float arm = floor(fract(a_flowSeed.y * 7.0 + lives * 0.3819660) * u_arms.x);
+      float across = fract(a_flowSeed.y + lives * 0.6180340) - 0.5;
+      turn = 2.0 * PI * (arm + across * u_arms.y) / u_arms.x;
+    }
     float band = max(1.0 + (fract(a_flowSeed.z + lives * 0.7548777) - 0.5) * u_path.z, 0.05);
     // Its share of the disc's height and its orbit's phase, drawn from its own numbers anew every life, or
     // once for good: the share evenly from 0 to the whole, bent by the draw's power and blended toward a

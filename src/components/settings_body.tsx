@@ -511,6 +511,8 @@ function SettingsBody () {
               <SettingSlider field={keys.thick} />
               <SettingSlider field={keys.flare} />
               <SettingSlider field={keys.bell} />
+              <SettingSlider field={keys.arms} />
+              <SettingSlider field={keys.armWidth} />
             </div>
           ))}
           {/* What every flow shares: the plane round a pair, the draws of a disc's heights, the fades, brightness and trail, the 3D near fade, the seed and the ring; then how the traced disc hides and shifts */}
@@ -647,6 +649,7 @@ function SettingsBody () {
             <SettingSlider field="gridSkySphere" />
             <SettingSlider field="gridSkySlant" />
             <SettingSlider field="gridSkyDecades" />
+            <SettingSlider field="gridSkyZoom" />
           </div>
           <div className="mt-3 flex flex-col gap-1">
             <SettingSlider field="gridHorizonPace" />
