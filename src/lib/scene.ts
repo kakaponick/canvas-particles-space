@@ -566,6 +566,13 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       starSkyEven: 1,
       starFlare: 0,
       nebula: 0,
+      web: 0,
+      webCell: 1,
+      webWidth: 0.06,
+      webGalaxies: 24,
+      webSize: 0.12,
+      webHole: 0,
+      webColor: createSceneColor(),
       nebulaColor: createSceneColor(),
       nebulaColorDeep: createSceneColor(),
       nebulaColorCore: createSceneColor(),
@@ -1773,7 +1780,7 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       stepFlow(
         flow, frame.updateScene ? dt : 0, flowUnit > 0 ? state[keys.brightness] : 0, state[keys.count], state[keys.from], state[keys.to],
         state[keys.spread], swirl, life, state[keys.trail], state[keys.size], state[keys.thick],
-        fall, falloff, state[keys.flare], state[keys.bell], state[keys.arms], state[keys.armWidth]
+        fall, falloff, state[keys.flare], state[keys.bell], state[keys.arms], state[keys.armWidth], state.flowArmTurn
       )
       shareFlow(
         flow, state.flowLiftPower, state.flowPhaseSpread, state.flowLiftRenew, state.flowFadeIn, state.flowFadeOut,
@@ -2278,6 +2285,14 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     composite.starFlare = params.starFlare
     // The nebula is part of the sky: it shows as the opening lets the stars show
     composite.nebula = intro.backgroundStars * state.nebula
+    // The cosmic web is part of the sky too
+    composite.web = intro.backgroundStars * state.cosmicWeb
+    composite.webCell = state.cosmicWebCell / 100 * shortSide
+    composite.webWidth = state.cosmicWebWidth
+    composite.webGalaxies = state.cosmicWebGalaxies
+    composite.webSize = state.cosmicWebSize
+    composite.webHole = state.cosmicWebHole / 100 * shortSide
+    readSceneColor(composite.webColor, state.cosmicWebColor)
     readSceneColor(composite.nebulaColor, state.nebulaColor)
     readSceneColor(composite.nebulaColorDeep, state.nebulaColorDeep)
     readSceneColor(composite.nebulaColorCore, state.nebulaColorCore)

@@ -693,6 +693,10 @@ export const compositeFragmentShaderSource = `
   uniform sampler2D u_frontImage;  // 3D: the particles nearer the camera than the black holes, a scene texture of their own
   uniform sampler2D u_frontLines;  // and the traces, the lattice and the flows nearer than them
   uniform vec4 u_front;            // 1 while something can stand in front of the holes (0 leaves both layers unread), 1 while the second holds lines; Front Add, the share of the light in front added to what is there instead of the brighter of the two; Front Waves, the share of the waves' and the matter front's slide the light in front takes
+  uniform float u_web;             // the cosmic web's brightness; 0 turns it off
+  uniform float u_webHole;         // the radius round the sky's centre the web fades inside, CSS pixels (0: none)
+  uniform vec4 u_webShape;         // a void's width in CSS pixels, the filaments' half width as a share of it, galaxy places across a void, a galaxy's width as a share of the gap between places
+  uniform vec3 u_webColor;
   uniform float u_skyGrid;        // brightness of the flat grid on the sky behind the hole; 0 turns it off
   uniform float u_gridCell;        // CSS pixels per cell of that grid
   uniform vec2 u_gridDecades;      // how far it is drawn at every power of ten of its cell (0 the one grid), and the frame's short side in CSS pixels
@@ -861,6 +865,80 @@ ${DENT_GLSL}
       line = mix(line, min(4.0 * u_skyGridLine * u_pixelRatio / cellPx, 1.0), smoothstep(u_gridHaze.x, u_gridHaze.y, cellPx));
     }
     return line;
+  }
+
+  // A Voronoi foam at a place of it, in its cells: how near the place is to a wall between two cells and to a
+  // corner where three meet, each as a bell of the half width w (the corner half again as wide). The wall is
+  // where the nearest two seeds are as near, the corner where the nearest three are
+  vec2 webFoam (vec2 p, float w) {
+    vec2 home = floor(p);
+    vec2 inCell = p - home;
+    float d1 = 8.0;
+    float d2 = 8.0;
+    float d3 = 8.0;
+    for (int y = -1; y <= 1; y++) {
+      for (int x = -1; x <= 1; x++) {
+        vec2 cell = home + vec2(float(x), float(y));
+        vec2 seed = vec2(float(x), float(y)) + 0.05 + 0.9 * vec2(hash12(cell + 11.3), hash12(cell + 47.9)) - inCell;
+        float d = length(seed);
+        if (d < d1) { d3 = d2; d2 = d1; d1 = d; } else if (d < d2) { d3 = d2; d2 = d; } else if (d < d3) { d3 = d; }
+      }
+    }
+    float wall = (d2 - d1) / w;
+    float node = (d3 - d1) / (1.5 * w);
+    return vec2(exp(-wall * wall), exp(-node * node));
+  }
+
+  // The cosmic web's density at a place of it, in voids: galaxies on the walls between voids (filaments, in a
+  // slice) and thickest where three meet (clusters), a few in the voids; and a foam three times larger over it,
+  // the superclusters, so some filaments are rich and others nearly bare, as the surveys show
+  float webDensity (vec2 p) {
+    vec2 fine = webFoam(p, u_webShape.y);
+    vec2 coarse = webFoam(p / 3.1 + vec2(13.7, 5.3), 0.22);
+    return (0.6 * fine.x + 2.0 * fine.y + 0.03) * (0.35 + 0.65 * coarse.x + 0.9 * coarse.y);
+  }
+
+  // The cosmic web's light at a point of the picture, CSS pixels from the sky's centre. Its galaxies stand at the
+  // places of two grids of it, the bright ones Galaxies across a void and four times as many faint ones, each
+  // kept by the density there and as wide as Galaxy Size of the gap between places, in the web's own lengths:
+  // so the web's light per area is the same at every scale, as a real one's is, and a level whose places come
+  // within a few pixels is drawn as that same light spread evenly, then the whole web once a void is
+  const float WEB_GAIN = 8.0;
+  const float WEB_KEPT = 0.42;
+  vec3 cosmicWeb (vec2 fromCentre) {
+    float voidPx = u_webShape.x;
+    vec2 p = fromCentre / voidPx + vec2(37.13, 91.71);
+    float density = webDensity(p);
+    float k = u_webShape.w;
+    // The average a place gives, its light spread over its square: the mean of glow is 0.5
+    float mean = WEB_KEPT * 0.5 * 3.14159 * k * k;
+    float light = 0.0;
+    float across = u_webShape.z;
+    float bright = 1.0;
+    for (int level = 0; level < 2; level++) {
+      float placePx = voidPx / across;
+      float shared = density * mean * bright;
+      float drawn = 0.0;
+      if (placePx > 1.5) {
+        vec2 q = p * across;
+        vec2 place = floor(q);
+        vec2 at = place + 0.2 + 0.6 * vec2(hash12(place + 3.1 + float(level) * 71.0), hash12(place + 8.7 + float(level) * 53.0));
+        float kept = step(hash12(place + 5.3 + float(level) * 29.0), WEB_KEPT * webDensity(at / across));
+        float glow = 0.25 + 0.75 * pow(hash12(place + 19.7 + float(level) * 13.0), 3.0) * 2.0;
+        float r = k * placePx;
+        float rd = max(r, 0.7);
+        float d = length(q - at) * placePx;
+        drawn = kept * glow * bright * (r * r) / (rd * rd) * exp(-d * d / (rd * rd));
+      }
+      light += mix(drawn, shared, smoothstep(4.0, 1.5, placePx));
+      across *= 4.0;
+      bright *= 0.5;
+    }
+    // A void a few pixels across: the even glow of the web's average density
+    light = mix(light, (0.03 + 1.4 * u_webShape.y) * mean * 1.5, smoothstep(10.0, 3.0, voidPx));
+    // Room in the middle for a map laid over it
+    if (u_webHole > 0.0) light *= smoothstep(0.6 * u_webHole, u_webHole, length(fromCentre));
+    return u_webColor * light * WEB_GAIN;
   }
 
   // The value noise of a place in space, for the sky round the 3D camera
@@ -1819,6 +1897,10 @@ ${DENT_GLSL}
       }
       emitted += nebula * u_nebula;
     }
+    if (u_web > 0.0) {
+      // On the screen round the sky's centre, under the grid; nothing at these scales bends it
+      emitted += cosmicWeb(cssPx - u_skyLens.xy) * u_web;
+    }
     if (u_skyGrid > 0.0) {
       // A square grid on the sky, with a line through the sky's centre. It is read where the bent ray comes
       // from, so the lens, the gravitational wave and the matter front bend it like the stars, and it widens
@@ -2756,7 +2838,7 @@ export const flowVertexShaderSource = MODERN_VERTEX + `
   uniform vec4 u_draw;          // the share of a full turn an orbit's phase is drawn over, 1 to draw anew each life (0 keeps the draws), the shares of a life to appear and to leave
   uniform vec4 u_style;         // the dimmest a particle is among its flow's, the power its trail dims by, the shares of the hole's distance a 3D stroke starts to fade at and is gone at
   uniform vec4 u_path;          // the radii matter appears and leaves at, each to the fall's power; the band's width as a share of the first; radians turned at the first radius in a life
-  uniform vec2 u_arms;          // spiral arms: how many a particle is born on (0 = anywhere), the share of the gap between two the births spread over
+  uniform vec3 u_arms;          // spiral arms: how many a particle is born on (0 = anywhere), the share of the gap between two the births spread over, radians the first stands at
   uniform vec3 u_age;           // the flow's clock in lives: the share of the life now running, the whole lives before; the share of a life one piece of trail spans
   uniform vec4 u_light;         // colour, brightness
   uniform vec2 u_flowFrom;      // 3D: the black hole's place from the vanishing point, device pixels
@@ -2832,7 +2914,7 @@ ${RIDE_GLSL}${SIDE_GLSL}
       // own path winds. The arms stand still while the matter runs along them
       float arm = floor(fract(a_flowSeed.y * 7.0 + lives * 0.3819660) * u_arms.x);
       float across = fract(a_flowSeed.y + lives * 0.6180340) - 0.5;
-      turn = 2.0 * PI * (arm + across * u_arms.y) / u_arms.x;
+      turn = 2.0 * PI * (arm + across * u_arms.y) / u_arms.x + u_arms.z;
     }
     float band = max(1.0 + (fract(a_flowSeed.z + lives * 0.7548777) - 0.5) * u_path.z, 0.05);
     // Its share of the disc's height and its orbit's phase, drawn from its own numbers anew every life, or

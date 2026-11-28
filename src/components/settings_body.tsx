@@ -495,6 +495,7 @@ function SettingsBody () {
         <div className="mt-3 flex flex-col gap-1">
           <SettingSlider field="flowTrace" />
           <SettingSlider field="flowGravity" />
+          <SettingSlider field="flowArmTurn" />
         </div>
         <SettingsFine id="flows">
           {/* The band's width, the trail and the stroke of each flow, which hole it turns round, the side its tilt brings up and how far it faces the camera, its path's law, and its thickness and the disc's shape */}
@@ -724,6 +725,19 @@ function SettingsBody () {
             <SettingSlider field="nebulaCurlSize" />
             <SettingSlider field="nebulaGrainSize" />
           </div>
+        </SettingsFine>
+      </SettingsSection>
+
+      <SettingsSection id="web" title="Cosmic Web">
+        {/* How bright and how large the web is, its filaments, its galaxies and their colour */}
+        <SettingSlider field="cosmicWeb" />
+        <SettingSlider field="cosmicWebCell" />
+        <SettingSlider field="cosmicWebWidth" />
+        <SettingColor field="cosmicWebColor" />
+        <SettingsFine id="web">
+          <SettingSlider field="cosmicWebGalaxies" />
+          <SettingSlider field="cosmicWebSize" />
+          <SettingSlider field="cosmicWebHole" />
         </SettingsFine>
       </SettingsSection>
 

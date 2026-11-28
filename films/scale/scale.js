@@ -3,8 +3,14 @@
 // a Planck-mass hole that evaporates, the Earth squeezed into one, Cygnus X-1 with Moscow inside its shadow,
 // Sgr A* with the Sun a dot in its middle, M87* with the whole Solar System and Voyager 1 inside its shadow.
 // Between them the proton, the atom (flow B as the electron's cloud), a virus, a cell, a man, the Earth, the
-// Sun with the Moon's orbit inside it, Proxima, the Milky Way (flows B and C round its centre, the hole taken
-// away so they are measured in Lattice Unit), and the observable universe with the field as receding galaxies.
+// Sun with the Moon's orbit inside it, the Sun's real neighbours, the Milky Way (flows B and C round its centre,
+// the hole taken away so they are measured in Lattice Unit). Beyond it the map turns to the supergalactic
+// plane, where the nearby universe lies flat, and every galaxy is a real one: a map of 47 000 from two
+// catalogues (map_*.png, drawn by galaxy_map.py beside this file) in six levels a power of four apart, with
+// NASA's GALEX photographs of Andromeda and the Triangulum over it. On it the Local Group, the Virgo Cluster
+// with the infall round it (flow A), Laniakea, its motions converging on the Great Attractor (flow C), and
+// past the catalogues' reach the cosmic web (a layer of the scene whose voids merge into an even glow as the
+// frame grows), then the observable universe.
 //
 // Everything is one number: L(t), the base-10 logarithm of the frame's height in metres, a monotone curve
 // through the keys below that slows at every stop. A thing of R metres is R / 10^L of the short side; the
@@ -20,16 +26,17 @@ film({
   settings: {
     fieldEnabled: false, blackHoleSize: 26, followFrequency: 60, cameraFloat: 0, cameraBank: 0,
     gridLatticeUnit: 0.01, gridSky: 0.3, gridCell: 40, gridSkyDecades: 1, gridSkyLine: 1.4, starsBrightness: 0, starDensity: 0.25,
-    // The discs of the holes that have one: in the hole's radii, so they scale with it
-    flowACount: 7000, flowAFrom: 1.9, flowATo: 1.9, flowASpread: 1, flowASwirl: 0.5, flowALife: 10,
-    flowATrail: 0.6, flowASize: 1.3, flowAColor: '#ffcf9a', flowTrace: 1,
+    // Flow A: Cygnus X-1's disc, in the hole's radii, then the infall round the Virgo Cluster
+    flowACount: 7000, flowASwirl: 0.5, flowALife: 10, flowATrail: 0.6, flowASize: 1.3, flowAColor: '#ffcf9a', flowTrace: 1,
     // Flow B: the electron's cloud first, the galaxy's bulge later. Turned as a wheel (Falloff 0), so its
     // radii can follow the zoom without moving a particle round
     flowBCount: 9000, flowBFalloff: 0, flowBSwirl: 1.2, flowBLife: 0.5, flowBTrail: 0.02, flowBSize: 1.2,
     flowBColor: '#9fd0ff',
-    // Flow C: the galaxy's disc, a fall wound into spiral strokes, also a wheel
+    // Flow C: the galaxy's disc, a fall wound into spiral strokes, also a wheel; then Laniakea's motions
     flowCCount: 26000, flowCFall: 1, flowCFalloff: 0, flowCSwirl: 0.04, flowCLife: 24, flowCTrail: 2.5,
-    flowCSize: 1.1, flowCColor: '#c8d4ff', flowCArms: 2, flowCArmWidth: 0.12
+    flowCSize: 1.1, flowCColor: '#c8d4ff', flowCArms: 2, flowCArmWidth: 0.12,
+    // The cosmic web's galaxies and their size; its brightness and its voids are driven below
+    cosmicWebGalaxies: 16, cosmicWebSize: 0.14
   }
 })
 
@@ -50,9 +57,13 @@ const KEYS = [
   [88, 14.0], [95, 14.2], // M87*
   [99, 17.05], [102.5, 17.3], // the Sun's neighbours
   [107, 20.95], [114, 21.15], // the Milky Way
-  [119, 27.05], [134, 27.35] // the observable universe
+  [119.5, 22.7], [126, 22.9], // the Local Group
+  [131.5, 24.15], [138, 24.35], // the Virgo Cluster
+  [142.5, 24.95], [149.5, 25.1], // Laniakea
+  [153.5, 25.45], [160, 25.6], // the cosmic web
+  [167, 27.05], [180, 27.35] // the observable universe
 ]
-const END = 134
+const END = 180
 
 // A monotone cubic through the keys (Fritsch and Carlson): it never overshoots, so the zoom never turns back
 const L = (() => {
@@ -124,6 +135,7 @@ const EARTH = 6.371e6
 const MOON = 3.844e8
 const SUN = 6.957e8
 const MKAD = 1.8e4
+const MPC = 3.086e22
 const GALAXY = 4.73e20 // the Milky Way's disc, 50 000 light years
 const SUN_FROM_CENTRE = 2.46e20 // 26 000 light years
 const HUBBLE = 1.32e26 // c / H0 at 70 km/s/Mpc
@@ -166,42 +178,103 @@ const GAL_IN = when(SUN_FROM_CENTRE, 0.889)
 const GAL_OUT = when(GALAXY, 0.004)
 const GAL_ANGLE = 200
 const lit = (t, from, to) => smooth((t - from) / 1.5) * (1 - smooth((t - (to - 1.5)) / 1.5))
-const inGalaxy = t => t >= GAL_IN && t <= GAL_OUT
 const galaxyCentre = t => placeAt(SUN_FROM_CENTRE, GAL_ANGLE, t)
-// Where the hole stands, which the flows turn round: the frame's middle, the galaxy's centre while it is on,
-// gliding there over the second and a half before, and back after, while nothing is drawn round it
-const galaxyPlace = (t, k) => {
-  const there = clamp(galaxyCentre(clamp(t, GAL_IN, GAL_OUT))[k], 0, 1)
-  return 0.5 + (there - 0.5) * smooth((t - (GAL_IN - 1.5)) / 1.5) * (1 - smooth((t - GAL_OUT) / 1.5))
+// The second at which the frame's log reaches `value`
+const atL = value => {
+  let lo = 0
+  let hi = END
+  for (let k = 0; k < 50; k++) {
+    const mid = (lo + hi) / 2
+    if (L(mid) < value) lo = mid
+    else hi = mid
+  }
+  return (lo + hi) / 2
+}
+
+// Beyond the Milky Way the map is the supergalactic plane, the plane the nearby universe lies in: a place
+// stands at its supergalactic longitude from SG_ANGLE, its distance projected onto the plane (the catalogue
+// map is drawn the same way). The Milky Way's disc stays face on, as its own map had it
+const SG_ANGLE = 47.1
+const onPlane = (mpc, sgl, sgb) => ({ R: mpc * MPC * Math.cos(rad(sgb)), a: SG_ANGLE + sgl })
+const VIRGO = onPlane(16.5, 102.9, -2.3) // the Virgo Cluster, 54 million light years
+const ATTRACTOR = onPlane(65, 169.8, -9.2) // the Great Attractor, at Laniakea's heart
+const LANIAKEA = 80 * MPC // Laniakea's radius, 260 million light years
+const VOID = 50 * MPC // the gap between two voids' middles, 160 million light years
+// The stretches the flows stand round each: the cluster's infall, then Laniakea's motions
+const V_IN = atL(23.98)
+const V_OUT = atL(24.5)
+const G_IN = atL(24.75)
+const G_OUT = atL(25.35)
+
+// Where the hole stands, which the flows turn round: the frame's middle, then each place in turn while its
+// flows are on, gliding from the last over the second and a half before, and back to the middle at the end;
+// nothing is drawn round it while it glides
+const ANCHORS = [
+  { from: GAL_IN, to: GAL_OUT, at: galaxyCentre },
+  { from: V_IN, to: V_OUT, at: t => placeAt(VIRGO.R, VIRGO.a, t) },
+  { from: G_IN, to: G_OUT, at: t => placeAt(ATTRACTOR.R, ATTRACTOR.a, t) }
+]
+const holePlace = (t, k) => {
+  let value = 0.5
+  for (const anchor of ANCHORS) {
+    const there = clamp(anchor.at(clamp(t, anchor.from, anchor.to))[k], 0, 1)
+    value += (there - value) * smooth((t - (anchor.from - 1.5)) / 1.5)
+  }
+  return value + (0.5 - value) * smooth((t - G_OUT) / 1.5)
 }
 // Flow radii with no hole are in Lattice Unit, 1% of the short side
 const unit = (R, t) => share(R, t) / 0.01
 const flowRadius = v => clamp(v, 0.2, 200)
-// Flow B's radius: the atom's, then the bulge's, passing between them while the flow is dark (50 to 58 s)
-const bRadius = (t, atom, bulge) => {
-  const u = smooth((t - 50) / 8)
-  return Math.exp(Math.log(flowRadius(unit(atom, t))) * (1 - u) + Math.log(flowRadius(unit(bulge, t))) * u)
+const units = R => t => flowRadius(unit(R, t))
+const fixedAt = v => () => v
+// A flow's value for each stretch it is on, passing from one to the next on a log scale while it is dark
+const phased = stretches => t => {
+  let i = 0
+  while (i < stretches.length - 1 && t > stretches[i].to) i++
+  const now = stretches[i]
+  if (i === 0 || t >= now.from) return now.value(t)
+  const last = stretches[i - 1]
+  const u = smooth((t - last.to) / Math.max(now.from - last.to, 0.01))
+  return Math.exp(Math.log(last.value(t)) * (1 - u) + Math.log(now.value(t)) * u)
 }
+const CYG_DISC = { from: 0, to: 70 }
+const ATOM = { from: 0, to: ATOM_OUT }
+const MILKY = { from: GAL_IN, to: GAL_OUT }
+const CLUSTER = { from: V_IN, to: V_OUT }
+const STREAMS = { from: G_IN, to: G_OUT }
+// The second between the galaxy and Laniakea, while flow C is dark: its other settings change there
+const C_TO_STREAMS = (GAL_OUT + V_IN) / 2
 
 meanwhile(() => drive({
-  fade: s => s < 2.5 ? 1 : s < 4 ? 1 - smooth((s - 2.5) / 1.5) : smooth((s - 131) / 2.5),
+  fade: s => s < 2.5 ? 1 : s < 4 ? 1 - smooth((s - 2.5) / 1.5) : smooth((s - 177) / 2.5),
   blackHoleSize: s => holeSize(s),
-  blackHoleX: s => galaxyPlace(s, 0),
-  blackHoleY: s => galaxyPlace(s, 1),
+  blackHoleX: s => holePlace(s, 0),
+  blackHoleY: s => holePlace(s, 1),
   flowA: s => {
-    if (s > 110) return 1.3 * smooth((s - 116.5) / 2)
+    if (s > 100) return 0.3 * lit(s, V_IN, V_OUT)
     const on = holeAt(s)
     return on && holeSize(s) > 0 ? on.hole.disc * on.g : 0
   },
-  // The cloud, then the bulge: a ring as wide as the atom, a ring round the galaxy's middle
-  flowB: s => s < 60 ? 1.1 * lit(s, ATOM_IN, ATOM_OUT) : inGalaxy(s) ? 2 * lit(s, GAL_IN, GAL_OUT) : 0,
-  flowBFrom: s => bRadius(s, 0.9 * BOHR, 0.07 * GALAXY),
-  flowBTo: s => bRadius(s, 0.9 * BOHR, 0.07 * GALAXY),
-  flowBSpread: s => bRadius(s, 1.8 * BOHR, 0.14 * GALAXY),
-  flowC: s => inGalaxy(s) ? 1.4 * lit(s, GAL_IN, GAL_OUT) : 0,
-  flowCFrom: s => flowRadius(unit(0.85 * GALAXY, s)),
-  flowCTo: s => flowRadius(unit(0.1 * GALAXY, s)),
-  flowCSpread: s => flowRadius(unit(0.16 * GALAXY, s)),
+  // Cygnus X-1's disc, then the infall: galaxies from all round falling into the cluster
+  flowAFrom: phased([{ ...CYG_DISC, value: fixedAt(1.9) }, { ...CLUSTER, value: units(11 * MPC) }]),
+  flowATo: phased([{ ...CYG_DISC, value: fixedAt(1.9) }, { ...CLUSTER, value: units(1.2 * MPC) }]),
+  flowASpread: phased([{ ...CYG_DISC, value: fixedAt(1) }, { ...CLUSTER, value: units(4 * MPC) }]),
+  // The electron's cloud, then the galaxy's bulge
+  flowB: s => s < 60 ? 1.1 * lit(s, ATOM_IN, ATOM_OUT) : 2 * lit(s, GAL_IN, GAL_OUT),
+  flowBFrom: phased([{ ...ATOM, value: units(0.9 * BOHR) }, { ...MILKY, value: units(0.07 * GALAXY) }]),
+  flowBTo: phased([{ ...ATOM, value: units(0.9 * BOHR) }, { ...MILKY, value: units(0.07 * GALAXY) }]),
+  flowBSpread: phased([{ ...ATOM, value: units(1.8 * BOHR) }, { ...MILKY, value: units(0.14 * GALAXY) }]),
+  // The galaxy's disc, then Laniakea's motions
+  flowC: s => s < C_TO_STREAMS ? 1.4 * lit(s, GAL_IN, GAL_OUT) : 0.45 * lit(s, G_IN, G_OUT),
+  flowCFrom: phased([{ ...MILKY, value: units(0.85 * GALAXY) }, { ...STREAMS, value: units(0.95 * LANIAKEA) }]),
+  flowCTo: phased([{ ...MILKY, value: units(0.1 * GALAXY) }, { ...STREAMS, value: units(0.06 * LANIAKEA) }]),
+  flowCSpread: phased([{ ...MILKY, value: units(0.16 * GALAXY) }, { ...STREAMS, value: units(0.25 * LANIAKEA) }]),
+  // The cosmic web past the catalogues' reach, cleared where the map lies: in from Laniakea, round the map;
+  // when a void is a few pixels across the layer is an even glow, the universe the same everywhere on the
+  // largest scales
+  cosmicWeb: s => 1.6 * smooth((L(s) - 24.9) / 0.4),
+  cosmicWebHole: s => Math.min(100 * share(250 * MPC, s), 400),
+  cosmicWebCell: s => clamp(100 * VOID / Math.pow(10, L(s)), 0.05, 2000),
   // The ruler of the whole film: the lensed grid in powers of ten (Grid Decades), its cell one power of ten
   // of metres. Grid Zoom is the log of the frame itself, a number that only rises, so the cell shrinks from
   // Grid Spacing's 40% to 4% and the scene folds it back seamlessly: no track ever carries the jump. It
@@ -214,9 +287,11 @@ meanwhile(() => drive({
 
 // Flow B becomes the bulge while it is dark between the atom and the galaxy
 at(60, () => set({ flowBSwirl: 0.04, flowBLife: 14, flowBTrail: 1.2, flowBSize: 1.3, flowBColor: '#ffd9a0', flowBCount: 7000 }))
-// Flow A becomes the galaxies of the last picture while it is dark: an outflow from the middle whose pace
-// grows with distance (Fall Power below 1 races through the outer part), as Hubble's law has it
-at(110, () => set({ flowAFrom: 2, flowATo: 170, flowASpread: 3, flowAFall: 0.4, flowASwirl: 0, flowALife: 16, flowATrail: 0.25, flowASize: 1.6, flowACount: 9000, flowAColor: '#e8ecff' }))
+// Flow A becomes the infall while it is dark: a straight fall into the cluster from every side, the motion
+// the galaxies round it have on top of the universe's expansion
+at(100, () => set({ flowTrace: 0, flowASwirl: 0, flowALife: 20, flowATrail: 1.5, flowAFall: 1.5, flowAFalloff: 0, flowACount: 1500, flowAColor: '#ffd9b0' }))
+// Flow C becomes Laniakea's motions while it is dark: a fall from the whole basin to the Great Attractor
+at(C_TO_STREAMS, () => set({ flowCArms: 0, flowCSwirl: 0, flowCLife: 40, flowCTrail: 3, flowCFall: 1.5, flowCCount: 12000, flowCColor: '#ffd9b0' }))
 
 // --- Words ------------------------------------------------------------------------------------------------
 
@@ -484,17 +559,109 @@ tag('Солнце', 108.5, 116, () => [0.5 + 0.012 * Math.cos(rad(30)) * W, 0.5 
 tag('Sgr A*', 109, 116, galaxyCentre, 200, '#ffd9a0')
 named('Млечный Путь\n100 000 световых лет', 108, 116.5)
 noted('Солнце — в 26 000 световых лет от центра,\nгде живёт Sgr A*', 109, 116.5)
-noted('Дальше галактики — как пылинки,\nи их сотни миллиардов', 116.8, 119.5)
+
+// --- The real galaxies ---------------------------------------------------------------------------------------
+
+// The map of the nearby universe: the Updated Nearby Galaxy Catalog (Karachentsev and others, 2013), with
+// measured distances, to 9 Mpc, and the 2MASS Redshift Survey (Huchra and others, 2012) beyond, each galaxy at
+// its redshift's distance, the big clusters' fingers of god pulled back into them and the strip the Milky Way
+// hides filled from the strips beside it, each galaxy's light multiplied by how much the survey thins at its
+// distance, faded out from 150 to 230 Mpc where the survey ends; the cosmic web goes on round it. Six levels, each 2048 pixels across and E Mpc from us to its edge, a
+// power of four apart: each is shown while its pixel is half to two of the frame's, and gives way to the next
+const MAPS = [0.5, 2, 8, 32, 128, 512]
+MAPS.forEach((E, k) => {
+  const into = k === 0 ? 21.75 : Math.log10(MAPS[k - 1] * 2 * MPC) - 0.08
+  const away = k === MAPS.length - 1 ? 26.0 : Math.log10(E * 2 * MPC) - 0.08
+  const from = atL(into)
+  const to = atL(away + (k === MAPS.length - 1 ? 0.3 : 0.16))
+  at(from, () => draw({
+    kind: 'image', src: `films/scale/map_${E}.png`, center: [0.5, 0.5], width: 'w', opacity: 'o',
+    values: {
+      w: s => share(2 * E * MPC, from + s),
+      o: s => smooth((L(from + s) - into) / (k === 0 ? 0.25 : 0.16)) * (1 - smooth((L(from + s) - away) / (k === MAPS.length - 1 ? 0.3 : 0.16)))
+    }
+  }, to - from))
+})
+
+// --- The Local Group ----------------------------------------------------------------------------------------
+
+// Andromeda and the Triangulum are NASA's GALEX photographs, cut out by their own light, each disc spanning
+// 0.926 of its picture's width, set where the map would have them (the map leaves them out). The Magellanic
+// Clouds stay where the Milky Way's own map put them, beside its disc
+const M31 = { ...onPlane(2.5e6 * LY / MPC, -23.8, 12.5), width: 1.44e21 / 0.926 }
+const M33 = { ...onPlane(2.73e6 * LY / MPC, -31.5, -0.1), width: 5.77e20 / 0.926 }
+const galactic = (ly, l, b) => ({ R: ly * LY * Math.cos(rad(b)), a: GAL_ANGLE + l })
+const LMC = galactic(1.63e5, 280.5, -32.9)
+const SMC = galactic(1.99e5, 302.8, -44.3)
+function galaxyPicture (src, g) {
+  const from = when(g.R, 0.85)
+  const to = when(g.width, 0.004)
+  at(from, () => draw({
+    kind: 'image', src, center: ['x', 'y'], width: 'w', opacity: 'o',
+    values: {
+      x: s => placeAt(g.R, g.a, from + s)[0],
+      y: s => placeAt(g.R, g.a, from + s)[1],
+      w: s => share(g.width, from + s),
+      o: s => smooth(s / 0.8) * smooth((to - from - s) / 0.8)
+    }
+  }, to - from))
+}
+galaxyPicture('films/scale/m31.png', M31)
+galaxyPicture('films/scale/m33.png', M33)
+dot(LMC.R, LMC.a, '#dfe6ff', 0.0035, 0.85, 0.003)
+dot(SMC.R, SMC.a, '#dfe6ff', 0.0025, 0.85, 0.003)
+tag('Андромеда', 120.5, 125.8, t => placeAt(M31.R, M31.a, t), 180, '#cfe0ff')
+tag('Треугольник', 121, 125.8, t => placeAt(M33.R, M33.a, t), 0, '#cfe0ff')
+tag('Магеллановы Облака', 121, 125.5, t => placeAt(LMC.R, LMC.a, t), 120, '#cfe0ff')
+tag('Млечный Путь', 120.5, 125.8, galaxyCentre, -60, GOLD)
+named('Местная группа\nоколо 80 галактик в 10 млн световых лет', 119.5, 126.6)
+credit('снимки NASA GALEX', 119.5, 126.6)
+noted('Андромеда — в 2,5 млн световых лет.\nОна сближается с нами со скоростью 110 км/с', 120.3, 126.6)
+
+// --- The Virgo Cluster --------------------------------------------------------------------------------------
+
+// The Local Group, a point from here on, at the middle of every map that follows
+at(GAL_OUT - 0.5, () => draw({ kind: 'circle', center: [0.5, 0.5], radius: 0.004, fill: GOLD, color: GOLD, glow: 0.008, opacity: 'o', values: { o: s => smooth(s / 0.8) * smooth((165.5 - GAL_OUT - s) / 0.8) } }, 166 - GAL_OUT))
+tag('скопление Девы', 132.5, 138.3, t => placeAt(VIRGO.R, VIRGO.a, t), 30, '#ffe9cf')
+tag('Местная группа', 133, 138.3, () => [0.5, 0.5], -30, GOLD)
+named('Скопление Девы\n54 млн световых лет', 132, 138.8)
+noted('Больше тысячи галактик. Галактики вокруг падают\nв него, и Местная группа тоже тянется к нему', 132.8, 138.8)
+credit('карта: каталоги 2MRS и UNGC', 132, 150)
+
+// --- Laniakea -----------------------------------------------------------------------------------------------
+
+// Laniakea's edge round the Great Attractor, which the cosmic web then shows as one of its cells
+{
+  const from = G_IN + 1
+  const to = 165.5
+  const centre = k => s => placeAt(ATTRACTOR.R, ATTRACTOR.a, from + s)[k]
+  at(from, () => draw({
+    kind: 'circle', center: ['x', 'y'], radius: 'r', color: '#ffe9cf', width: 0.0016, dash: [0.01, 0.007], opacity: 'o',
+    values: { x: centre(0), y: centre(1), r: s => share(LANIAKEA, from + s), o: s => 0.8 * smooth(s / 1) * smooth((to - from - s) / 0.8) }
+  }, to - from))
+  tag('Ланиакея', 154, 164.5, t => placeAt(ATTRACTOR.R + LANIAKEA, ATTRACTOR.a, t), ATTRACTOR.a, '#ffe9cf')
+}
+tag('Великий аттрактор', 143, 149.3, t => placeAt(ATTRACTOR.R, ATTRACTOR.a, t), ATTRACTOR.a + 90, '#ffe9cf')
+tag('Местная группа', 143.5, 149.3, () => [0.5, 0.5], 200, GOLD)
+named('Ланиакея\n520 млн световых лет', 142.8, 150)
+noted('Сто тысяч галактик, чьи движения сходятся\nк Великому аттрактору. Мы — на её окраине', 143.5, 150)
+
+// --- The cosmic web -----------------------------------------------------------------------------------------
+
+named('Космическая паутина', 153.8, 160.4)
+credit('в середине — карта 2MRS, вокруг — модель паутины', 153.8, 160.4)
+noted('Галактики лежат на стенах и нитях вокруг пустот\nв десятки и сотни миллионов световых лет', 154.2, 160.4)
+noted('Дальше паутина сливается: на самых больших\nмасштабах Вселенная одинакова повсюду', 160.6, 166.6)
 
 // --- The universe -------------------------------------------------------------------------------------------
 
-body(HUBBLE, { color: GOLD, width: 0.0018, dash: [0.01, 0.006], stop: 131.5 }, 1.2, 0.0001)
-body(OBSERVABLE, { color: '#ff9a5a', width: 0.0025, glow: 0.02, stop: 131.5 }, 1.2, 0.0001)
-tag('хаббловская сфера\n14 млрд св. лет', 122, 128, edge(HUBBLE, 25), 25, GOLD, t => share(OBSERVABLE, t) - share(HUBBLE, t) + 0.035)
-tag('реликтовое излучение', 122.5, 131, edge(OBSERVABLE, 205), 205, '#ff9a5a')
-named('Наблюдаемая Вселенная\n93 млрд световых лет', 121, 131)
-noted('Масса внутри хаббловской сферы дала бы радиус\nШварцшильда, равный самой сфере. Так устроена плоская Вселенная', 123, 127.5)
-noted('Это не значит, что мы внутри чёрной дыры:\nу Вселенной нет центра и нет «снаружи»', 127.6, 131)
-at(131.2, () => caption('61 порядок: от 10^{-34} до 10^{27} м', 2.6, { at: [0.5, 0.5], font: 'unbounded', size: 0.045, fade: 0.6 }))
+body(HUBBLE, { color: GOLD, width: 0.0018, dash: [0.01, 0.006], stop: 177.6, start: 166.7 }, 0.85, 0.0001)
+body(OBSERVABLE, { color: '#ff9a5a', width: 0.0025, glow: 0.02, stop: 177.6, start: 166.7 }, 0.85, 0.0001)
+tag('хаббловская сфера\n14 млрд св. лет', 168, 173.5, edge(HUBBLE, 25), 25, GOLD, t => share(OBSERVABLE, t) - share(HUBBLE, t) + 0.035)
+tag('реликтовое излучение', 168.5, 177, edge(OBSERVABLE, 205), 205, '#ff9a5a')
+named('Наблюдаемая Вселенная\n93 млрд световых лет', 167, 177)
+noted('Масса внутри хаббловской сферы дала бы радиус\nШварцшильда, равный самой сфере. Так устроена плоская Вселенная', 168.8, 173.3)
+noted('Это не значит, что мы внутри чёрной дыры:\nу Вселенной нет центра и нет «снаружи»', 173.4, 177)
+at(177.2, () => caption('61 порядок: от 10^{-34} до 10^{27} м', 2.6, { at: [0.5, 0.5], font: 'unbounded', size: 0.045, fade: 0.6 }))
 
 wait(END)

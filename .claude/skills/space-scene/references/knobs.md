@@ -209,6 +209,7 @@ same path behind it (`flowATrail`), lit by the flow's brightness rather than by 
 | Shared: which set of numbers the particles start from | `flowSeed` |
 | Shared: the light a flow falling in leaves in the ring, and how unevenly round | `flowRingFeed`, `flowRingFlicker` |
 | Shared: how far each flow's pace is the pull of its hole instead of its own Swirl and Life | `flowGravity` |
+| Shared: where every flow's first spiral arm starts | `flowArmTurn` |
 | The flows in the equator as an accretion disc seen along the paths of light: how much of them, how much it hides, its Doppler shift as a multiple of nature's, the power of the shift its brightness goes as, how far a doubling of the shift turns its colour | `flowTrace`, `flowTraceHide`, `flowTraceDoppler`, `flowTraceBeam`, `flowTraceTint` |
 
 - The two radii are the shape: `flowATo` equal to `flowAFrom` is a ring (a disc with a wide
@@ -1222,6 +1223,29 @@ Gate: `nebula` above 0, and the `stars` layer shown.
   high `nebulaRoughness` makes those filaments ragged and bright. Detail fades its last layer in, so it
   moves smoothly along a track, and `nebulaSparseness` keeps its level at any count. `nebulaCurlSize`
   higher curls the clouds in tighter twists, and `nebulaWarp` sets how hard.
+
+### The cosmic web
+
+Gate: `cosmicWeb` above 0, and the `stars` layer shown. It is drawn flat round the sky's centre, under the
+grid, in 2D only.
+
+| What it changes | Keys |
+|---|---|
+| How bright (0 is off) and its colour | `cosmicWeb`, `cosmicWebColor` |
+| The scale of the whole web: one void's width, % of the short side | `cosmicWebCell` |
+| How thick its filaments are, as a share of a void | `cosmicWebWidth` |
+| Its galaxies: how many places across a void, each one's width as a share of the gap | `cosmicWebGalaxies`, `cosmicWebSize` |
+| A clear middle for a map laid over it, % of the short side | `cosmicWebHole` |
+
+- A void is a cell of a Voronoi foam, its galaxies thickest on the walls and where three cells meet, a
+  foam three times larger over it making rich and bare superclusters. A pull back over orders of magnitude
+  drives `cosmicWebCell` as a void's real width over the frame's (about 50 Mpc, times 100): the galaxies
+  shrink with the web and its light per area stays the same at every scale.
+- Once a galaxy's place is a few pixels apart the points merge into their shared light, and once a void is
+  10 to 3 pixels across the whole web becomes an even glow: the universe the same everywhere.
+- `cosmicWebHole` fades the web from its radius to 60% of it, so real galaxies (a catalogue map drawn as a
+  film's image) can stand in the middle and the web go on round them; drive it at the map's reach over the
+  frame, as `films/scale/scale.js` does.
 
 ## 11. Where the black hole is, and the camera
 

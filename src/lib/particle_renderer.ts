@@ -429,6 +429,16 @@ export interface CompositeSettings {
   dustWarp: number
   dustWarpScale: number
   echoTintEase: number
+  // The cosmic web: brightness (0 = off), a void's width in CSS pixels, the filaments' half width as a share of a
+  // void, galaxy places across a void, a galaxy's width as a share of the gap between places, and its colour
+  web: number
+  webCell: number
+  webWidth: number
+  webGalaxies: number
+  webSize: number
+  // The radius round the sky's centre the web is faded inside, CSS pixels (0: none)
+  webHole: number
+  webColor: SceneColor
   // Brightness of the flat grid on the sky behind the black hole (0 turns it off) and its cell size
   skyGrid: number
   gridCell: number
@@ -832,7 +842,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     'titleFringe', 'titleHalo', 'titleRedshift', 'titleGrain', 'titleBurn', 'titleFall', 'titleTidal', 'titleSpiral', 'titleSpread', 'titleStream', 'titleOrder', 'titleTrail', 'titleTrailShape', 'titleHeat', 'dustSweep', 'echoFloor', 'dustShock', 'dustBlow', 'dustDrift',
     'titleSpeck', 'titleWinkRest', 'titleWind', 'titleBurnShape', 'titleBurnRimWidth', 'titleFallShape', 'titleDustShape', 'titleDustCut', 'titleBurnEdge',
     'echoShape', 'echoSwell', 'dustMotion', 'dustFlare', 'dustNoise', 'dustWarp', 'echoTintEase', 'starFlareRate', 'remnantShape', 'vignetteSpan', 'knee',
-    'skyGrid', 'gridCell', 'gridDecades', 'skyGridLine', 'orbits', 'front', 'nebula', 'nebulaColor', 'nebulaColorDeep', 'nebulaColorCore', 'nebulaShape', 'nebulaLook', 'nebulaPatch', 'nebulaDrift', 'nebulaSpace', 'nebulaNoise', 'nebulaNorm', 'gridPull', 'gridColor', 'gridHaze', 'gridShape',
+    'web', 'webShape', 'webHole', 'webColor', 'skyGrid', 'gridCell', 'gridDecades', 'skyGridLine', 'orbits', 'front', 'nebula', 'nebulaColor', 'nebulaColorDeep', 'nebulaColorCore', 'nebulaShape', 'nebulaLook', 'nebulaPatch', 'nebulaDrift', 'nebulaSpace', 'nebulaNoise', 'nebulaNorm', 'gridPull', 'gridColor', 'gridHaze', 'gridShape',
     'colorFlash', 'colorLight', 'colorDust', 'colorTitle', 'colorEmber', 'neutron', 'neutronVeins', 'neutronShade', 'neutronColor', 'neutronVein', 'neutronPlasma', 'neutronCore', 'neutronFlow',
     'cameraZoom', 'zoomCenter', 'layerZoom', 'shake', 'lensFringe', 'lensFringeEase', 'vignette', 'filmGrain', 'letterbox'
   ] as const
@@ -1495,7 +1505,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
       const style = flow.style
       setUniform4f(gl, u.style, style[0], style[1], style[2], style[3])
       setUniform4f(gl, u.path, flow.from, flow.to, flow.spread, flow.wound)
-      setUniform2f(gl, u.arms, flow.arms, flow.armWidth)
+      setUniform3f(gl, u.arms, flow.arms, flow.armWidth, flow.armTurn)
       setUniform3f(gl, u.age, flow.phase, flow.lives, flow.piece)
       setUniform4f(gl, u.light, flow.color.r, flow.color.g, flow.color.b, brightness)
       gl.drawArraysInstanced(gl.TRIANGLES, 0, FLOW_VERTEX_COUNT, flow.count)
@@ -1805,6 +1815,12 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     // The front layers are read while they hold light: the trails in front until they are dark, the lines
     // while the last stepped frame drew them; Front Add and Front Waves say how they are laid over the rest
     setUniform4f(gl, u.front, frontScene.lit ? 1 : 0, frontScene.lit && frontLinesShown ? 1 : 0, settings.frontAdd, settings.frontWaves)
+    setUniform1f(gl, u.web, settings.web)
+    if (settings.web > 0) {
+      setUniform4f(gl, u.webShape, Math.max(settings.webCell, 0.01), Math.max(settings.webWidth, 0.001), Math.max(settings.webGalaxies, 1), Math.max(settings.webSize, 0.001))
+      setUniform3f(gl, u.webColor, settings.webColor.r, settings.webColor.g, settings.webColor.b)
+      setUniform1f(gl, u.webHole, settings.webHole)
+    }
     setUniform1f(gl, u.skyGrid, settings.skyGrid)
     if (settings.skyGrid > 0 || settings.horizonGrid > 0) setUniform3f(gl, u.gridColor, settings.gridColor.r, settings.gridColor.g, settings.gridColor.b)
     if (settings.skyGrid > 0) {

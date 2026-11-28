@@ -121,6 +121,15 @@ export interface ParticleState extends FlowState {
   // (in clouds across, the share of the sky, how soft) and how far the thickest cloud turns to the core
   // colour, from what thickness
   nebula: number
+  // The cosmic web: its brightness (0 = off), a void's width as a % of the short side, the filaments' half width
+  // as a share of a void, galaxy places across one void, a galaxy's width as a share of the gap between places, and their colour
+  cosmicWeb: number
+  cosmicWebCell: number
+  cosmicWebWidth: number
+  cosmicWebGalaxies: number
+  cosmicWebSize: number
+  cosmicWebHole: number
+  cosmicWebColor: string
   nebulaColor: string
   nebulaColorDeep: string
   nebulaColorCore: string
@@ -631,6 +640,13 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   starDensity: 0.12,
   starCell: 26,
   nebula: 0,
+  cosmicWeb: 0,
+  cosmicWebCell: 30,
+  cosmicWebWidth: 0.06,
+  cosmicWebGalaxies: 24,
+  cosmicWebSize: 0.12,
+  cosmicWebHole: 0,
+  cosmicWebColor: '#ffe6c8',
   nebulaColor: '#1c8c78',
   nebulaColorDeep: '#2a4fb0',
   nebulaColorCore: '#d8e88a',

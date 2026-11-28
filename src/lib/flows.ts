@@ -61,7 +61,7 @@ export type FlowColorKey = `flow${FlowSlot}Color`
 // from, what it leaves in the photon ring, and how far its pace is the pull's (Gravity Pace)
 export const FLOW_SHARED_KEYS = [
   'flowPairPlane', 'flowLiftPower', 'flowPhaseSpread', 'flowLiftRenew', 'flowFadeIn', 'flowFadeOut', 'flowDimmest',
-  'flowTrailFade', 'flowNearFade', 'flowNearGone', 'flowSeed', 'flowRingFeed', 'flowRingFlicker', 'flowGravity'
+  'flowTrailFade', 'flowNearFade', 'flowNearGone', 'flowSeed', 'flowRingFeed', 'flowRingFlicker', 'flowGravity', 'flowArmTurn'
 ] as const
 export type FlowSharedKey = typeof FLOW_SHARED_KEYS[number]
 export type FlowState = Record<FlowSliderKey, number> & Record<FlowColorKey, string> & Record<FlowSharedKey, number>
@@ -80,7 +80,7 @@ const FLOW_DEFAULTS: Record<FlowPart, number> = {
 // half to one and a half times its even share; each flow's pace its own Swirl and Life
 const FLOW_SHARED_DEFAULTS: Record<FlowSharedKey, number> = {
   flowPairPlane: 0, flowLiftPower: 1, flowPhaseSpread: 1, flowLiftRenew: 1, flowFadeIn: 0.06, flowFadeOut: 0.06, flowDimmest: 0.4,
-  flowTrailFade: 2, flowNearFade: 0.5, flowNearGone: 0.2, flowSeed: 0, flowRingFeed: 1, flowRingFlicker: 0.5, flowGravity: 0
+  flowTrailFade: 2, flowNearFade: 0.5, flowNearGone: 0.2, flowSeed: 0, flowRingFeed: 1, flowRingFlicker: 0.5, flowGravity: 0, flowArmTurn: 0
 }
 export const FLOW_DEFAULT_COLORS: Record<FlowSlot, string> = { A: '#ffd9a8', B: '#a8d4ff', C: '#ff8fb8' }
 
@@ -205,6 +205,8 @@ export interface FlowSettings {
   // between two arms the births spread over (1 = evenly round, no arms)
   arms: number
   armWidth: number
+  // Radians the first arm stands at, the way a positive Swirl turns, from the flow's own first direction
+  armTurn: number
 }
 
 export function createFlowSettings (): FlowSettings {
@@ -212,7 +214,7 @@ export function createFlowSettings (): FlowSettings {
     brightness: 0, count: 0, from: 1, to: 1, spread: 0, wound: 0, law: new Float32Array([2 / 3, 1.5, 0, 1]), phase: 0, lives: 0, piece: 0, size: 1,
     shape: new Float32Array([0, 1, 0, 1]), draw: new Float32Array([1, 1, 0.06, 0.06]), style: new Float32Array([0.4, 2, 0.5, 0.2]),
     turn: new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]), plane: new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0]),
-    color: createSceneColor(), x: 0, y: 0, unit: 1, depth: 1, traced: 0, arms: 0, armWidth: 1
+    color: createSceneColor(), x: 0, y: 0, unit: 1, depth: 1, traced: 0, arms: 0, armWidth: 1, armTurn: 0
   }
 }
 
@@ -224,7 +226,7 @@ export function createFlowSettings (): FlowSettings {
 export function stepFlow (
   flow: FlowSettings, dt: number, brightness: number, count: number, from: number, to: number, spread: number,
   swirl: number, life: number, trail: number, size: number, thick: number, fall: number, falloff: number, flare: number, bell: number,
-  arms: number, armWidth: number
+  arms: number, armWidth: number, armTurn: number
 ) {
   flow.brightness = brightness
   flow.count = Math.min(Math.max(Math.floor(count), 0), FLOW_CAPACITY)
@@ -250,6 +252,7 @@ export function stepFlow (
   flow.piece = trail / seconds / FLOW_SEGMENTS
   flow.arms = Math.max(Math.round(arms), 0)
   flow.armWidth = Math.min(Math.max(armWidth, 0), 1)
+  flow.armTurn = armTurn * Math.PI / 180
   flow.size = size
   const turn = flow.phase + dt / seconds
   const whole = Math.floor(turn)

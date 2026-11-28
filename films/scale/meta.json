@@ -21,6 +21,12 @@
       "agent": "Claude Code",
       "at": "2026-11-28",
       "did": "audit: a grid that never jumps, labels that ride their bodies, the Sun's real neighbours, a galaxy with arms"
+    },
+    {
+      "model": "claude-opus-5-5",
+      "agent": "Claude Code",
+      "at": "2026-11-28",
+      "did": "past the Milky Way: real galaxies from UNGC and 2MRS on the supergalactic plane, the Local Group with Andromeda and the Triangulum, Virgo, Laniakea, the cosmic web round the catalogues' reach"
     }
   ]
 }

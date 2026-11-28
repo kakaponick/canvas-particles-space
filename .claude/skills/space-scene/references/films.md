@@ -287,6 +287,17 @@ flows cannot drift apart.
 - The background stars are at infinity, right while the frame is the Solar System's; among the stars
   themselves they must close in with the zoom, so fade them and set the real neighbours as dots by their
   distance and galactic longitude, with longitude 0 pointing where the Galaxy's centre will come in.
+- Budget the stops before writing them: a film is at most 180 s, and every order of magnitude wants a
+  subject, so a stretch of several orders crossed in seconds with nothing named in it is a gap the viewer
+  sees (the Milky Way to the universe was once five seconds over six orders).
+- Past the Milky Way the galaxies are real: a catalogue map (`films/scale/galaxy_map.py` draws one from
+  UNGC and 2MRS on the supergalactic plane, where the nearby universe lies flat) in levels a power of four
+  apart, each image shown while its pixel is half to two of the frame's. A flux-limited survey thins with
+  distance and puts us in the middle of a ball: weight each galaxy by the light the survey misses at its
+  distance, and fade the map where the survey ends. Past that the cosmic web layer goes on round it
+  (`cosmicWebHole`), its voids at their real width, until they merge into an even glow.
+- A flow over a real map is a hint of motion, faint: a dense one covers the galaxies it claims to move.
+  Symmetric arms read as a spiral galaxy, not as filaments; a fall from all round (Arms 0) is the infall.
 - Shapes lie over `fade`: end every circle before the closing card, or it stays on the black.
 
 The opening in slow motion: `lightCrossTime` at its top, `matterSpeed` low, and every later moment
