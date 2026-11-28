@@ -45,6 +45,8 @@ export interface FilmFacts {
 export interface FilmSaving {
   frame: number
   frames: number
+  // When the save began, on the page's clock (performance.now), for the time it has left
+  startedAt: number
 }
 
 interface FilmState {

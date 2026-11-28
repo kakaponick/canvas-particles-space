@@ -8,9 +8,9 @@ import { Button } from '@/components/ui/button'
 import { Slider } from '@/components/ui/slider'
 import { cn, isTextEntry } from '@/lib/utils'
 import { FILM_RATES, useFilmStore } from '../store/film_store'
-import { clock, pickFiles, setFilmStage, setMenuHoldsEscape, titleOf } from '../lib/film_ui'
+import { clock, pickFiles, saveLeft, setFilmStage, setMenuHoldsEscape, titleOf } from '../lib/film_ui'
 import {
-  FILM_SEEK_LONG_STEP, FILM_SEEK_STEP, attachStage, libraryNeighbour, openNeighbour, seekFilm, seekFilmBy, setFilmRate, setFilmVolume,
+  FILM_SEEK_LONG_STEP, FILM_SEEK_STEP, attachStage, cancelVideo, libraryNeighbour, openNeighbour, seekFilm, seekFilmBy, setFilmRate, setFilmVolume,
   stepFilm, toggleLoop, toggleMuted, togglePlaying
 } from '../lib/film_session'
 
@@ -41,6 +41,8 @@ const MENU_MARGIN = 8
 const MENU_LEAST_HEIGHT = 160
 // The height the scene's toolbar takes at the top of the window (control_panel.tsx), with a margin, in px
 const TOOLBAR_CLEAR = 68
+// What stands at the top of the picture out of full screen sits below the toolbar, which covers the stage there
+const TOP_CLEAR = 'top-[64px]'
 
 const ACTION = 'h-7 gap-1.5 border-neon-cyan/50 px-2 font-mono text-xs text-neon-cyan hover:bg-neon-cyan/20 hover:text-neon-cyan [@media(pointer:coarse)]:h-10'
 const TRANSPORT_BUTTON = 'h-9 w-9 shrink-0 border-transparent bg-transparent text-text-light/90 hover:border-neon-cyan/50 hover:bg-neon-cyan/15 hover:text-neon-cyan ' +
@@ -225,6 +227,7 @@ function usePlayerKeys (toggleFullscreen: () => void, openShortcuts: () => void,
         return
       }
       if (event.shiftKey && (key === 'N' || key === 'P')) {
+        if (useFilmStore.getState().saving) return
         take()
         void openNeighbour(key === 'N' ? 1 : -1)
         return
@@ -235,7 +238,7 @@ function usePlayerKeys (toggleFullscreen: () => void, openShortcuts: () => void,
         return
       }
       const state = useFilmStore.getState()
-      if (state.status !== 'ready' || state.waiting) return
+      if (state.status !== 'ready' || state.waiting || state.saving) return
       const duration = state.facts?.duration ?? 0
       if (key.toLowerCase() === 'm' && !event.repeat) {
         if (state.sound === 'none') return
@@ -411,8 +414,8 @@ function Timeline () {
   const chapters = useFilmStore(state => state.facts?.chapters ?? NO_CHAPTERS)
   const seekTo = useFilmStore(state => state.seekTo)
   const seekDone = useFilmStore(state => state.seekDone)
-  // Nothing to seek while a film loads or its player is made: the track stays, idle
-  const waiting = useFilmStore(state => state.waiting || state.status !== 'ready')
+  // Nothing to seek while a film loads, its player is made or its video is saved: the track stays, idle
+  const waiting = useFilmStore(state => state.waiting || state.status !== 'ready' || state.saving !== null)
   const track = useRef<HTMLDivElement>(null)
   // The second under a pointer that drags, and under one that only hovers
   const [scrub, setScrub] = useState<number | null>(null)
@@ -828,10 +831,11 @@ function LoopButton () {
 // The next film of the library, for a film of the library that has one
 function NextFilmButton () {
   useFilmStore(state => state.entry)
+  const saving = useFilmStore(state => state.saving !== null)
   const next = libraryNeighbour(1)
   if (!next) return null
   return (
-    <TransportButton label={`Next film: ${next.title}`} keys="Shift+N" shown="Shift+N" onClick={() => { void openNeighbour(1) }} className="max-sm:hidden">
+    <TransportButton label={`Next film: ${next.title}`} keys="Shift+N" shown="Shift+N" disabled={saving} onClick={() => { void openNeighbour(1) }} className="max-sm:hidden">
       <SkipForward aria-hidden="true" className="h-[18px] w-[18px]" />
     </TransportButton>
   )
@@ -846,9 +850,10 @@ interface TransportProps {
 }
 
 function Transport ({ fullscreen, hidden, onFullscreen, onShortcuts, transportRef }: TransportProps) {
-  const playing = useFilmStore(state => state.playing)
+  // A save holds the film: it shows as standing, and nothing moves it until the save ends
+  const playing = useFilmStore(state => state.playing && state.saving === null)
   const ended = useFilmStore(state => state.ended)
-  const waiting = useFilmStore(state => state.waiting || state.status !== 'ready')
+  const waiting = useFilmStore(state => state.waiting || state.status !== 'ready' || state.saving !== null)
   const label = playing ? 'Pause' : ended ? 'Play again' : 'Play'
   return (
     <div
@@ -1033,7 +1038,7 @@ function ResumeNotice ({ fullscreen }: { fullscreen: boolean }) {
   }, [resumedAt])
   if (resumedAt === null) return null
   return (
-    <div className={cn('absolute left-3 z-[5] flex items-center gap-3 bg-black/80 py-1.5 pl-3 pr-1.5', fullscreen ? 'top-16' : 'top-[64px]')}>
+    <div className={cn('absolute left-3 z-[5] flex items-center gap-3 bg-black/80 py-1.5 pl-3 pr-1.5', fullscreen ? 'top-16' : TOP_CLEAR)}>
       <p role="status" className="font-mono text-xs text-text-light">Resumed at {clock(resumedAt)}</p>
       <Button
         variant="outline"
@@ -1069,8 +1074,28 @@ function FullscreenTitle ({ hidden }: { hidden: boolean }) {
   )
 }
 
+// A video being saved holds the film: the stage says so, how far it has come and how long it has left, with
+// the way to stop it, so a picture that stands still is never a mystery (full screen hides the panel's bar)
+function SaveBadge ({ fullscreen }: { fullscreen: boolean }) {
+  const saving = useFilmStore(state => state.saving)
+  if (!saving) return null
+  const share = Math.round(saving.frame / Math.max(1, saving.frames) * 100)
+  const left = saveLeft(saving)
+  return (
+    <div className={cn('absolute inset-x-0 z-[5] flex justify-center px-3', fullscreen ? 'top-3' : TOP_CLEAR)}>
+      <div className="flex items-center gap-3 bg-black/85 py-1.5 pl-3 pr-1.5">
+        <LoaderCircle aria-hidden="true" className="h-3.5 w-3.5 shrink-0 animate-spin text-neon-cyan motion-reduce:animate-none" />
+        <p className="font-mono text-xs tabular-nums text-text-light">
+          Saving the video · {share}%{left && <span className="text-text-light/70"> · {left}</span>}
+        </p>
+        <Button variant="outline" onClick={() => { void cancelVideo() }} className={ACTION}>CANCEL</Button>
+      </div>
+    </div>
+  )
+}
+
 // A seek that takes a while, named at the top of the picture with how far it has come
-function SeekBadge () {
+function SeekBadge ({ fullscreen }: { fullscreen: boolean }) {
   const seekTo = useFilmStore(state => state.seekTo)
   const seekDone = useFilmStore(state => state.seekDone)
   const [late, setLate] = useState(false)
@@ -1085,7 +1110,7 @@ function SeekBadge () {
   }, [seeking])
   if (seekTo === null || !late) return null
   return (
-    <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-3 flex justify-center">
+    <div aria-hidden="true" className={cn('pointer-events-none absolute inset-x-0 flex justify-center', fullscreen ? 'top-3' : TOP_CLEAR)}>
       <p className="flex items-center gap-2 bg-black/80 px-3 py-1.5 font-mono text-xs tabular-nums text-text-light">
         <LoaderCircle className="h-3.5 w-3.5 animate-spin text-neon-cyan motion-reduce:animate-none" />
         Going to {clock(seekTo)} · {Math.round(seekDone * 100)}%
@@ -1233,7 +1258,7 @@ export function Stage () {
   }
   const playOrPause = () => {
     const state = useFilmStore.getState()
-    if (state.status !== 'ready' || state.waiting) return
+    if (state.status !== 'ready' || state.waiting || state.saving) return
     togglePlaying()
     flash(state.playing ? 'pause' : 'play')
   }
@@ -1253,7 +1278,7 @@ export function Stage () {
         return
       }
       const state = useFilmStore.getState()
-      if (state.status !== 'ready' || state.waiting) return
+      if (state.status !== 'ready' || state.waiting || state.saving) return
       tap.run = zone
       const by = zone === 'left' ? -FILM_SEEK_LONG_STEP : FILM_SEEK_LONG_STEP
       seekFilmBy(by)
@@ -1304,7 +1329,8 @@ export function Stage () {
         {fullscreen && <FullscreenTitle hidden={hideControls} />}
         <StartOverlay />
         <EndOverlay />
-        <SeekBadge />
+        <SeekBadge fullscreen={fullscreen} />
+        <SaveBadge fullscreen={fullscreen} />
         <ResumeNotice fullscreen={fullscreen} />
         <CenterFlash />
         <PlayProblem />

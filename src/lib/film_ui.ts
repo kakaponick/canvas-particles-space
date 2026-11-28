@@ -1,5 +1,5 @@
 // What the film mode's panel (film_mode.tsx) and its player (film_player.tsx) share beside their components
-import type { FilmEntry } from '../store/film_store'
+import type { FilmEntry, FilmSaving } from '../store/film_store'
 import { libraryFilmOf } from './film_library'
 import { openFiles } from './film_session'
 
@@ -49,3 +49,16 @@ export const setMenuHoldsEscape = (holds: boolean) => { menuHoldsEscape = holds 
 let filmStage: HTMLElement | null = null
 export const setFilmStage = (stage: HTMLElement | null) => { filmStage = stage }
 export const fullscreenTarget = () => filmStage ?? document.documentElement
+
+// A save's guess at its time left needs this much behind it first: a share of the frames and some seconds
+const GUESS_AFTER_SHARE = 0.03
+const GUESS_AFTER_MS = 3000
+
+// How long a save of the video has left, from its pace so far: "about 2 min left", or '' while too early
+export function saveLeft (saving: FilmSaving) {
+  const spent = performance.now() - saving.startedAt
+  const share = saving.frames > 0 ? saving.frame / saving.frames : 0
+  if (share < GUESS_AFTER_SHARE || spent < GUESS_AFTER_MS) return ''
+  const left = spent / share * (1 - share) / 1000
+  return left >= 90 ? `about ${Math.round(left / 60)} min left` : `about ${Math.max(5, Math.round(left / 5) * 5)} s left`
+}

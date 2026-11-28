@@ -365,12 +365,13 @@ export async function saveVideo () {
   const { entry, quality } = useFilmStore.getState()
   const film = loaded
   if (!entry || !film) return
-  useFilmStore.setState({ saving: { frame: 0, frames: film.frames }, saveProblem: '' })
+  const startedAt = performance.now()
+  useFilmStore.setState({ saving: { frame: 0, frames: film.frames, startedAt }, saveProblem: '' })
   player?.hold(true)
   const [{ renderLoaded }, { filmProgress }] = await Promise.all([engine(), import('./film_render')])
   const timer = window.setInterval(() => {
     const progress = filmProgress()
-    if (progress.frames > 0) useFilmStore.setState({ saving: { frame: progress.frame, frames: progress.frames } })
+    if (progress.frames > 0) useFilmStore.setState({ saving: { frame: progress.frame, frames: progress.frames, startedAt } })
   }, PROGRESS_MS)
   try {
     await renderLoaded(film, quality, `${baseName(entry.name).replace(/\.(json|m?js)$/i, '')}.mp4`)

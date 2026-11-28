@@ -15,7 +15,7 @@ import {
 } from '../lib/film_session'
 import ToggleButton from './controls/toggle_button'
 import { LIBRARY_SEARCH_ID, Stage } from './film_player'
-import { clock, pickFiles, playerHoldsEscape } from '../lib/film_ui'
+import { clock, pickFiles, playerHoldsEscape, saveLeft } from '../lib/film_ui'
 
 // The page's film mode: a film played live on a stage beside its panel, from a file, a drop, a paste, the
 // library of this repository's films or the scene itself, and saved as its file or an mp4. The stage and its
@@ -513,7 +513,7 @@ function SaveVideo () {
             >
               <div className="absolute inset-y-0 left-0 bg-neon-cyan/20" style={{ width: `${share}%` }} />
               <div className="absolute inset-y-0 w-px bg-neon-cyan" style={{ left: `${share}%` }} />
-              <span className="absolute inset-0 flex items-center px-3 font-mono text-xs text-text-light/90">Saving the video · {share}%</span>
+              <span className="absolute inset-0 flex items-center truncate whitespace-nowrap px-3 font-mono text-xs tabular-nums text-text-light/90">{share}%{saveLeft(saving) && ` · ${saveLeft(saving)}`}</span>
             </div>
             <Button variant="outline" onClick={() => { void cancelVideo() }} className={QUIET_ACTION}>
               <X aria-hidden="true" className="h-3.5 w-3.5" />
