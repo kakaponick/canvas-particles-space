@@ -243,7 +243,11 @@ export async function voiceFilm ({ film, lines: FILM_LINES, cues: FILM_CUES, hea
   // What a server's model is given for a line: the line itself, or what the voice's say(name, text) makes of it
   // (Drama 3's bracketed delivery tags around and inside it). The words heard are checked against the line
   const inputOf = text => VOICE.say?.(NAMED.get(text), text) ?? text
-  const madeBy = (profile, text) => VOICE.own && !VOICE.servers ? [profile, LANGUAGE, SEED, DELIVERY, text] : [profile, LANGUAGE, seedOf(text), VOICE.engine, VOICE.fields, inputOf(text)]
+  // The film's own VoiceStudio voice names a take by its delivery; a line given a seed of its own in `seeds` adds
+  // it, so it is spoken again while every other take keeps its name
+  const madeBy = (profile, text) => VOICE.own && !VOICE.servers
+    ? [profile, LANGUAGE, SEED, DELIVERY, text, ...(seedOf(text) !== SEED ? [seedOf(text)] : [])]
+    : [profile, LANGUAGE, seedOf(text), VOICE.engine, VOICE.fields, inputOf(text)]
   const takeFile = (profile, text) => path.join(takes, TAKES + crypto.createHash('sha1').update(JSON.stringify(madeBy(profile, text))).digest('hex').slice(0, 12) + '.wav')
 
   // The profile's own recording and its words, which a voice of an audio.cpp server is given with every line;
@@ -483,7 +487,7 @@ export async function voiceFilm ({ film, lines: FILM_LINES, cues: FILM_CUES, hea
     try {
       const paced = fs.existsSync(reelFile) ? path.relative(path.join(films, film), reelFile).replaceAll(path.sep, '/') : `${film}.js`
       const page = attachAudio({ film, file: paced, sound: out, mono: true })
-      console.log(`Wrote ${page}: the sound the page plays under ${path.basename(reelFile)}; commit it with the reel`)
+      console.log(`Wrote ${page}: the sound the page plays under ${paced}; commit it with the film`)
     } catch (error) {
       console.warn(`The page's copy of the sound was not made: ${error.message}`)
     }
