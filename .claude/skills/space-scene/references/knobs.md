@@ -1040,6 +1040,7 @@ Gate: `gridSky` above 0, with the lens on to see it bent; `gridSkyPull` above 0 
 | A flat grid on the sky read through the lens (0 is off), how far it is drawn in towards the hole (0 is flat), and the width of its lines | `gridSky`, `gridSkyPull`, `gridSkyLine` |
 | Where the pulled cells turn to haze, and over what share | `gridSkyHaze`, `gridSkyHazeSpan` |
 | The lensed grid on the sky's box or on its sphere, and the power of the slant its lines keep their width by | `gridSkySphere`, `gridSkySlant` |
+| The grid at every power of ten of its cell: logarithmic paper | `gridSkyDecades` |
 
 - The lensed grid is a measuring tool: it shows the Einstein ring, the mirrored image, the twist and the
   waves. Lower `baseBrightness` when it should be read clearly.
@@ -1057,6 +1058,13 @@ Gate: `gridSky` above 0, with the lens on to see it bent; `gridSkyPull` above 0 
 - `gridSkySlant` keeps the lines' width toward the frame's edges; 0 lets them widen with the sky, as a
   wide lens shows a real grid. `skyCenter` and `skySize` (section 10) place and scale the grid's box and
   sphere.
+- `gridSkyDecades` 1 draws the box's grid at a tenth, one, ten and a hundred cells at once, each level lit
+  and widened by its own cells' size on the screen: gone below 0.6% of the short side, whole from 6%, twice as
+  wide at 60%. A pull back over many powers of ten is `gridCell` falling from 40 to 4 and set back to 40
+  each time the frame grows tenfold: 100 times ten to the power n minus L, L the log of the frame's
+  height in metres and n the whole number below L - 0.4. The jump draws the same picture, the finest level gone, so the grid is a ruler a
+  viewer reads as "one cell is 10^n" (`films/scale/scale.js`). Its lines cross at `skyCenter`'s point, the
+  frame's middle at 0, so bodies compared against it stand there.
 
 ### The lattice
 

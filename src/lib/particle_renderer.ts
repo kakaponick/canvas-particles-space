@@ -448,6 +448,10 @@ export interface CompositeSettings {
   // power of the slant its lines keep their width by
   gridSphere: number
   gridSlant: number
+  // How far that grid is drawn at every power of ten of its cell, and the frame's short side in CSS pixels,
+  // which each level's size on the screen is measured against
+  gridDecades: number
+  gridSide: number
   // Colours of the intro, 0xRRGGBB
   colorFlash: number
   colorLight: number
@@ -828,7 +832,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
     'titleFringe', 'titleHalo', 'titleRedshift', 'titleGrain', 'titleBurn', 'titleFall', 'titleTidal', 'titleSpiral', 'titleSpread', 'titleStream', 'titleOrder', 'titleTrail', 'titleTrailShape', 'titleHeat', 'dustSweep', 'echoFloor', 'dustShock', 'dustBlow', 'dustDrift',
     'titleSpeck', 'titleWinkRest', 'titleWind', 'titleBurnShape', 'titleBurnRimWidth', 'titleFallShape', 'titleDustShape', 'titleDustCut', 'titleBurnEdge',
     'echoShape', 'echoSwell', 'dustMotion', 'dustFlare', 'dustNoise', 'dustWarp', 'echoTintEase', 'starFlareRate', 'remnantShape', 'vignetteSpan', 'knee',
-    'skyGrid', 'gridCell', 'skyGridLine', 'orbits', 'front', 'nebula', 'nebulaColor', 'nebulaColorDeep', 'nebulaColorCore', 'nebulaShape', 'nebulaLook', 'nebulaPatch', 'nebulaDrift', 'nebulaSpace', 'nebulaNoise', 'nebulaNorm', 'gridPull', 'gridColor', 'gridHaze', 'gridShape',
+    'skyGrid', 'gridCell', 'gridDecades', 'skyGridLine', 'orbits', 'front', 'nebula', 'nebulaColor', 'nebulaColorDeep', 'nebulaColorCore', 'nebulaShape', 'nebulaLook', 'nebulaPatch', 'nebulaDrift', 'nebulaSpace', 'nebulaNoise', 'nebulaNorm', 'gridPull', 'gridColor', 'gridHaze', 'gridShape',
     'colorFlash', 'colorLight', 'colorDust', 'colorTitle', 'colorEmber', 'neutron', 'neutronVeins', 'neutronShade', 'neutronColor', 'neutronVein', 'neutronPlasma', 'neutronCore', 'neutronFlow',
     'cameraZoom', 'zoomCenter', 'layerZoom', 'shake', 'lensFringe', 'lensFringeEase', 'vignette', 'filmGrain', 'letterbox'
   ] as const
@@ -1810,6 +1814,7 @@ export function createParticleRenderer (gl: WebGL2RenderingContext): ParticleRen
         setUniform2f(gl, u.gridHaze, haze, haze * (1 - Math.min(Math.max(settings.gridHazeSpan, 0.05), 0.95)))
       }
       setUniform1f(gl, u.skyGridLine, settings.skyGridLine * 0.5)
+      setUniform2f(gl, u.gridDecades, Math.min(Math.max(settings.gridDecades, 0), 1), Math.max(settings.gridSide, 1))
       // On the sphere a latitude is a cell of the sky's sphere apart, a longitude as near that as a whole
       // number of them round the equator allows
       const gridCell = Math.max(settings.gridCell, 1)

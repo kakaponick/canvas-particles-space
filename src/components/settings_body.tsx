@@ -646,6 +646,7 @@ function SettingsBody () {
             <SettingSlider field="gridSkyHazeSpan" />
             <SettingSlider field="gridSkySphere" />
             <SettingSlider field="gridSkySlant" />
+            <SettingSlider field="gridSkyDecades" />
           </div>
           <div className="mt-3 flex flex-col gap-1">
             <SettingSlider field="gridHorizonPace" />

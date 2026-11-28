@@ -29,7 +29,7 @@ export const SIMULATION_SETTING_KEYS = [
   'ringFeedCapture', 'ringFeedSkim', 'ringFeedReach', 'ringStarFlare', 'ringStarSpread', 'ringStarSides',
   'lensingEnabled', 'lensingTraced', 'lensingRadius', 'lensingFromCamera', 'lensingRotation', 'lensingFalloff', 'lensingPivot', 'lensingCore', 'lensingMaxBend', 'lensingReach', 'lensingBubble', 'lensingTwistLimit', 'lensingAbsorption',
   'gridCell', 'gridSheet', 'gridTilt', 'gridDepth', 'gridRings', 'gridSpokes', 'gridRide', 'gridRideDepth', 'gridSky', 'gridSkyPull', 'gridColor', 'gridLattice', 'gridLatticeCell', 'gridLatticeWarp',
-  'gridDistance', 'gridSpan', 'gridFade', 'gridWaveLift', 'gridWaveOrbit', 'gridLine', 'gridLineNear', 'gridNear', 'gridClearing', 'gridClearingEdge', 'gridSkyLine', 'gridSkyHaze', 'gridSkyHazeSpan', 'gridSkySphere', 'gridSkySlant',
+  'gridDistance', 'gridSpan', 'gridFade', 'gridWaveLift', 'gridWaveOrbit', 'gridLine', 'gridLineNear', 'gridNear', 'gridClearing', 'gridClearingEdge', 'gridSkyLine', 'gridSkyHaze', 'gridSkyHazeSpan', 'gridSkySphere', 'gridSkySlant', 'gridSkyDecades',
   'gridRingSpacing', 'gridRideWave', 'gridLensed', 'gridRideSoft', 'gridRideStretch', 'gridRideFar', 'gridRideCut', 'gridWell2Bottom', 'gridLift', 'gridWellWidth', 'neutronSurface', 'neutronStar', 'neutronGlow', 'neutronTurn', 'neutronVeins', 'neutronVeinSharp',
   'neutronVeinLight', 'neutronLimb', 'neutronShade', 'neutronGlowLight', 'neutronWarp', 'neutronLayers', 'neutronBranch', 'neutronCore', 'neutronStir', 'neutronFlow', 'neutronCross', 'neutronColor', 'neutronVeinColor', 'neutronCoreColor', 'gridEaseTurn',
   'gridThroatGlow', 'gridThroatCurve', 'gridLight', 'gridLightReach', 'gridLightColor',

@@ -357,6 +357,8 @@ export interface ParticleState extends FlowState {
   gridSkyHazeSpan: number
   gridSkySphere: number
   gridSkySlant: number
+  // How far the lensed grid is drawn at every power of ten of its cell, each level as its size on the screen gives
+  gridSkyDecades: number
   // The grid on the horizon, seen through the shadow: brightness (0 = off), its cells from pole to pole, the
   // hole's own time that passes in a second, in M (0 holds it still), the width of its lines in CSS pixels
   // and the most light lines too dense to draw give
@@ -810,6 +812,7 @@ export const useParticleStore = createWithEqualityFn<ParticleState>((set) => ({
   gridSkyHazeSpan: 0.5,
   gridSkySphere: 0,
   gridSkySlant: 0.75,
+  gridSkyDecades: 0,
   gridHorizon: 0,
   gridHorizonCells: 6,
   gridHorizonPace: 1,

@@ -9,7 +9,9 @@
 // Everything is one number: L(t), the base-10 logarithm of the frame's height in metres, a monotone curve
 // through the keys below that slows at every stop. A thing of R metres is R / 10^L of the short side; the
 // hole's size, the radii of the circles, the cloud and the galaxy all read that, so they cannot drift apart.
-// Bodies stand round the frame's middle, where the hole is, so every comparison is concentric.
+// Bodies stand round the frame's middle, where the hole is, so every comparison is concentric. The ruler is
+// the lensed grid drawn in powers of ten (Grid Decades), one cell one power of ten of metres, which the
+// counter and the bar under it name; the Earth and the Sun are NASA's photographs.
 //   node .claude/skills/space-scene/scripts/space.mjs preview films/scale/scale.js out.jpg
 //   node .claude/skills/space-scene/scripts/space.mjs render films/scale/scale.js films/scale/out/scale.mp4
 /* global film, set, drive, wait, caption, draw, meanwhile, at */
@@ -17,7 +19,7 @@ film({
   size: '1080p', fps: 60, seed: 61, preset: 'Schwarzschild',
   settings: {
     fieldEnabled: false, blackHoleSize: 26, followFrequency: 60, cameraFloat: 0, cameraBank: 0,
-    gridLatticeUnit: 0.01, gridSky: 0.28, starsBrightness: 0, starDensity: 0.25,
+    gridLatticeUnit: 0.01, gridSky: 0.3, gridSkyDecades: 1, gridSkyLine: 1.4, starsBrightness: 0, starDensity: 0.25,
     // The discs of the holes that have one: in the hole's radii, so they scale with it
     flowACount: 7000, flowAFrom: 3.2, flowATo: 3.2, flowASpread: 3.6, flowASwirl: 0.5, flowALife: 10,
     flowATrail: 0.6, flowASize: 1.3, flowAColor: '#ffcf9a',
@@ -81,6 +83,8 @@ const L = (() => {
 
 // A length of R metres as a share of the frame's short side at second t
 const share = (R, t) => R / Math.pow(10, L(t))
+// The power of ten of metres one cell of the grid is: the one whose cell is 4% to 40% of the short side
+const cellPower = t => Math.floor(L(t) + Math.log10(0.4))
 // The second at which R metres have shrunk to `s` of the short side
 const when = (R, s) => {
   if (share(R, 0) <= s) return 0
@@ -185,8 +189,12 @@ meanwhile(() => drive({
   flowCFrom: s => flowRadius(unit(0.85 * GALAXY, s)),
   flowCTo: s => flowRadius(unit(0.1 * GALAXY, s)),
   flowCSpread: s => flowRadius(unit(0.3 * GALAXY, s)),
-  // The lensed grid stands for space in the small; the stars come in once there is a sky to see
-  gridSky: s => 0.28 * (1 - smooth((L(s) + 0.5) / 2)),
+  // The ruler of the whole film: the lensed grid in powers of ten (Grid Decades), its cell one power of ten
+  // of metres, 40% of the short side falling to 4% and set back each time the frame grows tenfold, which
+  // draws the same picture at the jump. It stands at the frame's middle, where every body is, and each hole
+  // bends it at its own scale. Brighter in the small, where there are no stars
+  gridCell: s => clamp(100 * Math.pow(10, cellPower(s) - L(s)), 2, 40),
+  gridSky: s => 0.2 + 0.1 * (1 - smooth((L(s) + 0.5) / 2)),
   starsBrightness: s => 1.3 * smooth((L(s) - 0.5) / 2) * (1 - smooth((L(s) - 24) / 2))
 }, END))
 
@@ -235,6 +243,20 @@ function body (R, { peak = 1, start = 0, ...spec }, hi = 1.5, lo = 0.003) {
   }, to - from))
 }
 
+// A photograph of a body R metres in radius at the frame's middle, its disc `disc` of the picture's half side
+function picture (R, src, disc, hi, lo) {
+  const from = when(R, hi)
+  const to = when(R, lo)
+  at(from, () => draw({
+    kind: 'image', src, center: [0.5, 0.5], width: 'w', opacity: 'o',
+    values: {
+      w: s => 2 * share(R, from + s) / disc,
+      o: s => smooth(s / 0.6) * smooth(Math.log(share(R, from + s) / lo) / Math.log(2.5))
+    }
+  }, to - from))
+}
+const credit = (text, from, to) => at(from, () => caption(text, to - from, { ...name, at: [0.955, 0.19], size: 0.02, weight: 400, color: SOFT }))
+
 // A dot of a fixed size at R metres and `a` degrees: a probe, a star
 function dot (R, a, color, size, hi, lo) {
   const from = when(R, hi)
@@ -255,10 +277,17 @@ at(0.4, () => {
   caption('от планковской длины до края Вселенной', 2.8, { at: [0.5, 0.56], font: 'noto', size: 0.03, color: SOFT, fade: 0.6 })
 })
 
-// The counter: the frame's height as a power of ten, for the whole film
+// The counter: one cell of the grid as a power of ten of metres, with a bar as long as one cell under it,
+// which shrinks with the grid and grows back tenfold as the number steps up
 at(2.5, () => {
-  caption('10^{#{n:0}} м', END - 2.5, { at: [0.045, 0.09], anchor: 'left', align: 'left', font: 'unbounded', size: 0.055, fade: 0.8, values: { n: s => L(2.5 + s) } })
-  caption('высота кадра', END - 2.5, { at: [0.045, 0.155], anchor: 'left', align: 'left', font: 'noto', size: 0.022, color: SOFT, fade: 0.8 })
+  caption('10^{#{n:0}} м', END - 2.5, { at: [0.045, 0.09], anchor: 'left', align: 'left', font: 'unbounded', size: 0.055, fade: 0.8, values: { n: s => cellPower(2.5 + s) } })
+  const cell = s => 0.045 + Math.pow(10, cellPower(2.5 + s) - L(2.5 + s)) * W
+  const o = s => smooth(s / 0.8) * smooth((END - 2.5 - s) / 1.5)
+  const ruler = { kind: 'line', color: WHITE, width: 0.003, opacity: 'o' }
+  draw({ ...ruler, points: [[0.045, 0.16], ['x', 0.16]], values: { x: cell, o } }, END - 2.5)
+  draw({ ...ruler, points: [[0.045, 0.148], [0.045, 0.172]], values: { o } }, END - 2.5)
+  draw({ ...ruler, points: [['x', 0.148], ['x', 0.172]], values: { x: cell, o } }, END - 2.5)
+  caption('одна клетка сетки', END - 2.5, { at: [0.045, 0.2], anchor: 'left', align: 'left', font: 'noto', size: 0.022, color: SOFT, fade: 0.8 })
 })
 
 // --- The Planck scale -------------------------------------------------------------------------------------
@@ -341,12 +370,18 @@ noted('Первая признанная чёрная дыра, 1972 год.\nВ
 
 // --- The Earth and the Sun ----------------------------------------------------------------------------------
 
-body(EARTH, { color: '#7fb6ff', fill: '#5aa0e8', fillTo: '#0b1e3a', fillAt: [-0.35, 0.35], glow: 0.01, width: 0.0015 }, 0.45, 0.002)
+// The Earth is NASA's photograph from Apollo 17, its disc 0.78 of the picture's half side; the Sun is SDO's
+// white-light image of the day the film was made, cut out with its disc filling the picture
+picture(EARTH, 'films/fourth_dimension/earth.png', 0.78, 0.45, 0.002)
 named('Земля\n12 742 км', 66, 70.5)
-body(SUN, { color: '#ffe7a0', fill: '#fff4c8', fillTo: '#ff9a2a', fillAt: [-0.2, 0.2], glow: 0.025, width: 0.0015 }, 0.45, 0.0008)
+credit('снимок NASA, «Аполлон-17»', 66, 70.5)
+// A halo under the Sun, which carries it as a point once the disc is a few pixels across
+body(SUN, { color: '#ffb347', glow: 0.025, width: 0.0015 }, 0.45, 0.0008)
+picture(SUN, 'films/scale/sun.png', 1, 0.45, 0.0008)
 body(MOON, { color: WHITE, dash: [0.006, 0.006], width: 0.0014, peak: 0.8 }, 1.5, 0.004)
 tag('орбита Луны', [0.69, 0.3], 72.5, 76.5, edge(MOON, 42), WHITE)
 named('Солнце\n1,39 млн км', 72, 76.8)
+credit('снимок NASA SDO, 28.11.2026', 72, 76.8)
 noted('Орбита Луны поместилась бы внутри Солнца', 72.5, 76.8)
 
 // --- Sgr A* and the planets ---------------------------------------------------------------------------------

@@ -695,6 +695,7 @@ export const compositeFragmentShaderSource = `
   uniform vec4 u_front;            // 1 while something can stand in front of the holes (0 leaves both layers unread), 1 while the second holds lines; Front Add, the share of the light in front added to what is there instead of the brighter of the two; Front Waves, the share of the waves' and the matter front's slide the light in front takes
   uniform float u_skyGrid;        // brightness of the flat grid on the sky behind the hole; 0 turns it off
   uniform float u_gridCell;        // CSS pixels per cell of that grid
+  uniform vec2 u_gridDecades;      // how far it is drawn at every power of ten of its cell (0 the one grid), and the frame's short side in CSS pixels
   uniform float u_skyGridLine;     // half the width of a line of that grid, CSS pixels
   uniform float u_nebula;          // the nebula's brightness; 0 turns it off
   uniform vec3 u_nebulaColor;
@@ -1859,7 +1860,25 @@ ${DENT_GLSL}
         vec2 fromLine = abs(fract(onFace.xy / u_gridCell - 0.5) - 0.5) * u_gridCell;
         vec2 faceShare = onFace.xy / u_skyLens.w;
         float slant = pow(stretch / (1.0 + dot(faceShare, faceShare)), u_gridShape.y) * u_skyLens.z / u_skyLens.w;
-        line = (1.0 - u_gridShape.x) * gridLineLight(min(fromLine.x, fromLine.y) * slant, u_gridCell * slant, squeeze);
+        float boxLine = gridLineLight(min(fromLine.x, fromLine.y) * slant, u_gridCell * slant, squeeze);
+        if (u_gridDecades.x > 0.0) {
+          // Every power of ten of the cell at once, each level lit and widened by its own cells' size on the
+          // screen alone, so a cell that shrinks tenfold and is set ten times larger again draws the same
+          // picture: a line shared by several levels takes the brightest. Four levels cover a cell of 2% to
+          // 40% of the short side, from the one that has faded to a single line through the middle
+          float decades = 0.0;
+          float level = 0.1;
+          for (int i = 0; i < 4; i++) {
+            float cell = u_gridCell * level;
+            vec2 miss = abs(fract(onFace.xy / cell - 0.5) - 0.5) * cell;
+            float size = cell * u_cameraZoom / u_gridDecades.y;
+            float widen = 1.0 + smoothstep(0.06, 0.6, size);
+            decades = max(decades, smoothstep(0.006, 0.06, size) * gridLineLight(min(miss.x, miss.y) * slant / widen, cell * slant, squeeze));
+            level *= 10.0;
+          }
+          boxLine = mix(boxLine, decades, u_gridDecades.x);
+        }
+        line = (1.0 - u_gridShape.x) * boxLine;
       }
       if (u_gridShape.x > 0.0) {
         // On the sphere, in latitudes about the scene's up and longitudes from straight ahead, a cell's

@@ -9,7 +9,7 @@ import { writeFilm } from './film_script'
 import { libraryText, resolveLibraryFilm } from './film_library'
 import { drawCaptions, loadCaptionFonts } from './film_captions'
 import { drawGraphics, loadGraphicImages, type FilmImages } from './film_graphics'
-import { SETTING_KEYS, fail, parseSettings, type Patch } from './agent_values'
+import { SETTING_KEYS, SLIDERS, clamp, fail, parseSettings, type Patch } from './agent_values'
 import { INTRO_LAYERS, type IntroLayer } from './intro_tracks'
 import { sceneHooks } from './scene_hooks'
 import type { Scene } from './scene'
@@ -58,6 +58,12 @@ function settingsOf (plan: FilmPlan, keys: readonly string[]): Patch {
 
 function write (patch: Patch) {
   const { next } = parseSettings(patch, SETTING_KEYS)
+  // A track moves between its keys as smoothly as the render draws it; a slider's step is for a hand, so a
+  // number keeps the value the track gives, only held inside its range
+  for (const [key, value] of Object.entries(patch)) {
+    const slider = SLIDERS[key]
+    if (slider && typeof value === 'number') next[key] = clamp(value, slider.min, slider.max)
+  }
   useParticleStore.setState(next)
 }
 

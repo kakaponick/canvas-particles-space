@@ -628,6 +628,8 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
       skyGridLine: 1.5,
       gridSphere: 0,
       gridSlant: 0.75,
+      gridDecades: 0,
+      gridSide: 1,
       colorFlash: 0xffffff,
       colorLight: 0xffffff,
       colorDust: 0xffffff,
@@ -2373,6 +2375,8 @@ export function createScene (gl: WebGL2RenderingContext, seed: number, input: Sc
     composite.skyGridLine = state.gridSkyLine
     composite.gridSphere = state.gridSkySphere
     composite.gridSlant = state.gridSkySlant
+    composite.gridDecades = state.gridSkyDecades
+    composite.gridSide = shortSide
     // The flash on the sheet, which Light Front's band and the photons both run from: its place from the
     // main hole in the plane's units, against the plane's second direction as sheetPoint takes it. It is read
     // from the hole while Front Run is 0 and then held on the sheet: the anchor (where the sheet's fixed point
