@@ -105,6 +105,25 @@ Once the missing piece exists (a knob, a fix in code, a sentence in `knobs.md`, 
 
 ## The tools and the machine
 
+### Checking a film with no browser allowed (2026-11-28)
+- Wanted / got: the operator forbade the browser for the task; `space.mjs check` and every preview need the
+  film server's Chrome, so nothing read the script before it went on the operator's screen.
+- Now: run the planner in Node through Vite's SSR loader, from the worktree: `createServer({ root, configFile:
+  false, server: { middlewareMode: true }, appType: 'custom' })`, then `ssrLoadModule('/src/lib/film_script.ts')`
+  for `writeFilm(source)` and `/src/lib/film.ts` for `planFilm(film)`; it reports the same errors and the values
+  moved onto a slider. Import vite by its file URL when the checker sits outside the repository. Still
+  missing: `space.mjs check --node`, which would do this itself.
+- Where: `films/scale/scale.js`.
+
+### A driven size or position steps on the live page (2026-11-28)
+- Wanted / got: a hole shrinking smoothly by `drive` over three orders of magnitude; on the operator's screen
+  (`?live=`) every value goes through `parseSettings`, which puts it on its slider's step: `blackHoleSize` in
+  steps of 0.1 (a 20% jump at 0.5), `blackHoleX`/`Y` in steps of 0.01 (19 px at 1080p), while the film's
+  shapes, which nothing rounds, keep moving smoothly beside them. The render takes the track's value as it is.
+- Now: judge such a shot by the render, not the live page. Still missing: a live page that writes a film's
+  values without the slider's step.
+- Where: `write` in `src/lib/film_in_scene.ts`; `films/scale/scale.js` (the holes, the galaxy's centre).
+
 ### A shader that did not build, with no word of why (2026-11-28)
 - Wanted / got: a preview of a change to the field's step; got "The scene could not start: its shaders did
   not build", and the dev page's console was empty too.

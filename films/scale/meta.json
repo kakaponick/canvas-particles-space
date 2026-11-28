@@ -1,0 +1,14 @@
+{
+  "title": "Sixty-one orders",
+  "about": "From the Planck length to the Hubble sphere in one pull back, a black hole at every scale it can have.",
+  "kind": "film",
+  "film": "scale.js",
+  "made": [
+    {
+      "model": "claude-opus-5-5",
+      "agent": "Claude Code",
+      "at": "2026-11-28",
+      "did": "wrote the film"
+    }
+  ]
+}
