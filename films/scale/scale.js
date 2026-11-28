@@ -24,7 +24,8 @@
 // counter and the bar under it name; the Earth and the Sun are NASA's photographs.
 //   node .claude/skills/space-scene/scripts/space.mjs preview films/scale/scale.js out.jpg
 //   node .claude/skills/space-scene/scripts/space.mjs render films/scale/scale.js films/scale/out/scale.mp4
-/* global film, set, drive, wait, caption, draw, meanwhile, at */
+// The narration is LINES below, spoken by films/scale/voice.mjs into films/scale/out/scale.wav.
+/* global film, set, drive, wait, caption, draw, meanwhile, at, mark */
 film({
   size: '1080p', fps: 60, seed: 61, preset: 'Schwarzschild',
   settings: {
@@ -46,6 +47,43 @@ film({
     cosmicWebGalaxies: 16, cosmicWebSize: 0.14
   }
 })
+
+// --- The narration ----------------------------------------------------------------------------------------
+
+// What the narrator says (films/scale/voice.mjs speaks it), by name, spelled the way it is spoken, and the
+// second each line starts at. The film does not wait for the voice: each line must end before the next one
+// starts, which the mix checks
+const LINES = {
+  title: 'Шестьдесят один порядок. От планковской длины до края Вселенной.',
+  planck: 'Планковская длина. Самая лёгкая чёрная дыра весит здесь двадцать два микрограмма, и по формуле Хокинга она испаряется почти мгновенно.',
+  collider: 'Следующие шестнадцать порядков не видел никто. Коллайдер различает только десять в минус девятнадцатой метра.',
+  proton: 'Протон. Три кварка и поле, которое их держит.',
+  atom: 'Атом водорода. Облако показывает, где может быть электрон, а ядро в шестьдесят тысяч раз меньше.',
+  virus: 'Вирус, сто нанометров.',
+  cell: 'Эритроцит, восемь микрон.',
+  earthHole: 'Чтобы стать чёрной дырой, Земле пришлось бы сжаться в шарик в восемнадцать миллиметров.',
+  man: 'А это человек.',
+  cygnus: 'Лебедь икс один, первая признанная чёрная дыра. Вся Москва поместилась бы в её тени.',
+  earth: 'Земля, почти тринадцать тысяч километров в поперечнике.',
+  sun: 'Солнце. Орбита Луны поместилась бы внутри него.',
+  sgr: 'Стрелец А со звёздочкой, чёрная дыра в центре Галактики. Солнце в её тени — просто точка.',
+  m87: 'Эм восемьдесят семь, шесть с половиной миллиардов Солнц. В её тени поместится вся Солнечная система вместе с «Вояджером».',
+  stars: 'Соседи Солнца, вид сверху на плоскость Галактики. Ближайшая звезда — в четырёх световых годах.',
+  milky: 'Млечный Путь, сто тысяч световых лет. Звёзды кружат вокруг центра, и Солнцу на один оборот нужно двести тридцать миллионов лет.',
+  group: 'Местная группа, около восьмидесяти галактик. Андромеда в двух с половиной миллионах световых лет, и она сближается с нами.',
+  virgo: 'Скопление Девы, больше тысячи галактик. Местная группа тоже понемногу падает к нему.',
+  laniakea: 'Ланиакея: сто тысяч галактик, и все их движения сходятся к Великому аттрактору. Мы живём на её окраине.',
+  web: 'Космическая паутина. Галактики лежат на нитях и стенах вокруг огромных пустот.',
+  even: 'А на самых больших масштабах Вселенная везде одинакова.',
+  universe: 'Наблюдаемая Вселенная. Масса внутри хаббловской сферы дала бы радиус Шварцшильда, равный самой сфере.',
+  outside: 'Но мы не внутри чёрной дыры: у Вселенной нет ни центра, ни «снаружи».'
+}
+const SAID = {
+  title: 0.6, planck: 3.8, collider: 12.9, proton: 20, atom: 26.3, virus: 33.3, cell: 37.6, earthHole: 42.2,
+  man: 49, cygnus: 57.3, earth: 66.2, sun: 72.2, sgr: 78.3, m87: 89.3, stars: 99.6, milky: 108.3, group: 119.8,
+  virgo: 132.3, laniakea: 143, web: 154, even: 160.8, universe: 167.3, outside: 174.5
+}
+for (const [name, second] of Object.entries(SAID)) at(second, () => mark('say:' + name))
 
 // --- The zoom ---------------------------------------------------------------------------------------------
 

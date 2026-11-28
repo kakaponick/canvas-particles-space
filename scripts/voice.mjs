@@ -11,6 +11,9 @@
 // A second word names another of the film's voices: "speak omnivoice" writes a copy of the reel paced by that
 // voice's takes, films/<film>/voices/omnivoice.json, and "mix omnivoice" its sound; the film stays as it is.
 // Takes are kept in films/voice/, so only a changed line is spoken again.
+// A film that is one script (films/<film>/<film>.js, no reel) is voiced as a reel of that one clip: its LINES
+// and its say() marks are read from the script, its lengths go only to films/voice/, and its sound is laid
+// at the seconds it marks, so a line must end before the next one starts.
 // VOICESTUDIO_URL=http://host:port names another VoiceStudio.
 import { Buffer } from 'node:buffer'
 import { execFileSync } from 'node:child_process'
@@ -33,6 +36,12 @@ const films = path.join(root, 'films')
 const takes = path.join(films, 'voice')
 // A film's own reel in its folder (films/README.md)
 const reelOf = film => path.join(films, film, `${film}.json`)
+// A reel, or a film that is one script read as a reel of that one clip
+function readReel (film, file = reelOf(film)) {
+  if (fs.existsSync(file)) return JSON.parse(fs.readFileSync(file, 'utf8'))
+  if (fs.existsSync(path.join(films, film, `${film}.js`))) return { clips: [{ film: `films/${film}/${film}.js` }] }
+  throw new Error(`No reel at ${file}`)
+}
 
 // ---- wav ----
 
@@ -123,7 +132,7 @@ const words = text => text.toLowerCase().replace(/ё/g, 'е').replace(/[^\p{L}\p
 // time. So a line is written once, in the clip that says it, and a cue is a word the clip itself names.
 // A word is kept as the clip writes it, which is the name it will look it up by
 export function linesOfReel (film) {
-  const reel = JSON.parse(fs.readFileSync(reelOf(film), 'utf8'))
+  const reel = readReel(film)
   const lines = {}
   const asked = {}
   for (const clip of reel.clips) {
@@ -414,7 +423,7 @@ export async function voiceFilm ({ film, lines: FILM_LINES, cues: FILM_CUES, hea
 
   // The second each clip of the reel starts at, and the seconds its script marked
   function reelMarks () {
-    const reel = JSON.parse(fs.readFileSync(reelFile, 'utf8'))
+    const reel = readReel(film, reelFile)
     const space = path.join(root, '.claude', 'skills', 'space-scene', 'scripts', 'space.mjs')
     const marks = {}
     let at = 0
@@ -472,7 +481,8 @@ export async function voiceFilm ({ film, lines: FILM_LINES, cues: FILM_CUES, hea
     // The same sound for the page, which plays it under the film (films/README.md, "audio"): one channel, since
     // the wav repeats the voice in both
     try {
-      const page = attachAudio({ film, file: path.relative(path.join(films, film), reelFile).replaceAll(path.sep, '/'), sound: out, mono: true })
+      const paced = fs.existsSync(reelFile) ? path.relative(path.join(films, film), reelFile).replaceAll(path.sep, '/') : `${film}.js`
+      const page = attachAudio({ film, file: paced, sound: out, mono: true })
       console.log(`Wrote ${page}: the sound the page plays under ${path.basename(reelFile)}; commit it with the reel`)
     } catch (error) {
       console.warn(`The page's copy of the sound was not made: ${error.message}`)
